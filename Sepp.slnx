@@ -1,5 +1,11 @@
 <Solution>
   <Folder Name="/Services/" />
+  <Folder Name="/Services/Personnes/">
+    <Project Path="src/Services/Personnes/src/Sepp.Personnes.Adapters/Sepp.Personnes.Adapters.csproj" />
+    <Project Path="src/Services/Personnes/src/Sepp.Personnes.Application/Sepp.Personnes.Application.csproj" />
+    <Project Path="src/Services/Personnes/src/Sepp.Personnes.Domain/Sepp.Personnes.Domain.csproj" />
+    <Project Path="src/Services/Personnes/src/Sepp.Personnes.Infrastructure/Sepp.Personnes.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/Services/Referentiels/">
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Adapters/Sepp.Referentiels.Adapters.csproj" />
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Application/Sepp.Referentiels.Application.csproj" />
@@ -17,6 +23,14 @@
     <Project Path="src/Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
   </Folder>
   <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Personnes/" />
+  <Folder Name="/src/Services/Personnes/src/" />
+  <Folder Name="/src/Services/Personnes/tests/">
+    <Project Path="src/Services/Personnes/tests/Sepp.Personnes.Application.Tests/Sepp.Personnes.Application.Tests.csproj" />
+    <Project Path="src/Services/Personnes/tests/Sepp.Personnes.Architecture.Tests/Sepp.Personnes.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Personnes/tests/Sepp.Personnes.Domain.Tests/Sepp.Personnes.Domain.Tests.csproj" />
+    <Project Path="src/Services/Personnes/tests/Sepp.Personnes.Integration.Tests/Sepp.Personnes.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Referentiels/" />
   <Folder Name="/src/Services/Referentiels/src/" />
   <Folder Name="/src/Services/Referentiels/tests/">
