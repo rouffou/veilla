@@ -6,6 +6,12 @@
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Domain/Sepp.Referentiels.Domain.csproj" />
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Infrastructure/Sepp.Referentiels.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/Services/PostesRisques/">
+    <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Adapters/Sepp.PostesRisques.Adapters.csproj" />
+    <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Application/Sepp.PostesRisques.Application.csproj" />
+    <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Domain/Sepp.PostesRisques.Domain.csproj" />
+    <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Infrastructure/Sepp.PostesRisques.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/Sepp.BuildingBlocks.Application/Sepp.BuildingBlocks.Application.csproj" />
@@ -24,6 +30,14 @@
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Architecture.Tests/Sepp.Referentiels.Architecture.Tests.csproj" />
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Domain.Tests/Sepp.Referentiels.Domain.Tests.csproj" />
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Integration.Tests/Sepp.Referentiels.Integration.Tests.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/PostesRisques/" />
+  <Folder Name="/src/Services/PostesRisques/src/" />
+  <Folder Name="/src/Services/PostesRisques/tests/">
+    <Project Path="src/Services/PostesRisques/tests/Sepp.PostesRisques.Application.Tests/Sepp.PostesRisques.Application.Tests.csproj" />
+    <Project Path="src/Services/PostesRisques/tests/Sepp.PostesRisques.Architecture.Tests/Sepp.PostesRisques.Architecture.Tests.csproj" />
+    <Project Path="src/Services/PostesRisques/tests/Sepp.PostesRisques.Domain.Tests/Sepp.PostesRisques.Domain.Tests.csproj" />
+    <Project Path="src/Services/PostesRisques/tests/Sepp.PostesRisques.Integration.Tests/Sepp.PostesRisques.Integration.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Sepp.BuildingBlocks.Tests/Sepp.BuildingBlocks.Tests.csproj" />

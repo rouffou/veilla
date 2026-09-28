@@ -24,6 +24,8 @@ Règles :
 | planification | `planification.rendez-vous-annule.v1` | RendezVousAnnule | RendezVousId, PersonneId, Motif | Communications, Obligations |
 | planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Communications, Obligations |
 | postes-risques | `postes-risques.profil-risque-poste-modifie.v1` | ProfilRisquePosteModifie | PosteId, AffilieId, CodesRisques, ValideDu | Obligations, Reporting |
+| postes-risques | `postes-risques.regle-surveillance-modifiee.v1` | RegleSurveillanceModifiee | RisqueId, CodeRisque, Categorie, Version, TypeSurveillance, FrequenceMois, SurveillanceProlongee, ValideDu | Obligations (SAN-01) |
+| postes-risques | `postes-risques.surcharge-frequence-definie.v1` | SurchargeFrequenceDefinie | SurchargeId, AffilieId, CibleType, CibleId, CodeRisque, FrequenceMois, ValideDu, ValideJusquAu | Obligations (SAN-01) |
 | prestations | `prestations.prestation-enregistree.v1` | PrestationEnregistree | PrestationId, AffilieId, Discipline, TypePrestation, Unites, Date | Reporting, Intégrations |
 | prevention | `prevention.mesurage-enregistre.v1` | MesurageEnregistre | MesurageId, GroupeExpositionId, AffilieId, Agent, Niveau, Date | Surveillance médicale, Reporting |
 | prevention | `prevention.mesure-prevention-creee.v1` | MesurePreventionCreee | MesureId, AffilieId, SourceType, Echeance | Reporting, BFF employeur |

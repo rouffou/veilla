@@ -56,6 +56,13 @@ public static class Permissions
     public const string ReferentielsLire = "referentiels:lire";
     public const string ReferentielsAdministrer = "referentiels:administrer";
     public const string AuditLire = "audit:lire";
+
+    // Postes et risques (AFF-10 à AFF-14, AFF-30, AFF-31).
+    public const string PosteLire = "poste:lire";
+    public const string PosteEcrire = "poste:ecrire";
+    public const string RisquePosteValider = "risque-poste:valider";
+    public const string SurchargeFrequenceLire = "surcharge-frequence:lire";
+    public const string SurchargeFrequenceEcrire = "surcharge-frequence:ecrire";
 }
 
 public static class RolePermissions
@@ -135,6 +142,31 @@ public static class RolePermissions
         Grant(Roles.Sipp, Permissions.DecisionLire, Permissions.AnalyseRisquesLire, Permissions.AffilieLire,
             Permissions.AffilieEcrire);
         Grant(Roles.Travailleur, Permissions.DecisionLire);
+
+        // Postes et risques — §3.3 « Données de l'affilié » : lecture pour les profils qui lisent l'affilié ;
+        // écriture (catalogue, propositions) pour le gestionnaire et l'employeur/SIPP (périmètre de leur affilié) ;
+        // validation du lien poste ↔ risque (AFF-14, AFF-31) et surcharges de fréquence (AFF-13) réservées au CPMT.
+        foreach (var role in new[]
+                 {
+                     Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.Cpap, Roles.CpapDirigeant, Roles.ConseillerSecurite,
+                     Roles.ConseillerErgonome, Roles.ConseillerHygieniste, Roles.GestionnaireDossiers, Roles.Planificateur,
+                     Roles.ResponsableCentre, Roles.Direction, Roles.AdministrateurFonctionnel, Roles.Employeur, Roles.Sipp,
+                 })
+        {
+            Grant(role, Permissions.PosteLire);
+        }
+
+        foreach (var role in new[] { Roles.GestionnaireDossiers, Roles.Employeur, Roles.Sipp })
+        {
+            Grant(role, Permissions.PosteEcrire);
+        }
+
+        foreach (var role in new[] { Roles.Cpmt, Roles.CpmtDirigeant })
+        {
+            Grant(role, Permissions.RisquePosteValider, Permissions.SurchargeFrequenceLire, Permissions.SurchargeFrequenceEcrire);
+        }
+
+        Grant(Roles.Infirmier, Permissions.SurchargeFrequenceLire);
 
         return map;
     }

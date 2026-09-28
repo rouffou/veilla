@@ -1,0 +1,22 @@
+# ============================================================================================
+# JEU D'EXEMPLE — À REMPLACER. CE FICHIER N'EST PAS LA TABLE LÉGALE DE L'ANNEXE I.4-5.
+# Les codes (préfixe EX.), libellés, fréquences, actes et vaccins ci-dessous sont fictifs et
+# servent uniquement aux tests et aux démonstrations du format d'import (AFF-11, AFF-12).
+# Le référentiel réel doit être établi à partir du texte officiel de l'annexe I.4-5 du code du
+# bien-être au travail et validé par le département médical avant tout usage en production.
+# Import : POST /api/v1/risques/import (Content-Type: text/csv; charset=utf-8), séparateur « ; »,
+# listes séparées par « | », surveillance_prolongee = oui/non, valide_du au format AAAA-MM-JJ.
+# ============================================================================================
+code;categorie;libelle_fr;libelle_nl;libelle_de;libelle_en;reference_legale;type_surveillance;frequence_mois;actes_supplementaires;vaccins;surveillance_prolongee;valide_du
+EX.CHIM.SOLVANTS;Chimique;Exemple — solvants organiques;Voorbeeld — organische oplosmiddelen;Beispiel — organische Lösungsmittel;Example — organic solvents;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;12;EX.BIOLOGIE;;non;2026-01-01
+EX.CHIM.CANCEROGENES;Chimique;Exemple — agents cancérogènes;Voorbeeld — kankerverwekkende agentia;Beispiel — krebserzeugende Stoffe;Example — carcinogenic agents;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;12;EX.BIOLOGIE;;oui;2026-01-01
+EX.PHYS.BRUIT;Physique;Exemple — bruit;Voorbeeld — lawaai;Beispiel — Lärm;Example — noise;EXEMPLE — référence à remplacer;ActesMedicauxSupplementaires;36;EX.AUDIOMETRIE;;non;2026-01-01
+EX.PHYS.VIBRATIONS;Physique;Exemple — vibrations;Voorbeeld — trillingen;Beispiel — Vibrationen;Example — vibrations;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;24;;;non;2026-01-01
+EX.BIO.HEPATITE_B;Biologique;Exemple — exposition au virus de l'hépatite B;Voorbeeld — blootstelling aan hepatitis B-virus;Beispiel — Exposition gegenüber Hepatitis-B-Virus;Example — hepatitis B exposure;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;12;EX.SEROLOGIE;EX.VACCIN.HEPATITE_B;non;2026-01-01
+EX.ERGO.CHARGES;Ergonomique;Exemple — manutention de charges;Voorbeeld — manueel hanteren van lasten;Beispiel — Handhabung von Lasten;Example — manual handling;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;36;;;non;2026-01-01
+EX.PSY.CHARGE;Psychosocial;Exemple — charge psychosociale;Voorbeeld — psychosociale belasting;Beispiel — psychosoziale Belastung;Example — psychosocial load;EXEMPLE — référence à remplacer;EvaluationPrealableUniquement;;;;non;2026-01-01
+EX.SECU.POSTE;PosteSecurite;Exemple — poste de sécurité;Voorbeeld — veiligheidsfunctie;Beispiel — Sicherheitsposten;Example — safety-sensitive position;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;12;EX.VISION|EX.AUDITION;;non;2026-01-01
+EX.SECU.CONDUITE;Conduite;Exemple — conduite de véhicules;Voorbeeld — besturen van voertuigen;Beispiel — Führen von Fahrzeugen;Example — vehicle driving;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;12;EX.VISION;;non;2026-01-01
+EX.VIGI.POSTE;PosteVigilance;Exemple — poste de vigilance;Voorbeeld — functie met verhoogde waakzaamheid;Beispiel — Überwachungsposten;Example — vigilance position;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;12;;;non;2026-01-01
+EX.NUIT.TRAVAIL;TravailNuit;Exemple — travail de nuit;Voorbeeld — nachtarbeid;Beispiel — Nachtarbeit;Example — night work;EXEMPLE — référence à remplacer;EvaluationSantePeriodique;12;;;non;2026-01-01
+EX.ALIM.DENREES;DenreesAlimentaires;Exemple — contact avec des denrées alimentaires;Voorbeeld — contact met voedingsmiddelen;Beispiel — Kontakt mit Lebensmitteln;Example — food handling;EXEMPLE — référence à remplacer;EvaluationPrealableUniquement;;;;non;2026-01-01
