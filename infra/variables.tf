@@ -124,11 +124,12 @@ variable "services" {
       publishes_events = false
       subscribes_to    = ["affilies", "personnes", "obligations", "planification", "prestations", "prevention", "surveillance-medicale", "psychosocial", "reintegration"]
     }
+    # Topic partagé « audit » : tous les services y publient leurs traces d'accès (NF-04, voir docs/architecture/evenements.md).
     "audit" = {
       zone             = "standard"
       database         = true
-      publishes_events = false
-      subscribes_to    = ["identite", "affilies", "personnes", "surveillance-medicale", "psychosocial", "reintegration"]
+      publishes_events = true
+      subscribes_to    = ["audit"]
     }
 
     # --- Zone médicale (ARC-04) ---

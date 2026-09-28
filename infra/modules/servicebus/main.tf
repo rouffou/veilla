@@ -68,6 +68,16 @@ resource "azurerm_role_assignment" "sender" {
   principal_type       = "ServicePrincipal"
 }
 
+# Émetteurs d'un topic partagé : chaque service publie ses traces d'accès sur « audit » (NF-04).
+resource "azurerm_role_assignment" "shared_sender" {
+  for_each = var.shared_topic_senders
+
+  scope                = azurerm_servicebus_topic.this[each.value.topic].id
+  role_definition_name = "Azure Service Bus Data Sender"
+  principal_id         = var.principal_ids[each.value.principal]
+  principal_type       = "ServicePrincipal"
+}
+
 resource "azurerm_role_assignment" "receiver" {
   for_each = var.subscriptions
 

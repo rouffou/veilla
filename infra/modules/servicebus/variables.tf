@@ -43,6 +43,15 @@ variable "principal_ids" {
   type        = map(string)
 }
 
+variable "shared_topic_senders" {
+  description = "Droits d'émission sur un topic partagé (ex. topic « audit » alimenté par tous les services, ADR 0004) : clé unique => { topic, principal }."
+  type = map(object({
+    topic     = string
+    principal = string
+  }))
+  default = {}
+}
+
 variable "queue_scaled_services" {
   description = "Services dont la mise à l'échelle KEDA dépend de la longueur de leurs subscriptions."
   type        = list(string)

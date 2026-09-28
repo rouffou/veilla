@@ -231,6 +231,7 @@ module "servicebus" {
   topics                     = local.topics
   subscriptions              = local.subscriptions
   principal_ids              = { for n, i in module.identity.identities : n => i.principal_id }
+  shared_topic_senders       = { for n, s in var.services : "audit.${n}" => { topic = "audit", principal = n } if s.database && n != "audit" }
   queue_scaled_services      = local.queue_scaled_services
   private_endpoint_subnet_id = module.network.subnet_ids["pe-platform"]
   private_dns_zone_id        = module.network.private_dns_zone_ids["servicebus"]
