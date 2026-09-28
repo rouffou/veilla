@@ -1,0 +1,14 @@
+# Terraform : répertoires de travail, états et plans locaux (l'état est distant).
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# Fichiers de configuration du backend propres à un poste (valeurs passées par -backend-config).
+*.backend.hcl
+# Le fichier .terraform.lock.hcl DOIT être versionné (empreintes des providers).
