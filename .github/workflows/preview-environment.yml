@@ -1,0 +1,56 @@
+# CTR-24 — Environnements éphémères par pull request : SQUELETTE DÉSACTIVÉ.
+#
+# Principe prévu :
+#   1. à l'ouverture / mise à jour d'une PR : publication des images de la PR dans l'ACR
+#      (étiquette pr-<numéro>-<sha>), puis `terraform apply` d'un environnement Container Apps
+#      éphémère (espace de noms pr-<numéro>, base PostgreSQL et Service Bus dédiés, données
+#      de test synthétiques uniquement — jamais de données de production, ARC-06) ;
+#   2. commentaire sur la PR avec les URL des fronts et des API ;
+#   3. à la fermeture de la PR : `terraform destroy` et suppression des images pr-<numéro>-*.
+#
+# Activation : variable de dépôt PREVIEW_ENVIRONMENTS_ENABLED=true, une fois le module
+# Terraform d'environnement éphémère disponible (infra/environments/preview) et l'identité
+# OIDC autorisée pour le sujet « pull_request ». Tant que la variable est absente, les jobs
+# sont ignorés.
+name: Environnement éphémère (CTR-24)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  deployer:
+    name: Déploiement de l'environnement éphémère
+    if: ${{ vars.PREVIEW_ENVIRONMENTS_ENABLED == 'true' && github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: pr-${{ github.event.pull_request.number }}
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - name: À implémenter
+        run: |
+          echo "::notice::Squelette CTR-24 : déploiement de l'environnement pr-${{ github.event.pull_request.number }} non implémenté."
+
+  detruire:
+    name: Destruction de l'environnement éphémère
+    if: ${{ vars.PREVIEW_ENVIRONMENTS_ENABLED == 'true' && github.event.action == 'closed' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: À implémenter
+        run: |
+          echo "::notice::Squelette CTR-24 : destruction de l'environnement pr-${{ github.event.pull_request.number }} non implémentée."

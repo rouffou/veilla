@@ -1,0 +1,66 @@
+# Intégration continue des fronts Angular (ADR 0006, CTR-20) : lint (dont règles
+# d'accessibilité des templates), tests unitaires Vitest, build de production des trois
+# applications, audit des dépendances npm (CTR-06).
+name: Fronts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/Frontends/**"
+      - ".github/workflows/frontend.yml"
+  pull_request:
+    paths:
+      - "src/Frontends/**"
+      - ".github/workflows/frontend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    working-directory: src/Frontends/veilla-web
+
+env:
+  NG_CLI_ANALYTICS: "false"
+
+jobs:
+  verification:
+    name: Lint, tests et build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installation de Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: src/Frontends/veilla-web/package-lock.json
+
+      - name: Installation des dépendances
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests unitaires
+        run: npm run test:ci
+
+      - name: Build de production (3 applications)
+        run: npm run build
+
+      # Échec sur vulnérabilité critique des dépendances de production (CTR-06).
+      - name: Audit des dépendances npm
+        run: npm audit --omit=dev --audit-level=critical

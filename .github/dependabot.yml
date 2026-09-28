@@ -1,0 +1,118 @@
+# Mises à jour automatiques des dépendances (CTR-06 : maintien à jour, correctifs de sécurité).
+# Les alertes de sécurité Dependabot ouvrent des PR hors de ce calendrier hebdomadaire.
+version: 2
+
+updates:
+  # Paquets NuGet (gestion centralisée : Directory.Packages.props)
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps(nuget)"
+    groups:
+      aspnetcore-efcore:
+        patterns:
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.EntityFrameworkCore*"
+          - "Microsoft.Extensions.*"
+          - "Npgsql*"
+          - "EFCore.*"
+      opentelemetry:
+        patterns:
+          - "OpenTelemetry*"
+          - "Azure.Monitor.OpenTelemetry*"
+      azure:
+        patterns:
+          - "Azure.*"
+      tests:
+        patterns:
+          - "xunit*"
+          - "Microsoft.Testing.*"
+          - "Shouldly"
+          - "NSubstitute"
+          - "NetArchTest*"
+          - "Testcontainers*"
+      correctifs:
+        update-types: [patch]
+
+  # Workspace Angular
+  - package-ecosystem: npm
+    directory: "/src/Frontends/veilla-web"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps(npm)"
+    groups:
+      angular:
+        patterns:
+          - "@angular/*"
+          - "@angular-devkit/*"
+          - "angular-eslint"
+          - "ng-packagr"
+          - "typescript"
+      lint-tests:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "prettier"
+          - "vitest"
+          - "jsdom"
+      correctifs:
+        update-types: [patch]
+
+  # Actions GitHub (épinglées par SHA : Dependabot met à jour SHA et commentaire)
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Brussels
+    commit-message:
+      prefix: "deps(actions)"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Images de base des Dockerfile (services et fronts, CTR-04)
+  - package-ecosystem: docker
+    directories:
+      - "/src/Services/*"
+      - "/src/Frontends/veilla-web"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Brussels
+    commit-message:
+      prefix: "deps(docker)"
+    groups:
+      images-de-base:
+        patterns: ["*"]
+
+  # Fournisseurs et modules Terraform
+  - package-ecosystem: terraform
+    directories:
+      - "/infra"
+      - "/infra/environments/*"
+      - "/infra/modules/*"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Brussels
+    commit-message:
+      prefix: "deps(terraform)"
+    groups:
+      terraform:
+        patterns: ["*"]

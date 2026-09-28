@@ -1,0 +1,69 @@
+# Analyse statique de sécurité CodeQL (CTR-20 : analyse de code).
+# Le dépôt étant privé, le code scanning nécessite GitHub Advanced Security (Code Security) :
+# le job ne s'exécute que si la variable de dépôt CODE_SCANNING_ENABLED vaut « true ».
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/codeql.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/codeql.yml"
+  schedule:
+    - cron: "17 3 * * 1" # chaque lundi, 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  analyse:
+    name: Analyse CodeQL (${{ matrix.language }})
+    if: ${{ vars.CODE_SCANNING_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # build-mode none : analyse sans compilation (supporté pour C# et JS/TS).
+          - language: csharp
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialisation de CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - "**/node_modules/**"
+              - "**/dist/**"
+              - "**/Migrations/**"
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: /language:${{ matrix.language }}

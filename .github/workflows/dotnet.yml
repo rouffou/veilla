@@ -1,0 +1,172 @@
+# Intégration continue .NET (CTR-20) : compilation, tests unitaires, tests d'architecture,
+# tests d'intégration (Testcontainers), couverture et analyse des dépendances NuGet (CTR-06).
+name: .NET
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/BuildingBlocks/**"
+      - "src/Contracts/**"
+      - "src/Services/**"
+      - "tests/**"
+      - "Sepp.slnx"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - "global.json"
+      - "dotnet-tools.json"
+      - ".editorconfig"
+      - ".github/workflows/dotnet.yml"
+  pull_request:
+    paths:
+      - "src/BuildingBlocks/**"
+      - "src/Contracts/**"
+      - "src/Services/**"
+      - "tests/**"
+      - "Sepp.slnx"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - "global.json"
+      - "dotnet-tools.json"
+      - ".editorconfig"
+      - ".github/workflows/dotnet.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  build-test:
+    name: Compilation et tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write # publication des résultats de tests
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installation du SDK .NET (global.json)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restauration
+        run: dotnet restore Sepp.slnx
+
+      - name: Compilation (Release, avertissements bloquants)
+        run: dotnet build Sepp.slnx -c Release --no-restore
+
+      - name: Style de code (dotnet format)
+        run: dotnet format Sepp.slnx --verify-no-changes --no-restore
+
+      # Tests unitaires, d'architecture et d'intégration (Testcontainers : Docker est fourni
+      # par ubuntu-latest). Runner Microsoft.Testing.Platform (global.json).
+      - name: Tests et couverture
+        run: >-
+          dotnet test --solution Sepp.slnx -c Release --no-build
+          --coverage --coverage-output-format cobertura
+          --report-xunit-trx
+          --results-directory "${{ github.workspace }}/TestResults"
+
+      - name: Publication des résultats de tests
+        if: ${{ !cancelled() }}
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: Résultats des tests .NET
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: "false"
+          fail-on-empty: "true"
+
+      - name: Synthèse de couverture
+        if: ${{ !cancelled() }}
+        uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
+        with:
+          filename: TestResults/**/*.cobertura.xml
+          format: markdown
+          output: file
+          fail_below_min: false
+
+      - name: Ajout de la couverture au résumé
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f code-coverage-results.md ]; then
+            cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Archivage des résultats et de la couverture
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: resultats-tests-dotnet
+          path: |
+            TestResults/**/*.trx
+            TestResults/**/*.cobertura.xml
+          retention-days: 30
+          if-no-files-found: warn
+
+  dependencies:
+    name: Analyse des dépendances NuGet
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installation du SDK .NET (global.json)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restauration
+        run: dotnet restore Sepp.slnx
+
+      # `dotnet list package --vulnerable` renvoie 0 même en présence de vulnérabilités :
+      # on analyse la sortie JSON pour faire échouer le job (CTR-06).
+      - name: Paquets vulnérables (directs et transitifs)
+        run: |
+          dotnet list Sepp.slnx package --vulnerable --include-transitive --format json > vulnerable.json
+          count=$(jq '[.projects[].frameworks[]? | (.topLevelPackages[]?, .transitivePackages[]?) | select((.vulnerabilities // []) | length > 0)] | length' vulnerable.json)
+          if [ "$count" -gt 0 ]; then
+            echo "::error::$count paquet(s) NuGet vulnérable(s) détecté(s)."
+            dotnet list Sepp.slnx package --vulnerable --include-transitive
+            exit 1
+          fi
+          echo "Aucun paquet NuGet vulnérable." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Paquets obsolètes (dépréciés) — information
+        run: dotnet list Sepp.slnx package --deprecated --include-transitive || true

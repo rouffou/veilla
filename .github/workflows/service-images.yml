@@ -1,0 +1,304 @@
+# Chaîne d'images conteneur par service (CTR-20, CTR-06) :
+#   construction (buildx) -> analyse Trivy (vulnérabilités, secrets, licences ; échec si CRITICAL)
+#   -> SBOM SPDX (Syft) -> [main uniquement, si le registre est configuré]
+#   connexion Azure OIDC -> publication ACR (étiquette immuable semver+sha)
+#   -> signature cosign sans clé -> attestation SBOM.
+#
+# Ajouter un service : une entrée dans SERVICES (job « preparation »).
+name: Images de services
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/Services/**"
+      - "src/BuildingBlocks/**"
+      - "src/Contracts/**"
+      - "src/Frontends/veilla-web/**"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - "global.json"
+      - ".github/workflows/service-images.yml"
+  pull_request:
+    paths:
+      - "src/Services/**"
+      - "src/BuildingBlocks/**"
+      - "src/Contracts/**"
+      - "src/Frontends/veilla-web/**"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - "global.json"
+      - ".github/workflows/service-images.yml"
+  workflow_dispatch:
+    inputs:
+      tous:
+        description: "Construire toutes les images, même sans changement"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Sur main, on ne coupe pas une publication en cours.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  preparation:
+    name: Détection des images à construire
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      vide: ${{ steps.detect.outputs.vide }}
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Calcul de la matrice
+        id: detect
+        env:
+          # name : nom de l'image ; paths : préfixes déclenchant la reconstruction.
+          SERVICES: |
+            [
+              {
+                "name": "referentiels",
+                "context": ".",
+                "dockerfile": "src/Services/Referentiels/Dockerfile",
+                "build_args": "",
+                "paths": "src/Services/Referentiels/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
+              },
+              {
+                "name": "app-interne",
+                "context": "src/Frontends/veilla-web",
+                "dockerfile": "src/Frontends/veilla-web/Dockerfile",
+                "build_args": "APP=app-interne",
+                "paths": "src/Frontends/veilla-web/"
+              },
+              {
+                "name": "portail-employeur",
+                "context": "src/Frontends/veilla-web",
+                "dockerfile": "src/Frontends/veilla-web/Dockerfile",
+                "build_args": "APP=portail-employeur",
+                "paths": "src/Frontends/veilla-web/"
+              },
+              {
+                "name": "portail-travailleur",
+                "context": "src/Frontends/veilla-web",
+                "dockerfile": "src/Frontends/veilla-web/Dockerfile",
+                "build_args": "APP=portail-travailleur",
+                "paths": "src/Frontends/veilla-web/"
+              }
+            ]
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          TOUS: ${{ inputs.tous }}
+        run: |
+          set -euo pipefail
+          jq -e 'type == "array" and length > 0' >/dev/null <<<"$SERVICES"
+          all=false
+          changed=""
+          case "$EVENT_NAME" in
+            pull_request) changed=$(git diff --name-only "$BASE_SHA"...HEAD) ;;
+            push)
+              if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ] \
+                 || ! git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+                all=true
+              else
+                changed=$(git diff --name-only "$BEFORE_SHA" HEAD)
+              fi ;;
+            *) [ "$TOUS" = "false" ] || all=true ;;
+          esac
+          # Une modification de ce workflow reconstruit tout.
+          if printf '%s\n' "$changed" | grep -qx '.github/workflows/service-images.yml'; then all=true; fi
+
+          selected='[]'
+          for row in $(jq -c '.[] | @base64' <<<"$SERVICES"); do
+            svc=$(jq -r '@base64d' <<<"$row")
+            keep=$all
+            if [ "$keep" = "false" ]; then
+              for p in $(jq -r '.paths' <<<"$svc"); do
+                if printf '%s\n' "$changed" | grep -q "^${p}"; then keep=true; break; fi
+              done
+            fi
+            if [ "$keep" = "true" ]; then
+              selected=$(jq -c --argjson s "$svc" '. + [$s | del(.paths)]' <<<"$selected")
+            fi
+          done
+          echo "Images retenues : $(jq -r 'map(.name) | join(", ")' <<<"$selected")"
+          echo "matrix={\"include\":$selected}" >> "$GITHUB_OUTPUT"
+          if [ "$selected" = "[]" ]; then echo "vide=true" >> "$GITHUB_OUTPUT"; else echo "vide=false" >> "$GITHUB_OUTPUT"; fi
+
+  image:
+    name: Image ${{ matrix.name }}
+    needs: preparation
+    if: ${{ needs.preparation.outputs.vide == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write # envoi du rapport SARIF Trivy (code scanning)
+      id-token: write # connexion Azure OIDC et signature cosign sans clé (Fulcio)
+      actions: read # requis par upload-sarif sur dépôt privé
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.preparation.outputs.matrix) }}
+    env:
+      IMAGE_LOCALE: local/${{ matrix.name }}:ci
+      ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+      PUBLIER: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # étiquettes git pour le calcul de version
+          persist-credentials: false
+
+      # Version : dernière étiquette git « <service>/vX.Y.Z » (0.1.0 à défaut),
+      # suffixée du numéro d'exécution et du sha court -> étiquette unique et immuable.
+      - name: Calcul de la version
+        id: version
+        env:
+          SERVICE: ${{ matrix.name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          base=$(git describe --tags --abbrev=0 --match "${SERVICE}/v[0-9]*" 2>/dev/null || true)
+          base=${base#"${SERVICE}/v"}
+          [ -n "$base" ] || base="0.1.0"
+          sha=$(git rev-parse --short=12 HEAD)
+          version="${base}-build.${RUN_NUMBER}.${sha}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version de l'image : \`$version\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Configuration de buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Construction de l'image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build_args }}
+          load: true
+          push: false
+          provenance: false
+          tags: ${{ env.IMAGE_LOCALE }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      # Rapport complet (vulnérabilités, secrets, licences) envoyé au code scanning.
+      - name: Analyse Trivy (rapport SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_LOCALE }}
+          scanners: vuln,secret,license
+          format: sarif
+          output: trivy-${{ matrix.name }}.sarif
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          exit-code: "0"
+
+      # Code scanning requiert GitHub Advanced Security sur un dépôt privé :
+      # activé par la variable de dépôt CODE_SCANNING_ENABLED=true.
+      - name: Envoi du rapport SARIF
+        if: ${{ !cancelled() && vars.CODE_SCANNING_ENABLED == 'true' }}
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy-${{ matrix.name }}.sarif
+          category: trivy-${{ matrix.name }}
+
+      # Porte de qualité CTR-06 : refus de l'image en cas de vulnérabilité critique.
+      - name: Porte de sécurité Trivy (échec si CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_LOCALE }}
+          scanners: vuln
+          format: table
+          severity: CRITICAL
+          exit-code: "1"
+          skip-setup-trivy: true
+
+      - name: Génération du SBOM (SPDX)
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ env.IMAGE_LOCALE }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.name }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Archivage du SBOM et du rapport Trivy
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-${{ matrix.name }}
+          path: |
+            sbom-${{ matrix.name }}.spdx.json
+            trivy-${{ matrix.name }}.sarif
+          retention-days: 90
+          if-no-files-found: warn
+
+      # ---- Publication : main uniquement, et seulement si le registre est configuré ----
+      - name: Publication ignorée
+        if: ${{ env.PUBLIER != 'true' || env.ACR_LOGIN_SERVER == '' }}
+        run: echo "Publication ignorée (branche ≠ main ou secret ACR_LOGIN_SERVER absent)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Connexion Azure (OIDC)
+        if: ${{ env.PUBLIER == 'true' && env.ACR_LOGIN_SERVER != '' }}
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Publication vers ACR
+        id: push
+        if: ${{ env.PUBLIER == 'true' && env.ACR_LOGIN_SERVER != '' }}
+        env:
+          SERVICE: ${{ matrix.name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX || 'sepp' }}
+        run: |
+          set -euo pipefail
+          az acr login --name "${ACR_LOGIN_SERVER%%.*}"
+          image="${ACR_LOGIN_SERVER}/${IMAGE_PREFIX}/${SERVICE}"
+          # Étiquette immuable : refus d'écraser une étiquette existante.
+          if docker manifest inspect "${image}:${VERSION}" >/dev/null 2>&1; then
+            echo "::error::L'étiquette ${image}:${VERSION} existe déjà (étiquettes immuables)."
+            exit 1
+          fi
+          docker tag "$IMAGE_LOCALE" "${image}:${VERSION}"
+          docker push "${image}:${VERSION}"
+          digest=$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "${image}:${VERSION}" \
+                   | grep "^${image}@" | head -n1 | cut -d@ -f2)
+          [ -n "$digest" ] || { echo "::error::Empreinte de l'image introuvable."; exit 1; }
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "Image publiée : \`${image}:${VERSION}\` (\`${digest}\`)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Installation de cosign
+        if: ${{ steps.push.outcome == 'success' }}
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      # Signature sans clé (Sigstore Fulcio/Rekor) liée à l'identité OIDC du workflow.
+      - name: Signature et attestation SBOM (cosign)
+        if: ${{ steps.push.outcome == 'success' }}
+        env:
+          REF: ${{ steps.push.outputs.image }}@${{ steps.push.outputs.digest }}
+          SBOM: sbom-${{ matrix.name }}.spdx.json
+        run: |
+          set -euo pipefail
+          cosign sign --yes "$REF"
+          cosign attest --yes --type spdxjson --predicate "$SBOM" "$REF"
+          echo "Image signée et SBOM attesté : \`$REF\`" >> "$GITHUB_STEP_SUMMARY"
