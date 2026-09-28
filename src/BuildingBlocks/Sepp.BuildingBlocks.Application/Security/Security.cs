@@ -56,6 +56,11 @@ public static class Permissions
     public const string ReferentielsLire = "referentiels:lire";
     public const string ReferentielsAdministrer = "referentiels:administrer";
     public const string AuditLire = "audit:lire";
+
+    // Audit (NF-04, PSY-20) : périmètre de consultation du journal d'audit par zone de sensibilité (ARC-04).
+    public const string AuditZoneStandard = "audit:zone-standard";
+    public const string AuditZoneMedicale = "audit:zone-medicale";
+    public const string AuditZonePsychosociale = "audit:zone-psychosociale";
 }
 
 public static class RolePermissions
@@ -128,6 +133,12 @@ public static class RolePermissions
         Grant(Roles.Dpo, Permissions.AuditLire);
         Grant(Roles.CpmtDirigeant, Permissions.AuditLire);
         Grant(Roles.CpapDirigeant, Permissions.AuditLire);
+
+        // Audit (NF-04, PSY-20) : le DPO voit tout le journal, le CPMT dirigeant la zone médicale,
+        // le CPAP dirigeant la zone psychosociale.
+        Grant(Roles.Dpo, Permissions.AuditZoneStandard, Permissions.AuditZoneMedicale, Permissions.AuditZonePsychosociale);
+        Grant(Roles.CpmtDirigeant, Permissions.AuditZoneMedicale);
+        Grant(Roles.CpapDirigeant, Permissions.AuditZonePsychosociale);
 
         // §3.3 — Externes : périmètre restreint à leur affilié / à eux-mêmes, vérifié par le service propriétaire.
         Grant(Roles.Employeur, Permissions.DecisionLire, Permissions.AnalyseRisquesLire, Permissions.AffilieLire,
