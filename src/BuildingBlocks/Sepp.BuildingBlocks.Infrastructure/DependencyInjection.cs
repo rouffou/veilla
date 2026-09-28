@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
+using Sepp.Contracts;
 
 namespace Sepp.BuildingBlocks.Infrastructure;
 
@@ -61,6 +62,45 @@ public static class DependencyInjection
         }
 
         services.TryAddSingleton<IMessagePublisher, ServiceBusMessagePublisher>();
+        return services;
+    }
+    /// <summary>Abonne un gestionnaire à un événement d'intégration (un consommateur idempotent par gestionnaire, ARC-31).</summary>
+    public static IServiceCollection AddIntegrationEventHandler<TEvent, THandler>(this IServiceCollection services)
+        where TEvent : IntegrationEvent
+        where THandler : class, IIntegrationEventHandler<TEvent>
+    {
+        var subscriptions = services.FirstOrDefault(d => d.ServiceType == typeof(IntegrationEventSubscriptions))?.ImplementationInstance as IntegrationEventSubscriptions;
+        if (subscriptions is null)
+        {
+            subscriptions = new IntegrationEventSubscriptions();
+            services.AddSingleton(subscriptions);
+        }
+
+        subscriptions.Add(typeof(TEvent), typeof(THandler));
+        services.TryAddScoped<THandler>();
+        return services;
+    }
+
+    /// <summary>
+    /// Réception des événements : répartiteur idempotent et, si un bus est configuré, consommateur Service Bus
+    /// sur l'abonnement <c>ServiceBus:SubscriptionName</c> du service.
+    /// </summary>
+    public static IServiceCollection AddSeppConsumer<TContext>(this IServiceCollection services, IConfiguration configuration)
+        where TContext : SeppDbContext
+    {
+        if (!services.Any(d => d.ServiceType == typeof(IntegrationEventSubscriptions)))
+        {
+            services.AddSingleton(new IntegrationEventSubscriptions());
+        }
+
+        services.AddSingleton<IntegrationEventDispatcher<TContext>>();
+        services.AddOptions<ServiceBusConsumerOptions>().Bind(configuration.GetSection("ServiceBus"));
+        if (!string.IsNullOrWhiteSpace(configuration["ServiceBus:FullyQualifiedNamespace"]) ||
+            !string.IsNullOrWhiteSpace(configuration.GetConnectionString("ServiceBus")))
+        {
+            services.AddHostedService<ServiceBusConsumer<TContext>>();
+        }
+
         return services;
     }
 }

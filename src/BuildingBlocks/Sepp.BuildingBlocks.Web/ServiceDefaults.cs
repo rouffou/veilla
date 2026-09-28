@@ -65,6 +65,9 @@ public static class ServiceDefaults
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);
 
+        // ARC-30 : appels HTTP sortants avec délai d'expiration, reprises temporisées et disjoncteur.
+        builder.Services.ConfigureHttpClientDefaults(http => http.AddStandardResilienceHandler());
+
         builder.Services.AddProblemDetails();
         builder.Services.AddOpenApi();
         builder.Services.AddHttpContextAccessor();

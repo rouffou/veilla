@@ -26,6 +26,7 @@
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Integration.Tests/Sepp.Referentiels.Integration.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Sepp.BuildingBlocks.Tests/Sepp.BuildingBlocks.Tests.csproj" />
     <Project Path="tests/Sepp.Contracts.Tests/Sepp.Contracts.Tests.csproj" />
     <Project Path="tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj" />
   </Folder>
