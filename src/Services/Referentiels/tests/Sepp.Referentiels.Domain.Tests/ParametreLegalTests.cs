@@ -1,5 +1,6 @@
 using Sepp.BuildingBlocks.Domain;
 using Sepp.Referentiels.Domain.Parametres;
+
 using Shouldly;
 
 namespace Sepp.Referentiels.Domain.Tests;

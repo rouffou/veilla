@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 using Sepp.Contracts;
 
 namespace Sepp.BuildingBlocks.Infrastructure.Messaging;

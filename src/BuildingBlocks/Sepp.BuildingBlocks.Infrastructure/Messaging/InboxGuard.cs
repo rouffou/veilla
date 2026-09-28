@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
 
 namespace Sepp.BuildingBlocks.Infrastructure.Messaging;

@@ -1,6 +1,7 @@
 using Sepp.BuildingBlocks.Domain;
 using Sepp.BuildingBlocks.Domain.Calendar;
 using Sepp.Referentiels.Domain.Calendrier;
+
 using Shouldly;
 
 namespace Sepp.Referentiels.Domain.Tests;

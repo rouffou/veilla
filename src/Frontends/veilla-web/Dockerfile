@@ -33,7 +33,7 @@ FROM ${NGINX_IMAGE} AS runtime
 ARG APP
 LABEL org.opencontainers.image.title="veilla-${APP}" \
       org.opencontainers.image.description="Front Veilla (${APP}) servi par nginx non root" \
-      org.opencontainers.image.source="https://github.com/veilla/veilla"
+      org.opencontainers.image.source="https://github.com/rouffou/veilla"
 
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY docker/nginx/security-headers.conf.template /etc/veilla/security-headers.conf.template

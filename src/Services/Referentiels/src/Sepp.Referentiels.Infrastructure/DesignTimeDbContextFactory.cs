@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Referentiels.Adapters.Persistence;
 

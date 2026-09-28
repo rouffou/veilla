@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;

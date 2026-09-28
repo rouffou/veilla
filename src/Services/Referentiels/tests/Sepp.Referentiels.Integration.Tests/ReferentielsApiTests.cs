@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -10,12 +11,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.Referentiels.Adapters.Persistence;
 using Sepp.Referentiels.Application.Calendrier;
 using Sepp.Referentiels.Application.Parametres;
+
 using Shouldly;
+
 using Testcontainers.PostgreSql;
 
 namespace Sepp.Referentiels.Integration.Tests;

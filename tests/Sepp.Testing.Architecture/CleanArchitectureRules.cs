@@ -1,6 +1,9 @@
 using System.Reflection;
+
 using NetArchTest.Rules;
+
 using Shouldly;
+
 using Xunit;
 
 namespace Sepp.Testing.Architecture;

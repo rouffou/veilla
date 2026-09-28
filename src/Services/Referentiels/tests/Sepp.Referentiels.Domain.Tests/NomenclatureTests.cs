@@ -1,5 +1,6 @@
 using Sepp.BuildingBlocks.Domain;
 using Sepp.Referentiels.Domain.Nomenclatures;
+
 using Shouldly;
 
 namespace Sepp.Referentiels.Domain.Tests;

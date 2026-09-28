@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+
 using Azure.Messaging.ServiceBus;
 
 namespace Sepp.BuildingBlocks.Infrastructure.Messaging;

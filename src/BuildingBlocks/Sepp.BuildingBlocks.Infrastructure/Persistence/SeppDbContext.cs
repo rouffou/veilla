@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
+
 using Microsoft.EntityFrameworkCore;
+
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;

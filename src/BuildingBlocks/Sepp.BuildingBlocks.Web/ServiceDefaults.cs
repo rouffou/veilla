@@ -1,5 +1,7 @@
 using System.Security.Claims;
+
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -11,11 +13,14 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+
 using Scalar.AspNetCore;
+
 using Sepp.BuildingBlocks.Application.Security;
 
 namespace Sepp.BuildingBlocks.Web;
