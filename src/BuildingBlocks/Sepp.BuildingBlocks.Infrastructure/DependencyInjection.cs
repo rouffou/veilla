@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using Sepp.BuildingBlocks.Application;
+using Sepp.BuildingBlocks.Application.Auditing;
+using Sepp.BuildingBlocks.Infrastructure.Auditing;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.Contracts;
@@ -64,6 +66,26 @@ public static class DependencyInjection
         services.TryAddSingleton<IMessagePublisher, ServiceBusMessagePublisher>();
         return services;
     }
+
+    /// <summary>
+    /// Journal d'audit des accès aux données sensibles (NF-04) : <see cref="IAuditTrail"/> écrit les traces dans l'outbox
+    /// du service (à combiner avec <see cref="AddSeppPersistence{TContext}"/>).
+    /// </summary>
+    /// <param name="service">Nom du service émetteur en kebab-case.</param>
+    /// <param name="zone">Zone de sensibilité du service (<see cref="ZonesSensibilite"/>).</param>
+    public static IServiceCollection AddSeppAuditTrail(this IServiceCollection services, string service, string zone)
+    {
+        new AuditTrailOptions { Service = service, Zone = zone }.Valider();
+        services.AddOptions<AuditTrailOptions>().Configure(o =>
+        {
+            o.Service = service;
+            o.Zone = zone;
+        });
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddScoped<IAuditTrail, OutboxAuditTrail>();
+        return services;
+    }
+
     /// <summary>Abonne un gestionnaire à un événement d'intégration (un consommateur idempotent par gestionnaire, ARC-31).</summary>
     public static IServiceCollection AddIntegrationEventHandler<TEvent, THandler>(this IServiceCollection services)
         where TEvent : IntegrationEvent

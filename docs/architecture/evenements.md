@@ -8,11 +8,14 @@ Règles :
 - Contenu limité aux identifiants, dates, statuts et catégories : aucune donnée clinique, psychosociale ou d'identité, aucun NISS (ARC-06, DAT-06). Vérifié automatiquement.
 - Toute rupture de compatibilité crée une nouvelle version (`.v2`) publiée en parallèle de la précédente pendant au moins une version.
 - Enveloppe commune : `eventId` (UUID v7, clé d'idempotence ARC-31), `occurredAt`, `correlationId` (ARC-47).
+- **Exception : rubrique `audit`** (NF-04). Les traces d'accès aux données sensibles sont un contrat unique, `audit.acces-donnee-sensible`, publié par *tous* les services qui servent une lecture ou une modification de donnée sensible (via `IAuditTrail` du socle, écrit dans l'outbox du service) sur la rubrique dédiée `audit`, et consommé par le service Audit. Un contrat par producteur (`<service>.acces-donnee-sensible`) imposerait un type par service et un abonnement du service Audit à toutes les rubriques ; la rubrique partagée ne demande qu'un abonnement et, pour chaque service, un droit d'émission sur `audit`. Le service émetteur est porté par le champ `Service`, la zone de sensibilité (partition du journal) par `Zone`. Le motif est un texte libre court (300 caractères) qui ne doit contenir aucune donnée de santé ; l'alerte `audit.bris-de-glace-signale` ne le reprend pas.
 
 | Producteur | Contrat | Classe | Champs | Consommateurs (§15.4) |
 |---|---|---|---|---|
 | affilies | `affilies.affilie-cree.v1` | AffilieCree | AffilieId, NumeroBce, CategorieTarifaire | Postes et risques, Prestations, Reporting |
 | affilies | `affilies.affilie-modifie.v1` | AffilieModifie | AffilieId, NumeroBce, CategorieTarifaire, Statut | Postes et risques, Prestations, Reporting |
+| audit (tous les services) | `audit.acces-donnee-sensible.v1` | AccesDonneeSensible | Service, Zone, UtilisateurId, Role, Action, ObjetType, ObjetId, Motif, BrisDeGlace (horodatage = `occurredAt`) | Audit (journal infalsifiable NF-04) |
+| audit | `audit.bris-de-glace-signale.v1` | BrisDeGlaceSignale | EntreeAuditId, Zone, Service, UtilisateurId, ObjetType, ObjetId | Communications (alerte au CPMT dirigeant / CPAP dirigeant, §3.3) |
 | bff-employeur | `bff-employeur.reprise-annoncee.v1` | RepriseAnnoncee | PersonneId, AffilieId, DateReprise, DebutAbsence | Réintégration, Obligations |
 | documents | `documents.document-publie.v1` | DocumentPublie | DocumentId, Zone, TypeDestinataire, DestinataireId, CodeModele | Communications |
 | integrations | `integrations.incapacite-notifiee.v1` | IncapaciteNotifiee | IncapaciteId, PersonneId, AffilieId, DateDebut, Source | Réintégration, Obligations |
