@@ -1,0 +1,35 @@
+{
+  "app": {
+    "name": "Veilla — Interne Anwendung"
+  },
+  "nav": {
+    "dashboard": "Übersicht",
+    "search": "Suche"
+  },
+  "dashboard": {
+    "title": "Übersicht",
+    "intro": "Ihre heutigen Aktivitäten werden hier angezeigt, sobald die Dienste angebunden sind.",
+    "agenda": "Mein heutiger Kalender",
+    "tasks": "Offene Aufgaben",
+    "recent": "Zuletzt geöffnete Akten"
+  },
+  "search": {
+    "label": "Globale Suche",
+    "placeholder": "Mitglied, Arbeitnehmer, Akte…",
+    "submit": "Suchen",
+    "title": "Suche",
+    "resultsFor": "Ergebnisse für „{{ query }}“",
+    "notConnected": "Der Suchdienst ist noch nicht angebunden: Es können keine Ergebnisse angezeigt werden.",
+    "emptyQuery": "Geben Sie einen Suchbegriff in das globale Suchfeld ein."
+  },
+  "shortcuts": {
+    "open": "Tastenkürzel",
+    "title": "Tastenkürzel",
+    "focusSearch": "Zur globalen Suche",
+    "help": "Diese Hilfe anzeigen",
+    "singleKey": "Einzeltasten-Kürzel",
+    "escapeKey": "Esc",
+    "close": "Schließen",
+    "enableSingleKey": "Einzeltasten-Kürzel aktivieren (/ und ?)"
+  }
+}

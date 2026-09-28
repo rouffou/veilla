@@ -1,0 +1,35 @@
+{
+  "app": {
+    "name": "Veilla — Interne toepassing"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "search": "Zoeken"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "intro": "Uw activiteiten van vandaag verschijnen hier zodra de diensten gekoppeld zijn.",
+    "agenda": "Mijn agenda van vandaag",
+    "tasks": "Te behandelen taken",
+    "recent": "Recente dossiers"
+  },
+  "search": {
+    "label": "Globaal zoeken",
+    "placeholder": "Aangeslotene, werknemer, dossier…",
+    "submit": "Zoeken",
+    "title": "Zoeken",
+    "resultsFor": "Resultaten voor „{{ query }}”",
+    "notConnected": "De zoekdienst is nog niet gekoppeld: er kunnen geen resultaten worden weergegeven.",
+    "emptyQuery": "Voer een zoekterm in het globale zoekveld in."
+  },
+  "shortcuts": {
+    "open": "Sneltoetsen",
+    "title": "Sneltoetsen",
+    "focusSearch": "Naar het globale zoekveld",
+    "help": "Deze hulp weergeven",
+    "singleKey": "sneltoets met één toets",
+    "escapeKey": "Esc",
+    "close": "Sluiten",
+    "enableSingleKey": "Sneltoetsen met één toets inschakelen (/ en ?)"
+  }
+}

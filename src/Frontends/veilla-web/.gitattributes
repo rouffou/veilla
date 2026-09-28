@@ -1,0 +1,4 @@
+# Scripts et configurations exécutés dans le conteneur Linux : fins de ligne LF obligatoires.
+*.sh text eol=lf
+docker/** text eol=lf
+Dockerfile text eol=lf

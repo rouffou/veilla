@@ -1,0 +1,35 @@
+{
+  "app": {
+    "name": "Veilla — Application interne"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "search": "Recherche"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "intro": "Votre activité du jour s'affichera ici dès que les services seront connectés.",
+    "agenda": "Mon agenda du jour",
+    "tasks": "Tâches à traiter",
+    "recent": "Dossiers récents"
+  },
+  "search": {
+    "label": "Recherche globale",
+    "placeholder": "Affilié, travailleur, dossier…",
+    "submit": "Rechercher",
+    "title": "Recherche",
+    "resultsFor": "Résultats pour « {{ query }} »",
+    "notConnected": "Le service de recherche n'est pas encore connecté : aucun résultat ne peut être affiché.",
+    "emptyQuery": "Saisissez un terme dans le champ de recherche globale."
+  },
+  "shortcuts": {
+    "open": "Raccourcis clavier",
+    "title": "Raccourcis clavier",
+    "focusSearch": "Aller à la recherche globale",
+    "help": "Afficher cette aide",
+    "singleKey": "raccourci à une touche",
+    "escapeKey": "Échap",
+    "close": "Fermer",
+    "enableSingleKey": "Activer les raccourcis à une touche (/ et ?)"
+  }
+}

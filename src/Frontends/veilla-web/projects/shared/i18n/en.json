@@ -1,0 +1,33 @@
+{
+  "shell": {
+    "skipToContent": "Skip to main content",
+    "mainNavigation": "Main navigation",
+    "footer": "Veilla — External service for prevention and protection at work"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "errorTitle": "Unable to sign in",
+    "errorText": "The authentication service is temporarily unavailable. Please try again later.",
+    "retry": "Try again"
+  },
+  "lang": {
+    "label": "Language"
+  },
+  "common": {
+    "noDataYet": "No data to display yet.",
+    "requirement": "Requirement"
+  },
+  "placeholder": {
+    "title": "Coming soon",
+    "notYetAvailable": "This feature is not available yet."
+  },
+  "a11y": {
+    "title": "Accessibility statement",
+    "statementLink": "Accessibility",
+    "target": "This service aims to comply with EN 301 549 (WCAG 2.1 level AA).",
+    "status": "The conformance audit has not been carried out yet; this statement will be completed afterwards.",
+    "keyboardTitle": "Keyboard navigation",
+    "keyboard": "All features can be used with a keyboard. A skip link leads directly to the main content."
+  }
+}

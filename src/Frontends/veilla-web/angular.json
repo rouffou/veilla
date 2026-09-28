@@ -1,0 +1,346 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": {
+    "packageManager": "npm"
+  },
+  "newProjectRoot": "projects",
+  "projects": {
+    "app-interne": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "projects/app-interne",
+      "sourceRoot": "projects/app-interne/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "projects/app-interne/src/main.ts",
+            "tsConfig": "projects/app-interne/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/app-interne/public"
+              },
+              {
+                "glob": "*.json",
+                "input": "projects/shared/i18n",
+                "output": "i18n/shared"
+              }
+            ],
+            "styles": [
+              "projects/app-interne/src/styles.scss"
+            ],
+            "stylePreprocessorOptions": {
+              "includePaths": [
+                "projects/shared/styles"
+              ]
+            }
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": true
+              }
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "app-interne:build:production"
+            },
+            "development": {
+              "buildTarget": "app-interne:build:development"
+            }
+          },
+          "defaultConfiguration": "development",
+          "options": {
+            "port": 4200
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {}
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "projects/app-interne/**/*.ts",
+              "projects/app-interne/**/*.html"
+            ],
+            "eslintConfig": "projects/app-interne/eslint.config.js"
+          }
+        }
+      }
+    },
+    "portail-employeur": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "projects/portail-employeur",
+      "sourceRoot": "projects/portail-employeur/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "projects/portail-employeur/src/main.ts",
+            "tsConfig": "projects/portail-employeur/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/portail-employeur/public"
+              },
+              {
+                "glob": "*.json",
+                "input": "projects/shared/i18n",
+                "output": "i18n/shared"
+              }
+            ],
+            "styles": [
+              "projects/portail-employeur/src/styles.scss"
+            ],
+            "stylePreprocessorOptions": {
+              "includePaths": [
+                "projects/shared/styles"
+              ]
+            }
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": true
+              }
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "portail-employeur:build:production"
+            },
+            "development": {
+              "buildTarget": "portail-employeur:build:development"
+            }
+          },
+          "defaultConfiguration": "development",
+          "options": {
+            "port": 4201
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {}
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "projects/portail-employeur/**/*.ts",
+              "projects/portail-employeur/**/*.html"
+            ],
+            "eslintConfig": "projects/portail-employeur/eslint.config.js"
+          }
+        }
+      }
+    },
+    "portail-travailleur": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "projects/portail-travailleur",
+      "sourceRoot": "projects/portail-travailleur/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "projects/portail-travailleur/src/main.ts",
+            "tsConfig": "projects/portail-travailleur/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/portail-travailleur/public"
+              },
+              {
+                "glob": "*.json",
+                "input": "projects/shared/i18n",
+                "output": "i18n/shared"
+              }
+            ],
+            "styles": [
+              "projects/portail-travailleur/src/styles.scss"
+            ],
+            "stylePreprocessorOptions": {
+              "includePaths": [
+                "projects/shared/styles"
+              ]
+            }
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": true
+              }
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "portail-travailleur:build:production"
+            },
+            "development": {
+              "buildTarget": "portail-travailleur:build:development"
+            }
+          },
+          "defaultConfiguration": "development",
+          "options": {
+            "port": 4202
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {}
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "projects/portail-travailleur/**/*.ts",
+              "projects/portail-travailleur/**/*.html"
+            ],
+            "eslintConfig": "projects/portail-travailleur/eslint.config.js"
+          }
+        }
+      }
+    },
+    "shared": {
+      "projectType": "library",
+      "root": "projects/shared",
+      "sourceRoot": "projects/shared/src",
+      "prefix": "vl",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/shared/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/shared/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/shared/tsconfig.spec.json"
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "projects/shared/**/*.ts",
+              "projects/shared/**/*.html"
+            ],
+            "eslintConfig": "projects/shared/eslint.config.js"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "shell": {
+    "skipToContent": "Zum Hauptinhalt springen",
+    "mainNavigation": "Hauptnavigation",
+    "footer": "Veilla — Externer Dienst für Gefahrenverhütung und Schutz am Arbeitsplatz"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "errorTitle": "Anmeldung nicht möglich",
+    "errorText": "Der Authentifizierungsdienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
+    "retry": "Erneut versuchen"
+  },
+  "lang": {
+    "label": "Sprache"
+  },
+  "common": {
+    "noDataYet": "Derzeit sind keine Daten vorhanden.",
+    "requirement": "Anforderung"
+  },
+  "placeholder": {
+    "title": "Funktion in Vorbereitung",
+    "notYetAvailable": "Diese Funktion ist noch nicht verfügbar."
+  },
+  "a11y": {
+    "title": "Erklärung zur Barrierefreiheit",
+    "statementLink": "Barrierefreiheit",
+    "target": "Dieser Dienst strebt die Konformität mit der Norm EN 301 549 (WCAG 2.1 Stufe AA) an.",
+    "status": "Die Konformitätsprüfung wurde noch nicht durchgeführt; diese Erklärung wird anschließend ergänzt.",
+    "keyboardTitle": "Tastaturbedienung",
+    "keyboard": "Alle Funktionen sind per Tastatur erreichbar. Ein Sprunglink führt direkt zum Hauptinhalt."
+  }
+}

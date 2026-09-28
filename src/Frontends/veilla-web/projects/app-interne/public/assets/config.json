@@ -1,0 +1,8 @@
+{
+  "apiBaseUrl": "http://localhost:5100",
+  "auth": {
+    "authority": "http://localhost:8180/realms/veilla",
+    "clientId": "veilla-interne",
+    "scope": "openid profile email offline_access"
+  }
+}

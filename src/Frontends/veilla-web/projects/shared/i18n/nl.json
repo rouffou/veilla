@@ -1,0 +1,33 @@
+{
+  "shell": {
+    "skipToContent": "Naar de hoofdinhoud",
+    "mainNavigation": "Hoofdnavigatie",
+    "footer": "Veilla — Externe dienst voor preventie en bescherming op het werk"
+  },
+  "auth": {
+    "login": "Aanmelden",
+    "logout": "Afmelden",
+    "errorTitle": "Aanmelden niet mogelijk",
+    "errorText": "De authenticatiedienst is tijdelijk niet beschikbaar. Probeer het later opnieuw.",
+    "retry": "Opnieuw proberen"
+  },
+  "lang": {
+    "label": "Taal"
+  },
+  "common": {
+    "noDataYet": "Momenteel geen gegevens om weer te geven.",
+    "requirement": "Vereiste"
+  },
+  "placeholder": {
+    "title": "Functionaliteit in voorbereiding",
+    "notYetAvailable": "Deze functionaliteit is nog niet beschikbaar."
+  },
+  "a11y": {
+    "title": "Toegankelijkheidsverklaring",
+    "statementLink": "Toegankelijkheid",
+    "target": "Deze dienst streeft naar conformiteit met de norm EN 301 549 (WCAG 2.1 niveau AA).",
+    "status": "De conformiteitsaudit is nog niet uitgevoerd; deze verklaring wordt daarna aangevuld.",
+    "keyboardTitle": "Navigatie met het toetsenbord",
+    "keyboard": "Alle functies zijn met het toetsenbord bereikbaar. Via een skiplink gaat u rechtstreeks naar de hoofdinhoud."
+  }
+}

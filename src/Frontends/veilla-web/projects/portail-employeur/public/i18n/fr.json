@@ -1,0 +1,22 @@
+{
+  "app": {
+    "name": "Veilla — Portail employeur"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "workers": "Travailleurs, postes et risques",
+    "requests": "Demandes",
+    "decisions": "Décisions et rapports",
+    "documents": "Documents légaux"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "intro": "Vue d'ensemble de votre affiliation. Les informations s'afficheront ici dès que le service sera connecté.",
+    "examsDue": "Examens dus",
+    "examsOverdue": "Examens en retard",
+    "examsPlanned": "Examens planifiés",
+    "missions": "Missions en cours",
+    "actionPlan": "Mesures du plan d'action",
+    "unitsBalance": "Solde d'unités de prévention"
+  }
+}

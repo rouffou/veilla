@@ -1,0 +1,8 @@
+{
+  "apiBaseUrl": "http://localhost:5300",
+  "auth": {
+    "authority": "http://localhost:8180/realms/veilla",
+    "clientId": "veilla-portail-travailleur",
+    "scope": "openid profile email offline_access"
+  }
+}

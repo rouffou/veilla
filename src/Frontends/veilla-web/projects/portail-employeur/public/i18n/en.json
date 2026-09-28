@@ -1,0 +1,22 @@
+{
+  "app": {
+    "name": "Veilla — Employer portal"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "workers": "Workers, positions and risks",
+    "requests": "Requests",
+    "decisions": "Decisions and reports",
+    "documents": "Legal documents"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "intro": "Overview of your membership. Information will appear here once the service is connected.",
+    "examsDue": "Examinations due",
+    "examsOverdue": "Overdue examinations",
+    "examsPlanned": "Scheduled examinations",
+    "missions": "Ongoing assignments",
+    "actionPlan": "Action plan measures",
+    "unitsBalance": "Prevention units balance"
+  }
+}

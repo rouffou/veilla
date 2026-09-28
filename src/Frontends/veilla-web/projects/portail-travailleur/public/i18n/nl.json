@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "Veilla — Werknemersportaal"
+  },
+  "nav": {
+    "dashboard": "Startpagina",
+    "appointments": "Mijn afspraken",
+    "questionnaires": "Gezondheidsvragenlijsten",
+    "documents": "Mijn documenten"
+  },
+  "dashboard": {
+    "title": "Mijn ruimte",
+    "intro": "Hier vindt u uw afspraken, vragenlijsten en documenten zodra de dienst gekoppeld is.",
+    "appointments": "Volgende afspraken",
+    "questionnaires": "In te vullen vragenlijsten",
+    "documents": "Recente documenten",
+    "consultation": "Een consult aanvragen",
+    "consultationText": "Spontane raadpleging of bezoek voorafgaand aan de werkhervatting, zonder tussenkomst van uw werkgever."
+  }
+}

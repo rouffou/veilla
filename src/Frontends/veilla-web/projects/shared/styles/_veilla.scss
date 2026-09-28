@@ -1,0 +1,311 @@
+// Styles globaux communs aux applications Veilla.
+// Objectif : WCAG 2.1 AA / EN 301 549 (NF-50) — contrastes ≥ 4,5:1 pour le texte,
+// ≥ 3:1 pour les composants et le focus, focus toujours visible, cibles ≥ 44 px,
+// respect de prefers-reduced-motion, tailles en rem (zoom 200 %).
+
+:root {
+  --vl-color-text: #1b1f24; // sur blanc : 16:1
+  --vl-color-text-muted: #4a5360; // sur blanc : 7.6:1
+  --vl-color-bg: #ffffff;
+  --vl-color-surface: #f4f6f9;
+  --vl-color-border: #6b7480; // 4.8:1 (composants ≥ 3:1)
+  --vl-color-primary: #0a4a86; // sur blanc : 9.2:1
+  --vl-color-primary-contrast: #ffffff;
+  --vl-color-header-bg: #0a2f55; // texte blanc : 13:1
+  --vl-color-focus: #0a4a86;
+  --vl-color-focus-on-dark: #ffd23f; // sur #0a2f55 : 10:1
+  --vl-radius: 0.375rem;
+  --vl-space: 1rem;
+  --vl-max-width: 75rem;
+  --vl-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--vl-font-family);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--vl-color-text);
+  background: var(--vl-color-bg);
+}
+
+a {
+  color: var(--vl-color-primary);
+  text-underline-offset: 0.15em;
+}
+
+// Focus toujours visible (WCAG 2.4.7) et distinct.
+:focus-visible {
+  outline: 3px solid var(--vl-color-focus);
+  outline-offset: 2px;
+}
+
+.vl-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.vl-container {
+  width: 100%;
+  max-width: var(--vl-max-width);
+  margin-inline: auto;
+  padding-inline: var(--vl-space);
+}
+
+// Lien d'évitement (WCAG 2.4.1) : hors écran, visible au focus.
+.vl-skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  padding: 0.75rem 1rem;
+  background: var(--vl-color-focus-on-dark);
+  color: #1b1f24;
+  font-weight: 600;
+  transform: translateY(-120%);
+
+  &:focus {
+    transform: translateY(0);
+    outline: 3px solid #1b1f24;
+    outline-offset: 0;
+  }
+}
+
+// En-tête (landmark banner)
+.vl-header {
+  background: var(--vl-color-header-bg);
+  color: #ffffff;
+  --vl-color-focus: var(--vl-color-focus-on-dark);
+
+  a {
+    color: #ffffff;
+  }
+}
+
+.vl-header__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  padding-block: 0.75rem;
+}
+
+.vl-header__brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.vl-header__extra {
+  flex: 1 1 16rem;
+}
+
+.vl-header__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.vl-header__user {
+  font-weight: 600;
+}
+
+.vl-nav {
+  border-top: 1px solid rgb(255 255 255 / 25%);
+}
+
+.vl-nav__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding-block: 0.25rem;
+  list-style: none;
+}
+
+.vl-nav__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding-inline: 0.25rem;
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.vl-nav__link--active {
+  font-weight: 700;
+  border-bottom-color: var(--vl-color-focus-on-dark);
+}
+
+// Sélecteur de langue
+.vl-lang {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vl-lang__select {
+  min-height: 2.75rem;
+  padding: 0.25rem 0.5rem;
+  font: inherit;
+  color: var(--vl-color-text);
+  background: #ffffff;
+  border: 2px solid var(--vl-color-border);
+  border-radius: var(--vl-radius);
+}
+
+// Boutons (cible ≥ 44 px, WCAG 2.5.5 recommandé)
+.vl-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--vl-color-primary-contrast);
+  background: var(--vl-color-primary);
+  border: 2px solid var(--vl-color-primary);
+  border-radius: var(--vl-radius);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.vl-button--inverse {
+  color: #ffffff;
+  background: transparent;
+  border-color: #ffffff;
+}
+
+.vl-button--secondary {
+  color: var(--vl-color-primary);
+  background: #ffffff;
+}
+
+// Contenu principal (landmark main)
+.vl-main {
+  display: block;
+  min-height: 60vh;
+  padding-block: 1.5rem 3rem;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+h1 {
+  margin-block: 0 1rem;
+  font-size: 1.75rem;
+  line-height: 1.25;
+}
+
+// Tableau de bord
+.vl-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vl-card {
+  height: 100%;
+  padding: 1rem 1.25rem;
+  background: var(--vl-color-surface);
+  border: 1px solid var(--vl-color-border);
+  border-radius: var(--vl-radius);
+}
+
+.vl-card__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.vl-card__description {
+  margin: 0 0 0.5rem;
+}
+
+.vl-card__empty,
+.vl-empty {
+  margin: 0;
+  color: var(--vl-color-text-muted);
+  font-style: italic;
+}
+
+.vl-card__ref {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  color: var(--vl-color-text-muted);
+}
+
+// Pied de page (landmark contentinfo)
+.vl-footer {
+  padding-block: 1.5rem;
+  background: var(--vl-color-surface);
+  border-top: 1px solid var(--vl-color-border);
+}
+
+.vl-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+
+  p {
+    margin: 0;
+  }
+}
+
+.vl-bootstrap-error {
+  max-width: 40rem;
+  margin: 3rem auto;
+  padding: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .vl-nav__link--active {
+    border-bottom-color: CanvasText;
+  }
+
+  .vl-card {
+    border-color: CanvasText;
+  }
+}

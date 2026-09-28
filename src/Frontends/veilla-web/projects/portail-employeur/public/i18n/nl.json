@@ -1,0 +1,22 @@
+{
+  "app": {
+    "name": "Veilla — Werkgeversportaal"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "workers": "Werknemers, functies en risico's",
+    "requests": "Aanvragen",
+    "decisions": "Beslissingen en verslagen",
+    "documents": "Wettelijke documenten"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "intro": "Overzicht van uw aansluiting. De gegevens verschijnen hier zodra de dienst gekoppeld is.",
+    "examsDue": "Verschuldigde onderzoeken",
+    "examsOverdue": "Achterstallige onderzoeken",
+    "examsPlanned": "Geplande onderzoeken",
+    "missions": "Lopende opdrachten",
+    "actionPlan": "Maatregelen van het actieplan",
+    "unitsBalance": "Saldo preventie-eenheden"
+  }
+}

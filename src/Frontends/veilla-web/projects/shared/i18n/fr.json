@@ -1,0 +1,33 @@
+{
+  "shell": {
+    "skipToContent": "Aller au contenu principal",
+    "mainNavigation": "Navigation principale",
+    "footer": "Veilla — Service externe de prévention et de protection au travail"
+  },
+  "auth": {
+    "login": "Se connecter",
+    "logout": "Se déconnecter",
+    "errorTitle": "Connexion impossible",
+    "errorText": "Le service d'authentification est momentanément indisponible. Veuillez réessayer plus tard.",
+    "retry": "Réessayer"
+  },
+  "lang": {
+    "label": "Langue"
+  },
+  "common": {
+    "noDataYet": "Aucune donnée à afficher pour le moment.",
+    "requirement": "Exigence"
+  },
+  "placeholder": {
+    "title": "Fonctionnalité à venir",
+    "notYetAvailable": "Cette fonctionnalité n'est pas encore disponible."
+  },
+  "a11y": {
+    "title": "Déclaration d'accessibilité",
+    "statementLink": "Accessibilité",
+    "target": "Ce service vise la conformité à la norme EN 301 549 (WCAG 2.1 niveau AA).",
+    "status": "L'audit de conformité n'a pas encore été réalisé ; cette déclaration sera complétée à son issue.",
+    "keyboardTitle": "Navigation au clavier",
+    "keyboard": "Toutes les fonctions sont accessibles au clavier. Un lien d'évitement permet d'atteindre directement le contenu principal."
+  }
+}

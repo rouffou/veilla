@@ -1,0 +1,22 @@
+{
+  "app": {
+    "name": "Veilla — Arbeitgeberportal"
+  },
+  "nav": {
+    "dashboard": "Übersicht",
+    "workers": "Arbeitnehmer, Arbeitsplätze und Risiken",
+    "requests": "Anträge",
+    "decisions": "Entscheidungen und Berichte",
+    "documents": "Gesetzliche Dokumente"
+  },
+  "dashboard": {
+    "title": "Übersicht",
+    "intro": "Überblick über Ihre Mitgliedschaft. Die Angaben werden hier angezeigt, sobald der Dienst angebunden ist.",
+    "examsDue": "Fällige Untersuchungen",
+    "examsOverdue": "Überfällige Untersuchungen",
+    "examsPlanned": "Geplante Untersuchungen",
+    "missions": "Laufende Aufträge",
+    "actionPlan": "Maßnahmen des Aktionsplans",
+    "unitsBalance": "Guthaben an Präventionseinheiten"
+  }
+}

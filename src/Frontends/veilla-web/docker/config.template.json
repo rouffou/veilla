@@ -1,0 +1,8 @@
+{
+  "apiBaseUrl": "${VEILLA_API_BASE_URL}",
+  "auth": {
+    "authority": "${VEILLA_OIDC_AUTHORITY}",
+    "clientId": "${VEILLA_OIDC_CLIENT_ID}",
+    "scope": "${VEILLA_OIDC_SCOPE}"
+  }
+}

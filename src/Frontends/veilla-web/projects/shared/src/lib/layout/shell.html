@@ -1,0 +1,59 @@
+<ng-container *transloco="let t">
+  <vl-skip-link [targetId]="mainId">{{ t('shell.skipToContent') }}</vl-skip-link>
+
+  <header class="vl-header">
+    <div class="vl-header__bar vl-container">
+      <a class="vl-header__brand" routerLink="/">{{ t(appNameKey()) }}</a>
+
+      <div class="vl-header__extra">
+        <ng-content select="[vlShellHeader]" />
+      </div>
+
+      <div class="vl-header__tools">
+        <vl-language-selector />
+        @if (auth.isAuthenticated()) {
+          @if (auth.userName(); as name) {
+            <span class="vl-header__user">{{ name }}</span>
+          }
+          <button type="button" class="vl-button vl-button--inverse" (click)="logout()">
+            {{ t('auth.logout') }}
+          </button>
+        } @else {
+          <button type="button" class="vl-button vl-button--inverse" (click)="login()">
+            {{ t('auth.login') }}
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (navItems().length > 0) {
+      <nav class="vl-nav" [attr.aria-label]="t('shell.mainNavigation')">
+        <ul class="vl-nav__list vl-container">
+          @for (item of navItems(); track item.path) {
+            <li>
+              <a
+                class="vl-nav__link"
+                [routerLink]="item.path"
+                routerLinkActive="vl-nav__link--active"
+                ariaCurrentWhenActive="page"
+                [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+                >{{ t(item.labelKey) }}</a
+              >
+            </li>
+          }
+        </ul>
+      </nav>
+    }
+  </header>
+
+  <main #main class="vl-main vl-container" [id]="mainId" tabindex="-1">
+    <ng-content />
+  </main>
+
+  <footer class="vl-footer">
+    <div class="vl-container vl-footer__inner">
+      <p>{{ t('shell.footer') }}</p>
+      <a routerLink="/accessibilite">{{ t('a11y.statementLink') }}</a>
+    </div>
+  </footer>
+</ng-container>

@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "Veilla — Portail travailleur"
+  },
+  "nav": {
+    "dashboard": "Accueil",
+    "appointments": "Mes rendez-vous",
+    "questionnaires": "Questionnaires de santé",
+    "documents": "Mes documents"
+  },
+  "dashboard": {
+    "title": "Mon espace",
+    "intro": "Retrouvez ici vos rendez-vous, questionnaires et documents dès que le service sera connecté.",
+    "appointments": "Prochains rendez-vous",
+    "questionnaires": "Questionnaires à remplir",
+    "documents": "Documents récents",
+    "consultation": "Demander une consultation",
+    "consultationText": "Consultation spontanée ou visite de pré-reprise, sans passer par votre employeur."
+  }
+}

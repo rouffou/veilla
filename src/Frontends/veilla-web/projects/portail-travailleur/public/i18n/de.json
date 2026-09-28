@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "Veilla — Arbeitnehmerportal"
+  },
+  "nav": {
+    "dashboard": "Startseite",
+    "appointments": "Meine Termine",
+    "questionnaires": "Gesundheitsfragebögen",
+    "documents": "Meine Dokumente"
+  },
+  "dashboard": {
+    "title": "Mein Bereich",
+    "intro": "Hier finden Sie Ihre Termine, Fragebögen und Dokumente, sobald der Dienst angebunden ist.",
+    "appointments": "Nächste Termine",
+    "questionnaires": "Auszufüllende Fragebögen",
+    "documents": "Neueste Dokumente",
+    "consultation": "Eine Konsultation beantragen",
+    "consultationText": "Spontane Konsultation oder Besuch vor der Wiederaufnahme der Arbeit, ohne Ihren Arbeitgeber einzuschalten."
+  }
+}

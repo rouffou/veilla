@@ -1,0 +1,64 @@
+// Styles globaux : socle commun accessible (projects/shared/styles).
+@use 'veilla';
+
+// En-tête de l'application interne : recherche globale et aide des raccourcis (NF-51).
+.app-header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.app-search {
+  display: flex;
+  flex: 1 1 18rem;
+  gap: 0.5rem;
+}
+
+.app-search__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.75rem;
+  font: inherit;
+  color: var(--vl-color-text);
+  background: #ffffff;
+  border: 2px solid var(--vl-color-border);
+  border-radius: var(--vl-radius);
+}
+
+.app-dialog {
+  max-width: min(36rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  color: var(--vl-color-text);
+  border: 2px solid var(--vl-color-border);
+  border-radius: var(--vl-radius);
+  --vl-color-focus: #0a4a86;
+
+  &::backdrop {
+    background: rgb(0 0 0 / 50%);
+  }
+
+  h2 {
+    margin-top: 0;
+  }
+}
+
+.app-shortcuts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+
+  dd {
+    margin: 0;
+  }
+}
+
+kbd {
+  padding: 0.1rem 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--vl-color-surface);
+  border: 1px solid var(--vl-color-border);
+  border-radius: 0.25rem;
+}

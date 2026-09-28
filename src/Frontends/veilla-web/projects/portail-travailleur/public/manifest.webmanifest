@@ -1,0 +1,19 @@
+{
+  "name": "Veilla — Portail travailleur",
+  "short_name": "Veilla",
+  "description": "Portail travailleur Veilla : rendez-vous, questionnaires de santé, documents personnels.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a2f55",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "Veilla — Worker portal"
+  },
+  "nav": {
+    "dashboard": "Home",
+    "appointments": "My appointments",
+    "questionnaires": "Health questionnaires",
+    "documents": "My documents"
+  },
+  "dashboard": {
+    "title": "My space",
+    "intro": "Your appointments, questionnaires and documents will appear here once the service is connected.",
+    "appointments": "Upcoming appointments",
+    "questionnaires": "Questionnaires to complete",
+    "documents": "Recent documents",
+    "consultation": "Request a consultation",
+    "consultationText": "Spontaneous consultation or pre-return-to-work visit, without going through your employer."
+  }
+}
