@@ -17,6 +17,15 @@ namespace Sepp.Contracts.Personnes
 
     [EventContract("personnes.affectation-modifiee", 1)]
     public sealed record AffectationModifiee(Guid AffectationId, Guid PersonneId, Guid PosteId, DateOnly DateDebut, DateOnly? DateFin) : IntegrationEvent;
+
+    /// <summary>
+    /// AFF-23, AFF-24 : un état particulier ouvre une protection ou une surveillance (examen, mesures liées aux
+    /// risques du poste). Seule une catégorie générique sort du service (<c>PROTECTION_MATERNITE</c>,
+    /// <c>TRAVAIL_DE_NUIT</c>, <c>JEUNE_TRAVAILLEUR</c>) : jamais « grossesse » ni « allaitement » en clair (ARC-06).
+    /// Publié à la déclaration puis à chaque changement de période (état courant, clé : EtatParticulierId).
+    /// </summary>
+    [EventContract("personnes.etat-particulier-declare", 1)]
+    public sealed record EtatParticulierDeclare(Guid EtatParticulierId, Guid PersonneId, string Categorie, DateOnly DateDebut, DateOnly? DateFin) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.PostesRisques

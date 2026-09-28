@@ -19,6 +19,7 @@ Règles :
 | obligations | `obligations.obligation-creee.v1` | ObligationCreee | ObligationId, PersonneId, AffilieId, TypeExamen, DateDue, DateLimite | Planification, BFF, Reporting |
 | obligations | `obligations.obligation-echue.v1` | ObligationEchue | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Planification, BFF, Reporting |
 | personnes | `personnes.affectation-modifiee.v1` | AffectationModifiee | AffectationId, PersonneId, PosteId, DateDebut, DateFin | Obligations |
+| personnes | `personnes.etat-particulier-declare.v1` | EtatParticulierDeclare | EtatParticulierId, PersonneId, Categorie, DateDebut, DateFin | Obligations (voir note ARC-06 ci-dessous) |
 | personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut | Obligations, Planification, Reporting |
 | personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Obligations, Planification, Reporting |
 | planification | `planification.rendez-vous-annule.v1` | RendezVousAnnule | RendezVousId, PersonneId, Motif | Communications, Obligations |
@@ -35,3 +36,22 @@ Règles :
 | surveillance-medicale | `surveillance-medicale.decision-emise.v1` | DecisionEmise | DecisionId, PersonneId, AffilieId, Categorie, CodesMesures, ValideJusquAu | Documents, Communications, Obligations |
 | surveillance-medicale | `surveillance-medicale.examen-cloture.v1` | ExamenCloture | ExamenId, PersonneId, AffilieId, TypeExamen, Date | Obligations, Prestations |
 | surveillance-medicale | `surveillance-medicale.vaccination-administree.v1` | VaccinationAdministree | VaccinationId, PersonneId, CodeVaccin, Dose, Date | Intégrations, Obligations |
+
+## Notes par contrat
+
+### `personnes.etat-particulier-declare.v1` (AFF-23, AFF-24, ARC-06)
+
+Obligations doit savoir qu'une travailleuse bénéficie de la protection de la maternité pour déclencher l'examen et les mesures liées aux risques du poste, mais une grossesse ou un allaitement ne doit pas circuler en clair hors du service Personnes. Compromis retenu :
+
+- le type exact (grossesse, allaitement, travail de nuit, jeune) reste chiffré dans la table `etat_particulier` du service Personnes (ARC-45) ;
+- l'événement ne porte qu'une **catégorie générique** : `PROTECTION_MATERNITE` (grossesse et allaitement confondus, sans date présumée d'accouchement), `TRAVAIL_DE_NUIT` ou `JEUNE_TRAVAILLEUR`, et la période de protection (`DateDebut`, `DateFin` facultative, dernier jour inclus) ;
+- l'événement est republié avec le même `EtatParticulierId` quand la période change (fin anticipée) : c'est l'état courant, que les consommateurs appliquent de façon idempotente ;
+- l'abonnement à ce contrat sur la rubrique `personnes` est réservé au service Obligations (règle de filtre sur `Subject` côté Service Bus).
+
+### `personnes.affectation-modifiee.v1` (AFF-22, DAT-04)
+
+Publié à la création, à la clôture et au changement d'une affectation. `DateFin` est la borne **exclusive** de la période de validité (convention DAT-04 `[valid_from, valid_to[`), `null` pour une affectation en cours.
+
+### `personnes.occupation-debutee.v1` / `personnes.occupation-terminee.v1` (AFF-20, AFF-23)
+
+`AffilieId` est l'employeur déclarant (pour un intérimaire : l'agence d'intérim). L'entreprise utilisatrice est connue par les affectations aux postes, qui appartiennent à son catalogue. `DateFin` est le dernier jour d'occupation (inclus, comme DIMONA).
