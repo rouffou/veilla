@@ -106,6 +106,17 @@ public static class ServiceDefaults
             {
                 o.Authority = section["Authority"];
                 o.Audience = section["Audience"];
+                // En conteneur, les métadonnées peuvent être lues par une adresse interne différente de l'émetteur public.
+                if (!string.IsNullOrWhiteSpace(section["MetadataAddress"]))
+                {
+                    o.MetadataAddress = section["MetadataAddress"]!;
+                }
+
+                if (!string.IsNullOrWhiteSpace(section["ValidIssuer"]))
+                {
+                    o.TokenValidationParameters.ValidIssuer = section["ValidIssuer"];
+                }
+
                 o.RequireHttpsMetadata = section.GetValue("RequireHttpsMetadata", true);
                 o.MapInboundClaims = false;
                 o.TokenValidationParameters.RoleClaimType = "roles";

@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.angular/
+**/dist/
+.git/
+.vs/
+.vscode/
+**/TestResults/
+docs/
+infra/
+tools/
+src/Frontends/

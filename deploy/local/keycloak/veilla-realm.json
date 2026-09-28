@@ -1,0 +1,417 @@
+{
+  "realm": "veilla",
+  "displayName": "Veilla (développement local)",
+  "enabled": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "fr",
+    "nl",
+    "de",
+    "en"
+  ],
+  "defaultLocale": "fr",
+  "accessTokenLifespan": 300,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [
+      {
+        "name": "cpmt"
+      },
+      {
+        "name": "cpmt-dirigeant"
+      },
+      {
+        "name": "infirmier"
+      },
+      {
+        "name": "assistant-medical"
+      },
+      {
+        "name": "cp-securite"
+      },
+      {
+        "name": "cp-ergonome"
+      },
+      {
+        "name": "cp-hygieniste"
+      },
+      {
+        "name": "cpap"
+      },
+      {
+        "name": "cpap-dirigeant"
+      },
+      {
+        "name": "gestionnaire"
+      },
+      {
+        "name": "planificateur"
+      },
+      {
+        "name": "responsable-centre"
+      },
+      {
+        "name": "direction"
+      },
+      {
+        "name": "admin-fonctionnel"
+      },
+      {
+        "name": "dpo"
+      },
+      {
+        "name": "employeur"
+      },
+      {
+        "name": "sipp"
+      },
+      {
+        "name": "travailleur"
+      }
+    ]
+  },
+  "clientScopes": [
+    {
+      "name": "sepp-api",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience sepp-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "sepp-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "veilla-interne",
+      "name": "Application interne",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": [
+        "http://localhost:4200/*",
+        "http://localhost:8081/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200",
+        "http://localhost:8081"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*##http://localhost:8081/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "email",
+        "sepp-api"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "veilla-portail-employeur",
+      "name": "Portail employeur",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": [
+        "http://localhost:4201/*",
+        "http://localhost:8082/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4201",
+        "http://localhost:8082"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4201/*##http://localhost:8082/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "email",
+        "sepp-api"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "veilla-portail-travailleur",
+      "name": "Portail travailleur",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": [
+        "http://localhost:4202/*",
+        "http://localhost:8083/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4202",
+        "http://localhost:8083"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4202/*##http://localhost:8083/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "email",
+        "sepp-api"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "veilla-dev-cli",
+      "name": "Outil de test local (poste de développement uniquement)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": [
+        "profile",
+        "roles",
+        "email",
+        "sepp-api"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "cpmt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Camille",
+      "lastName": "Médecin",
+      "email": "cpmt@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "cpmt"
+      ]
+    },
+    {
+      "username": "cpmt.dirigeant",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dominique",
+      "lastName": "Dirigeant",
+      "email": "cpmt.dirigeant@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "cpmt",
+        "cpmt-dirigeant"
+      ]
+    },
+    {
+      "username": "infirmier",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ines",
+      "lastName": "Infirmière",
+      "email": "infirmier@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "infirmier"
+      ]
+    },
+    {
+      "username": "cpap",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Paul",
+      "lastName": "Psychologue",
+      "email": "cpap@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "cpap"
+      ]
+    },
+    {
+      "username": "securite",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Sacha",
+      "lastName": "Sécurité",
+      "email": "securite@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "cp-securite"
+      ]
+    },
+    {
+      "username": "gestionnaire",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Gaelle",
+      "lastName": "Gestion",
+      "email": "gestionnaire@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "gestionnaire"
+      ]
+    },
+    {
+      "username": "planificateur",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Pierre",
+      "lastName": "Planning",
+      "email": "planificateur@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "planificateur"
+      ]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alex",
+      "lastName": "Admin",
+      "email": "admin@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin-fonctionnel"
+      ]
+    },
+    {
+      "username": "dpo",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dana",
+      "lastName": "Protection",
+      "email": "dpo@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "dpo"
+      ]
+    },
+    {
+      "username": "employeur",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Eva",
+      "lastName": "Employeur",
+      "email": "employeur@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "employeur"
+      ]
+    },
+    {
+      "username": "travailleur",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Theo",
+      "lastName": "Travailleur",
+      "email": "travailleur@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "travailleur"
+      ]
+    }
+  ]
+}
