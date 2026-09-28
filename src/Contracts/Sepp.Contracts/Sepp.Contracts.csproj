@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Contrats d'événements d'intégration : identifiants, dates, statuts, catégories uniquement (ARC-06, ARC-34). -->
+</Project>

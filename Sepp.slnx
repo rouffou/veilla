@@ -1,2 +1,31 @@
 <Solution>
+  <Folder Name="/Services/" />
+  <Folder Name="/Services/Referentiels/">
+    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Adapters/Sepp.Referentiels.Adapters.csproj" />
+    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Application/Sepp.Referentiels.Application.csproj" />
+    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Domain/Sepp.Referentiels.Domain.csproj" />
+    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Infrastructure/Sepp.Referentiels.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Sepp.BuildingBlocks.Application/Sepp.BuildingBlocks.Application.csproj" />
+    <Project Path="src/BuildingBlocks/Sepp.BuildingBlocks.Domain/Sepp.BuildingBlocks.Domain.csproj" />
+    <Project Path="src/BuildingBlocks/Sepp.BuildingBlocks.Infrastructure/Sepp.BuildingBlocks.Infrastructure.csproj" />
+    <Project Path="src/BuildingBlocks/Sepp.BuildingBlocks.Web/Sepp.BuildingBlocks.Web.csproj" />
+  </Folder>
+  <Folder Name="/src/Contracts/">
+    <Project Path="src/Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Referentiels/" />
+  <Folder Name="/src/Services/Referentiels/src/" />
+  <Folder Name="/src/Services/Referentiels/tests/">
+    <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Application.Tests/Sepp.Referentiels.Application.Tests.csproj" />
+    <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Architecture.Tests/Sepp.Referentiels.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Domain.Tests/Sepp.Referentiels.Domain.Tests.csproj" />
+    <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Integration.Tests/Sepp.Referentiels.Integration.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj" />
+  </Folder>
 </Solution>

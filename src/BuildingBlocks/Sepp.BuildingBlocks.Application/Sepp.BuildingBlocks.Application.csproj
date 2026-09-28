@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.BuildingBlocks.Domain\Sepp.BuildingBlocks.Domain.csproj" />
+    <ProjectReference Include="..\..\Contracts\Sepp.Contracts\Sepp.Contracts.csproj" />
+  </ItemGroup>
+</Project>

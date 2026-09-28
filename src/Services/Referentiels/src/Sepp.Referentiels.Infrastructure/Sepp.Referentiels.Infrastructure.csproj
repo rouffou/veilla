@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Sepp.Referentiels</AssemblyName>
+    <RootNamespace>Sepp.Referentiels.Infrastructure</RootNamespace>
+    <UserSecretsId>sepp-referentiels</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.Referentiels.Adapters\Sepp.Referentiels.Adapters.csproj" />
+  </ItemGroup>
+</Project>
