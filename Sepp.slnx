@@ -1,5 +1,11 @@
 <Solution>
   <Folder Name="/Services/" />
+  <Folder Name="/Services/Affilies/">
+    <Project Path="src/Services/Affilies/src/Sepp.Affilies.Adapters/Sepp.Affilies.Adapters.csproj" />
+    <Project Path="src/Services/Affilies/src/Sepp.Affilies.Application/Sepp.Affilies.Application.csproj" />
+    <Project Path="src/Services/Affilies/src/Sepp.Affilies.Domain/Sepp.Affilies.Domain.csproj" />
+    <Project Path="src/Services/Affilies/src/Sepp.Affilies.Infrastructure/Sepp.Affilies.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/Services/Referentiels/">
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Adapters/Sepp.Referentiels.Adapters.csproj" />
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Application/Sepp.Referentiels.Application.csproj" />
@@ -17,6 +23,14 @@
     <Project Path="src/Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
   </Folder>
   <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Affilies/" />
+  <Folder Name="/src/Services/Affilies/src/" />
+  <Folder Name="/src/Services/Affilies/tests/">
+    <Project Path="src/Services/Affilies/tests/Sepp.Affilies.Application.Tests/Sepp.Affilies.Application.Tests.csproj" />
+    <Project Path="src/Services/Affilies/tests/Sepp.Affilies.Architecture.Tests/Sepp.Affilies.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Affilies/tests/Sepp.Affilies.Domain.Tests/Sepp.Affilies.Domain.Tests.csproj" />
+    <Project Path="src/Services/Affilies/tests/Sepp.Affilies.Integration.Tests/Sepp.Affilies.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Referentiels/" />
   <Folder Name="/src/Services/Referentiels/src/" />
   <Folder Name="/src/Services/Referentiels/tests/">
