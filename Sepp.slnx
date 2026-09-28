@@ -1,5 +1,11 @@
 <Solution>
   <Folder Name="/Services/" />
+  <Folder Name="/Services/Audit/">
+    <Project Path="src/Services/Audit/src/Sepp.Audit.Adapters/Sepp.Audit.Adapters.csproj" />
+    <Project Path="src/Services/Audit/src/Sepp.Audit.Application/Sepp.Audit.Application.csproj" />
+    <Project Path="src/Services/Audit/src/Sepp.Audit.Domain/Sepp.Audit.Domain.csproj" />
+    <Project Path="src/Services/Audit/src/Sepp.Audit.Infrastructure/Sepp.Audit.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/Services/Referentiels/">
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Adapters/Sepp.Referentiels.Adapters.csproj" />
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Application/Sepp.Referentiels.Application.csproj" />
@@ -17,6 +23,14 @@
     <Project Path="src/Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
   </Folder>
   <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Audit/" />
+  <Folder Name="/src/Services/Audit/src/" />
+  <Folder Name="/src/Services/Audit/tests/">
+    <Project Path="src/Services/Audit/tests/Sepp.Audit.Application.Tests/Sepp.Audit.Application.Tests.csproj" />
+    <Project Path="src/Services/Audit/tests/Sepp.Audit.Architecture.Tests/Sepp.Audit.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Audit/tests/Sepp.Audit.Domain.Tests/Sepp.Audit.Domain.Tests.csproj" />
+    <Project Path="src/Services/Audit/tests/Sepp.Audit.Integration.Tests/Sepp.Audit.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Referentiels/" />
   <Folder Name="/src/Services/Referentiels/src/" />
   <Folder Name="/src/Services/Referentiels/tests/">

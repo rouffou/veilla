@@ -79,6 +79,30 @@ services:
       keycloak:
         condition: service_healthy
 
+  audit:
+    # Journal d'audit infalsifiable (NF-04). Sans bus configuré, les traces ne lui parviennent pas (ADR 0004).
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Services/Audit/Dockerfile
+    image: sepp/audit:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Audit: Host=postgres;Database=audit;Username=sepp;Password=sepp-local-dev
+      Database__MigrateOnStartup: "true"
+      Authentication__Authority: http://localhost:8180/realms/veilla
+      Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
+      Authentication__ValidIssuer: http://localhost:8180/realms/veilla
+      Authentication__RequireHttpsMetadata: "false"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
+    ports:
+      - "5114:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
   app-interne:
     <<: *service-defaults
     build:

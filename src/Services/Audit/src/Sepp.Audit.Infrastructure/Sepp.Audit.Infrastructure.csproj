@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Sepp.Audit</AssemblyName>
+    <RootNamespace>Sepp.Audit.Infrastructure</RootNamespace>
+    <UserSecretsId>sepp-audit</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.Audit.Adapters\Sepp.Audit.Adapters.csproj" />
+  </ItemGroup>
+</Project>

@@ -75,6 +75,13 @@ jobs:
                 "paths": "src/Services/Referentiels/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
               },
               {
+                "name": "audit",
+                "context": ".",
+                "dockerfile": "src/Services/Audit/Dockerfile",
+                "build_args": "",
+                "paths": "src/Services/Audit/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
+              },
+              {
                 "name": "app-interne",
                 "context": "src/Frontends/veilla-web",
                 "dockerfile": "src/Frontends/veilla-web/Dockerfile",
