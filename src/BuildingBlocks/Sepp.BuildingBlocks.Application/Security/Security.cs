@@ -61,6 +61,10 @@ public static class Permissions
     public const string AuditZoneStandard = "audit:zone-standard";
     public const string AuditZoneMedicale = "audit:zone-medicale";
     public const string AuditZonePsychosociale = "audit:zone-psychosociale";
+
+    // Personnes — identité, occupations, affectations et états particuliers des travailleurs (§3.3 « Données de l'affilié »).
+    public const string PersonneLire = "personne:lire";
+    public const string PersonneEcrire = "personne:ecrire";
 }
 
 public static class RolePermissions
@@ -146,6 +150,24 @@ public static class RolePermissions
         Grant(Roles.Sipp, Permissions.DecisionLire, Permissions.AnalyseRisquesLire, Permissions.AffilieLire,
             Permissions.AffilieEcrire);
         Grant(Roles.Travailleur, Permissions.DecisionLire);
+
+        // Personnes — §3.3 « Données de l'affilié » : lecture CPMT/infirmier, CPAP, autres CP ; lecture/écriture
+        // gestionnaire ; écriture partielle de l'employeur (et du SIPP) limitée à son affilié (claim affilie_id,
+        // vérifiée par le service Personnes). Assistant médical et planificateur : lecture pour l'accueil et les convocations.
+        foreach (var role in new[]
+                 {
+                     Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.AssistantMedical, Roles.Cpap, Roles.CpapDirigeant,
+                     Roles.ConseillerSecurite, Roles.ConseillerErgonome, Roles.ConseillerHygieniste, Roles.GestionnaireDossiers,
+                     Roles.Planificateur, Roles.Employeur, Roles.Sipp,
+                 })
+        {
+            Grant(role, Permissions.PersonneLire);
+        }
+
+        foreach (var role in new[] { Roles.GestionnaireDossiers, Roles.Employeur, Roles.Sipp })
+        {
+            Grant(role, Permissions.PersonneEcrire);
+        }
 
         return map;
     }

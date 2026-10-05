@@ -126,6 +126,30 @@ services:
       keycloak:
         condition: service_healthy
 
+  personnes:
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Services/Personnes/Dockerfile
+    image: sepp/personnes:local
+    environment:
+      # Environnement Development : clés de chiffrement et d'index aveugle de développement (appsettings.Development.json).
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Personnes: Host=postgres;Database=personnes;Username=sepp;Password=sepp-local-dev
+      Database__MigrateOnStartup: "true"
+      Authentication__Authority: http://localhost:8180/realms/veilla
+      Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
+      Authentication__ValidIssuer: http://localhost:8180/realms/veilla
+      Authentication__RequireHttpsMetadata: "false"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
+    ports:
+      - "5112:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
   app-interne:
     <<: *service-defaults
     build:
