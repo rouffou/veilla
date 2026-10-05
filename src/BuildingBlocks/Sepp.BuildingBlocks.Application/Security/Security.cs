@@ -35,6 +35,10 @@ public static class Roles
     public const string Employeur = "employeur";
     public const string Sipp = "sipp";
     public const string Travailleur = "travailleur";
+
+    // Intégrations — rôle technique du compte de service (client credentials OIDC) du service Intégrations,
+    // jamais attribué à une personne : alimentation DIMONA du service Personnes (AFF-20).
+    public const string Integrations = "integrations";
 }
 
 /// <summary>
@@ -72,6 +76,9 @@ public static class Permissions
     public const string RisquePosteValider = "risque-poste:valider";
     public const string SurchargeFrequenceLire = "surcharge-frequence:lire";
     public const string SurchargeFrequenceEcrire = "surcharge-frequence:ecrire";
+
+    // Intégrations (INT-02) : tableau de suivi des flux, relance manuelle, lancement à la demande, correspondances.
+    public const string IntegrationsAdministrer = "integrations:administrer";
 }
 
 public static class RolePermissions
@@ -196,6 +203,12 @@ public static class RolePermissions
         }
 
         Grant(Roles.Infirmier, Permissions.SurchargeFrequenceLire);
+
+        // Intégrations — suivi et relance des flux (INT-02) par le gestionnaire et l'administrateur fonctionnel ;
+        // le compte technique du service n'écrit que les occupations issues de DIMONA (AFF-20), sans lecture des fiches.
+        Grant(Roles.GestionnaireDossiers, Permissions.IntegrationsAdministrer);
+        Grant(Roles.AdministrateurFonctionnel, Permissions.IntegrationsAdministrer);
+        Grant(Roles.Integrations, Permissions.PersonneEcrire);
 
         return map;
     }

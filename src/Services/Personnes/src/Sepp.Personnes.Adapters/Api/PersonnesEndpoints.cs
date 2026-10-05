@@ -32,7 +32,10 @@ public static class PersonnesEndpoints
         var api = app.MapGroup("/api/v1").RequirePermission(Permissions.PersonneLire);
         MapPersonnes(api.MapGroup("/personnes").WithTags("Personnes"));
         MapAffilies(api.MapGroup("/affilies/{affilieId:guid}").WithTags("Travailleurs d'un affilié"));
-        MapDimona(api.MapGroup("/dimona").WithTags("Interne : alimentation DIMONA (service Intégrations)").RequirePermission(Permissions.PersonneEcrire));
+
+        // AFF-20 : points d'entrée internes appelés par le compte technique du service Intégrations (rôle « integrations »),
+        // qui n'a que personne:ecrire. Hors du groupe en lecture : la permission personne:lire n'y est pas exigée.
+        MapDimona(app.MapGroup("/api/v1/dimona").WithTags("Interne : alimentation DIMONA (service Intégrations)").RequirePermission(Permissions.PersonneEcrire));
         return app;
     }
 
