@@ -97,6 +97,19 @@
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Domain.Tests/Sepp.Referentiels.Domain.Tests.csproj" />
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Integration.Tests/Sepp.Referentiels.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/SurveillanceMedicale/" />
+  <Folder Name="/src/Services/SurveillanceMedicale/src/">
+    <Project Path="src/Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Adapters/Sepp.SurveillanceMedicale.Adapters.csproj" />
+    <Project Path="src/Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Application/Sepp.SurveillanceMedicale.Application.csproj" />
+    <Project Path="src/Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Domain/Sepp.SurveillanceMedicale.Domain.csproj" />
+    <Project Path="src/Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Infrastructure/Sepp.SurveillanceMedicale.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/SurveillanceMedicale/tests/">
+    <Project Path="src/Services/SurveillanceMedicale/tests/Sepp.SurveillanceMedicale.Application.Tests/Sepp.SurveillanceMedicale.Application.Tests.csproj" />
+    <Project Path="src/Services/SurveillanceMedicale/tests/Sepp.SurveillanceMedicale.Architecture.Tests/Sepp.SurveillanceMedicale.Architecture.Tests.csproj" />
+    <Project Path="src/Services/SurveillanceMedicale/tests/Sepp.SurveillanceMedicale.Domain.Tests/Sepp.SurveillanceMedicale.Domain.Tests.csproj" />
+    <Project Path="src/Services/SurveillanceMedicale/tests/Sepp.SurveillanceMedicale.Integration.Tests/Sepp.SurveillanceMedicale.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Sepp.BuildingBlocks.Tests/Sepp.BuildingBlocks.Tests.csproj" />
     <Project Path="tests/Sepp.Contracts.Tests/Sepp.Contracts.Tests.csproj" />

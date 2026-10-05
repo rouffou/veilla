@@ -79,6 +79,14 @@ public static class Permissions
 
     // Intégrations (INT-02) : tableau de suivi des flux, relance manuelle, lancement à la demande, correspondances.
     public const string IntegrationsAdministrer = "integrations:administrer";
+
+    // Surveillance médicale (§3.3, zone médicale) : destruction validée par le responsable du traitement (SAN-44, NF-22),
+    // protocoles médicaux (valeurs de référence, schémas vaccinaux, questionnaires, durées de conservation),
+    // stock de vaccins par centre (SAN-51) et remplissage d'un questionnaire de santé sans lecture du dossier (SAN-22).
+    public const string DossierSantePurger = "dossier-sante:purger";
+    public const string ProtocolesMedicauxAdministrer = "protocoles-medicaux:administrer";
+    public const string StockVaccinsGerer = "stock-vaccins:gerer";
+    public const string QuestionnaireSanteRemplir = "questionnaire-sante:remplir";
 }
 
 public static class RolePermissions
@@ -209,6 +217,19 @@ public static class RolePermissions
         Grant(Roles.GestionnaireDossiers, Permissions.IntegrationsAdministrer);
         Grant(Roles.AdministrateurFonctionnel, Permissions.IntegrationsAdministrer);
         Grant(Roles.Integrations, Permissions.PersonneEcrire);
+
+        // Surveillance médicale — le CPMT dirigeant, responsable du traitement, valide la destruction des dossiers et les
+        // protocoles médicaux ; CPMT et infirmiers gèrent le stock de vaccins de leur centre. Le questionnaire de santé
+        // est rempli à l'avance par le travailleur (portail, claim personne_id) ou sur tablette tendue par l'assistant
+        // médical : écriture seule, sans aucune lecture du dossier (§3.3).
+        Grant(Roles.CpmtDirigeant, Permissions.DossierSantePurger, Permissions.ProtocolesMedicauxAdministrer);
+        foreach (var role in new[] { Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier })
+        {
+            Grant(role, Permissions.StockVaccinsGerer);
+        }
+
+        Grant(Roles.AssistantMedical, Permissions.QuestionnaireSanteRemplir);
+        Grant(Roles.Travailleur, Permissions.QuestionnaireSanteRemplir);
 
         return map;
     }

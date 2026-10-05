@@ -119,6 +119,13 @@ jobs:
                 "paths": "src/Services/Integrations/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
               },
               {
+                "name": "surveillance-medicale",
+                "context": ".",
+                "dockerfile": "src/Services/SurveillanceMedicale/Dockerfile",
+                "build_args": "",
+                "paths": "src/Services/SurveillanceMedicale/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
+              },
+              {
                 "name": "app-interne",
                 "context": "src/Frontends/veilla-web",
                 "dockerfile": "src/Frontends/veilla-web/Dockerfile",
