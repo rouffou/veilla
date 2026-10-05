@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sepp.Audit.Adapters/Sepp.Audit.Adapters.csproj" />
+    <Project Path="src/Sepp.Audit.Application/Sepp.Audit.Application.csproj" />
+    <Project Path="src/Sepp.Audit.Domain/Sepp.Audit.Domain.csproj" />
+    <Project Path="src/Sepp.Audit.Infrastructure/Sepp.Audit.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sepp.Audit.Application.Tests/Sepp.Audit.Application.Tests.csproj" />
+    <Project Path="tests/Sepp.Audit.Architecture.Tests/Sepp.Audit.Architecture.Tests.csproj" />
+    <Project Path="tests/Sepp.Audit.Domain.Tests/Sepp.Audit.Domain.Tests.csproj" />
+    <Project Path="tests/Sepp.Audit.Integration.Tests/Sepp.Audit.Integration.Tests.csproj" />
+  </Folder>
+  <Project Path="../../../tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Application/Sepp.BuildingBlocks.Application.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Domain/Sepp.BuildingBlocks.Domain.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Infrastructure/Sepp.BuildingBlocks.Infrastructure.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Web/Sepp.BuildingBlocks.Web.csproj" />
+  <Project Path="../../Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
+</Solution>

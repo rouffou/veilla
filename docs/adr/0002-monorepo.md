@@ -17,6 +17,9 @@ deploy/                  environnement local Docker Compose (CTR-23)
 
 Chaque service conserve son cycle de vie : workflow CI filtré par chemin, image et version propres, base de données propre (ARC-02). Aucune référence de projet entre services : seuls `BuildingBlocks` et `Contracts` sont partagés.
 
+### Solutions .NET
+Une solution par microservice ou BFF (`src/Services/<X>/<X>.slnx` : le service, le socle, les contrats et les règles d'architecture), une solution du socle (`src/BuildingBlocks/Socle.slnx`) et une solution globale `Sepp.slnx` pour l'IDE. Toutes sont **générées** par `tools/regenerate-solutions.sh` (jamais éditées à la main, ce qui supprime les conflits de fusion) ; la CI vérifie qu'elles sont à jour et compile et teste chaque solution dans un job distinct.
+
 ## Alternatives
 Un dépôt par service : isolation maximale, mais coût élevé tant que l'équipe est réduite (gabarit dupliqué, montées de version du socle dans une vingtaine de dépôts). Chaque service étant un dossier autonome, l'éclatement reste possible plus tard.
 

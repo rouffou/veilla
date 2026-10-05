@@ -10,7 +10,9 @@ on:
       - "src/Contracts/**"
       - "src/Services/**"
       - "tests/**"
-      - "Sepp.slnx"
+      - "**/*.slnx"
+      - "src/Bff/**"
+      - "tools/regenerate-solutions.sh"
       - "Directory.Build.props"
       - "Directory.Packages.props"
       - "global.json"
@@ -23,7 +25,9 @@ on:
       - "src/Contracts/**"
       - "src/Services/**"
       - "tests/**"
-      - "Sepp.slnx"
+      - "**/*.slnx"
+      - "src/Bff/**"
+      - "tools/regenerate-solutions.sh"
       - "Directory.Build.props"
       - "Directory.Packages.props"
       - "global.json"
@@ -46,10 +50,62 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  # Une solution par microservice / BFF + le socle (ADR 0002) : chaque service est compilé et testé
+  # dans son propre job, en parallèle.
+  plan:
+    name: Découverte des solutions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      solutions: ${{ steps.find.outputs.solutions }}
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Liste des solutions
+        id: find
+        run: |
+          solutions=$(find src -name '*.slnx' | sort | jq -R -s -c 'split("
+") | map(select(length > 0)) | map({path: ., name: (split("/") | last | sub(".slnx$"; ""))})')
+          echo "solutions=$solutions" >> "$GITHUB_OUTPUT"
+          echo "$solutions" | jq .
+
+  style:
+    name: Style de code et solutions à jour
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Installation du SDK .NET (global.json)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Solutions générées à jour (tools/regenerate-solutions.sh)
+        run: |
+          bash tools/regenerate-solutions.sh
+          git diff --exit-code -- '*.slnx' || { echo "::error::Solutions obsolètes : lancer tools/regenerate-solutions.sh et committer."; exit 1; }
+      - name: Restauration
+        run: dotnet restore Sepp.slnx
+      - name: Style de code (dotnet format)
+        run: dotnet format Sepp.slnx --verify-no-changes --no-restore
+
   build-test:
-    name: Compilation et tests
+    name: Compilation et tests — ${{ matrix.solution.name }}
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        solution: ${{ fromJson(needs.plan.outputs.solutions) }}
     permissions:
       contents: read
       checks: write # publication des résultats de tests
@@ -73,19 +129,16 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restauration
-        run: dotnet restore Sepp.slnx
+        run: dotnet restore "${{ matrix.solution.path }}"
 
       - name: Compilation (Release, avertissements bloquants)
-        run: dotnet build Sepp.slnx -c Release --no-restore
-
-      - name: Style de code (dotnet format)
-        run: dotnet format Sepp.slnx --verify-no-changes --no-restore
+        run: dotnet build "${{ matrix.solution.path }}" -c Release --no-restore
 
       # Tests unitaires, d'architecture et d'intégration (Testcontainers : Docker est fourni
       # par ubuntu-latest). Runner Microsoft.Testing.Platform (global.json).
       - name: Tests et couverture
         run: >-
-          dotnet test --solution Sepp.slnx -c Release --no-build
+          dotnet test --solution "${{ matrix.solution.path }}" -c Release --no-build
           --coverage --coverage-output-format cobertura
           --report-xunit-trx
           --results-directory "${{ github.workspace }}/TestResults"
@@ -94,7 +147,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         with:
-          name: Résultats des tests .NET
+          name: Résultats des tests .NET — ${{ matrix.solution.name }}
           path: TestResults/**/*.trx
           reporter: dotnet-trx
           fail-on-error: "false"
@@ -120,7 +173,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: resultats-tests-dotnet
+          name: resultats-tests-dotnet-${{ matrix.solution.name }}
           path: |
             TestResults/**/*.trx
             TestResults/**/*.cobertura.xml
