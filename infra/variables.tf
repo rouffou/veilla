@@ -105,7 +105,7 @@ variable "services" {
     # --- Zone standard / transverse ---
     "affilies"       = { zone = "standard", database = true, subscribes_to = ["integrations"] }
     "personnes"      = { zone = "standard", database = true, subscribes_to = ["integrations", "affilies"] }
-    "postes-risques" = { zone = "standard", database = true, subscribes_to = ["referentiels", "personnes"] }
+    "postes-risques" = { zone = "standard", database = true, subscribes_to = ["referentiels", "personnes", "surveillance-medicale"] }
     "obligations" = {
       zone          = "standard"
       database      = true

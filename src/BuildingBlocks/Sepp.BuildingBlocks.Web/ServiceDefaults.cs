@@ -69,6 +69,7 @@ public static class ServiceDefaults
         builder.Services.ConfigureHttpClientDefaults(http => http.AddStandardResilienceHandler());
 
         builder.Services.AddProblemDetails();
+        builder.Services.AddExceptionHandler<ConflictExceptionHandler>();
         builder.Services.AddOpenApi();
         builder.Services.AddHttpContextAccessor();
         builder.Services.TryAddSingleton(TimeProvider.System);

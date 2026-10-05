@@ -22,7 +22,7 @@ Règles :
 | integrations | `integrations.incapacite-notifiee.v1` | IncapaciteNotifiee | IncapaciteId, PersonneId, AffilieId, DateDebut, Source | Réintégration, Obligations |
 | obligations | `obligations.obligation-creee.v1` | ObligationCreee | ObligationId, PersonneId, AffilieId, TypeExamen, DateDue, DateLimite | Planification, BFF, Reporting |
 | obligations | `obligations.obligation-echue.v1` | ObligationEchue | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Planification, BFF, Reporting |
-| personnes | `personnes.affectation-modifiee.v1` | AffectationModifiee | AffectationId, PersonneId, PosteId, DateDebut, DateFin | Obligations |
+| personnes | `personnes.affectation-modifiee.v1` | AffectationModifiee | AffectationId, PersonneId, PosteId, DateDebut, DateFin | Obligations, Postes et risques |
 | personnes | `personnes.etat-particulier-declare.v1` | EtatParticulierDeclare | EtatParticulierId, PersonneId, Categorie, DateDebut, DateFin | Obligations (voir note ARC-06 ci-dessous) |
 | personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut | Obligations, Planification, Reporting |
 | personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Obligations, Planification, Reporting |
@@ -40,7 +40,7 @@ Règles :
 | reintegration | `reintegration.trajet-demarre.v1` | TrajetDemarre | TrajetId, PersonneId, AffilieId, Initiateur, DateDemande | Intégrations, Prestations |
 | reintegration | `reintegration.trajet-termine.v1` | TrajetTermine | TrajetId, PersonneId, AffilieId, Statut, DateFin | Intégrations, Prestations |
 | surveillance-medicale | `surveillance-medicale.decision-emise.v1` | DecisionEmise | DecisionId, PersonneId, AffilieId, Categorie, CodesMesures, ValideJusquAu | Documents, Communications, Obligations |
-| surveillance-medicale | `surveillance-medicale.examen-cloture.v1` | ExamenCloture | ExamenId, PersonneId, AffilieId, TypeExamen, Date | Obligations, Prestations |
+| surveillance-medicale | `surveillance-medicale.examen-cloture.v1` | ExamenCloture | ExamenId, PersonneId, AffilieId, TypeExamen, Date | Obligations, Prestations, Postes et risques |
 | surveillance-medicale | `surveillance-medicale.vaccination-administree.v1` | VaccinationAdministree | VaccinationId, PersonneId, CodeVaccin, Dose, Date | Intégrations, Obligations |
 
 ## Notes par contrat

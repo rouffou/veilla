@@ -9,6 +9,10 @@ docker compose -f deploy/local/compose.yaml up -d --build
 | Composant | URL | Remarque |
 |---|---|---|
 | Service Référentiels | http://localhost:5110 | `/health/ready`, `/openapi/v1.json`, `/scalar` (Development) |
+| Service Affiliés | http://localhost:5111 | idem |
+| Service Personnes et occupations | http://localhost:5112 | idem ; clés de chiffrement de développement uniquement |
+| Service Postes et risques | http://localhost:5113 | idem |
+| Service Audit | http://localhost:5114 | idem |
 | Application interne | http://localhost:8081 | |
 | Portail employeur | http://localhost:8082 | |
 | Portail travailleur | http://localhost:8083 | |
@@ -22,6 +26,8 @@ Définis dans [`keycloak/veilla-realm.json`](keycloak/veilla-realm.json), mot de
 `cpmt`, `cpmt.dirigeant`, `infirmier`, `cpap`, `securite`, `gestionnaire`, `planificateur`, `admin` (administrateur fonctionnel), `dpo`, `employeur`, `travailleur`.
 
 Les rôles de la matrice §3.3 sont émis dans le claim `roles` et l'audience `sepp-api` est ajoutée au jeton, comme en production.
+
+Les utilisateurs externes portent le claim multivalué `affilie_id` : identifiants des affiliés auxquels ils ont accès (attribut utilisateur Keycloak, déclaré dans le profil utilisateur du realm). L'utilisateur `employeur` est rattaché à l'affilié fictif `0192a5c8-0000-7000-8000-000000000001` . Pour tester le portail employeur, créez un affilié puis remplacez cette valeur par son identifiant dans la console Keycloak (Utilisateurs → employeur → Attributs).
 
 ## Appeler l'API
 

@@ -129,6 +129,21 @@ public sealed class ReferentielsApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Des_creations_concurrentes_d_une_meme_ressource_donnent_un_succes_et_des_conflits()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var body = new { code = "CONCURRENCE", libelle = new { fr = "Test", nl = "Test", de = "Test" } };
+        var client = Client(Roles.AdministrateurFonctionnel);
+
+        var reponses = await Task.WhenAll(Enumerable.Range(0, 8)
+            .Select(_ => client.PostAsJsonAsync("/api/v1/nomenclatures/", body, ct)));
+
+        // La clé unique de la base tranche les courses : jamais d'erreur 500.
+        reponses.Count(r => r.StatusCode == HttpStatusCode.Created).ShouldBe(1);
+        reponses.Where(r => r.StatusCode != HttpStatusCode.Created).ShouldAllBe(r => r.StatusCode == HttpStatusCode.Conflict);
+    }
+
+    [Fact]
     public async Task Une_erreur_fonctionnelle_est_un_problem_details()
     {
         var response = await Client(Roles.Cpmt).GetAsync("/api/v1/parametres-legaux/INCONNU", TestContext.Current.CancellationToken);
