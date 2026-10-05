@@ -68,8 +68,7 @@ jobs:
       - name: Liste des solutions
         id: find
         run: |
-          solutions=$(find src -name '*.slnx' | sort | jq -R -s -c 'split("
-") | map(select(length > 0)) | map({path: ., name: (split("/") | last | sub(".slnx$"; ""))})')
+          solutions=$(find src -name '*.slnx' | LC_ALL=C sort | jq -R -c '{path: ., name: (split("/") | last | sub(".slnx$"; ""))}' | jq -s -c .)
           echo "solutions=$solutions" >> "$GITHUB_OUTPUT"
           echo "$solutions" | jq .
 
