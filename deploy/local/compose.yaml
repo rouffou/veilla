@@ -173,6 +173,37 @@ services:
       keycloak:
         condition: service_healthy
 
+  bff-employeur:
+    # BFF du portail employeur (ARC-43) : sans base ; propage le jeton de l'utilisateur aux services (ARC-40).
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Bff/Employeur/Dockerfile
+    image: sepp/bff-employeur:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Authentication__Authority: http://localhost:8180/realms/veilla
+      Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
+      Authentication__ValidIssuer: http://localhost:8180/realms/veilla
+      Authentication__RequireHttpsMetadata: "false"
+      ServicesAval__Affilies: http://affilies:8080
+      ServicesAval__Personnes: http://personnes:8080
+      ServicesAval__PostesRisques: http://postes-risques:8080
+      Cors__Origines__0: http://localhost:8082
+      Cors__Origines__1: http://localhost:4201
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
+    ports:
+      - "5200:8080"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      affilies:
+        condition: service_started
+      personnes:
+        condition: service_started
+      postes-risques:
+        condition: service_started
+
   app-interne:
     <<: *service-defaults
     build:

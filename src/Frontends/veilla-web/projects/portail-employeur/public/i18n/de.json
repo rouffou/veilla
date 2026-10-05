@@ -4,19 +4,212 @@
   },
   "nav": {
     "dashboard": "Übersicht",
-    "workers": "Arbeitnehmer, Arbeitsplätze und Risiken",
-    "requests": "Anträge",
-    "decisions": "Entscheidungen und Berichte",
-    "documents": "Gesetzliche Dokumente"
+    "affiliate": "Meine Mitgliedschaft",
+    "workers": "Arbeitnehmer",
+    "positions": "Arbeitsplätze und Risiken",
+    "lists": "Namenslisten",
+    "proposals": "Vorschläge",
+    "requests": "Anfragen",
+    "decisions": "Entscheidungen und Berichte"
+  },
+  "ui": {
+    "loading": "Wird geladen…",
+    "retry": "Erneut versuchen",
+    "results": "{{ total }} Ergebnis(se)",
+    "pagination": "Seitennavigation",
+    "previous": "Vorherige Seite",
+    "next": "Nächste Seite",
+    "pageInfo": "Seite {{ page }} von {{ pages }}"
+  },
+  "errors": {
+    "indisponible": "Dieser Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es in einigen Augenblicken erneut.",
+    "interdit": "Sie haben keinen Zugriff auf diese Daten.",
+    "introuvable": "Das angeforderte Element wurde nicht gefunden.",
+    "invalide": "Die Anfrage konnte nicht angenommen werden. Bitte prüfen Sie Ihre Eingaben.",
+    "reseau": "Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung.",
+    "inattendue": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut."
+  },
+  "form": {
+    "summary": "Das Formular enthält Fehler:",
+    "required": "Dieses Feld ist erforderlich.",
+    "choose": "— Auswählen —"
+  },
+  "affiliate": {
+    "selectorLabel": "Mitglied",
+    "none": "Ihrem Konto ist kein Mitglied zugeordnet. Bitte wenden Sie sich an Ihren Akteverwalter.",
+    "title": "Meine Mitgliedschaft",
+    "bce": "Unternehmensnummer (ZDU)",
+    "legalForm": "Rechtsform",
+    "nace": "NACE-BEL-Code",
+    "jointCommittee": "Paritätische Kommission",
+    "category": "Tarifkategorie",
+    "affiliationDate": "Beitrittsdatum",
+    "endDate": "Enddatum",
+    "status": "Status",
+    "sites": "Standorte",
+    "noSites": "Kein gültiger Standort.",
+    "sitesCaption": "Standorte des Mitglieds",
+    "siteName": "Standort",
+    "establishmentUnit": "Niederlassungseinheit",
+    "address": "Adresse",
+    "contacts": "Kontaktpersonen",
+    "noContacts": "Keine gültige Kontaktperson.",
+    "contactsCaption": "Kontaktpersonen des Mitglieds",
+    "contactName": "Name",
+    "contactRole": "Rolle",
+    "contactFunction": "Funktion",
+    "contactEmail": "E-Mail",
+    "contactPhone": "Telefon"
   },
   "dashboard": {
     "title": "Übersicht",
-    "intro": "Überblick über Ihre Mitgliedschaft. Die Angaben werden hier angezeigt, sobald der Dienst angebunden ist.",
+    "intro": "Überblick über Ihre Mitgliedschaft. Noch nicht verfügbare Indikatoren erscheinen schrittweise mit ihrer Inbetriebnahme.",
+    "workers": "Beschäftigte Arbeitnehmer",
+    "activePositions": "Aktive Arbeitsplätze",
+    "exposedPositions": "Einem Risiko ausgesetzte Arbeitsplätze",
+    "pendingProposals": "Vorschläge, die auf Validierung warten",
     "examsDue": "Fällige Untersuchungen",
     "examsOverdue": "Überfällige Untersuchungen",
     "examsPlanned": "Geplante Untersuchungen",
     "missions": "Laufende Aufträge",
     "actionPlan": "Maßnahmen des Aktionsplans",
-    "unitsBalance": "Guthaben an Präventionseinheiten"
+    "unitsBalance": "Saldo der Präventionseinheiten",
+    "comingSoon": "Demnächst verfügbar.",
+    "unavailable": "Vorübergehend nicht verfügbar."
+  },
+  "workers": {
+    "title": "Arbeitnehmer",
+    "intro": "Arbeitnehmer, die heute beim Mitglied beschäftigt oder ihm zur Verfügung gestellt sind.",
+    "search": "Einen Arbeitnehmer suchen",
+    "searchButton": "Suchen",
+    "searchHint": "Name oder Vorname, unabhängig von Akzenten und Großschreibung.",
+    "empty": "Kein Arbeitnehmer entspricht der Suche.",
+    "caption": "Arbeitnehmer des Mitglieds",
+    "lastName": "Name",
+    "firstName": "Vorname",
+    "birthDate": "Geburtsdatum"
+  },
+  "positions": {
+    "title": "Arbeitsplätze und Risiken",
+    "intro": "Katalog Ihrer Arbeitsplätze und der geltenden Risiken. Eine Änderung erfolgt über einen Vorschlag, den der Arbeitsarzt validiert.",
+    "empty": "Es ist noch kein Arbeitsplatz erfasst.",
+    "caption": "Arbeitsplätze des Mitglieds und ihre Risiken",
+    "position": "Arbeitsplatz",
+    "status": "Status",
+    "risks": "Risiken",
+    "actions": "Aktionen",
+    "exposed": "Exponiert",
+    "noRisk": "Kein Risiko",
+    "since": "seit {{ date }}",
+    "propose": "Eine Änderung vorschlagen"
+  },
+  "proposal": {
+    "title": "Vorschlag zur Änderung eines Arbeitsplatzes",
+    "back": "Zurück zu Arbeitsplätzen und Risiken",
+    "intro": "Arbeitsplatz: {{ poste }}. Der Vorschlag wird vom Arbeitsarzt geprüft; er hat vor der Validierung keine Wirkung.",
+    "success": "Ihr Vorschlag wurde dem Arbeitsarzt übermittelt.",
+    "reference": "Referenz {{ id }}",
+    "follow": "Meine Vorschläge verfolgen",
+    "reason": "Begründung",
+    "reasonHint": "Beschreiben Sie die Änderung (neue Maschine, neues Produkt, Ergebnis der Risikoanalyse…).",
+    "effectiveDate": "Gewünschtes Wirksamkeitsdatum",
+    "lines": "Vorgeschlagene Änderungen",
+    "line": "Änderung {{ n }}",
+    "lineType": "Art der Änderung",
+    "risk": "Risiko",
+    "exposureLevel": "Expositionsniveau",
+    "levelRequired": "Das Expositionsniveau ist bei einer Hinzufügung oder Änderung erforderlich.",
+    "removeLine": "Änderung entfernen",
+    "addLine": "Eine Änderung hinzufügen",
+    "submit": "Vorschlag senden",
+    "submitting": "Wird gesendet…",
+    "reasonMissing": "Die Begründung ist erforderlich.",
+    "dateMissing": "Das Wirksamkeitsdatum ist erforderlich.",
+    "riskMissing": "Jede Änderung muss ein Risiko angeben."
+  },
+  "lists": {
+    "title": "Namenslisten",
+    "intro": "Namenslisten der Arbeitnehmer, die der Gesundheitsüberwachung unterliegen, Version für Version.",
+    "downloaded": "Datei {{ fichier }} heruntergeladen.",
+    "empty": "Es wurde noch keine Namensliste erstellt.",
+    "caption": "Versionen der Namenslisten",
+    "type": "Liste",
+    "version": "Version",
+    "referenceDate": "Stichtag",
+    "generatedOn": "Erstellt am",
+    "lines": "Eingetragene Arbeitnehmer",
+    "latest": "Gültig",
+    "download": "Herunterladen (CSV)",
+    "propose": "Eine Anpassung vorschlagen",
+    "formatNote": "CSV-Datei (Semikolon als Trennzeichen, UTF-8), in einer Tabellenkalkulation zu öffnen. Die PDF-Fassung folgt später."
+  },
+  "listProposal": {
+    "title": "Vorschlag zur Anpassung einer Namensliste",
+    "back": "Zurück zu den Namenslisten",
+    "intro": "Liste: {{ liste }}, Version {{ version }}. Die Anpassung wird vom Arbeitsarzt vor jeder neuen Version geprüft.",
+    "lines": "Vorgeschlagene Anpassungen",
+    "workersLimit": "Nur die ersten {{ n }} Arbeitnehmer (alphabetisch) werden angeboten.",
+    "worker": "Arbeitnehmer",
+    "position": "Arbeitsplatz",
+    "workerMissing": "Jede Anpassung muss einen Arbeitnehmer angeben.",
+    "positionMissing": "Jede Anpassung muss einen Arbeitsplatz angeben."
+  },
+  "proposals": {
+    "title": "Vorschläge",
+    "intro": "Verfolgung Ihrer dem Arbeitsarzt vorgelegten Änderungsvorschläge.",
+    "empty": "Derzeit keine Vorschläge.",
+    "caption": "Vorschläge des Mitglieds",
+    "date": "Datum",
+    "nature": "Gegenstand",
+    "target": "Betrifft",
+    "reason": "Begründung",
+    "status": "Stand",
+    "refusal": "Ablehnungsgrund: {{ motif }}"
+  },
+  "enums": {
+    "statutAffilie": {
+      "Actif": "Aktiv",
+      "Resilie": "Gekündigt",
+      "Absorbe": "Übernommen",
+      "Scinde": "Aufgespalten",
+      "Transfere": "Übertragen"
+    },
+    "roleContact": {
+      "PersonneDeContact": "Kontaktperson",
+      "ConseillerPreventionInterne": "Interner Gefahrenverhütungsberater",
+      "MembreComitePpt": "Mitglied des Ausschusses für Gefahrenverhütung und Schutz",
+      "DelegationSyndicale": "Gewerkschaftsvertretung",
+      "PersonneDeConfiance": "Vertrauensperson"
+    },
+    "statutPoste": {
+      "Actif": "Aktiv",
+      "Archive": "Archiviert"
+    },
+    "niveauExposition": {
+      "Faible": "Gering",
+      "Moyen": "Mittel",
+      "Eleve": "Hoch"
+    },
+    "typeModification": {
+      "Ajout": "Hinzufügung",
+      "Modification": "Änderung",
+      "Retrait": "Entfernung"
+    },
+    "typeListe": {
+      "PosteSecurite": "Sicherheitsfunktionen",
+      "PosteVigilance": "Funktionen mit erhöhter Wachsamkeit",
+      "ActiviteRisqueDefini": "Aktivitäten mit spezifischem Risiko",
+      "ActiviteDenreesAlimentaires": "Tätigkeiten im Zusammenhang mit Lebensmitteln",
+      "TravailNuit": "Nachtarbeit"
+    },
+    "statutProposition": {
+      "Soumise": "Eingereicht",
+      "Validee": "Validiert",
+      "Refusee": "Abgelehnt"
+    },
+    "natureProposition": {
+      "poste-risque": "Risiken eines Arbeitsplatzes",
+      "liste-nominative": "Namensliste"
+    }
   }
 }

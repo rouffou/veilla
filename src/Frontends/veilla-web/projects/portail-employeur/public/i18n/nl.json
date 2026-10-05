@@ -4,19 +4,212 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "workers": "Werknemers, functies en risico's",
+    "affiliate": "Mijn aansluiting",
+    "workers": "Werknemers",
+    "positions": "Functies en risico's",
+    "lists": "Nominatieve lijsten",
+    "proposals": "Voorstellen",
     "requests": "Aanvragen",
-    "decisions": "Beslissingen en verslagen",
-    "documents": "Wettelijke documenten"
+    "decisions": "Beslissingen en verslagen"
+  },
+  "ui": {
+    "loading": "Bezig met laden…",
+    "retry": "Opnieuw proberen",
+    "results": "{{ total }} resultaat/resultaten",
+    "pagination": "Paginering",
+    "previous": "Vorige pagina",
+    "next": "Volgende pagina",
+    "pageInfo": "Pagina {{ page }} van {{ pages }}"
+  },
+  "errors": {
+    "indisponible": "Deze dienst is tijdelijk niet beschikbaar. Probeer het over enkele ogenblikken opnieuw.",
+    "interdit": "U hebt geen toegang tot deze gegevens.",
+    "introuvable": "Het gevraagde element werd niet gevonden.",
+    "invalide": "De aanvraag kon niet worden aanvaard. Controleer de ingevoerde gegevens.",
+    "reseau": "Geen verbinding met de server. Controleer uw internetverbinding.",
+    "inattendue": "Er is een onverwachte fout opgetreden. Probeer het later opnieuw."
+  },
+  "form": {
+    "summary": "Het formulier bevat fouten:",
+    "required": "Dit veld is verplicht.",
+    "choose": "— Kiezen —"
+  },
+  "affiliate": {
+    "selectorLabel": "Aangeslotene",
+    "none": "Er is geen aangeslotene aan uw account gekoppeld. Neem contact op met uw dossierbeheerder.",
+    "title": "Mijn aansluiting",
+    "bce": "Ondernemingsnummer (KBO)",
+    "legalForm": "Rechtsvorm",
+    "nace": "NACE-BEL-code",
+    "jointCommittee": "Paritair comité",
+    "category": "Tariefcategorie",
+    "affiliationDate": "Datum van aansluiting",
+    "endDate": "Einddatum",
+    "status": "Status",
+    "sites": "Vestigingen",
+    "noSites": "Geen geldige vestiging.",
+    "sitesCaption": "Vestigingen van de aangeslotene",
+    "siteName": "Vestiging",
+    "establishmentUnit": "Vestigingseenheid",
+    "address": "Adres",
+    "contacts": "Contactpersonen",
+    "noContacts": "Geen geldige contactpersoon.",
+    "contactsCaption": "Contactpersonen van de aangeslotene",
+    "contactName": "Naam",
+    "contactRole": "Rol",
+    "contactFunction": "Functie",
+    "contactEmail": "E-mail",
+    "contactPhone": "Telefoon"
   },
   "dashboard": {
     "title": "Dashboard",
-    "intro": "Overzicht van uw aansluiting. De gegevens verschijnen hier zodra de dienst gekoppeld is.",
+    "intro": "Overzicht van uw aansluiting. De indicatoren die nog niet beschikbaar zijn, verschijnen naarmate ze in gebruik worden genomen.",
+    "workers": "Tewerkgestelde werknemers",
+    "activePositions": "Actieve functies",
+    "exposedPositions": "Functies blootgesteld aan een risico",
+    "pendingProposals": "Voorstellen in afwachting van validatie",
     "examsDue": "Verschuldigde onderzoeken",
     "examsOverdue": "Achterstallige onderzoeken",
     "examsPlanned": "Geplande onderzoeken",
     "missions": "Lopende opdrachten",
     "actionPlan": "Maatregelen van het actieplan",
-    "unitsBalance": "Saldo preventie-eenheden"
+    "unitsBalance": "Saldo preventie-eenheden",
+    "comingSoon": "Binnenkort beschikbaar.",
+    "unavailable": "Tijdelijk niet beschikbaar."
+  },
+  "workers": {
+    "title": "Werknemers",
+    "intro": "Werknemers die vandaag bij de aangeslotene tewerkgesteld of ter beschikking gesteld zijn.",
+    "search": "Een werknemer zoeken",
+    "searchButton": "Zoeken",
+    "searchHint": "Naam of voornaam, ongeacht accenten of hoofdletters.",
+    "empty": "Geen enkele werknemer komt overeen.",
+    "caption": "Werknemers van de aangeslotene",
+    "lastName": "Naam",
+    "firstName": "Voornaam",
+    "birthDate": "Geboortedatum"
+  },
+  "positions": {
+    "title": "Functies en risico's",
+    "intro": "Catalogus van uw functies en geldende risico's. Een wijziging gebeurt via een voorstel, gevalideerd door de arbeidsarts.",
+    "empty": "Er is nog geen functie geregistreerd.",
+    "caption": "Functies van de aangeslotene en hun risico's",
+    "position": "Functie",
+    "status": "Status",
+    "risks": "Risico's",
+    "actions": "Acties",
+    "exposed": "Blootgesteld",
+    "noRisk": "Geen risico",
+    "since": "sinds {{ date }}",
+    "propose": "Een wijziging voorstellen"
+  },
+  "proposal": {
+    "title": "Voorstel tot wijziging van een functie",
+    "back": "Terug naar functies en risico's",
+    "intro": "Functie: {{ poste }}. Het voorstel wordt door de arbeidsarts onderzocht; het heeft geen gevolg vóór de validatie.",
+    "success": "Uw voorstel werd aan de arbeidsarts bezorgd.",
+    "reference": "Referentie {{ id }}",
+    "follow": "Mijn voorstellen opvolgen",
+    "reason": "Reden",
+    "reasonHint": "Beschrijf de wijziging (nieuwe machine, nieuw product, resultaat van de risicoanalyse…).",
+    "effectiveDate": "Gewenste ingangsdatum",
+    "lines": "Voorgestelde wijzigingen",
+    "line": "Wijziging {{ n }}",
+    "lineType": "Soort wijziging",
+    "risk": "Risico",
+    "exposureLevel": "Blootstellingsniveau",
+    "levelRequired": "Het blootstellingsniveau is verplicht bij een toevoeging of wijziging.",
+    "removeLine": "Wijziging verwijderen",
+    "addLine": "Een wijziging toevoegen",
+    "submit": "Voorstel verzenden",
+    "submitting": "Bezig met verzenden…",
+    "reasonMissing": "De reden is verplicht.",
+    "dateMissing": "De ingangsdatum is verplicht.",
+    "riskMissing": "Elke wijziging moet een risico vermelden."
+  },
+  "lists": {
+    "title": "Nominatieve lijsten",
+    "intro": "Nominatieve lijsten van de werknemers onderworpen aan het gezondheidstoezicht, versie per versie.",
+    "downloaded": "Bestand {{ fichier }} gedownload.",
+    "empty": "Er werd nog geen nominatieve lijst opgesteld.",
+    "caption": "Versies van de nominatieve lijsten",
+    "type": "Lijst",
+    "version": "Versie",
+    "referenceDate": "Referentiedatum",
+    "generatedOn": "Opgesteld op",
+    "lines": "Ingeschreven werknemers",
+    "latest": "Geldig",
+    "download": "Downloaden (CSV)",
+    "propose": "Een aanpassing voorstellen",
+    "formatNote": "CSV-bestand (puntkomma als scheidingsteken, UTF-8) te openen in een rekenblad. De pdf-versie volgt later."
+  },
+  "listProposal": {
+    "title": "Voorstel tot aanpassing van een nominatieve lijst",
+    "back": "Terug naar de nominatieve lijsten",
+    "intro": "Lijst: {{ liste }}, versie {{ version }}. De aanpassing wordt door de arbeidsarts onderzocht vóór een nieuwe versie.",
+    "lines": "Voorgestelde aanpassingen",
+    "workersLimit": "Alleen de eerste {{ n }} werknemers (alfabetisch) worden voorgesteld.",
+    "worker": "Werknemer",
+    "position": "Functie",
+    "workerMissing": "Elke aanpassing moet een werknemer vermelden.",
+    "positionMissing": "Elke aanpassing moet een functie vermelden."
+  },
+  "proposals": {
+    "title": "Voorstellen",
+    "intro": "Opvolging van uw wijzigingsvoorstellen die aan de arbeidsarts werden voorgelegd.",
+    "empty": "Voorlopig geen voorstellen.",
+    "caption": "Voorstellen van de aangeslotene",
+    "date": "Datum",
+    "nature": "Onderwerp",
+    "target": "Betreft",
+    "reason": "Reden",
+    "status": "Stand",
+    "refusal": "Reden van weigering: {{ motif }}"
+  },
+  "enums": {
+    "statutAffilie": {
+      "Actif": "Actief",
+      "Resilie": "Opgezegd",
+      "Absorbe": "Opgeslorpt",
+      "Scinde": "Gesplitst",
+      "Transfere": "Overgedragen"
+    },
+    "roleContact": {
+      "PersonneDeContact": "Contactpersoon",
+      "ConseillerPreventionInterne": "Interne preventieadviseur",
+      "MembreComitePpt": "Lid van het Comité PBW",
+      "DelegationSyndicale": "Vakbondsafvaardiging",
+      "PersonneDeConfiance": "Vertrouwenspersoon"
+    },
+    "statutPoste": {
+      "Actif": "Actief",
+      "Archive": "Gearchiveerd"
+    },
+    "niveauExposition": {
+      "Faible": "Laag",
+      "Moyen": "Gemiddeld",
+      "Eleve": "Hoog"
+    },
+    "typeModification": {
+      "Ajout": "Toevoeging",
+      "Modification": "Wijziging",
+      "Retrait": "Verwijdering"
+    },
+    "typeListe": {
+      "PosteSecurite": "Veiligheidsfuncties",
+      "PosteVigilance": "Functies met verhoogde waakzaamheid",
+      "ActiviteRisqueDefini": "Activiteiten met welbepaald risico",
+      "ActiviteDenreesAlimentaires": "Activiteiten verbonden aan voedingswaren",
+      "TravailNuit": "Nachtarbeid"
+    },
+    "statutProposition": {
+      "Soumise": "Ingediend",
+      "Validee": "Gevalideerd",
+      "Refusee": "Geweigerd"
+    },
+    "natureProposition": {
+      "poste-risque": "Risico's van een functie",
+      "liste-nominative": "Nominatieve lijst"
+    }
   }
 }
