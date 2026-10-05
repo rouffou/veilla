@@ -5,3 +5,4 @@ CREATE DATABASE affilies;
 CREATE DATABASE personnes;
 CREATE DATABASE postes_risques;
 CREATE DATABASE integrations;
+CREATE DATABASE documents;

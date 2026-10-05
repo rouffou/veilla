@@ -27,8 +27,13 @@ Règles :
 | personnes | `personnes.etat-particulier-declare.v1` | EtatParticulierDeclare | EtatParticulierId, PersonneId, Categorie, DateDebut, DateFin | Obligations (voir note ARC-06 ci-dessous) |
 | personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut | Obligations, Planification, Reporting |
 | personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Obligations, Planification, Reporting |
+| planification | `planification.absence-rendez-vous-constatee.v1` | AbsenceRendezVousConstatee | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Obligations (SAN-13) |
+| planification | `planification.convocation-emise.v1` | ConvocationEmise | ConvocationId, RendezVousId, PersonneId, AffilieId, LieuId, TypeActe, Debut, Canal, Recommande, TypeConvocation, LotId | Communications (SAN-10, SAN-11) |
+| planification | `planification.rappel-rendez-vous-du.v1` | RappelRendezVousDu | RendezVousId, PersonneId, AffilieId, LieuId, Debut, Canal, NumeroRappel | Communications (SAN-13) |
 | planification | `planification.rendez-vous-annule.v1` | RendezVousAnnule | RendezVousId, PersonneId, Motif | Communications, Obligations |
 | planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Communications, Obligations |
+| planification | `planification.rendez-vous-replanifie.v1` | RendezVousReplanifie | RendezVousId, PersonneId, AffilieId, AncienDebut, NouveauDebut, Motif | Communications (PLA-07) |
+| planification | `planification.urgence-non-couverte.v1` | UrgenceNonCouverte | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Planification (alerte au planificateur, PLA-06) |
 | postes-risques | `postes-risques.profil-risque-poste-modifie.v1` | ProfilRisquePosteModifie | PosteId, AffilieId, CodesRisques, ValideDu | Obligations, Reporting |
 | postes-risques | `postes-risques.regle-surveillance-modifiee.v1` | RegleSurveillanceModifiee | RisqueId, CodeRisque, Categorie, Version, TypeSurveillance, FrequenceMois, SurveillanceProlongee, ValideDu | Obligations (SAN-01) |
 | postes-risques | `postes-risques.surcharge-frequence-definie.v1` | SurchargeFrequenceDefinie | SurchargeId, AffilieId, CibleType, CibleId, CodeRisque, FrequenceMois, ValideDu, ValideJusquAu | Obligations (SAN-01) |

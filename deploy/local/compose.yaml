@@ -235,6 +235,32 @@ services:
       keycloak:
         condition: service_healthy
 
+  documents:
+    # Modèles, génération PDF/A, archivage chiffré par zone (DOC-01, DOC-02, NF-21). En local : stockage sur fichiers
+    # (tmpfs, perdu à l'arrêt), horodatage et signature simulés (sans valeur probante), clés de développement.
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Services/Documents/Dockerfile
+    image: sepp/documents:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Documents: Host=postgres;Database=documents;Username=sepp;Password=sepp-local-dev
+      Database__MigrateOnStartup: "true"
+      Authentication__Authority: http://localhost:8180/realms/veilla
+      Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
+      Authentication__ValidIssuer: http://localhost:8180/realms/veilla
+      Authentication__RequireHttpsMetadata: "false"
+      Documents__Stockage__Racine: /tmp/sepp-documents
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
+    ports:
+      - "5119:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
   app-interne:
     <<: *service-defaults
     build:

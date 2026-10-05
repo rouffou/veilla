@@ -45,6 +45,19 @@
     <Project Path="src/Services/Audit/tests/Sepp.Audit.Domain.Tests/Sepp.Audit.Domain.Tests.csproj" />
     <Project Path="src/Services/Audit/tests/Sepp.Audit.Integration.Tests/Sepp.Audit.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Documents/" />
+  <Folder Name="/src/Services/Documents/src/">
+    <Project Path="src/Services/Documents/src/Sepp.Documents.Adapters/Sepp.Documents.Adapters.csproj" />
+    <Project Path="src/Services/Documents/src/Sepp.Documents.Application/Sepp.Documents.Application.csproj" />
+    <Project Path="src/Services/Documents/src/Sepp.Documents.Domain/Sepp.Documents.Domain.csproj" />
+    <Project Path="src/Services/Documents/src/Sepp.Documents.Infrastructure/Sepp.Documents.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Documents/tests/">
+    <Project Path="src/Services/Documents/tests/Sepp.Documents.Application.Tests/Sepp.Documents.Application.Tests.csproj" />
+    <Project Path="src/Services/Documents/tests/Sepp.Documents.Architecture.Tests/Sepp.Documents.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Documents/tests/Sepp.Documents.Domain.Tests/Sepp.Documents.Domain.Tests.csproj" />
+    <Project Path="src/Services/Documents/tests/Sepp.Documents.Integration.Tests/Sepp.Documents.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Integrations/" />
   <Folder Name="/src/Services/Integrations/src/">
     <Project Path="src/Services/Integrations/src/Sepp.Integrations.Adapters/Sepp.Integrations.Adapters.csproj" />

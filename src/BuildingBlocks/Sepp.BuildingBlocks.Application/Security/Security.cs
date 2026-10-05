@@ -39,6 +39,14 @@ public static class Roles
     // Intégrations — rôle technique du compte de service (client credentials OIDC) du service Intégrations,
     // jamais attribué à une personne : alimentation DIMONA du service Personnes (AFF-20).
     public const string Integrations = "integrations";
+
+    // Documents — rôle technique du compte de service du service Documents (client credentials OIDC), jamais attribué
+    // à une personne : lecture de la langue de l'affilié et du travailleur pour la langue des documents (NF-41).
+    public const string Documents = "documents";
+
+    // Communications — rôle technique du compte de service du service Communications (client credentials OIDC), jamais
+    // attribué à une personne : résolution des coordonnées et préférences de canal des destinataires (DOC-03, SAN-10).
+    public const string Communications = "communications";
 }
 
 /// <summary>
@@ -79,6 +87,22 @@ public static class Permissions
 
     // Intégrations (INT-02) : tableau de suivi des flux, relance manuelle, lancement à la demande, correspondances.
     public const string IntegrationsAdministrer = "integrations:administrer";
+
+    // Documents (DOC-01, DOC-02, NF-21) : modèles, génération, lecture des documents de la zone standard et vérification
+    // d'intégrité. Les documents des zones médicale et psychosociale exigent en plus dossier-sante:* ou dossier-psy:*.
+    public const string DocumentsModeleLire = "documents:modele-lire";
+    public const string DocumentsModeleGerer = "documents:modele-gerer";
+    public const string DocumentsModeleValider = "documents:modele-valider";
+    public const string DocumentsModeleValiderMedical = "documents:modele-valider-medical";
+    public const string DocumentsModeleValiderPsychosocial = "documents:modele-valider-psychosocial";
+    public const string DocumentsGenerer = "documents:generer";
+    public const string DocumentsLire = "documents:lire";
+    public const string DocumentsVerifierIntegrite = "documents:verifier-integrite";
+
+    // Communications (DOC-03 à DOC-05) : journal des envois par dossier, envoi manuel, relance des échecs.
+    public const string CommunicationsLire = "communications:lire";
+    public const string CommunicationsEnvoyer = "communications:envoyer";
+    public const string CommunicationsAdministrer = "communications:administrer";
 }
 
 public static class RolePermissions
@@ -209,6 +233,53 @@ public static class RolePermissions
         Grant(Roles.GestionnaireDossiers, Permissions.IntegrationsAdministrer);
         Grant(Roles.AdministrateurFonctionnel, Permissions.IntegrationsAdministrer);
         Grant(Roles.Integrations, Permissions.PersonneEcrire);
+
+        // Documents — DOC-01 : l'administrateur fonctionnel gère, valide et publie les modèles ; les modèles médicaux sont
+        // validés par le CPMT dirigeant et les modèles psychosociaux par le CPAP dirigeant. Génération et lecture de la zone
+        // standard par les internes qui produisent des courriers et rapports ; externes limités à leur périmètre (affilié du
+        // jeton, documents adressés au travailleur lui-même), vérifié par le service Documents.
+        foreach (var role in new[]
+                 {
+                     Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.AssistantMedical, Roles.Cpap, Roles.CpapDirigeant,
+                     Roles.ConseillerSecurite, Roles.ConseillerErgonome, Roles.ConseillerHygieniste, Roles.GestionnaireDossiers,
+                     Roles.Planificateur, Roles.AdministrateurFonctionnel,
+                 })
+        {
+            Grant(role, Permissions.DocumentsModeleLire, Permissions.DocumentsGenerer, Permissions.DocumentsLire);
+        }
+
+        Grant(Roles.AdministrateurFonctionnel, Permissions.DocumentsModeleGerer, Permissions.DocumentsModeleValider,
+            Permissions.DocumentsVerifierIntegrite);
+        Grant(Roles.CpmtDirigeant, Permissions.DocumentsModeleValiderMedical);
+        Grant(Roles.CpapDirigeant, Permissions.DocumentsModeleValiderPsychosocial);
+        Grant(Roles.Dpo, Permissions.DocumentsVerifierIntegrite);
+        foreach (var role in new[] { Roles.Employeur, Roles.Sipp, Roles.Travailleur })
+        {
+            Grant(role, Permissions.DocumentsLire);
+        }
+
+        Grant(Roles.Documents, Permissions.AffilieLire, Permissions.PersonneLire);
+
+        // Communications — DOC-05 : journal consultable par les internes qui suivent les dossiers ; envoi manuel par le
+        // gestionnaire, le planificateur et l'assistant médical ; relance des échecs par le gestionnaire et l'administrateur.
+        foreach (var role in new[]
+                 {
+                     Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.AssistantMedical, Roles.Cpap, Roles.CpapDirigeant,
+                     Roles.ConseillerSecurite, Roles.ConseillerErgonome, Roles.ConseillerHygieniste, Roles.GestionnaireDossiers,
+                     Roles.Planificateur, Roles.ResponsableCentre, Roles.AdministrateurFonctionnel, Roles.Dpo,
+                 })
+        {
+            Grant(role, Permissions.CommunicationsLire);
+        }
+
+        foreach (var role in new[] { Roles.GestionnaireDossiers, Roles.Planificateur, Roles.AssistantMedical })
+        {
+            Grant(role, Permissions.CommunicationsEnvoyer);
+        }
+
+        Grant(Roles.GestionnaireDossiers, Permissions.CommunicationsAdministrer);
+        Grant(Roles.AdministrateurFonctionnel, Permissions.CommunicationsAdministrer);
+        Grant(Roles.Communications, Permissions.AffilieLire, Permissions.PersonneLire);
 
         return map;
     }

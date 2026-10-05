@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Sepp.Documents</AssemblyName>
+    <RootNamespace>Sepp.Documents.Infrastructure</RootNamespace>
+    <UserSecretsId>sepp-documents</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.Documents.Adapters\Sepp.Documents.Adapters.csproj" />
+  </ItemGroup>
+</Project>
