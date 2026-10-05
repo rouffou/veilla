@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sepp.Bff.Employeur/Sepp.Bff.Employeur.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sepp.Bff.Employeur.Integration.Tests/Sepp.Bff.Employeur.Integration.Tests.csproj" />
+    <Project Path="tests/Sepp.Bff.Employeur.Tests/Sepp.Bff.Employeur.Tests.csproj" />
+  </Folder>
+  <Project Path="../../../tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Application/Sepp.BuildingBlocks.Application.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Domain/Sepp.BuildingBlocks.Domain.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Infrastructure/Sepp.BuildingBlocks.Infrastructure.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Web/Sepp.BuildingBlocks.Web.csproj" />
+  <Project Path="../../Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
+</Solution>
