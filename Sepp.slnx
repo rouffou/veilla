@@ -49,6 +49,19 @@
     <Project Path="src/Services/Personnes/tests/Sepp.Personnes.Domain.Tests/Sepp.Personnes.Domain.Tests.csproj" />
     <Project Path="src/Services/Personnes/tests/Sepp.Personnes.Integration.Tests/Sepp.Personnes.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/PostesRisques/" />
+  <Folder Name="/src/Services/PostesRisques/src/">
+    <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Adapters/Sepp.PostesRisques.Adapters.csproj" />
+    <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Application/Sepp.PostesRisques.Application.csproj" />
+    <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Domain/Sepp.PostesRisques.Domain.csproj" />
+    <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Infrastructure/Sepp.PostesRisques.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/PostesRisques/tests/">
+    <Project Path="src/Services/PostesRisques/tests/Sepp.PostesRisques.Application.Tests/Sepp.PostesRisques.Application.Tests.csproj" />
+    <Project Path="src/Services/PostesRisques/tests/Sepp.PostesRisques.Architecture.Tests/Sepp.PostesRisques.Architecture.Tests.csproj" />
+    <Project Path="src/Services/PostesRisques/tests/Sepp.PostesRisques.Domain.Tests/Sepp.PostesRisques.Domain.Tests.csproj" />
+    <Project Path="src/Services/PostesRisques/tests/Sepp.PostesRisques.Integration.Tests/Sepp.PostesRisques.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Referentiels/" />
   <Folder Name="/src/Services/Referentiels/src/">
     <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Adapters/Sepp.Referentiels.Adapters.csproj" />

@@ -3,3 +3,4 @@ CREATE DATABASE referentiels;
 CREATE DATABASE audit;
 CREATE DATABASE affilies;
 CREATE DATABASE personnes;
+CREATE DATABASE postes_risques;
