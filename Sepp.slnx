@@ -1,17 +1,4 @@
 <Solution>
-  <Folder Name="/Services/" />
-  <Folder Name="/Services/Audit/">
-    <Project Path="src/Services/Audit/src/Sepp.Audit.Adapters/Sepp.Audit.Adapters.csproj" />
-    <Project Path="src/Services/Audit/src/Sepp.Audit.Application/Sepp.Audit.Application.csproj" />
-    <Project Path="src/Services/Audit/src/Sepp.Audit.Domain/Sepp.Audit.Domain.csproj" />
-    <Project Path="src/Services/Audit/src/Sepp.Audit.Infrastructure/Sepp.Audit.Infrastructure.csproj" />
-  </Folder>
-  <Folder Name="/Services/Referentiels/">
-    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Adapters/Sepp.Referentiels.Adapters.csproj" />
-    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Application/Sepp.Referentiels.Application.csproj" />
-    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Domain/Sepp.Referentiels.Domain.csproj" />
-    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Infrastructure/Sepp.Referentiels.Infrastructure.csproj" />
-  </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/Sepp.BuildingBlocks.Application/Sepp.BuildingBlocks.Application.csproj" />
@@ -23,8 +10,26 @@
     <Project Path="src/Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
   </Folder>
   <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Affilies/" />
+  <Folder Name="/src/Services/Affilies/src/">
+    <Project Path="src/Services/Affilies/src/Sepp.Affilies.Adapters/Sepp.Affilies.Adapters.csproj" />
+    <Project Path="src/Services/Affilies/src/Sepp.Affilies.Application/Sepp.Affilies.Application.csproj" />
+    <Project Path="src/Services/Affilies/src/Sepp.Affilies.Domain/Sepp.Affilies.Domain.csproj" />
+    <Project Path="src/Services/Affilies/src/Sepp.Affilies.Infrastructure/Sepp.Affilies.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Affilies/tests/">
+    <Project Path="src/Services/Affilies/tests/Sepp.Affilies.Application.Tests/Sepp.Affilies.Application.Tests.csproj" />
+    <Project Path="src/Services/Affilies/tests/Sepp.Affilies.Architecture.Tests/Sepp.Affilies.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Affilies/tests/Sepp.Affilies.Domain.Tests/Sepp.Affilies.Domain.Tests.csproj" />
+    <Project Path="src/Services/Affilies/tests/Sepp.Affilies.Integration.Tests/Sepp.Affilies.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Audit/" />
-  <Folder Name="/src/Services/Audit/src/" />
+  <Folder Name="/src/Services/Audit/src/">
+    <Project Path="src/Services/Audit/src/Sepp.Audit.Adapters/Sepp.Audit.Adapters.csproj" />
+    <Project Path="src/Services/Audit/src/Sepp.Audit.Application/Sepp.Audit.Application.csproj" />
+    <Project Path="src/Services/Audit/src/Sepp.Audit.Domain/Sepp.Audit.Domain.csproj" />
+    <Project Path="src/Services/Audit/src/Sepp.Audit.Infrastructure/Sepp.Audit.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Audit/tests/">
     <Project Path="src/Services/Audit/tests/Sepp.Audit.Application.Tests/Sepp.Audit.Application.Tests.csproj" />
     <Project Path="src/Services/Audit/tests/Sepp.Audit.Architecture.Tests/Sepp.Audit.Architecture.Tests.csproj" />
@@ -32,7 +37,12 @@
     <Project Path="src/Services/Audit/tests/Sepp.Audit.Integration.Tests/Sepp.Audit.Integration.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Services/Referentiels/" />
-  <Folder Name="/src/Services/Referentiels/src/" />
+  <Folder Name="/src/Services/Referentiels/src/">
+    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Adapters/Sepp.Referentiels.Adapters.csproj" />
+    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Application/Sepp.Referentiels.Application.csproj" />
+    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Domain/Sepp.Referentiels.Domain.csproj" />
+    <Project Path="src/Services/Referentiels/src/Sepp.Referentiels.Infrastructure/Sepp.Referentiels.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Referentiels/tests/">
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Application.Tests/Sepp.Referentiels.Application.Tests.csproj" />
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Architecture.Tests/Sepp.Referentiels.Architecture.Tests.csproj" />

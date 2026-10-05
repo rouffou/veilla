@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Sepp.Affilies</AssemblyName>
+    <RootNamespace>Sepp.Affilies.Infrastructure</RootNamespace>
+    <UserSecretsId>sepp-affilies</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.Affilies.Adapters\Sepp.Affilies.Adapters.csproj" />
+  </ItemGroup>
+</Project>
