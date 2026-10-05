@@ -4,19 +4,212 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "workers": "Workers, positions and risks",
+    "affiliate": "My membership",
+    "workers": "Workers",
+    "positions": "Positions and risks",
+    "lists": "Nominative lists",
+    "proposals": "Proposals",
     "requests": "Requests",
-    "decisions": "Decisions and reports",
-    "documents": "Legal documents"
+    "decisions": "Decisions and reports"
+  },
+  "ui": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "results": "{{ total }} result(s)",
+    "pagination": "Pagination",
+    "previous": "Previous page",
+    "next": "Next page",
+    "pageInfo": "Page {{ page }} of {{ pages }}"
+  },
+  "errors": {
+    "indisponible": "This service is temporarily unavailable. Please try again in a few moments.",
+    "interdit": "You do not have access to this information.",
+    "introuvable": "The requested item could not be found.",
+    "invalide": "The request could not be accepted. Please check the information entered.",
+    "reseau": "Unable to reach the server. Please check your Internet connection.",
+    "inattendue": "An unexpected error occurred. Please try again later."
+  },
+  "form": {
+    "summary": "The form contains errors:",
+    "required": "This field is required.",
+    "choose": "— Select —"
+  },
+  "affiliate": {
+    "selectorLabel": "Member company",
+    "none": "No member company is linked to your account. Please contact your case manager.",
+    "title": "My membership",
+    "bce": "Company number (CBE)",
+    "legalForm": "Legal form",
+    "nace": "NACE-BEL code",
+    "jointCommittee": "Joint committee",
+    "category": "Rate category",
+    "affiliationDate": "Membership date",
+    "endDate": "End date",
+    "status": "Status",
+    "sites": "Sites",
+    "noSites": "No current site.",
+    "sitesCaption": "Sites of the member company",
+    "siteName": "Site",
+    "establishmentUnit": "Establishment unit",
+    "address": "Address",
+    "contacts": "Contacts",
+    "noContacts": "No current contact.",
+    "contactsCaption": "Contacts of the member company",
+    "contactName": "Name",
+    "contactRole": "Role",
+    "contactFunction": "Job title",
+    "contactEmail": "Email",
+    "contactPhone": "Phone"
   },
   "dashboard": {
     "title": "Dashboard",
-    "intro": "Overview of your membership. Information will appear here once the service is connected.",
+    "intro": "Overview of your membership. Indicators not yet available will appear as they are rolled out.",
+    "workers": "Employed workers",
+    "activePositions": "Active positions",
+    "exposedPositions": "Positions exposed to a risk",
+    "pendingProposals": "Proposals awaiting validation",
     "examsDue": "Examinations due",
     "examsOverdue": "Overdue examinations",
     "examsPlanned": "Scheduled examinations",
     "missions": "Ongoing assignments",
     "actionPlan": "Action plan measures",
-    "unitsBalance": "Prevention units balance"
+    "unitsBalance": "Prevention units balance",
+    "comingSoon": "Coming soon.",
+    "unavailable": "Temporarily unavailable."
+  },
+  "workers": {
+    "title": "Workers",
+    "intro": "Workers employed by or made available to the member company today.",
+    "search": "Search for a worker",
+    "searchButton": "Search",
+    "searchHint": "Last or first name, ignoring accents and capitals.",
+    "empty": "No worker matches.",
+    "caption": "Workers of the member company",
+    "lastName": "Last name",
+    "firstName": "First name",
+    "birthDate": "Date of birth"
+  },
+  "positions": {
+    "title": "Positions and risks",
+    "intro": "Catalogue of your positions and current risks. Changes are made through a proposal validated by the occupational physician.",
+    "empty": "No position has been registered yet.",
+    "caption": "Positions of the member company and their risks",
+    "position": "Position",
+    "status": "Status",
+    "risks": "Risks",
+    "actions": "Actions",
+    "exposed": "Exposed",
+    "noRisk": "No risk",
+    "since": "since {{ date }}",
+    "propose": "Propose a change"
+  },
+  "proposal": {
+    "title": "Proposal to change a position",
+    "back": "Back to positions and risks",
+    "intro": "Position: {{ poste }}. The proposal will be reviewed by the occupational physician; it has no effect before validation.",
+    "success": "Your proposal has been sent to the occupational physician.",
+    "reference": "Reference {{ id }}",
+    "follow": "Track my proposals",
+    "reason": "Reason",
+    "reasonHint": "Describe the change (new machine, new product, result of the risk assessment…).",
+    "effectiveDate": "Requested effective date",
+    "lines": "Proposed changes",
+    "line": "Change {{ n }}",
+    "lineType": "Type of change",
+    "risk": "Risk",
+    "exposureLevel": "Exposure level",
+    "levelRequired": "The exposure level is required for an addition or a change.",
+    "removeLine": "Remove change",
+    "addLine": "Add a change",
+    "submit": "Send proposal",
+    "submitting": "Sending…",
+    "reasonMissing": "The reason is required.",
+    "dateMissing": "The effective date is required.",
+    "riskMissing": "Each change must specify a risk."
+  },
+  "lists": {
+    "title": "Nominative lists",
+    "intro": "Nominative lists of workers subject to health surveillance, version by version.",
+    "downloaded": "File {{ fichier }} downloaded.",
+    "empty": "No nominative list has been drawn up yet.",
+    "caption": "Versions of the nominative lists",
+    "type": "List",
+    "version": "Version",
+    "referenceDate": "Reference date",
+    "generatedOn": "Drawn up on",
+    "lines": "Workers listed",
+    "latest": "Current",
+    "download": "Download (CSV)",
+    "propose": "Propose an adjustment",
+    "formatNote": "CSV file (semicolon-separated, UTF-8) that opens in a spreadsheet. A PDF version will follow."
+  },
+  "listProposal": {
+    "title": "Proposal to adjust a nominative list",
+    "back": "Back to nominative lists",
+    "intro": "List: {{ liste }}, version {{ version }}. The adjustment will be reviewed by the occupational physician before any new version.",
+    "lines": "Proposed adjustments",
+    "workersLimit": "Only the first {{ n }} workers (alphabetical order) are offered.",
+    "worker": "Worker",
+    "position": "Position",
+    "workerMissing": "Each adjustment must specify a worker.",
+    "positionMissing": "Each adjustment must specify a position."
+  },
+  "proposals": {
+    "title": "Proposals",
+    "intro": "Tracking of your change proposals submitted to the occupational physician.",
+    "empty": "No proposals yet.",
+    "caption": "Proposals of the member company",
+    "date": "Date",
+    "nature": "Subject",
+    "target": "Concerns",
+    "reason": "Reason",
+    "status": "Status",
+    "refusal": "Reason for refusal: {{ motif }}"
+  },
+  "enums": {
+    "statutAffilie": {
+      "Actif": "Active",
+      "Resilie": "Terminated",
+      "Absorbe": "Absorbed",
+      "Scinde": "Split",
+      "Transfere": "Transferred"
+    },
+    "roleContact": {
+      "PersonneDeContact": "Contact person",
+      "ConseillerPreventionInterne": "Internal prevention advisor",
+      "MembreComitePpt": "Member of the prevention and protection committee",
+      "DelegationSyndicale": "Trade union delegation",
+      "PersonneDeConfiance": "Confidential counsellor"
+    },
+    "statutPoste": {
+      "Actif": "Active",
+      "Archive": "Archived"
+    },
+    "niveauExposition": {
+      "Faible": "Low",
+      "Moyen": "Medium",
+      "Eleve": "High"
+    },
+    "typeModification": {
+      "Ajout": "Addition",
+      "Modification": "Change",
+      "Retrait": "Removal"
+    },
+    "typeListe": {
+      "PosteSecurite": "Safety positions",
+      "PosteVigilance": "Vigilance positions",
+      "ActiviteRisqueDefini": "Activities with a defined risk",
+      "ActiviteDenreesAlimentaires": "Food-related activities",
+      "TravailNuit": "Night work"
+    },
+    "statutProposition": {
+      "Soumise": "Submitted",
+      "Validee": "Validated",
+      "Refusee": "Refused"
+    },
+    "natureProposition": {
+      "poste-risque": "Risks of a position",
+      "liste-nominative": "Nominative list"
+    }
   }
 }

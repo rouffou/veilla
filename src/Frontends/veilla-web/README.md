@@ -44,7 +44,7 @@ veilla-web/
     │   ├── public/assets/config.json   # configuration de développement local
     │   ├── public/i18n/{fr,nl,de}.json
     │   └── src/app/{dashboard,search,shortcuts}
-    ├── portail-employeur/        # public/i18n/{fr,nl,de,en}.json, src/app/dashboard (POR-02)
+    ├── portail-employeur/        # public/i18n/{fr,nl,de,en}.json ; src/app/{api,affilie,dashboard,travailleurs,postes,listes,propositions,ui}
     └── portail-travailleur/      # idem + manifest.webmanifest et icône (PWA)
 ```
 
@@ -65,7 +65,7 @@ npm run lint                    # ESLint sur les quatre projets
 npm run build:shared            # paquet de la bibliothèque (facultatif)
 ```
 
-En développement, `ng serve` affiche la page « Connexion impossible » tant qu'aucun fournisseur d'identité n'écoute sur l'`authority` de `public/assets/config.json` (Keycloak local attendu sur `http://localhost:8180/realms/veilla`, voir ADR 0005). Les URL de BFF de ces fichiers (`http://localhost:5100`, `5200`, `5300`) sont provisoires.
+En développement, `ng serve` affiche la page « Connexion impossible » tant qu'aucun fournisseur d'identité n'écoute sur l'`authority` de `public/assets/config.json` (Keycloak local attendu sur `http://localhost:8180/realms/veilla`, voir ADR 0005). Le BFF employeur écoute sur `http://localhost:5200` (`src/Bff/Employeur`) ; les URL `5100` et `5300` (BFF interne et travailleur) sont provisoires.
 
 ## Configuration d'exécution (CTR-05)
 
@@ -114,9 +114,27 @@ Aucune valeur d'environnement n'est compilée : `main.ts` charge `assets/config.
 
 Chaque application a une page d'accueil protégée avec des cartes à **l'état vide** (« Aucune donnée à afficher pour le moment ») : aucune donnée fictive n'est présentée comme réelle.
 
-- Portail employeur (POR-02) : examens dus, en retard, planifiés ; missions en cours ; mesures du plan d'action ; solde d'unités. Pages « à venir » : travailleurs/postes/risques (POR-03), demandes (POR-04), décisions et rapports (POR-05), documents légaux (POR-06).
+- Portail employeur : branché sur le BFF employeur (voir ci-dessous). Pages « à venir » : demandes (POR-04), décisions et rapports (POR-05).
 - Portail travailleur : rendez-vous (POR-11), questionnaires et demande de consultation (POR-12), documents (POR-13).
 - Application interne : agenda du jour, tâches, dossiers récents.
+
+### Portail employeur (Lot 1, §10.1)
+
+Écrans branchés sur le BFF employeur (`src/Bff/Employeur`, client typé `BffEmployeurService`) :
+
+| Route | Écran | Exigences |
+| --- | --- | --- |
+| `/` | tableau de bord : compteurs réels (travailleurs, postes actifs, postes exposés, propositions en attente) et cartes « Bientôt disponible » pour les indicateurs que le BFF déclare à venir | POR-02 |
+| `/affiliation` | fiche de l'affilié : identité, sites, contacts | AFF-01 à AFF-03 |
+| `/travailleurs` | tableau paginé (20 par page) avec recherche (nom, prénom), sans NISS | POR-03 |
+| `/postes`, `/postes/:id/proposition` | postes et risques ; formulaire de proposition (motif, date d'effet, modifications) avec accusé de soumission | POR-03, AFF-14 |
+| `/listes-nominatives`, `…/:id/proposition` | versions des listes, téléchargement CSV, proposition d'ajustement | POR-06, AFF-31 |
+| `/propositions` | état des propositions (soumise, validée, refusée et motif) | POR-03 |
+
+- Sélecteur d'affilié dans l'en-tête quand le jeton porte plusieurs `affilie_id` (choix mémorisé localement).
+- Accessibilité : tableaux avec `caption`, `th scope`, formulaires étiquetés, erreurs reliées par `aria-describedby` et `aria-invalid`, résumé d'erreurs `role="alert"`, accusés `role="status"`, focus déplacé sur l'accusé de soumission, navigation et pagination au clavier.
+- Erreurs du BFF (ProblemDetails) traduites par catégorie (service indisponible, accès refusé, introuvable, validation, réseau) avec bouton « Réessayer ».
+- Écrans secondaires chargés à la demande (`loadComponent`) pour respecter le budget du bundle initial.
 
 ## Conteneurisation (CTR-01 à CTR-07)
 
@@ -143,7 +161,7 @@ docker run --rm -p 8080:8080 \
 ## Limites connues
 
 - Image Docker non construite localement (Docker indisponible au moment de l'écriture) : Dockerfile, configuration nginx et script d'entrée restent à valider en CI (`docker build` + `nginx -t` + test de fumée). Le script d'entrée a été testé hors conteneur.
-- Aucun BFF ni fournisseur d'identité branché : les tableaux de bord sont vides et le parcours de connexion n'a pas été testé de bout en bout (à faire avec le Keycloak local).
+- Portail employeur testé de bout en bout avec le Keycloak local et le BFF (compose). Le realm local ne déclare que la portée `sepp-api` : les portées `profile`, `email` et `offline_access` demandées par défaut sont refusées (`invalid_scope`) ; en local, utiliser `VEILLA_OIDC_SCOPE=openid` ou compléter les portées du realm. Les portail interne et travailleur n'ont pas encore de BFF.
 - Pas de service worker : le portail travailleur a un manifeste et une icône SVG (installable), le mode hors ligne reste à concevoir (`ng add @angular/pwa`).
 - Traductions NL/DE/EN rédigées par l'équipe de développement : relecture par des locuteurs natifs à prévoir.
 - Accessibilité : les bonnes pratiques sont en place mais la conformité EN 301 549 devra être établie par un audit.

@@ -4,19 +4,212 @@
   },
   "nav": {
     "dashboard": "Tableau de bord",
-    "workers": "Travailleurs, postes et risques",
+    "affiliate": "Mon affiliation",
+    "workers": "Travailleurs",
+    "positions": "Postes et risques",
+    "lists": "Listes nominatives",
+    "proposals": "Propositions",
     "requests": "Demandes",
-    "decisions": "Décisions et rapports",
-    "documents": "Documents légaux"
+    "decisions": "Décisions et rapports"
+  },
+  "ui": {
+    "loading": "Chargement en cours…",
+    "retry": "Réessayer",
+    "results": "{{ total }} résultat(s)",
+    "pagination": "Pagination",
+    "previous": "Page précédente",
+    "next": "Page suivante",
+    "pageInfo": "Page {{ page }} sur {{ pages }}"
+  },
+  "errors": {
+    "indisponible": "Ce service est momentanément indisponible. Veuillez réessayer dans quelques instants.",
+    "interdit": "Vous n'avez pas accès à ces informations.",
+    "introuvable": "L'élément demandé est introuvable.",
+    "invalide": "La demande n'a pas pu être acceptée. Vérifiez les informations saisies.",
+    "reseau": "Connexion au serveur impossible. Vérifiez votre connexion Internet.",
+    "inattendue": "Une erreur inattendue est survenue. Veuillez réessayer plus tard."
+  },
+  "form": {
+    "summary": "Le formulaire contient des erreurs :",
+    "required": "Ce champ est obligatoire.",
+    "choose": "— Choisir —"
+  },
+  "affiliate": {
+    "selectorLabel": "Affilié",
+    "none": "Aucun affilié n'est rattaché à votre compte. Contactez votre gestionnaire de dossier.",
+    "title": "Mon affiliation",
+    "bce": "Numéro d'entreprise (BCE)",
+    "legalForm": "Forme juridique",
+    "nace": "Code NACE-BEL",
+    "jointCommittee": "Commission paritaire",
+    "category": "Catégorie tarifaire",
+    "affiliationDate": "Date d'affiliation",
+    "endDate": "Date de fin",
+    "status": "Statut",
+    "sites": "Sites",
+    "noSites": "Aucun site en vigueur.",
+    "sitesCaption": "Sites de l'affilié",
+    "siteName": "Site",
+    "establishmentUnit": "Unité d'établissement",
+    "address": "Adresse",
+    "contacts": "Contacts",
+    "noContacts": "Aucun contact en vigueur.",
+    "contactsCaption": "Contacts de l'affilié",
+    "contactName": "Nom",
+    "contactRole": "Rôle",
+    "contactFunction": "Fonction",
+    "contactEmail": "Courriel",
+    "contactPhone": "Téléphone"
   },
   "dashboard": {
     "title": "Tableau de bord",
-    "intro": "Vue d'ensemble de votre affiliation. Les informations s'afficheront ici dès que le service sera connecté.",
+    "intro": "Vue d'ensemble de votre affiliation. Les indicateurs encore indisponibles apparaîtront au fil de la mise en service.",
+    "workers": "Travailleurs occupés",
+    "activePositions": "Postes actifs",
+    "exposedPositions": "Postes exposés à un risque",
+    "pendingProposals": "Propositions en attente de validation",
     "examsDue": "Examens dus",
     "examsOverdue": "Examens en retard",
     "examsPlanned": "Examens planifiés",
     "missions": "Missions en cours",
     "actionPlan": "Mesures du plan d'action",
-    "unitsBalance": "Solde d'unités de prévention"
+    "unitsBalance": "Solde d'unités de prévention",
+    "comingSoon": "Bientôt disponible.",
+    "unavailable": "Momentanément indisponible."
+  },
+  "workers": {
+    "title": "Travailleurs",
+    "intro": "Travailleurs occupés ou mis à disposition chez l'affilié aujourd'hui.",
+    "search": "Rechercher un travailleur",
+    "searchButton": "Rechercher",
+    "searchHint": "Nom ou prénom, sans tenir compte des accents ni des majuscules.",
+    "empty": "Aucun travailleur ne correspond.",
+    "caption": "Travailleurs de l'affilié",
+    "lastName": "Nom",
+    "firstName": "Prénom",
+    "birthDate": "Date de naissance"
+  },
+  "positions": {
+    "title": "Postes et risques",
+    "intro": "Catalogue de vos postes et risques en vigueur. Une modification se fait par une proposition, validée par le médecin du travail.",
+    "empty": "Aucun poste n'est encore enregistré.",
+    "caption": "Postes de l'affilié et leurs risques",
+    "position": "Poste",
+    "status": "Statut",
+    "risks": "Risques",
+    "actions": "Actions",
+    "exposed": "Exposé",
+    "noRisk": "Aucun risque",
+    "since": "depuis le {{ date }}",
+    "propose": "Proposer une modification"
+  },
+  "proposal": {
+    "title": "Proposition de modification d'un poste",
+    "back": "Retour aux postes et risques",
+    "intro": "Poste : {{ poste }}. La proposition sera examinée par le médecin du travail ; elle n'a aucun effet avant sa validation.",
+    "success": "Votre proposition a bien été transmise au médecin du travail.",
+    "reference": "Référence {{ id }}",
+    "follow": "Suivre mes propositions",
+    "reason": "Motif",
+    "reasonHint": "Décrivez le changement (nouvelle machine, nouveau produit, résultat de l'analyse de risques…).",
+    "effectiveDate": "Date de prise d'effet souhaitée",
+    "lines": "Modifications proposées",
+    "line": "Modification {{ n }}",
+    "lineType": "Type de modification",
+    "risk": "Risque",
+    "exposureLevel": "Niveau d'exposition",
+    "levelRequired": "Le niveau d'exposition est obligatoire pour un ajout ou une modification.",
+    "removeLine": "Retirer la modification",
+    "addLine": "Ajouter une modification",
+    "submit": "Envoyer la proposition",
+    "submitting": "Envoi en cours…",
+    "reasonMissing": "Le motif est obligatoire.",
+    "dateMissing": "La date de prise d'effet est obligatoire.",
+    "riskMissing": "Chaque modification doit indiquer un risque."
+  },
+  "lists": {
+    "title": "Listes nominatives",
+    "intro": "Listes nominatives des travailleurs soumis à la surveillance de la santé, version par version.",
+    "downloaded": "Fichier {{ fichier }} téléchargé.",
+    "empty": "Aucune liste nominative n'a encore été établie.",
+    "caption": "Versions des listes nominatives",
+    "type": "Liste",
+    "version": "Version",
+    "referenceDate": "Date de référence",
+    "generatedOn": "Établie le",
+    "lines": "Travailleurs inscrits",
+    "latest": "En vigueur",
+    "download": "Télécharger (CSV)",
+    "propose": "Proposer un ajustement",
+    "formatNote": "Fichier CSV (séparateur point-virgule, UTF-8) ouvrable dans un tableur. La version PDF sera proposée ultérieurement."
+  },
+  "listProposal": {
+    "title": "Proposition d'ajustement d'une liste nominative",
+    "back": "Retour aux listes nominatives",
+    "intro": "Liste : {{ liste }}, version {{ version }}. L'ajustement sera examiné par le médecin du travail avant toute nouvelle version.",
+    "lines": "Ajustements proposés",
+    "workersLimit": "Seuls les {{ n }} premiers travailleurs (ordre alphabétique) sont proposés.",
+    "worker": "Travailleur",
+    "position": "Poste",
+    "workerMissing": "Chaque ajustement doit indiquer un travailleur.",
+    "positionMissing": "Chaque ajustement doit indiquer un poste."
+  },
+  "proposals": {
+    "title": "Propositions",
+    "intro": "Suivi de vos propositions de modification soumises au médecin du travail.",
+    "empty": "Aucune proposition pour le moment.",
+    "caption": "Propositions de l'affilié",
+    "date": "Date",
+    "nature": "Objet",
+    "target": "Concerne",
+    "reason": "Motif",
+    "status": "État",
+    "refusal": "Motif du refus : {{ motif }}"
+  },
+  "enums": {
+    "statutAffilie": {
+      "Actif": "Actif",
+      "Resilie": "Résilié",
+      "Absorbe": "Absorbé",
+      "Scinde": "Scindé",
+      "Transfere": "Transféré"
+    },
+    "roleContact": {
+      "PersonneDeContact": "Personne de contact",
+      "ConseillerPreventionInterne": "Conseiller en prévention interne",
+      "MembreComitePpt": "Membre du Comité PPT",
+      "DelegationSyndicale": "Délégation syndicale",
+      "PersonneDeConfiance": "Personne de confiance"
+    },
+    "statutPoste": {
+      "Actif": "Actif",
+      "Archive": "Archivé"
+    },
+    "niveauExposition": {
+      "Faible": "Faible",
+      "Moyen": "Moyen",
+      "Eleve": "Élevé"
+    },
+    "typeModification": {
+      "Ajout": "Ajout",
+      "Modification": "Modification",
+      "Retrait": "Retrait"
+    },
+    "typeListe": {
+      "PosteSecurite": "Postes de sécurité",
+      "PosteVigilance": "Postes de vigilance",
+      "ActiviteRisqueDefini": "Activités à risque défini",
+      "ActiviteDenreesAlimentaires": "Activités liées aux denrées alimentaires",
+      "TravailNuit": "Travail de nuit"
+    },
+    "statutProposition": {
+      "Soumise": "Soumise",
+      "Validee": "Validée",
+      "Refusee": "Refusée"
+    },
+    "natureProposition": {
+      "poste-risque": "Risques d'un poste",
+      "liste-nominative": "Liste nominative"
+    }
   }
 }
