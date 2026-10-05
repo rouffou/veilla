@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Sepp.SurveillanceMedicale</AssemblyName>
+    <RootNamespace>Sepp.SurveillanceMedicale.Infrastructure</RootNamespace>
+    <UserSecretsId>sepp-surveillance-medicale</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.SurveillanceMedicale.Adapters\Sepp.SurveillanceMedicale.Adapters.csproj" />
+  </ItemGroup>
+</Project>
