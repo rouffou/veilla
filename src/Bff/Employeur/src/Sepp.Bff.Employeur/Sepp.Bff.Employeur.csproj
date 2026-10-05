@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!--
+    BFF du portail employeur (ARC-43) : agrégation orientée écran, sans logique métier ni base de données.
+    Il ne référence aucun projet de service (vérifié par un test d'architecture) : les contrats HTTP des
+    services aval sont recopiés localement (Aval/ContratsAval.cs).
+  -->
+  <PropertyGroup>
+    <AssemblyName>Sepp.Bff.Employeur</AssemblyName>
+    <RootNamespace>Sepp.Bff.Employeur</RootNamespace>
+    <UserSecretsId>sepp-bff-employeur</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\BuildingBlocks\Sepp.BuildingBlocks.Web\Sepp.BuildingBlocks.Web.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sepp.Bff.Employeur.Tests" />
+    <InternalsVisibleTo Include="Sepp.Bff.Employeur.Integration.Tests" />
+  </ItemGroup>
+</Project>

@@ -13,6 +13,7 @@ docker compose -f deploy/local/compose.yaml up -d --build
 | Service Personnes et occupations | http://localhost:5112 | idem ; clés de chiffrement de développement uniquement |
 | Service Postes et risques | http://localhost:5113 | idem |
 | Service Audit | http://localhost:5114 | idem |
+| BFF employeur | http://localhost:5200 | API du portail employeur ; voir [src/Bff/Employeur/README.md](../../src/Bff/Employeur/README.md) |
 | Application interne | http://localhost:8081 | |
 | Portail employeur | http://localhost:8082 | |
 | Portail travailleur | http://localhost:8083 | |

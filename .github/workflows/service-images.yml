@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - "src/Services/**"
+      - "src/Bff/**"
       - "src/BuildingBlocks/**"
       - "src/Contracts/**"
       - "src/Frontends/veilla-web/**"
@@ -22,6 +23,7 @@ on:
   pull_request:
     paths:
       - "src/Services/**"
+      - "src/Bff/**"
       - "src/BuildingBlocks/**"
       - "src/Contracts/**"
       - "src/Frontends/veilla-web/**"
@@ -101,6 +103,13 @@ jobs:
                 "dockerfile": "src/Services/PostesRisques/Dockerfile",
                 "build_args": "",
                 "paths": "src/Services/PostesRisques/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
+              },
+              {
+                "name": "bff-employeur",
+                "context": ".",
+                "dockerfile": "src/Bff/Employeur/Dockerfile",
+                "build_args": "",
+                "paths": "src/Bff/Employeur/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
               },
               {
                 "name": "app-interne",

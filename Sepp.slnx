@@ -1,5 +1,14 @@
 <Solution>
   <Folder Name="/src/" />
+  <Folder Name="/src/Bff/" />
+  <Folder Name="/src/Bff/Employeur/" />
+  <Folder Name="/src/Bff/Employeur/src/">
+    <Project Path="src/Bff/Employeur/src/Sepp.Bff.Employeur/Sepp.Bff.Employeur.csproj" />
+  </Folder>
+  <Folder Name="/src/Bff/Employeur/tests/">
+    <Project Path="src/Bff/Employeur/tests/Sepp.Bff.Employeur.Integration.Tests/Sepp.Bff.Employeur.Integration.Tests.csproj" />
+    <Project Path="src/Bff/Employeur/tests/Sepp.Bff.Employeur.Tests/Sepp.Bff.Employeur.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/Sepp.BuildingBlocks.Application/Sepp.BuildingBlocks.Application.csproj" />
     <Project Path="src/BuildingBlocks/Sepp.BuildingBlocks.Domain/Sepp.BuildingBlocks.Domain.csproj" />
