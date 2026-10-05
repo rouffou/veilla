@@ -19,6 +19,7 @@ Règles :
 | affilies | `affilies.operation-affilie-modifiee.v1` | OperationAffilieModifiee | OperationId, AffilieId, TypeOperation, Statut, DateEffet, AffilieAbsorbantId, AffiliesBeneficiaires, SeppContrepartie | Surveillance médicale (transfert des dossiers, SAN-42), Postes et risques, Prestations, Reporting (AFF-06) |
 | bff-employeur | `bff-employeur.reprise-annoncee.v1` | RepriseAnnoncee | PersonneId, AffilieId, DateReprise, DebutAbsence | Réintégration, Obligations |
 | documents | `documents.document-publie.v1` | DocumentPublie | DocumentId, Zone, TypeDestinataire, DestinataireId, CodeModele | Communications |
+| integrations | `integrations.donnees-bce-recues.v1` | DonneesBceRecues | NumeroBce, AffilieId, Denomination, FormeJuridique, CodeNace, NumerosUnitesEtablissement, DateExtraction | Affiliés (consommateur à écrire, voir note ci-dessous) |
 | integrations | `integrations.incapacite-notifiee.v1` | IncapaciteNotifiee | IncapaciteId, PersonneId, AffilieId, DateDebut, Source | Réintégration, Obligations |
 | obligations | `obligations.obligation-creee.v1` | ObligationCreee | ObligationId, PersonneId, AffilieId, TypeExamen, DateDue, DateLimite | Planification, BFF, Reporting |
 | obligations | `obligations.obligation-echue.v1` | ObligationEchue | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Planification, BFF, Reporting |
@@ -61,3 +62,12 @@ Publié à la création, à la clôture et au changement d'une affectation. `Dat
 ### `personnes.occupation-debutee.v1` / `personnes.occupation-terminee.v1` (AFF-20, AFF-23)
 
 `AffilieId` est l'employeur déclarant (pour un intérimaire : l'agence d'intérim). L'entreprise utilisatrice est connue par les affectations aux postes, qui appartiennent à son catalogue. `DateFin` est le dernier jour d'occupation (inclus, comme DIMONA).
+
+### `integrations.donnees-bce-recues.v1` (§12, AFF-01, AFF-02)
+
+Publié par le service Intégrations quand une consultation de la BCE renvoie des données d'entreprise différentes de la précédente réception (première réception comprise) ; une consultation inchangée ne publie rien. Ce sont des données d'entreprise publiques, pas des données personnelles :
+
+- `NumeroBce` et `NumerosUnitesEtablissement` sous leur forme canonique à dix chiffres ;
+- `AffilieId` est renseigné si le numéro BCE correspond à un affilié connu (table `correspondance_identifiant` du service Intégrations, alimentée par `affilies.affilie-cree` / `affilies.affilie-modifie`), sinon `null` ;
+- les adresses et dénominations des unités d'établissement ne voyagent pas dans l'événement (ARC-06 : identifiants, dates, statuts et catégories) ; le consommateur les lit par `GET /api/v1/bce/entreprises/{numeroBce}` du service Intégrations ;
+- **consommateur à écrire côté Affiliés** : gestionnaire idempotent qui met à jour la fiche (dénomination, forme juridique, NACE) et les unités d'établissement de l'affilié, en passant par l'historique AFF-05 sous l'identité technique du service.

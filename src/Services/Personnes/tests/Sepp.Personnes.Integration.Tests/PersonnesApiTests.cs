@@ -227,6 +227,32 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task Le_compte_technique_integrations_alimente_dimona_sans_lire_les_fiches()
+    {
+        var integrations = fixture.Client(Roles.Integrations);
+        var reference = $"DIM{Guid.CreateVersion7():N}"[..20];
+        var entree = new
+        {
+            referenceDimona = reference,
+            niss = NouveauNiss(),
+            identite = Identite(),
+            affilieId = _affilie,
+            typeTravailleur = "Salarie",
+            typeContrat = "DureeIndeterminee",
+            dateDebut = "2026-09-01",
+        };
+
+        var reponse = await integrations.PostAsJsonAsync("/api/v1/dimona/entrees", entree, _ct);
+        reponse.StatusCode.ShouldBe(HttpStatusCode.OK, await reponse.Content.ReadAsStringAsync(_ct));
+        var enregistree = (await reponse.Content.ReadFromJsonAsync<DimonaEnregistreeDto>(Json, _ct))!;
+        (await integrations.PostAsJsonAsync($"/api/v1/dimona/{reference}/sortie", new { dateFin = "2026-12-31" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        // Rôle technique limité à l'écriture DIMONA : aucune lecture des fiches des travailleurs.
+        (await integrations.GetAsync($"/api/v1/personnes/{enregistree.PersonneId}", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await integrations.PostAsJsonAsync("/api/v1/personnes/recherche", new { niss = entree.niss }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task L_import_csv_produit_un_rapport_ligne_par_ligne()
     {
         var existant = NouveauNiss();
