@@ -220,9 +220,12 @@ services:
       Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
       Authentication__ValidIssuer: http://localhost:8180/realms/veilla
       Authentication__RequireHttpsMetadata: "false"
-      # Appels internes vers Personnes (AFF-20) ; le secret du compte technique n'est pas versionné (voir README du service).
+      # Appels internes vers Personnes (AFF-20) avec le compte technique du realm local (secret de développement uniquement ;
+      # hors poste de développement, le secret vient de Key Vault).
       Integrations__Personnes__BaseAddress: http://personnes:8080/
       Integrations__Personnes__TokenEndpoint: http://keycloak:8080/realms/veilla/protocol/openid-connect/token
+      Integrations__Personnes__ClientId: veilla-integrations
+      Integrations__Personnes__ClientSecret: integrations-local-dev
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
     ports:
       - "5115:8080"

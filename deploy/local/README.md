@@ -13,6 +13,7 @@ docker compose -f deploy/local/compose.yaml up -d --build
 | Service Personnes et occupations | http://localhost:5112 | idem ; clés de chiffrement de développement uniquement |
 | Service Postes et risques | http://localhost:5113 | idem |
 | Service Audit | http://localhost:5114 | idem |
+| Service Intégrations | http://localhost:5115 | simulateurs BCE, DIMONA, registre national ; flux lancés par `POST /api/v1/flux/{flux}/executions` |
 | BFF employeur | http://localhost:5200 | API du portail employeur ; voir [src/Bff/Employeur/README.md](../../src/Bff/Employeur/README.md) |
 | Application interne | http://localhost:8081 | |
 | Portail employeur | http://localhost:8082 | |
@@ -51,3 +52,13 @@ Sans configuration de bus, l'outbox publie en mémoire (ADR 0004). L'émulateur 
 docker compose -f deploy/local/compose.yaml up -d postgres keycloak otel-dashboard
 dotnet run --project src/Services/Referentiels/src/Sepp.Referentiels.Infrastructure
 ```
+
+## Comptes techniques
+
+Le client confidentiel `veilla-integrations` (identifiants client, rôle `integrations`, audience `sepp-api`) permet au service Intégrations d'appeler l'API DIMONA de Personnes. Son secret de développement est défini dans le realm local et repris dans `compose.yaml` ; hors poste de développement, il vient de Key Vault.
+
+Pour tester le flux DIMONA en local : associer un numéro BCE à un affilié (`PUT /api/v1/correspondances`, utilisateur `gestionnaire`), puis lancer `POST /api/v1/flux/dimona/executions`. Le simulateur produit deux entrées et une sortie pour cet employeur, et une entrée rejetée pour un employeur non affilié.
+
+## Portées OIDC
+
+Le realm déclare les portées `profile`, `email`, `offline_access` (rôle `offline_access` donné aux utilisateurs de test) et `sepp-api` : les portails demandent `openid profile email offline_access`.

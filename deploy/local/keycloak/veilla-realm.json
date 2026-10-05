@@ -67,6 +67,12 @@
       },
       {
         "name": "travailleur"
+      },
+      {
+        "name": "offline_access"
+      },
+      {
+        "name": "integrations"
       }
     ]
   },
@@ -116,6 +122,99 @@
           }
         }
       ]
+    },
+    {
+      "name": "profile",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "given name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "firstName",
+            "claim.name": "given_name",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "family name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "lastName",
+            "claim.name": "family_name",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "offline_access",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
     }
   ],
   "clients": [
@@ -140,9 +239,7 @@
         "post.logout.redirect.uris": "http://localhost:4200/*##http://localhost:8081/*"
       },
       "defaultClientScopes": [
-        "web-origins",
         "profile",
-        "roles",
         "email",
         "sepp-api"
       ],
@@ -171,9 +268,7 @@
         "post.logout.redirect.uris": "http://localhost:4201/*##http://localhost:8082/*"
       },
       "defaultClientScopes": [
-        "web-origins",
         "profile",
-        "roles",
         "email",
         "sepp-api"
       ],
@@ -202,9 +297,7 @@
         "post.logout.redirect.uris": "http://localhost:4202/*##http://localhost:8083/*"
       },
       "defaultClientScopes": [
-        "web-origins",
         "profile",
-        "roles",
         "email",
         "sepp-api"
       ],
@@ -221,8 +314,24 @@
       "directAccessGrantsEnabled": true,
       "defaultClientScopes": [
         "profile",
-        "roles",
         "email",
+        "sepp-api"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "veilla-integrations",
+      "name": "Service Intégrations (compte technique, développement local)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "integrations-local-dev",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "defaultClientScopes": [
         "sepp-api"
       ]
     }
@@ -243,7 +352,8 @@
         }
       ],
       "realmRoles": [
-        "cpmt"
+        "cpmt",
+        "offline_access"
       ]
     },
     {
@@ -262,7 +372,8 @@
       ],
       "realmRoles": [
         "cpmt",
-        "cpmt-dirigeant"
+        "cpmt-dirigeant",
+        "offline_access"
       ]
     },
     {
@@ -280,7 +391,8 @@
         }
       ],
       "realmRoles": [
-        "infirmier"
+        "infirmier",
+        "offline_access"
       ]
     },
     {
@@ -298,7 +410,8 @@
         }
       ],
       "realmRoles": [
-        "cpap"
+        "cpap",
+        "offline_access"
       ]
     },
     {
@@ -316,7 +429,8 @@
         }
       ],
       "realmRoles": [
-        "cp-securite"
+        "cp-securite",
+        "offline_access"
       ]
     },
     {
@@ -334,7 +448,8 @@
         }
       ],
       "realmRoles": [
-        "gestionnaire"
+        "gestionnaire",
+        "offline_access"
       ]
     },
     {
@@ -352,7 +467,8 @@
         }
       ],
       "realmRoles": [
-        "planificateur"
+        "planificateur",
+        "offline_access"
       ]
     },
     {
@@ -370,7 +486,8 @@
         }
       ],
       "realmRoles": [
-        "admin-fonctionnel"
+        "admin-fonctionnel",
+        "offline_access"
       ]
     },
     {
@@ -388,7 +505,8 @@
         }
       ],
       "realmRoles": [
-        "dpo"
+        "dpo",
+        "offline_access"
       ]
     },
     {
@@ -406,7 +524,8 @@
         }
       ],
       "realmRoles": [
-        "employeur"
+        "employeur",
+        "offline_access"
       ],
       "attributes": {
         "affilie_id": [
@@ -429,7 +548,16 @@
         }
       ],
       "realmRoles": [
-        "travailleur"
+        "travailleur",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "service-account-veilla-integrations",
+      "enabled": true,
+      "serviceAccountClientId": "veilla-integrations",
+      "realmRoles": [
+        "integrations"
       ]
     }
   ],
@@ -445,5 +573,14 @@
         }
       }
     ]
+  },
+  "defaultRole": {
+    "name": "default-roles-veilla",
+    "composite": true,
+    "composites": {
+      "realm": [
+        "offline_access"
+      ]
+    }
   }
 }

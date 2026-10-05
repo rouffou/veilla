@@ -124,7 +124,7 @@ public sealed class SimulateurDimona(ICorrespondanceRepository correspondances) 
             declarations.AddRange(Declarations(employeur));
         }
 
-        declarations.Add(new DeclarationDimona($"SIM-{EmployeurNonAffilie}-01", TypeDeclarationDimona.Entree,
+        declarations.Add(new DeclarationDimona($"SIM{EmployeurNonAffilie}01", TypeDeclarationDimona.Entree,
             DonneesFictives.Niss(DonneesFictives.Graine(EmployeurNonAffilie)), EmployeurNonAffilie, null,
             TypeTravailleur.Salarie, TypeContrat.DureeIndeterminee, new DateOnly(2026, 1, 5), null));
         return new LotFlux<DeclarationDimona>(declarations, PositionApresLot);
@@ -136,11 +136,11 @@ public sealed class SimulateurDimona(ICorrespondanceRepository correspondances) 
         var graine = DonneesFictives.Graine(numeroBceEmployeur) * 10;
         return
         [
-            new($"SIM-{numeroBceEmployeur}-01", TypeDeclarationDimona.Entree, DonneesFictives.Niss(graine + 1), numeroBceEmployeur, null,
+            new($"SIM{numeroBceEmployeur}01", TypeDeclarationDimona.Entree, DonneesFictives.Niss(graine + 1), numeroBceEmployeur, null,
                 TypeTravailleur.Salarie, TypeContrat.DureeIndeterminee, new DateOnly(2026, 1, 5), null),
-            new($"SIM-{numeroBceEmployeur}-02", TypeDeclarationDimona.Entree, DonneesFictives.Niss(graine + 2), numeroBceEmployeur, null,
+            new($"SIM{numeroBceEmployeur}02", TypeDeclarationDimona.Entree, DonneesFictives.Niss(graine + 2), numeroBceEmployeur, null,
                 TypeTravailleur.Etudiant, TypeContrat.Etudiant, new DateOnly(2026, 7, 1), new DateOnly(2026, 8, 31)),
-            new($"SIM-{numeroBceEmployeur}-01", TypeDeclarationDimona.Sortie, DonneesFictives.Niss(graine + 1), numeroBceEmployeur, null,
+            new($"SIM{numeroBceEmployeur}01", TypeDeclarationDimona.Sortie, DonneesFictives.Niss(graine + 1), numeroBceEmployeur, null,
                 TypeTravailleur.Salarie, TypeContrat.DureeIndeterminee, new DateOnly(2026, 1, 5), new DateOnly(2026, 6, 30)),
         ];
     }

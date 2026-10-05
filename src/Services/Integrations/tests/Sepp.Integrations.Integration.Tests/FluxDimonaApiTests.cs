@@ -101,11 +101,19 @@ public sealed class FluxDimonaApiTests(IntegrationsApiFixture fixture) : IClassF
             racine.GetProperty("identite").GetProperty("nom").GetString()!.ShouldStartWith("Simule-");
         }
 
-        appels.ShouldContain(a => a.Chemin == $"/api/v1/dimona/SIM-{Employeur}-01/sortie" && a.Corps.Contains("2026-06-30"));
+        appels.ShouldContain(a => a.Chemin == $"/api/v1/dimona/SIM{Employeur}01/sortie" && a.Corps.Contains("2026-06-30"));
+
+        // Contrat avec Personnes : la référence DIMONA est alphanumérique, 50 caractères au plus (constaté en bout en bout).
+        foreach (var entree in appels.Where(a => a.Chemin == "/api/v1/dimona/entrees"))
+        {
+            using var corps = JsonDocument.Parse(entree.Corps);
+            var reference = corps.RootElement.GetProperty("referenceDimona").GetString()!;
+            (reference.Length <= 50 && reference.All(char.IsAsciiLetterOrDigit)).ShouldBeTrue($"Référence DIMONA refusée par Personnes : {reference}");
+        }
 
         // 5. Correspondances référence DIMONA ↔ occupation, sans NISS.
         var correspondances = await Gestionnaire.GetFromJsonAsync<List<CorrespondanceDto>>("/api/v1/correspondances?type=ReferenceDimona", Json, _ct);
-        correspondances!.Select(c => c.ValeurExterne).ShouldBe([$"SIM-{Employeur}-01", $"SIM-{Employeur}-02"], ignoreOrder: true);
+        correspondances!.Select(c => c.ValeurExterne).ShouldBe([$"SIM{Employeur}01", $"SIM{Employeur}02"], ignoreOrder: true);
 
         // 6. SQL brut : la charge utile n'existe que chiffrée ; aucune ligne d'aucune table ne contient un NISS.
         await using var connexion = new NpgsqlConnection(fixture.ConnectionString);
