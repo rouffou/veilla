@@ -45,6 +45,19 @@
     <Project Path="src/Services/Audit/tests/Sepp.Audit.Domain.Tests/Sepp.Audit.Domain.Tests.csproj" />
     <Project Path="src/Services/Audit/tests/Sepp.Audit.Integration.Tests/Sepp.Audit.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Communications/" />
+  <Folder Name="/src/Services/Communications/src/">
+    <Project Path="src/Services/Communications/src/Sepp.Communications.Adapters/Sepp.Communications.Adapters.csproj" />
+    <Project Path="src/Services/Communications/src/Sepp.Communications.Application/Sepp.Communications.Application.csproj" />
+    <Project Path="src/Services/Communications/src/Sepp.Communications.Domain/Sepp.Communications.Domain.csproj" />
+    <Project Path="src/Services/Communications/src/Sepp.Communications.Infrastructure/Sepp.Communications.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Communications/tests/">
+    <Project Path="src/Services/Communications/tests/Sepp.Communications.Application.Tests/Sepp.Communications.Application.Tests.csproj" />
+    <Project Path="src/Services/Communications/tests/Sepp.Communications.Architecture.Tests/Sepp.Communications.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Communications/tests/Sepp.Communications.Domain.Tests/Sepp.Communications.Domain.Tests.csproj" />
+    <Project Path="src/Services/Communications/tests/Sepp.Communications.Integration.Tests/Sepp.Communications.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Documents/" />
   <Folder Name="/src/Services/Documents/src/">
     <Project Path="src/Services/Documents/src/Sepp.Documents.Adapters/Sepp.Documents.Adapters.csproj" />

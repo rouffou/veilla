@@ -32,7 +32,7 @@ Règles :
 | planification | `planification.rappel-rendez-vous-du.v1` | RappelRendezVousDu | RendezVousId, PersonneId, AffilieId, LieuId, Debut, Canal, NumeroRappel | Communications (SAN-13) |
 | planification | `planification.rendez-vous-annule.v1` | RendezVousAnnule | RendezVousId, PersonneId, Motif | Communications, Obligations |
 | planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Communications, Obligations |
-| planification | `planification.rendez-vous-replanifie.v1` | RendezVousReplanifie | RendezVousId, PersonneId, AffilieId, AncienDebut, NouveauDebut, Motif | Communications (PLA-07) |
+| planification | `planification.rendez-vous-replanifie.v1` | RendezVousReplanifie | RendezVousId, PersonneId, AffilieId, AncienDebut, NouveauDebut, Motif | Aucun consommateur identifié (Communications est averti par ConvocationEmise de type Replanification, PLA-07) |
 | planification | `planification.urgence-non-couverte.v1` | UrgenceNonCouverte | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Planification (alerte au planificateur, PLA-06) |
 | postes-risques | `postes-risques.profil-risque-poste-modifie.v1` | ProfilRisquePosteModifie | PosteId, AffilieId, CodesRisques, ValideDu | Obligations, Reporting |
 | postes-risques | `postes-risques.regle-surveillance-modifiee.v1` | RegleSurveillanceModifiee | RisqueId, CodeRisque, Categorie, Version, TypeSurveillance, FrequenceMois, SurveillanceProlongee, ValideDu | Obligations (SAN-01) |

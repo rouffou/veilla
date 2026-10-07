@@ -126,6 +126,13 @@ jobs:
                 "paths": "src/Services/Documents/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
               },
               {
+                "name": "communications",
+                "context": ".",
+                "dockerfile": "src/Services/Communications/Dockerfile",
+                "build_args": "",
+                "paths": "src/Services/Communications/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
+              },
+              {
                 "name": "app-interne",
                 "context": "src/Frontends/veilla-web",
                 "dockerfile": "src/Frontends/veilla-web/Dockerfile",
