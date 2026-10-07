@@ -29,13 +29,14 @@ Règles :
 | personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Obligations, Planification, Reporting |
 | planification | `planification.rendez-vous-annule.v1` | RendezVousAnnule | RendezVousId, PersonneId, Motif | Communications, Obligations |
 | planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Communications, Obligations |
+| postes-risques | `postes-risques.liste-nominative-generee.v1` | ListeNominativeGeneree | ListeNominativeId, AffilieId, TypeListe, Version, DateReference, DateGeneration | Obligations (alerte de revue des listes, AFF-32) |
 | postes-risques | `postes-risques.profil-risque-poste-modifie.v1` | ProfilRisquePosteModifie | PosteId, AffilieId, CodesRisques, ValideDu | Obligations, Reporting |
 | postes-risques | `postes-risques.regle-surveillance-modifiee.v1` | RegleSurveillanceModifiee | RisqueId, CodeRisque, Categorie, Version, TypeSurveillance, FrequenceMois, SurveillanceProlongee, ValideDu | Obligations (SAN-01) |
 | postes-risques | `postes-risques.surcharge-frequence-definie.v1` | SurchargeFrequenceDefinie | SurchargeId, AffilieId, CibleType, CibleId, CodeRisque, FrequenceMois, ValideDu, ValideJusquAu | Obligations (SAN-01) |
 | prestations | `prestations.prestation-enregistree.v1` | PrestationEnregistree | PrestationId, AffilieId, Discipline, TypePrestation, Unites, Date | Reporting, Intégrations |
 | prevention | `prevention.mesurage-enregistre.v1` | MesurageEnregistre | MesurageId, GroupeExpositionId, AffilieId, Agent, Niveau, Date | Surveillance médicale, Reporting |
 | prevention | `prevention.mesure-prevention-creee.v1` | MesurePreventionCreee | MesureId, AffilieId, SourceType, Echeance | Reporting, BFF employeur |
-| referentiels | `referentiels.jours-feries-modifies.v1` | JoursFeriesModifies | Annee | Services calculant des délais légaux (DAT-08) |
+| referentiels | `referentiels.jours-feries-modifies.v1` | JoursFeriesModifies | Annee, JoursSupplementaires | Obligations (délais en jours ouvrables, DAT-08), services calculant des délais légaux |
 | referentiels | `referentiels.nomenclature-modifiee.v1` | NomenclatureModifiee | NomenclatureId, Code, Version | Services utilisant la nomenclature |
 | referentiels | `referentiels.parametre-legal-modifie.v1` | ParametreLegalModifie | Code, Valeur, Unite, ValideDu, ValideJusquAu | Tous les services (politiques légales, ARC-21) |
 | reintegration | `reintegration.trajet-demarre.v1` | TrajetDemarre | TrajetId, PersonneId, AffilieId, Initiateur, DateDemande | Intégrations, Prestations |
@@ -71,3 +72,15 @@ Publié par le service Intégrations quand une consultation de la BCE renvoie de
 - `AffilieId` est renseigné si le numéro BCE correspond à un affilié connu (table `correspondance_identifiant` du service Intégrations, alimentée par `affilies.affilie-cree` / `affilies.affilie-modifie`), sinon `null` ;
 - les adresses et dénominations des unités d'établissement ne voyagent pas dans l'événement (ARC-06 : identifiants, dates, statuts et catégories) ; le consommateur les lit par `GET /api/v1/bce/entreprises/{numeroBce}` du service Intégrations ;
 - **consommateur à écrire côté Affiliés** : gestionnaire idempotent qui met à jour la fiche (dénomination, forme juridique, NACE) et les unités d'établissement de l'affilié, en passant par l'historique AFF-05 sous l'identité technique du service.
+
+### `referentiels.jours-feries-modifies.v1` (DAT-08, ARC-34)
+
+`JoursSupplementaires` est l'**état complet** des jours fériés supplémentaires de l'année (jours de remplacement, fêtes des Communautés), en plus des dix jours fériés légaux que chaque service calcule (`BelgianPublicHolidays`). Les services qui calculent des délais en jours ouvrables (Obligations) tiennent ainsi leur calendrier à jour sans appel synchrone. Champ ajouté de façon compatible : facultatif (`null` pour un producteur antérieur, ignoré par le consommateur), il ne change pas la version du contrat.
+
+### `postes-risques.liste-nominative-generee.v1` (AFF-30, AFF-31, AFF-32)
+
+Publié par Postes et risques à chaque nouvelle version d'une liste nominative (génération ou validation d'une proposition de modification par le CPMT). Le service Obligations n'en retient que la dernière version par type de liste pour l'alerte « liste non revue depuis 12 mois » (paramètre légal `SANTE.LISTES_NOMINATIVES.REVUE_ALERTE`). Le contenu de la liste (travailleurs, postes) ne voyage pas.
+
+### `obligations.*` (SAN-01, SAN-04)
+
+`TypeExamen` porte le code du type d'obligation, même vocabulaire que `surveillance-medicale.examen-cloture.v1` : `EVALUATION_PREALABLE`, `EVALUATION_PERIODIQUE`, `ACTES_MEDICAUX_SUPPLEMENTAIRES`, `EXAMEN_REPRISE`, `VISITE_PRE_REPRISE`, `CONSULTATION_SPONTANEE`, `PROTECTION_MATERNITE`, `SURVEILLANCE_PROLONGEE`, `ESTIMATION_POTENTIEL_TRAVAIL`, `EVALUATION_REINTEGRATION`. `ObligationCreee` est publié à la création d'une obligation et quand elle redevient due après avoir été annulée par un recalcul ; `ObligationEchue` une seule fois par dépassement de la date limite (une nouvelle date limite après recalcul permet un nouveau signalement). Les types `PROTECTION_MATERNITE`, `CONSULTATION_SPONTANEE` et `VISITE_PRE_REPRISE` révèlent une démarche ou un état du travailleur : leurs consommateurs externes à l'équipe de surveillance (portail employeur, SIPP) ne doivent pas les afficher.

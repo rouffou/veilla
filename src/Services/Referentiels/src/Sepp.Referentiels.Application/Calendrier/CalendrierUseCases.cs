@@ -84,7 +84,7 @@ public sealed class AjouterJourFerieHandler(
             return Error.Validation("calendrier.jour-invalide", ex.Message);
         }
 
-        outbox.Add(new JoursFeriesModifies(command.Date.Year));
+        outbox.Add(new JoursFeriesModifies(command.Date.Year, calendrier.JoursSupplementaires.Select(j => j.Date).Order().ToList()));
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }

@@ -20,7 +20,7 @@ public partial class ContractRulesTests
     [
         typeof(Guid), typeof(Guid?), typeof(DateOnly), typeof(DateOnly?), typeof(DateTimeOffset), typeof(DateTimeOffset?),
         typeof(string), typeof(int), typeof(int?), typeof(decimal), typeof(decimal?), typeof(bool),
-        typeof(IReadOnlyList<string>), typeof(IReadOnlyList<Guid>),
+        typeof(IReadOnlyList<string>), typeof(IReadOnlyList<Guid>), typeof(IReadOnlyList<DateOnly>),
     ];
 
     /// <summary>Termes qui trahiraient un contenu clinique, psychosocial ou une donnée d'identité.</summary>

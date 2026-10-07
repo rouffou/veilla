@@ -29,3 +29,16 @@ public sealed record SurchargeFrequenceDefinie(
     int FrequenceMois,
     DateOnly ValideDu,
     DateOnly? ValideJusquAu) : IntegrationEvent;
+
+/// <summary>
+/// Nouvelle version d'une liste nominative générée ou revue (AFF-30, AFF-31) : consommée par Obligations pour l'alerte
+/// « liste non revue depuis 12 mois » (AFF-32). Identifiants, type de liste, version et dates uniquement (ARC-06).
+/// </summary>
+[EventContract("postes-risques.liste-nominative-generee", 1)]
+public sealed record ListeNominativeGeneree(
+    Guid ListeNominativeId,
+    Guid AffilieId,
+    string TypeListe,
+    int Version,
+    DateOnly DateReference,
+    DateOnly DateGeneration) : IntegrationEvent;
