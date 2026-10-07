@@ -8,3 +8,5 @@ CREATE DATABASE integrations;
 CREATE DATABASE surveillance_medicale;
 CREATE DATABASE planification;
 CREATE DATABASE obligations;
+CREATE DATABASE documents;
+CREATE DATABASE communications;

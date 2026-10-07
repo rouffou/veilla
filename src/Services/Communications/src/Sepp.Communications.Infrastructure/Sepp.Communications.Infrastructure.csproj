@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Sepp.Communications</AssemblyName>
+    <RootNamespace>Sepp.Communications.Infrastructure</RootNamespace>
+    <UserSecretsId>sepp-communications</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.Communications.Adapters\Sepp.Communications.Adapters.csproj" />
+  </ItemGroup>
+</Project>
