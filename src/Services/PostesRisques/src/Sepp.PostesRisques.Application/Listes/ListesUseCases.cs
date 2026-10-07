@@ -94,6 +94,7 @@ public sealed class GenererListeNominativeHandler(
     IListeNominativeRepository listes,
     PolitiqueConservationListes conservation,
     IUnitOfWork unitOfWork,
+    IIntegrationEventOutbox outbox,
     ICurrentUser currentUser,
     IPerimetreAffilies perimetre,
     TimeProvider clock) : ICommandHandler<GenererListeNominative, ListeGenereeDto>
@@ -117,6 +118,7 @@ public sealed class GenererListeNominativeHandler(
             await conservation.AnneesAsync(DateOnly.FromDateTime(maintenant.UtcDateTime), cancellationToken),
             lignes);
         listes.Add(liste);
+        PublicationListes.Publier(outbox, liste);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return new ListeGenereeDto(liste.Id, liste.Version, liste.Lignes.Count);
     }
@@ -202,4 +204,15 @@ public sealed class AssocierDocumentListeHandler(
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }
+}
+
+/// <summary>
+/// Publie la nouvelle version d'une liste nominative (AFF-30, AFF-31) : le service Obligations s'en sert pour l'alerte
+/// « liste non revue depuis 12 mois » (AFF-32). Identifiants, type, version et dates uniquement (ARC-06).
+/// </summary>
+internal static class PublicationListes
+{
+    public static void Publier(IIntegrationEventOutbox outbox, ListeNominative liste) =>
+        outbox.Add(new Sepp.Contracts.PostesRisques.ListeNominativeGeneree(
+            liste.Id, liste.AffilieId, liste.Type.ToString(), liste.Version, liste.DateReference, DateOnly.FromDateTime(liste.DateGeneration.UtcDateTime)));
 }

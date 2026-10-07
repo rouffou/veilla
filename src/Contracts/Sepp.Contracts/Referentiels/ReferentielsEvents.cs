@@ -16,6 +16,12 @@ public sealed record NomenclatureModifiee(
     string Code,
     int Version) : IntegrationEvent;
 
-/// <summary>Le calendrier des jours fériés d'une année a été modifié (DAT-08).</summary>
+/// <summary>
+/// Le calendrier des jours fériés d'une année a été modifié (DAT-08). <c>JoursSupplementaires</c> est l'état complet des
+/// jours fériés supplémentaires de l'année (jours de remplacement, fêtes des Communautés), en plus des dix jours fériés
+/// légaux que chaque service calcule : les services qui calculent des délais en jours ouvrables (Obligations) tiennent
+/// ainsi leur calendrier à jour sans appel synchrone. Champ ajouté de façon compatible (ARC-34) : facultatif, <c>null</c>
+/// pour un producteur antérieur, ignoré par les consommateurs antérieurs.
+/// </summary>
 [EventContract("referentiels.jours-feries-modifies", 1)]
-public sealed record JoursFeriesModifies(int Annee) : IntegrationEvent;
+public sealed record JoursFeriesModifies(int Annee, IReadOnlyList<DateOnly>? JoursSupplementaires = null) : IntegrationEvent;

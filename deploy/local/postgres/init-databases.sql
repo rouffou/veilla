@@ -7,3 +7,4 @@ CREATE DATABASE postes_risques;
 CREATE DATABASE integrations;
 CREATE DATABASE surveillance_medicale;
 CREATE DATABASE planification;
+CREATE DATABASE obligations;

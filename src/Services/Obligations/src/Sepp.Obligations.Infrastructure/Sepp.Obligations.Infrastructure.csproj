@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Sepp.Obligations</AssemblyName>
+    <RootNamespace>Sepp.Obligations.Infrastructure</RootNamespace>
+    <UserSecretsId>sepp-obligations</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.Obligations.Adapters\Sepp.Obligations.Adapters.csproj" />
+  </ItemGroup>
+</Project>

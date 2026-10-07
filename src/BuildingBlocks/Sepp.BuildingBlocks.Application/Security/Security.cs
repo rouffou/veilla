@@ -95,6 +95,11 @@ public static class Permissions
     public const string PlanificationModelesAgenda = "planification:modeles-agenda";
     public const string PlanificationSalleAttente = "planification:salle-attente";
     public const string PlanificationReserver = "planification:reserver";
+
+    // Obligations (SAN-01 à SAN-04, AFF-32) : échéances de surveillance de la santé (types d'examens, dates, statuts ;
+    // aucune donnée médicale), statuts manuels, demandes du travailleur et recalcul.
+    public const string ObligationLire = "obligation:lire";
+    public const string ObligationGerer = "obligation:gerer";
 }
 
 public static class RolePermissions
@@ -258,6 +263,27 @@ public static class RolePermissions
         Grant(Roles.CpmtDirigeant, Permissions.PlanificationModelesAgenda);
         Grant(Roles.Employeur, Permissions.PlanificationReserver);
         Grant(Roles.Travailleur, Permissions.PlanificationReserver);
+
+        // Obligations — lecture des échéances par les profils qui organisent la surveillance de la santé (CPMT, infirmier,
+        // assistant médical, planificateur, gestionnaire, responsable de centre) ; employeur et SIPP limités à leur affilié
+        // (claim affilie_id, vérifiée par le service Obligations, qui leur masque les types confidentiels). Gestion des
+        // statuts (convocation, absence, report, excuse, annulation), des demandes du travailleur et du recalcul : profils internes.
+        foreach (var role in new[]
+                 {
+                     Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.AssistantMedical, Roles.Planificateur,
+                     Roles.GestionnaireDossiers, Roles.ResponsableCentre, Roles.Employeur, Roles.Sipp,
+                 })
+        {
+            Grant(role, Permissions.ObligationLire);
+        }
+
+        foreach (var role in new[]
+                 {
+                     Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.AssistantMedical, Roles.Planificateur, Roles.GestionnaireDossiers,
+                 })
+        {
+            Grant(role, Permissions.ObligationGerer);
+        }
 
         return map;
     }

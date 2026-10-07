@@ -99,6 +99,7 @@ public sealed class ValiderPropositionListeHandler(
     CalculListesNominatives calcul,
     PolitiqueConservationListes conservation,
     IUnitOfWork unitOfWork,
+    IIntegrationEventOutbox outbox,
     ICurrentUser currentUser,
     TimeProvider clock) : ICommandHandler<ValiderPropositionListe, ListeGenereeDto>
 {
@@ -153,6 +154,7 @@ public sealed class ValiderPropositionListeHandler(
                 proposition.Id);
             proposition.Valider(currentUser.UserId, maintenant, nouvelle);
             listes.Add(nouvelle);
+            PublicationListes.Publier(outbox, nouvelle);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             return new ListeGenereeDto(nouvelle.Id, nouvelle.Version, nouvelle.Lignes.Count);
         }

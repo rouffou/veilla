@@ -58,6 +58,19 @@
     <Project Path="src/Services/Integrations/tests/Sepp.Integrations.Domain.Tests/Sepp.Integrations.Domain.Tests.csproj" />
     <Project Path="src/Services/Integrations/tests/Sepp.Integrations.Integration.Tests/Sepp.Integrations.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Obligations/" />
+  <Folder Name="/src/Services/Obligations/src/">
+    <Project Path="src/Services/Obligations/src/Sepp.Obligations.Adapters/Sepp.Obligations.Adapters.csproj" />
+    <Project Path="src/Services/Obligations/src/Sepp.Obligations.Application/Sepp.Obligations.Application.csproj" />
+    <Project Path="src/Services/Obligations/src/Sepp.Obligations.Domain/Sepp.Obligations.Domain.csproj" />
+    <Project Path="src/Services/Obligations/src/Sepp.Obligations.Infrastructure/Sepp.Obligations.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Obligations/tests/">
+    <Project Path="src/Services/Obligations/tests/Sepp.Obligations.Application.Tests/Sepp.Obligations.Application.Tests.csproj" />
+    <Project Path="src/Services/Obligations/tests/Sepp.Obligations.Architecture.Tests/Sepp.Obligations.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Obligations/tests/Sepp.Obligations.Domain.Tests/Sepp.Obligations.Domain.Tests.csproj" />
+    <Project Path="src/Services/Obligations/tests/Sepp.Obligations.Integration.Tests/Sepp.Obligations.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Personnes/" />
   <Folder Name="/src/Services/Personnes/src/">
     <Project Path="src/Services/Personnes/src/Sepp.Personnes.Adapters/Sepp.Personnes.Adapters.csproj" />

@@ -80,7 +80,9 @@ public class UseCasesTests
         var echeance = await new CalculerEcheanceHandler(_store).HandleAsync(new CalculerEcheance(new DateOnly(2026, 9, 28), 1), _ct);
 
         echeance.Value.Echeance.ShouldBe(new DateOnly(2026, 9, 30));
-        _store.Published.ShouldHaveSingleItem().ShouldBeOfType<JoursFeriesModifies>();
+        // L'événement porte l'état complet des jours supplémentaires (calendrier des consommateurs, DAT-08).
+        _store.Published.ShouldHaveSingleItem().ShouldBeOfType<JoursFeriesModifies>()
+            .JoursSupplementaires.ShouldBe([new DateOnly(2026, 9, 29)]);
     }
 
     [Fact]

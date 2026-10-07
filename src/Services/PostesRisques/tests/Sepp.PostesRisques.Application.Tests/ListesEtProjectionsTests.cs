@@ -61,11 +61,11 @@ public class ListesEtProjectionsTests
 
     private GenererListeNominativeHandler Generateur(ICurrentUser user, IPerimetreAffilies perimetre) =>
         new(new CalculListesNominatives(_store, _store, _store), _store, new PolitiqueConservationListes(_store, new ConservationListesOptions()),
-            _store, user, perimetre, _clock);
+            _store, _store, user, perimetre, _clock);
 
     private ValiderPropositionListeHandler Validateur(ICurrentUser user) =>
         new(_store, _store, new CalculListesNominatives(_store, _store, _store), new PolitiqueConservationListes(_store, new ConservationListesOptions()),
-            _store, user, _clock);
+            _store, _store, user, _clock);
 
     [Fact]
     public async Task La_liste_des_postes_de_securite_reprend_les_travailleurs_affectes_et_leur_derniere_evaluation()
@@ -91,6 +91,14 @@ public class ListesEtProjectionsTests
         ligne.DateDerniereEvaluation.ShouldBe(new DateOnly(2026, 5, 12));
         liste.ConserverJusquAu.ShouldBe(new DateOnly(2031, 9, 28));
         liste.GenereePar.ShouldBe("gestionnaire");
+
+        // AFF-32 : le service Obligations est informé de la nouvelle version (alerte « liste non revue »).
+        var publie = _store.Published.ShouldHaveSingleItem().ShouldBeOfType<Sepp.Contracts.PostesRisques.ListeNominativeGeneree>();
+        publie.ListeNominativeId.ShouldBe(liste.Id);
+        publie.AffilieId.ShouldBe(_affilie);
+        publie.TypeListe.ShouldBe("PosteSecurite");
+        publie.Version.ShouldBe(1);
+        publie.DateReference.ShouldBe(Reference);
     }
 
     [Fact]
