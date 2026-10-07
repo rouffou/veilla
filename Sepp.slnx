@@ -71,6 +71,19 @@
     <Project Path="src/Services/Personnes/tests/Sepp.Personnes.Domain.Tests/Sepp.Personnes.Domain.Tests.csproj" />
     <Project Path="src/Services/Personnes/tests/Sepp.Personnes.Integration.Tests/Sepp.Personnes.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Planification/" />
+  <Folder Name="/src/Services/Planification/src/">
+    <Project Path="src/Services/Planification/src/Sepp.Planification.Adapters/Sepp.Planification.Adapters.csproj" />
+    <Project Path="src/Services/Planification/src/Sepp.Planification.Application/Sepp.Planification.Application.csproj" />
+    <Project Path="src/Services/Planification/src/Sepp.Planification.Domain/Sepp.Planification.Domain.csproj" />
+    <Project Path="src/Services/Planification/src/Sepp.Planification.Infrastructure/Sepp.Planification.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Planification/tests/">
+    <Project Path="src/Services/Planification/tests/Sepp.Planification.Application.Tests/Sepp.Planification.Application.Tests.csproj" />
+    <Project Path="src/Services/Planification/tests/Sepp.Planification.Architecture.Tests/Sepp.Planification.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Planification/tests/Sepp.Planification.Domain.Tests/Sepp.Planification.Domain.Tests.csproj" />
+    <Project Path="src/Services/Planification/tests/Sepp.Planification.Integration.Tests/Sepp.Planification.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/PostesRisques/" />
   <Folder Name="/src/Services/PostesRisques/src/">
     <Project Path="src/Services/PostesRisques/src/Sepp.PostesRisques.Adapters/Sepp.PostesRisques.Adapters.csproj" />

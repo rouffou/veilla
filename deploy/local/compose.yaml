@@ -235,6 +235,31 @@ services:
       keycloak:
         condition: service_healthy
 
+  planification:
+    # Agendas, créneaux, rendez-vous et convocations (§8, SAN-10 à SAN-13). En local : simulateurs de l'outil RH et des
+    # agendas externes, tâches planifiées (rappels J-7 / J-1) désactivées ; rappels lancés par l'API (appsettings.Development.json).
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Services/Planification/Dockerfile
+    image: sepp/planification:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Planification: Host=postgres;Database=planification;Username=sepp;Password=sepp-local-dev
+      Database__MigrateOnStartup: "true"
+      Authentication__Authority: http://localhost:8180/realms/veilla
+      Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
+      Authentication__ValidIssuer: http://localhost:8180/realms/veilla
+      Authentication__RequireHttpsMetadata: "false"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
+    ports:
+      - "5117:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
   app-interne:
     <<: *service-defaults
     build:

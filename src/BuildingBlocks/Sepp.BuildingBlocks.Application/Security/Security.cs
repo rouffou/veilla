@@ -79,6 +79,14 @@ public static class Permissions
 
     // Intégrations (INT-02) : tableau de suivi des flux, relance manuelle, lancement à la demande, correspondances.
     public const string IntegrationsAdministrer = "integrations:administrer";
+
+    // Planification (§8 PLA-01 à PLA-09, §5.3 SAN-10 à SAN-13) : agendas, rendez-vous, convocations, tournées.
+    public const string PlanificationLire = "planification:lire";
+    public const string PlanificationGerer = "planification:gerer";
+    public const string PlanificationRessources = "planification:ressources";
+    public const string PlanificationModelesAgenda = "planification:modeles-agenda";
+    public const string PlanificationSalleAttente = "planification:salle-attente";
+    public const string PlanificationReserver = "planification:reserver";
 }
 
 public static class RolePermissions
@@ -209,6 +217,26 @@ public static class RolePermissions
         Grant(Roles.GestionnaireDossiers, Permissions.IntegrationsAdministrer);
         Grant(Roles.AdministrateurFonctionnel, Permissions.IntegrationsAdministrer);
         Grant(Roles.Integrations, Permissions.PersonneEcrire);
+
+        // Planification — §3.1 : le planificateur gère agendas, convocations et tournées ; le responsable de centre pilote
+        // et affecte les ressources (ressources, lieux, congés) ; l'assistant médical tient l'accueil et la salle d'attente
+        // (PLA-08). Le CPMT gère ses propres modèles d'agenda et durées standard (PLA-03, limité à sa ressource par le
+        // service). Employeur et travailleur réservent en ligne dans les créneaux ouverts (SAN-12), dans leur périmètre
+        // (claims affilie_id / personne_id, vérifiés par le service Planification).
+        foreach (var role in new[]
+                 {
+                     Roles.Planificateur, Roles.ResponsableCentre, Roles.AssistantMedical, Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier,
+                 })
+        {
+            Grant(role, Permissions.PlanificationLire, Permissions.PlanificationSalleAttente);
+        }
+
+        Grant(Roles.Planificateur, Permissions.PlanificationGerer, Permissions.PlanificationModelesAgenda);
+        Grant(Roles.ResponsableCentre, Permissions.PlanificationGerer, Permissions.PlanificationModelesAgenda, Permissions.PlanificationRessources);
+        Grant(Roles.Cpmt, Permissions.PlanificationModelesAgenda);
+        Grant(Roles.CpmtDirigeant, Permissions.PlanificationModelesAgenda);
+        Grant(Roles.Employeur, Permissions.PlanificationReserver);
+        Grant(Roles.Travailleur, Permissions.PlanificationReserver);
 
         return map;
     }
