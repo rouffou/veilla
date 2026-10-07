@@ -2,6 +2,10 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using Sepp.Contracts.Documents;
+using Sepp.Contracts.Examens;
+using Sepp.Contracts.SurveillanceMedicale;
+
 using Shouldly;
 
 namespace Sepp.Contracts.Tests;
@@ -35,7 +39,7 @@ public partial class ContractRulesTests
 
     [Fact]
     public void Le_catalogue_couvre_les_evenements_du_cahier_des_charges() =>
-        Events.Length.ShouldBeGreaterThanOrEqualTo(23);
+        Events.Length.ShouldBeGreaterThanOrEqualTo(44);
 
     [Theory]
     [MemberData(nameof(AllEvents))]
@@ -89,6 +93,63 @@ public partial class ContractRulesTests
         }
     }
 
+    [Fact]
+    public void Une_charge_v1_de_DecisionEmise_sans_ExamenId_est_lisible()
+    {
+        const string json = """
+            {"decisionId":"0198a1f0-0000-7000-8000-000000000001","personneId":"0198a1f0-0000-7000-8000-000000000002",
+             "affilieId":"0198a1f0-0000-7000-8000-000000000003","categorie":"APTE","codesMesures":["M1"],
+             "valideJusquAu":"2027-09-28","eventId":"0198a1f0-0000-7000-8000-000000000004","occurredAt":"2026-09-28T08:00:00+00:00"}
+            """;
+
+        var decision = JsonSerializer.Deserialize<DecisionEmise>(json, JsonSerializerOptions.Web);
+
+        decision.ShouldNotBeNull();
+        decision.ExamenId.ShouldBeNull();
+        decision.CodesMesures.ShouldBe(["M1"]);
+    }
+
+    [Fact]
+    public void Une_charge_v1_de_DocumentPublie_sans_ObjetType_ni_ObjetId_est_lisible()
+    {
+        const string json = """
+            {"documentId":"0198a1f0-0000-7000-8000-000000000001","zone":"STANDARD","typeDestinataire":"EMPLOYEUR",
+             "destinataireId":"0198a1f0-0000-7000-8000-000000000002","codeModele":"DECISION",
+             "eventId":"0198a1f0-0000-7000-8000-000000000004","occurredAt":"2026-09-28T08:00:00+00:00"}
+            """;
+
+        var document = JsonSerializer.Deserialize<DocumentPublie>(json, JsonSerializerOptions.Web);
+
+        document.ShouldNotBeNull();
+        document.ObjetType.ShouldBeNull();
+        document.ObjetId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Les_codes_de_type_d_examen_respectent_le_format_et_sont_uniques()
+    {
+        TypesExamen.Connus.ShouldNotBeEmpty();
+        TypesExamen.Connus.ShouldBeUnique();
+        foreach (var code in TypesExamen.Connus)
+        {
+            ExamCode().IsMatch(code).ShouldBeTrue($"{code} : attendu ^[A-Z0-9_]+$.");
+        }
+
+        TypesExamen.Connus.ShouldContain(TypesExamen.ActesMedicauxSupplementaires);
+        TypesExamen.Connus.ShouldContain(TypesExamen.EstimationPotentielTravail);
+        TypesExamen.Connus.ShouldContain(TypesExamen.AutreLegislation);
+    }
+
+    [Fact]
+    public void Les_codes_de_TypesExamen_declares_sont_tous_dans_Connus()
+    {
+        var declares = typeof(TypesExamen).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(f => f.IsLiteral)
+            .Select(f => (string)f.GetRawConstantValue()!);
+
+        declares.OrderBy(c => c, StringComparer.Ordinal).ShouldBe(TypesExamen.Connus.OrderBy(c => c, StringComparer.Ordinal));
+    }
+
     private static object? SampleValue(Type type) => type switch
     {
         _ when type == typeof(Guid) => Guid.CreateVersion7(),
@@ -97,6 +158,7 @@ public partial class ContractRulesTests
         _ when type == typeof(string) => "X",
         _ when type == typeof(int) => 1,
         _ when type == typeof(decimal) => 1.5m,
+        _ when type == typeof(bool) => true,
         // Listes vides : l'égalité de record compare les listes par référence.
         _ => null,
     };
@@ -114,6 +176,9 @@ public partial class ContractRulesTests
 
     [GeneratedRegex("[A-Z][a-z]*|[a-z]+")]
     private static partial Regex CamelWords();
+
+    [GeneratedRegex("^[A-Z0-9_]+$")]
+    private static partial Regex ExamCode();
 
     [GeneratedRegex("^[a-z]+(-[a-z]+)*\\.[a-z]+(-[a-z]+)*$")]
     private static partial Regex ContractName();

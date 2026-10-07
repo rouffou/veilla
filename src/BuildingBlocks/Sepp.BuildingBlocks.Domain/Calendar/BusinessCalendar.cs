@@ -44,6 +44,29 @@ public sealed class BusinessCalendar
         return date;
     }
 
+    /// <summary>
+    /// Date obtenue en retranchant <paramref name="businessDays"/> jours ouvrables à <paramref name="start"/> (le jour de
+    /// départ n'est pas compté) : symétrique de <see cref="AddBusinessDays"/>. Sert aux alertes « échéance menacée »
+    /// (N jours ouvrables avant la date limite). Avec 0 jour, retourne <paramref name="start"/> même s'il n'est pas ouvrable.
+    /// </summary>
+    public DateOnly SubtractBusinessDays(DateOnly start, int businessDays)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(businessDays);
+
+        var date = start;
+        var remaining = businessDays;
+        while (remaining > 0)
+        {
+            date = date.AddDays(-1);
+            if (IsBusinessDay(date))
+            {
+                remaining--;
+            }
+        }
+
+        return date;
+    }
+
     /// <summary>Nombre de jours ouvrables dans l'intervalle ]from, to].</summary>
     public int CountBusinessDays(DateOnly from, DateOnly to)
     {
