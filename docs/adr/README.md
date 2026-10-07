@@ -9,5 +9,6 @@
 | [0005](0005-identite-autorisation.md) | OIDC (Entra ID + CSAM), autorisation centralisée | Acceptée | ARC-40, ARC-41, NF-01, NF-02 |
 | [0006](0006-front-angular.md) | Front Angular, un workspace, trois applications | Acceptée | §14.9, NF-40, NF-50 |
 | [0007](0007-infrastructure-terraform.md) | Infrastructure as Code en Terraform | Acceptée | ARC-51, CTR-21 |
+| [0008](0008-sagas-processus-persistants.md) | Sagas : processus persistants, minuteries en base, déclencheur par API (amende la 0004) | Proposée (déclencheur à valider par l'architecte) | ARC-33, ARC-32, POR-04 |
 
 Format : contexte, décision, alternatives, conséquences.

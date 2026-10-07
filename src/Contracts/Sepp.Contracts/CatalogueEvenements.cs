@@ -58,9 +58,13 @@ namespace Sepp.Contracts.SurveillanceMedicale
     [EventContract("surveillance-medicale.examen-cloture", 1)]
     public sealed record ExamenCloture(Guid ExamenId, Guid PersonneId, Guid AffilieId, string TypeExamen, DateOnly Date) : IntegrationEvent;
 
-    /// <summary>Décision d'évaluation de santé : seules la catégorie et les mesures sortent de la zone médicale (§2.1, ARC-06).</summary>
+    /// <summary>
+    /// Décision d'évaluation de santé : seules la catégorie et les mesures sortent de la zone médicale (§2.1, ARC-06).
+    /// <c>ExamenId</c> relie la décision à l'examen clôturé (saga « examen de reprise », ARC-33) ; champ ajouté de façon
+    /// compatible (ARC-34) : facultatif, <c>null</c> pour un producteur antérieur, ignoré par les consommateurs antérieurs.
+    /// </summary>
     [EventContract("surveillance-medicale.decision-emise", 1)]
-    public sealed record DecisionEmise(Guid DecisionId, Guid PersonneId, Guid AffilieId, string Categorie, IReadOnlyList<string> CodesMesures, DateOnly? ValideJusquAu) : IntegrationEvent;
+    public sealed record DecisionEmise(Guid DecisionId, Guid PersonneId, Guid AffilieId, string Categorie, IReadOnlyList<string> CodesMesures, DateOnly? ValideJusquAu, Guid? ExamenId = null) : IntegrationEvent;
 
     [EventContract("surveillance-medicale.vaccination-administree", 1)]
     public sealed record VaccinationAdministree(Guid VaccinationId, Guid PersonneId, string CodeVaccin, int Dose, DateOnly Date) : IntegrationEvent;
@@ -84,7 +88,12 @@ namespace Sepp.Contracts.Integrations
 
 namespace Sepp.Contracts.BffEmployeur
 {
-    /// <summary>Reprise annoncée par l'employeur sur le portail : déclenche la saga « examen de reprise » (§14.6).</summary>
+    /// <summary>
+    /// Reprise annoncée par l'employeur sur le portail (§14.6). Conservé pour rétrocompatibilité (ADR 0008) : le
+    /// déclencheur de la saga « examen de reprise » est désormais l'appel synchrone du BFF à l'API d'Obligations, qui publie
+    /// <c>obligations.reprise-enregistree</c> ; le consommateur d'Obligations continue d'accepter cet événement (origine
+    /// <c>Evenement</c>). Sans identifiant : pas d'annulation possible par ce contrat.
+    /// </summary>
     [EventContract("bff-employeur.reprise-annoncee", 1)]
     public sealed record RepriseAnnoncee(Guid PersonneId, Guid AffilieId, DateOnly DateReprise, DateOnly DebutAbsence) : IntegrationEvent;
 }
@@ -106,6 +115,11 @@ namespace Sepp.Contracts.Prestations
 
 namespace Sepp.Contracts.Documents
 {
+    /// <summary>
+    /// Document publié. <c>ObjetType</c>/<c>ObjetId</c> désignent l'objet métier dont le document est issu (par exemple
+    /// <c>decision</c> et le <c>DecisionId</c>, saga « examen de reprise », ARC-33) ; champs ajoutés de façon compatible
+    /// (ARC-34) : facultatifs, <c>null</c> pour un producteur antérieur, ignorés par les consommateurs antérieurs.
+    /// </summary>
     [EventContract("documents.document-publie", 1)]
-    public sealed record DocumentPublie(Guid DocumentId, string Zone, string TypeDestinataire, Guid DestinataireId, string CodeModele) : IntegrationEvent;
+    public sealed record DocumentPublie(Guid DocumentId, string Zone, string TypeDestinataire, Guid DestinataireId, string CodeModele, string? ObjetType = null, Guid? ObjetId = null) : IntegrationEvent;
 }

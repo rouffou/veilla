@@ -64,3 +64,33 @@ public sealed record UrgenceNonCouverte(
     Guid AffilieId,
     string TypeExamen,
     DateOnly DateLimite) : IntegrationEvent;
+
+/// <summary>
+/// SAN-10, SAN-11 : la convocation a été remise au canal d'envoi (retour de Communications). <c>ObligationIds</c> sont
+/// les obligations couvertes par le rendez-vous : Obligations les passe à « convoqué ».
+/// </summary>
+[EventContract("planification.convocation-envoyee", 1)]
+public sealed record ConvocationEnvoyee(
+    Guid ConvocationId,
+    Guid RendezVousId,
+    Guid PersonneId,
+    Guid AffilieId,
+    IReadOnlyList<Guid> ObligationIds,
+    string Canal,
+    bool Recommande,
+    DateTimeOffset DateEnvoi) : IntegrationEvent;
+
+/// <summary>
+/// SAN-10, SAN-13 : la convocation n'a pas pu être remise (envoi abandonné par Communications) ; la personne n'est pas
+/// informée du rendez-vous, une alerte ou une replanification s'ensuit.
+/// </summary>
+[EventContract("planification.convocation-non-remise", 1)]
+public sealed record ConvocationNonRemise(
+    Guid ConvocationId,
+    Guid RendezVousId,
+    Guid PersonneId,
+    Guid AffilieId,
+    IReadOnlyList<Guid> ObligationIds,
+    string Canal,
+    bool Recommande,
+    DateTimeOffset Date) : IntegrationEvent;

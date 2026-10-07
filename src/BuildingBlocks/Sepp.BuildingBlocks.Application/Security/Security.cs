@@ -124,6 +124,12 @@ public static class Permissions
     public const string CommunicationsLire = "communications:lire";
     public const string CommunicationsEnvoyer = "communications:envoyer";
     public const string CommunicationsAdministrer = "communications:administrer";
+
+    // Reprise (saga examen de reprise, POR-04) : annonce d'une reprise du travail, suivi du processus (statut, jalons,
+    // alertes d'échéance : identifiants, dates et statuts, aucune donnée médicale) et gestion (modification, annulation).
+    public const string RepriseAnnoncer = "reprise:annoncer";
+    public const string RepriseLire = "reprise:lire";
+    public const string RepriseGerer = "reprise:gerer";
 }
 
 public static class RolePermissions
@@ -355,6 +361,29 @@ public static class RolePermissions
         Grant(Roles.GestionnaireDossiers, Permissions.CommunicationsAdministrer);
         Grant(Roles.AdministrateurFonctionnel, Permissions.CommunicationsAdministrer);
         Grant(Roles.Communications, Permissions.AffilieLire, Permissions.PersonneLire);
+
+        // Reprise (saga examen de reprise, POR-04). Répartition proposée, à valider (§3.3) : l'employeur et le SIPP annoncent
+        // et suivent les reprises de leur affilié (périmètre claim affilie_id vérifié par le service) ; le gestionnaire et le
+        // planificateur annoncent pour le compte d'un employeur et gèrent (modification, annulation, alertes) ; le CPMT, le
+        // CPMT dirigeant, l'infirmier et l'assistant médical lisent le suivi.
+        foreach (var role in new[] { Roles.Employeur, Roles.Sipp, Roles.GestionnaireDossiers, Roles.Planificateur })
+        {
+            Grant(role, Permissions.RepriseAnnoncer);
+        }
+
+        foreach (var role in new[]
+                 {
+                     Roles.Employeur, Roles.Sipp, Roles.GestionnaireDossiers, Roles.Planificateur,
+                     Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.AssistantMedical,
+                 })
+        {
+            Grant(role, Permissions.RepriseLire);
+        }
+
+        foreach (var role in new[] { Roles.GestionnaireDossiers, Roles.Planificateur })
+        {
+            Grant(role, Permissions.RepriseGerer);
+        }
 
         return map;
     }
