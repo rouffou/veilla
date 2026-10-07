@@ -27,9 +27,16 @@ Règles :
 | personnes | `personnes.etat-particulier-declare.v1` | EtatParticulierDeclare | EtatParticulierId, PersonneId, Categorie, DateDebut, DateFin | Obligations (voir note ARC-06 ci-dessous) |
 | personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut | Obligations, Planification, Reporting |
 | personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Obligations, Planification, Reporting |
+| planification | `planification.absence-rendez-vous-constatee.v1` | AbsenceRendezVousConstatee | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Obligations (les obligations redeviennent à planifier), Communications (SAN-13) |
+| planification | `planification.convocation-emise.v1` | ConvocationEmise | ConvocationId, RendezVousId, PersonneId, AffilieId, LieuId, TypeActe, Debut, Canal, Recommande, TypeConvocation, LotId | Communications (envoi, SAN-10, SAN-11) |
+| planification | `planification.rappel-rendez-vous-du.v1` | RappelRendezVousDu | RendezVousId, PersonneId, AffilieId, LieuId, Debut, Canal, NumeroRappel | Communications (rappels J-7 / J-1, SAN-13) |
 | planification | `planification.rendez-vous-annule.v1` | RendezVousAnnule | RendezVousId, PersonneId, Motif | Communications, Obligations |
 | planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Communications, Obligations, Surveillance médicale (ouverture d'examen) |
 | postes-risques | `postes-risques.profil-risque-poste-modifie.v1` | ProfilRisquePosteModifie | PosteId, AffilieId, CodesRisques, ValideDu | Obligations, Reporting, Surveillance médicale (SAN-20) |
+| planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Communications, Obligations |
+| planification | `planification.rendez-vous-replanifie.v1` | RendezVousReplanifie | RendezVousId, PersonneId, AffilieId, AncienDebut, NouveauDebut, Motif | Communications, Reporting (PLA-07) |
+| planification | `planification.urgence-non-couverte.v1` | UrgenceNonCouverte | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Communications (alerte au planificateur, PLA-06) |
+| postes-risques | `postes-risques.profil-risque-poste-modifie.v1` | ProfilRisquePosteModifie | PosteId, AffilieId, CodesRisques, ValideDu | Obligations, Reporting |
 | postes-risques | `postes-risques.regle-surveillance-modifiee.v1` | RegleSurveillanceModifiee | RisqueId, CodeRisque, Categorie, Version, TypeSurveillance, FrequenceMois, SurveillanceProlongee, ValideDu | Obligations (SAN-01) |
 | postes-risques | `postes-risques.surcharge-frequence-definie.v1` | SurchargeFrequenceDefinie | SurchargeId, AffilieId, CibleType, CibleId, CodeRisque, FrequenceMois, ValideDu, ValideJusquAu | Obligations (SAN-01) |
 | prestations | `prestations.prestation-enregistree.v1` | PrestationEnregistree | PrestationId, AffilieId, Discipline, TypePrestation, Unites, Date | Reporting, Intégrations |
@@ -71,3 +78,15 @@ Publié par le service Intégrations quand une consultation de la BCE renvoie de
 - `AffilieId` est renseigné si le numéro BCE correspond à un affilié connu (table `correspondance_identifiant` du service Intégrations, alimentée par `affilies.affilie-cree` / `affilies.affilie-modifie`), sinon `null` ;
 - les adresses et dénominations des unités d'établissement ne voyagent pas dans l'événement (ARC-06 : identifiants, dates, statuts et catégories) ; le consommateur les lit par `GET /api/v1/bce/entreprises/{numeroBce}` du service Intégrations ;
 - **consommateur à écrire côté Affiliés** : gestionnaire idempotent qui met à jour la fiche (dénomination, forme juridique, NACE) et les unités d'établissement de l'affilié, en passant par l'historique AFF-05 sous l'identité technique du service.
+
+### `planification.*` (§8 PLA-01 à PLA-09, §5.3 SAN-10 à SAN-13, ARC-06)
+
+Aucun de ces contrats ne porte de contenu de message, de donnée de santé ni d'identité : identifiants, horaires, catégories et codes.
+
+- **`planification.convocation-emise.v1`** (SAN-10, SAN-11) : une convocation est à envoyer ; le service Communications l'envoie par le `Canal` indiqué (`Courrier`, `Email`, `Sms`, `Portail`), en recommandé si `Recommande` (recommandé papier par `Courrier`, électronique par `Email` ; un canal SMS ou portail est remplacé par `Courrier` quand le recommandé est exigé), après lecture des coordonnées de la personne auprès du service Personnes. `TypeActe` est une catégorie (même espace de codes que `TypeExamen` des obligations), `TypeConvocation` vaut `Convocation`, `Reconvocation` (après une absence, SAN-13) ou `Replanification` (rendez-vous déplacé, PLA-07), `LotId` regroupe les convocations émises par lot.
+- **`planification.rappel-rendez-vous-du.v1`** (SAN-13) : `NumeroRappel` 1 (J-7 par défaut) ou 2 (J-1) selon les paramètres légaux `CONVOCATION.RAPPEL_1` et `CONVOCATION.RAPPEL_2` (jours calendrier, ARC-21). Un rappel n'est émis qu'une fois par rendez-vous (idempotent, noté sur le rendez-vous) ; un rendez-vous pris après la date du rappel n'en reçoit pas (la convocation vient de partir). Le canal est celui de la dernière convocation.
+- **`planification.rendez-vous-replanifie.v1`** (PLA-07) : même `RendezVousId`, nouvel horaire ; `Motif` est un code (`AbsenceRessource`). Une `ConvocationEmise` de type `Replanification` part en parallèle : c'est elle qui notifie la personne.
+- **`planification.rendez-vous-annule.v1`** : `Motif` est un code (`DemandeTravailleur`, `DemandeEmployeur`, `AbsenceRessource`, `ObligationLevee`, `Autre`), jamais un texte libre.
+- **`planification.absence-rendez-vous-constatee.v1`** (SAN-13) : les obligations couvertes redeviennent à planifier ; la reconvocation est une action du planificateur (`POST /api/v1/rendez-vous/{id}/reconvocation`).
+- **`planification.urgence-non-couverte.v1`** (PLA-06) : aucun créneau disponible avant l'échéance légale (10 jours ouvrables par défaut, jours fériés belges exclus) ; une alerte par obligation.
+- Consommés par Planification : `obligations.obligation-creee`, `obligations.obligation-echue` (projection des obligations à planifier ; un type d'examen urgent déclenche la réservation immédiate d'un créneau d'urgence, saga de reprise §14.6 étape 3) et `referentiels.parametre-legal-modifie` (délais d'urgence `SANTE.*.DELAI`, rappels `CONVOCATION.RAPPEL_*`).
