@@ -32,9 +32,19 @@ public sealed class ModificateurAffilie(
         ModifierEtVerifierAsync(affilieId, partie, action, a => Task.FromResult<Result<T>>(modification(a)), cancellationToken);
 
     /// <summary>Variante dont la modification effectue des contrôles asynchrones (existence d'un autre affilié…).</summary>
-    public async Task<Result<T>> ModifierEtVerifierAsync<T>(Guid affilieId, PartieFiche partie, string action, Func<Affilie, Task<Result<T>>> modification, CancellationToken cancellationToken)
+    public Task<Result<T>> ModifierEtVerifierAsync<T>(Guid affilieId, PartieFiche partie, string action, Func<Affilie, Task<Result<T>>> modification, CancellationToken cancellationToken) =>
+        ExecuterAsync(affilieId, partie, action, modification, cancellationToken);
+
+    /// <summary>
+    /// Modification par un traitement technique (consommateur d'événements, sans utilisateur) : pas de contrôle d'accès,
+    /// l'historique AFF-05 est écrit sous l'identité « system ». Réservé aux gestionnaires d'événements du service.
+    /// </summary>
+    public Task<Result<T>> ModifierParSystemeAsync<T>(Guid affilieId, string action, Func<Affilie, T> modification, CancellationToken cancellationToken) =>
+        ExecuterAsync(affilieId, null, action, a => Task.FromResult<Result<T>>(modification(a)), cancellationToken);
+
+    private async Task<Result<T>> ExecuterAsync<T>(Guid affilieId, PartieFiche? partie, string action, Func<Affilie, Task<Result<T>>> modification, CancellationToken cancellationToken)
     {
-        if (acces.VerifierEcriture(affilieId, partie) is { } refus)
+        if (partie is { } partieModifiee && acces.VerifierEcriture(affilieId, partieModifiee) is { } refus)
         {
             return refus;
         }

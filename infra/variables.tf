@@ -112,9 +112,15 @@ variable "services" {
 
     # --- Zone standard / transverse ---
     # Les abonnements suivent les gestionnaires d'événements réellement enregistrés dans chaque service (saga de
-    # reprise, ARC-33). Affilies, personnes et referentiels n'ont pas encore de consommateur : leurs abonnements sont
+    # reprise, ARC-33). Personnes et referentiels n'ont pas encore de consommateur : leurs abonnements sont
     # ceux prévus pour leur écriture.
-    "affilies"  = { zone = "standard", database = true, subscribes_to = ["integrations"] }
+    # affilies : seul integrations.donnees-bce-recues.v1 est consommé (DonneesBceRecuesHandler, AFF-01, AFF-02, INT-04).
+    "affilies" = {
+      zone            = "standard"
+      database        = true
+      subscribes_to   = ["integrations"]
+      subject_filters = { integrations = ["integrations.donnees-bce-recues.v1"] }
+    }
     "personnes" = { zone = "standard", database = true, subscribes_to = ["integrations", "affilies"] }
     "postes-risques" = {
       zone          = "standard"

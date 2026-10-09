@@ -1,6 +1,7 @@
 using Sepp.Affilies.Application.Affilies;
 using Sepp.Affilies.Application.Securite;
 using Sepp.Affilies.Domain.Affilies;
+using Sepp.Affilies.Domain.Ecarts;
 using Sepp.Affilies.Domain.Groupes;
 using Sepp.Affilies.Domain.Historique;
 using Sepp.BuildingBlocks.Application;
@@ -10,10 +11,11 @@ using Sepp.Contracts;
 namespace Sepp.Affilies.Application.Tests;
 
 /// <summary>Adaptateurs en mémoire : la couche application est testée sans infrastructure (ARC-23).</summary>
-internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IAffilieRepository, IGroupeRepository, IHistoriqueAffilieRepository
+internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IAffilieRepository, IGroupeRepository, IHistoriqueAffilieRepository, IEcartSynchronisationRepository
 {
     private readonly List<IntegrationEvent> _pending = [];
     private readonly List<ModificationAffilie> _historiqueEnAttente = [];
+    private readonly List<EcartSynchronisation> _ecartsEnAttente = [];
 
     public List<Affilie> Affilies { get; } = [];
 
@@ -33,6 +35,8 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IAff
         _pending.Clear();
         Historique.AddRange(_historiqueEnAttente);
         _historiqueEnAttente.Clear();
+        Ecarts.AddRange(_ecartsEnAttente);
+        _ecartsEnAttente.Clear();
         return Task.CompletedTask;
     }
 
@@ -77,6 +81,20 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IAff
     public Task<IReadOnlyList<Groupe>> ListAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<Groupe>>(Groupes);
 
     public void Add(Groupe groupe) => Groupes.Add(groupe);
+
+    /// <summary>Écarts de synchronisation BCE validés (visibles après <see cref="SaveChangesAsync"/>).</summary>
+    public List<EcartSynchronisation> Ecarts { get; } = [];
+
+    public void Add(EcartSynchronisation ecart) => _ecartsEnAttente.Add(ecart);
+
+    Task<EcartSynchronisation?> IEcartSynchronisationRepository.GetAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(Ecarts.SingleOrDefault(e => e.Id == id));
+
+    public Task<IReadOnlyList<EcartSynchronisation>> OuvertsParBceAsync(string numeroBce, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<EcartSynchronisation>>(Ecarts.Where(e => e.NumeroBce == numeroBce && e.Statut == StatutEcart.Ouvert).ToList());
+
+    public Task<IReadOnlyList<EcartSynchronisation>> ListAsync(bool ouvertsSeulement, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<EcartSynchronisation>>(Ecarts.Where(e => !ouvertsSeulement || e.Statut == StatutEcart.Ouvert).ToList());
 
     public void Add(ModificationAffilie modification) => _historiqueEnAttente.Add(modification);
 

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sepp.Affilies.Adapters.Persistence;
@@ -12,9 +13,11 @@ using Sepp.Affilies.Adapters.Persistence;
 namespace Sepp.Affilies.Adapters.Persistence.Migrations
 {
     [DbContext(typeof(AffiliesDbContext))]
-    partial class AffiliesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009102646_EcartSynchronisationBce")]
+    partial class EcartSynchronisationBce
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

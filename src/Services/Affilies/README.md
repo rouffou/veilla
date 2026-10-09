@@ -16,6 +16,30 @@ Propriétaire des exigences AFF-01 à AFF-06 (cahier des charges §4.1, entités
 `affilies.affilie-cree.v1`, `affilies.affilie-modifie.v1` (quand la fiche elle-même change : identité, catégorie, statut…),
 `affilies.operation-affilie-modifiee.v1`. Le numéro BCE y figure sous sa forme canonique à dix chiffres.
 
+## Événement consommé : mise à jour depuis la BCE (AFF-01, AFF-02, INT-04)
+
+`integrations.donnees-bce-recues.v1` (abonnement `affilies` ← `integrations`, filtré sur ce sujet dans `infra/variables.tf`)
+est traité par `DonneesBceRecuesHandler`, idempotent (inbox ARC-31, et des données identiques ne modifient rien) :
+
+1. l'affilié est retrouvé par le **numéro BCE** de l'événement (pas par son `AffilieId`) ;
+2. comme l'événement ne porte que des identifiants (ARC-06), les données sont relues chez Intégrations par
+   `GET /api/v1/bce/entreprises/{numeroBce}` avec le compte technique du service (client OIDC `veilla-affilies`, rôle `affilies`,
+   permission `integrations:bce-lire`, configuration `Affilies:CompteTechnique` et `Affilies:ServicesInternes:Integrations`) ;
+3. la **dénomination, la forme juridique et le code NACE** de la fiche sont ceux de la BCE ; chaque **unité d'établissement** est
+   ajoutée (début = date de début BCE, sinon date d'extraction), modifiée (nom, adresse) ou, si la BCE ne la connaît plus, **fermée à la
+   date d'extraction** (`Validity`, DAT-04 : jamais supprimée) ; le tout dans l'historique AFF-05 sous l'identité `system` (action
+   `affilie.donnees-bce-appliquees`). Le statut d'affiliation, la catégorie, la commission paritaire et les langues ne viennent pas de la
+   BCE et ne sont pas touchés ; ni le contrat ni l'API ne portent d'adresse de siège (la fiche n'a d'adresse que par unité).
+
+Ce que le gestionnaire ne sait pas résoudre seul est consigné dans la table `ecart_synchronisation` (un seul écart ouvert par numéro BCE,
+code et référence) et **ne fait pas boucler le message** : affilié inconnu, affilié clôturé (absorbé, scindé, transféré), identification ou
+unité invalide, unité rattachée à un autre affilié, unité fermée chez l'affilié mais active à la BCE, unité absente de la BCE qui porte des
+sites ouverts (fermeture non automatique), liste d'unités vide, données BCE introuvables chez Intégrations. Un écart qui ne se représente plus
+à la réception suivante est clos automatiquement.
+`GET /api/v1/ecarts-bce?ouverts=true` (liste) et `POST /api/v1/ecarts-bce/{id}/resolution` (marquer traité) sont réservés au gestionnaire
+de dossiers. Une **panne technique** de la lecture chez Intégrations (indisponibilité, accès refusé) fait échouer le message pour reprise
+par le bus.
+
 ## Autorisations (§3.3)
 
 - Lecture (`affilie:lire`) : profils internes ; employeur et SIPP limités à leurs affiliés.

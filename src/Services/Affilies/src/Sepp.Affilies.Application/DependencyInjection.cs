@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using Sepp.Affilies.Application.Affilies;
+using Sepp.Affilies.Application.Bce;
 using Sepp.Affilies.Application.Concertation;
 using Sepp.Affilies.Application.Groupes;
 using Sepp.Affilies.Application.Hierarchie;
@@ -52,6 +53,10 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<DissoudreOrgane, Unit>, DissoudreOrganeHandler>();
         services.AddScoped<ICommandHandler<PlanifierReunion, Guid>, PlanifierReunionHandler>();
         services.AddScoped<ICommandHandler<ModifierReunion, Unit>, ModifierReunionHandler>();
+
+        // AFF-01, AFF-02, INT-04 — Mise à jour depuis la BCE (donnees-bce-recues) et écarts du gestionnaire de dossiers.
+        services.AddScoped<IQueryHandler<ListerEcartsBce, IReadOnlyList<EcartBceDto>>, ListerEcartsBceHandler>();
+        services.AddScoped<ICommandHandler<ResoudreEcartBce, Unit>, ResoudreEcartBceHandler>();
 
         // AFF-06 — Fusion, scission, transfert.
         services.AddScoped<ICommandHandler<ProjeterOperation, Guid>, ProjeterOperationHandler>();

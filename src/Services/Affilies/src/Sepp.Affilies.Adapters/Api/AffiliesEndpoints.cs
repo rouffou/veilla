@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
 using Sepp.Affilies.Application.Affilies;
+using Sepp.Affilies.Application.Bce;
 using Sepp.Affilies.Application.Concertation;
 using Sepp.Affilies.Application.Groupes;
 using Sepp.Affilies.Application.Hierarchie;
@@ -31,7 +32,23 @@ public static class AffiliesEndpoints
         MapHierarchie(affilies.MapGroup("/{affilieId:guid}").WithTags("Hiérarchie"));
         MapConcertation(affilies.MapGroup("/{affilieId:guid}").WithTags("Contacts et concertation"));
         MapOperations(affilies.MapGroup("/{affilieId:guid}/operations").WithTags("Fusions, scissions et transferts"));
+        MapEcartsBce(api.MapGroup("/ecarts-bce").WithTags("Écarts BCE"));
         return app;
+    }
+
+    /// <summary>Écarts de la synchronisation avec la BCE (AFF-01, AFF-02, INT-04), réservés au gestionnaire de dossiers.</summary>
+    private static void MapEcartsBce(RouteGroupBuilder ecarts)
+    {
+        ecarts.MapGet("/", async (bool? ouverts, IQueryHandler<ListerEcartsBce, IReadOnlyList<EcartBceDto>> handler, CancellationToken ct) =>
+            (await handler.HandleAsync(new ListerEcartsBce(ouverts ?? true), ct)).ToHttpResult())
+            .WithName("ListerEcartsBce")
+            .WithSummary("Données BCE reçues que le service n'a pas pu appliquer seul (ouvertes par défaut).");
+
+        ecarts.MapPost("/{ecartId:guid}/resolution", async (Guid ecartId, ICommandHandler<ResoudreEcartBce, Unit> handler, CancellationToken ct) =>
+            (await handler.HandleAsync(new ResoudreEcartBce(ecartId), ct)).ToHttpResult())
+            .RequirePermission(Permissions.AffilieEcrire)
+            .WithName("ResoudreEcartBce")
+            .WithSummary("Marque l'écart comme traité.");
     }
 
     private static void MapGroupes(RouteGroupBuilder groupes)

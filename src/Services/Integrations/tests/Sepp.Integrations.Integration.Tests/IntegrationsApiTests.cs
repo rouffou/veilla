@@ -81,6 +81,9 @@ public sealed class IntegrationsApiTests(IntegrationsApiFixture fixture) : IClas
         entreprise.UnitesEtablissement.Select(u => u.Numero).ShouldBe(evenement.NumerosUnitesEtablissement);
         entreprise.UnitesEtablissement.ShouldAllBe(u => u.Adresse.Rue == "Rue de la Simulation");
         (await fixture.Client(Roles.Integrations).GetAsync($"/api/v1/bce/entreprises/{numero}", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        // Le compte technique du service Affiliés (consommateur de donnees-bce-recues) lit ces données publiques, rien de plus.
+        (await fixture.Client(Roles.Affilies).GetFromJsonAsync<EntrepriseBceDto>($"/api/v1/bce/entreprises/{numero}", Json, _ct))!.AffilieId.ShouldBe(affilie);
+        (await fixture.Client(Roles.Affilies).GetAsync("/api/v1/flux/journal", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await Gestionnaire.GetAsync($"/api/v1/bce/entreprises/{NumerosBce.AvecControle("05000002")}", _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
