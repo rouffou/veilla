@@ -141,6 +141,27 @@ public sealed class Occupation : Entity
         DateFin = dateFin;
     }
 
+    /// <summary>Clôture à une date au plus tôt que la fin connue (décès) : une sortie déjà déclarée plus tard est avancée.</summary>
+    internal void ClotureAu(DateOnly dateFin)
+    {
+        if (DateFin is { } actuelle && actuelle <= dateFin)
+        {
+            return;
+        }
+
+        if (dateFin < DateDebut)
+        {
+            throw new DomainException($"La date de fin précède le début de l'occupation ({DateDebut:yyyy-MM-dd}).");
+        }
+
+        if (_affectations.Any(a => a.Validite.ValidFrom > dateFin))
+        {
+            throw new DomainException("Des affectations commencent après la date de fin : les clôturer ou les corriger d'abord.");
+        }
+
+        DateFin = dateFin;
+    }
+
     internal Affectation Affecter(Guid id, Guid posteId, Guid siteId, DateOnly valideDu, DateOnly? valideJusquAu)
     {
         if (posteId == Guid.Empty || siteId == Guid.Empty)
