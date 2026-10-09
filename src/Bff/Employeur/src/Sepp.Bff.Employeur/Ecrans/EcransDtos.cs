@@ -89,3 +89,23 @@ public sealed record PropositionPosteCorps(string Motif, DateOnly ValideDu, IRea
 public sealed record PropositionListeCorps(string Motif, IReadOnlyList<LigneListeSaisie> Lignes);
 
 public sealed record PropositionSoumise(Guid Id, string Statut);
+
+/// <summary>POR-04 : annonce d'une reprise ; l'affilié vient de la route, jamais du corps.</summary>
+public sealed record RepriseAnnonceCorps(Guid PersonneId, DateOnly DateReprise, DateOnly DebutAbsence);
+
+/// <summary>Réponse à l'annonce : <c>Cree</c> vaut false si la reprise était déjà connue (idempotence du service Obligations).</summary>
+public sealed record RepriseAnnoncee(Guid RepriseId, bool Cree, string Statut);
+
+/// <summary>
+/// POR-04 : suivi d'une reprise pour l'employeur. Le statut et la date limite suffisent : aucun identifiant d'examen ou de
+/// décision, aucune donnée médicale (ARC-06). Ce que voit l'employeur reste à valider (plan saga, §6).
+/// </summary>
+public sealed record RepriseEcran(
+    Guid Id,
+    Guid PersonneId,
+    DateOnly DateReprise,
+    DateOnly DebutAbsence,
+    string Statut,
+    DateOnly? DateLimite,
+    bool EnRetard,
+    bool HorsDelai);

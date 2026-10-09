@@ -38,11 +38,34 @@ public interface IPostesRisquesApi
     Task<Guid> ProposerModificationListeAsync(Guid listeId, PropositionListeCorpsAval corps, CancellationToken ct);
 }
 
+/// <summary>Service Obligations : processus de reprise du travail (ARC-33, POR-04).</summary>
+public interface IObligationsApi
+{
+    Task<ResultatEnregistrementRepriseAval> AnnoncerRepriseAsync(RepriseCorpsAval corps, CancellationToken ct);
+
+    Task<IReadOnlyList<RepriseAval>> ListerReprisesAsync(Guid affilieId, CancellationToken ct);
+
+    Task<RepriseAval> ObtenirRepriseAsync(Guid repriseId, CancellationToken ct);
+}
+
 public static class NomsServices
 {
+    public const string Obligations = "obligations";
     public const string Affilies = "affilies";
     public const string Personnes = "personnes";
     public const string PostesRisques = "postes-risques";
+}
+
+internal sealed class ObligationsApi(HttpClient http) : ClientAval(http, NomsServices.Obligations), IObligationsApi
+{
+    public Task<ResultatEnregistrementRepriseAval> AnnoncerRepriseAsync(RepriseCorpsAval corps, CancellationToken ct) =>
+        PostAsync<ResultatEnregistrementRepriseAval>("api/v1/reprises", corps, ct);
+
+    public Task<IReadOnlyList<RepriseAval>> ListerReprisesAsync(Guid affilieId, CancellationToken ct) =>
+        GetAsync<IReadOnlyList<RepriseAval>>($"api/v1/reprises?affilieId={affilieId}", ct);
+
+    public Task<RepriseAval> ObtenirRepriseAsync(Guid repriseId, CancellationToken ct) =>
+        GetAsync<RepriseAval>($"api/v1/reprises/{repriseId}", ct);
 }
 
 internal sealed class AffiliesApi(HttpClient http) : ClientAval(http, NomsServices.Affilies), IAffiliesApi

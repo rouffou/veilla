@@ -213,6 +213,7 @@ services:
       ServicesAval__Affilies: http://affilies:8080
       ServicesAval__Personnes: http://personnes:8080
       ServicesAval__PostesRisques: http://postes-risques:8080
+      ServicesAval__Obligations: http://obligations:8080
       Cors__Origines__0: http://localhost:8082
       Cors__Origines__1: http://localhost:4201
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
@@ -226,6 +227,8 @@ services:
       personnes:
         condition: service_started
       postes-risques:
+        condition: service_started
+      obligations:
         condition: service_started
 
   integrations:

@@ -9,6 +9,7 @@
     "positions": "Positions and risks",
     "lists": "Nominative lists",
     "proposals": "Proposals",
+    "resumptions": "Return to work",
     "requests": "Requests",
     "decisions": "Decisions and reports"
   },
@@ -166,6 +167,28 @@
     "status": "Status",
     "refusal": "Reason for refusal: {{ motif }}"
   },
+  "resumptions": {
+    "title": "Return to work",
+    "intro": "Announce a worker’s return to work after an absence and follow the progress of the return-to-work examination. No medical data is shown here.",
+    "announceTitle": "Announce a return to work",
+    "followTitle": "Follow-up of returns to work",
+    "worker": "Worker",
+    "workersLimit": "Only the first {{ n }} workers (alphabetical order) are offered.",
+    "resumptionDate": "Return date",
+    "absenceStart": "Start of the absence",
+    "submit": "Announce the return",
+    "submitting": "Sending…",
+    "success": "The return to work has been announced.",
+    "alreadyKnown": "This return to work had already been announced.",
+    "workerMissing": "The worker is required.",
+    "resumptionDateMissing": "The return date is required.",
+    "absenceStartMissing": "The start of the absence is required.",
+    "empty": "No return to work announced yet.",
+    "caption": "Announced returns to work",
+    "status": "Progress",
+    "deadline": "Deadline",
+    "overdue": "Deadline passed"
+  },
   "enums": {
     "statutAffilie": {
       "Actif": "Active",
@@ -210,6 +233,20 @@
     "natureProposition": {
       "poste-risque": "Risks of a position",
       "liste-nominative": "Nominative list"
+    },
+    "statutReprise": {
+      "Annoncee": "Announced",
+      "ObligationOuverte": "Examination to be scheduled",
+      "Planifiee": "Appointment scheduled",
+      "NonCouverte": "Waiting for availability",
+      "Convoquee": "Worker invited",
+      "ExamenRealise": "Examination carried out",
+      "DecisionEmise": "File being processed",
+      "Terminee": "Completed",
+      "ExamenNonRequis": "No examination required",
+      "Annulee": "Cancelled",
+      "SansObjet": "No longer applicable",
+      "Inconnu": "Being processed"
     }
   }
 }

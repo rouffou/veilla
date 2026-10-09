@@ -14,6 +14,9 @@ import {
   PropositionListeCorps,
   PropositionPosteCorps,
   PropositionSoumise,
+  Reprise,
+  RepriseAnnoncee,
+  RepriseCorps,
   Risque,
   TableauDeBord,
   Travailleur,
@@ -168,6 +171,16 @@ export class BffEmployeurService {
       `${this.affilie(affilieId)}/listes-nominatives/${encodeURIComponent(listeId)}/propositions`,
       corps,
     );
+  }
+
+  /** POR-04 : suivi des reprises annoncées. */
+  reprises(affilieId: string): Observable<readonly Reprise[]> {
+    return this.http.get<readonly Reprise[]>(`${this.affilie(affilieId)}/reprises`);
+  }
+
+  /** POR-04 : annonce d'une reprise (relayée par le BFF au service Obligations, jamais rejouée automatiquement). */
+  annoncerReprise(affilieId: string, corps: RepriseCorps): Observable<RepriseAnnoncee> {
+    return this.http.post<RepriseAnnoncee>(`${this.affilie(affilieId)}/reprises`, corps);
   }
 
   private affilie(affilieId: string): string {

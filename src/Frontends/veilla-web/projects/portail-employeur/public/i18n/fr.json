@@ -9,6 +9,7 @@
     "positions": "Postes et risques",
     "lists": "Listes nominatives",
     "proposals": "Propositions",
+    "resumptions": "Reprises du travail",
     "requests": "Demandes",
     "decisions": "Décisions et rapports"
   },
@@ -166,6 +167,28 @@
     "status": "État",
     "refusal": "Motif du refus : {{ motif }}"
   },
+  "resumptions": {
+    "title": "Reprises du travail",
+    "intro": "Annoncez la reprise du travail d'un travailleur après une absence et suivez l'avancement de l'examen de reprise. Aucune donnée médicale n'est affichée ici.",
+    "announceTitle": "Annoncer une reprise",
+    "followTitle": "Suivi des reprises",
+    "worker": "Travailleur",
+    "workersLimit": "Seuls les {{ n }} premiers travailleurs (ordre alphabétique) sont proposés.",
+    "resumptionDate": "Date de reprise",
+    "absenceStart": "Début de l'absence",
+    "submit": "Annoncer la reprise",
+    "submitting": "Envoi en cours…",
+    "success": "La reprise a bien été annoncée.",
+    "alreadyKnown": "Cette reprise avait déjà été annoncée.",
+    "workerMissing": "Le travailleur est obligatoire.",
+    "resumptionDateMissing": "La date de reprise est obligatoire.",
+    "absenceStartMissing": "Le début de l'absence est obligatoire.",
+    "empty": "Aucune reprise annoncée pour le moment.",
+    "caption": "Reprises du travail annoncées",
+    "status": "Avancement",
+    "deadline": "Date limite",
+    "overdue": "Délai dépassé"
+  },
   "enums": {
     "statutAffilie": {
       "Actif": "Actif",
@@ -210,6 +233,20 @@
     "natureProposition": {
       "poste-risque": "Risques d'un poste",
       "liste-nominative": "Liste nominative"
+    },
+    "statutReprise": {
+      "Annoncee": "Annoncée",
+      "ObligationOuverte": "Examen à planifier",
+      "Planifiee": "Rendez-vous planifié",
+      "NonCouverte": "En attente de disponibilité",
+      "Convoquee": "Travailleur convoqué",
+      "ExamenRealise": "Examen réalisé",
+      "DecisionEmise": "Dossier en cours de traitement",
+      "Terminee": "Terminé",
+      "ExamenNonRequis": "Aucun examen requis",
+      "Annulee": "Annulée",
+      "SansObjet": "Sans objet",
+      "Inconnu": "En cours de traitement"
     }
   }
 }

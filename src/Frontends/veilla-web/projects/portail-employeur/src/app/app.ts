@@ -22,6 +22,7 @@ export class App {
     { path: '/postes', labelKey: 'nav.positions' },
     { path: '/listes-nominatives', labelKey: 'nav.lists' },
     { path: '/propositions', labelKey: 'nav.proposals' },
+    { path: '/reprises', labelKey: 'nav.resumptions' },
     { path: '/demandes', labelKey: 'nav.requests' },
     { path: '/decisions', labelKey: 'nav.decisions' },
   ];

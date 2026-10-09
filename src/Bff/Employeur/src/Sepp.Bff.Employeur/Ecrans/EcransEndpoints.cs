@@ -90,6 +90,25 @@ public static class EcransEndpoints
             .WithName("ProposerModificationListe")
             .WithSummary("POR-03 : proposition d'ajustement d'une liste nominative, soumise au CPMT (AFF-31).");
 
+        affilie.MapPost("/reprises", async (Guid affilieId, RepriseAnnonceCorps corps, EcransReprises reprises, CancellationToken ct) =>
+            {
+                var annoncee = await reprises.AnnoncerAsync(affilieId, corps, ct);
+                var emplacement = $"/api/v1/affilies/{affilieId}/reprises/{annoncee.RepriseId}";
+                return annoncee.Cree ? Results.Created(emplacement, annoncee) : Results.Ok(annoncee);
+            })
+            .WithName("AnnoncerReprise")
+            .WithSummary("POR-04 : annonce d'une reprise du travail, relayée au service Obligations (201 à la création, 200 si déjà connue).");
+
+        affilie.MapGet("/reprises", async (Guid affilieId, EcransReprises reprises, CancellationToken ct) =>
+                Results.Ok(await reprises.ListerAsync(affilieId, ct)))
+            .WithName("ReprisesAffilie")
+            .WithSummary("POR-04 : suivi des reprises annoncées (statut et date limite, sans donnée médicale).");
+
+        affilie.MapGet("/reprises/{repriseId:guid}", async (Guid affilieId, Guid repriseId, EcransReprises reprises, CancellationToken ct) =>
+                Results.Ok(await reprises.ObtenirAsync(affilieId, repriseId, ct)))
+            .WithName("RepriseAffilie")
+            .WithSummary("POR-04 : suivi d'une reprise ; une reprise d'un autre affilié est inconnue (404).");
+
         return app;
     }
 
