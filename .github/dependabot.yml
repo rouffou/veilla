@@ -92,6 +92,7 @@ updates:
   - package-ecosystem: docker
     directories:
       - "/src/Services/*"
+      - "/src/Bff/*"
       - "/src/Frontends/veilla-web"
     schedule:
       interval: weekly

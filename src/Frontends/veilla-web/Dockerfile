@@ -35,6 +35,13 @@ LABEL org.opencontainers.image.title="veilla-${APP}" \
       org.opencontainers.image.description="Front Veilla (${APP}) servi par nginx non root" \
       org.opencontainers.image.source="https://github.com/rouffou/veilla"
 
+# CTR-04 / CTR-06 : correctifs de sécurité Alpine appliqués à la construction, sans attendre la
+# reconstruction de l'image de base (ex. #294 : tiff CVE-2026-4775, zlib CVE-2026-85091).
+# L'image nginx-unprivileged s'exécute en UID 101 : passage root le temps de la mise à niveau,
+# retour à l'utilisateur non root plus bas (USER 101). La CI désactive le cache de cette étape.
+USER root
+RUN apk upgrade --no-cache
+
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY docker/nginx/security-headers.conf.template /etc/veilla/security-headers.conf.template
 COPY docker/config.template.json /etc/veilla/config.template.json
