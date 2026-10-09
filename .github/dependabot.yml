@@ -113,10 +113,12 @@ updates:
       - "/infra/modules/*"
     ignore:
       # Changement majeur de provider : migration planifiée à part (ADR 0007), pas de montée automatique.
+      # Exclusion par plage de versions : Dependabot propose ces montées en élargissant la contrainte
+      # (« Updates the requirements… »), ce que la seule règle semver-major ne bloque pas (#283, #304, #308).
       - dependency-name: "hashicorp/azurerm"
-        update-types: ["version-update:semver-major"]
+        versions: [">= 5.0.0"]
       - dependency-name: "azure/azapi"
-        update-types: ["version-update:semver-major"]
+        versions: [">= 3.0.0"]
     schedule:
       interval: weekly
       day: monday

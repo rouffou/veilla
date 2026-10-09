@@ -52,12 +52,16 @@ Règle de dépôt « Protection de main » (ruleset GitHub) :
 
 - pull request obligatoire, fusion en squash uniquement, conversations résolues ;
 - contrôles obligatoires, branche à jour avec `main` : `Statut .NET`, `Statut fronts`, `Statut Terraform`,
-  `Statut images`, `Statut CodeQL`, ainsi que les alertes CodeQL de sévérité élevée ou critique ;
+  `Statut images`, `Statut CodeQL` ;
 - historique linéaire ; poussée forcée et suppression de la branche interdites.
 
 Chaque workflow se déclenche sur toutes les PR. Son job « Détection des changements » ignore les jobs coûteux quand
 la PR ne touche pas les chemins concernés, et le job « Statut … » reste alors vert. Un contrôle obligatoire ne reste
 donc jamais en attente. Ajouter un service ou une solution ne demande aucun changement de la règle.
+
+La règle n'exige pas de « résultats de code scanning » : CodeQL n'analyse que les PR qui touchent `src/` ou `tests/`,
+et une telle exigence bloquerait indéfiniment les PR limitées à l'infrastructure ou à la documentation. Les alertes
+CodeQL restent visibles sur la PR et dans l'onglet Security ; elles se traitent avant la fusion.
 
 ## Vérifications locales avant de pousser
 
