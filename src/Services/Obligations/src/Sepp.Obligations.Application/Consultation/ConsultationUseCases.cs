@@ -188,7 +188,8 @@ public sealed class ListerAlertesHandler(
     IPerimetreAffilies perimetre,
     ICurrentUser user,
     TimeProvider clock,
-    OptionsObligations options) : IQueryHandler<ListerAlertes, IReadOnlyList<AlerteDto>>
+    OptionsObligations options,
+    IProcessusRepriseRepository reprises) : IQueryHandler<ListerAlertes, IReadOnlyList<AlerteDto>>
 {
     public async Task<Result<IReadOnlyList<AlerteDto>>> HandleAsync(ListerAlertes query, CancellationToken cancellationToken)
     {
@@ -212,6 +213,15 @@ public sealed class ListerAlertesHandler(
         var delai = politiques.Duree(CodesParametres.RevueListesNominatives, aujourdHui);
         alertes.AddRange(DetectionAlertes.ListesNonRevues(
             query.AffilieId, await projections.ListesNominativesAsync(query.AffilieId, cancellationToken), delai, calendrier, aujourdHui));
+
+        // ARC-33, POR-04 : alertes du processus de reprise (échéance menacée, hors délai, convocation non remise, absence…).
+        if (user.HasPermission(Permissions.RepriseLire))
+        {
+            foreach (var p in await reprises.ListActifsParAffilieAsync(query.AffilieId, cancellationToken))
+            {
+                alertes.AddRange(p.Alertes().Select(a => new Alerte(a.Type, p.AffilieId, p.PersonneId, null, null, a.Depuis, a.Message, p.ObligationId is { } id ? [id] : [])));
+            }
+        }
 
         return alertes.Select(AlerteDto.De).ToList();
     }

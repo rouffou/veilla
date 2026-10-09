@@ -1,6 +1,7 @@
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.Contracts.Obligations;
+using Sepp.Obligations.Application.Reprises;
 using Sepp.Obligations.Domain.Calcul;
 using Sepp.Obligations.Domain.Obligations;
 
@@ -17,7 +18,8 @@ public sealed class RecalculObligations(
     IDemandeRepository demandes,
     IIntegrationEventOutbox outbox,
     TimeProvider clock,
-    OptionsCalcul options)
+    OptionsCalcul options,
+    SynchronisationProcessusReprise synchronisationReprise)
 {
     /// <returns>Nombre de travailleurs recalculés.</returns>
     public async Task<int> RecalculerAsync(IEnumerable<Guid> personneIds, CancellationToken cancellationToken)
@@ -29,7 +31,8 @@ public sealed class RecalculObligations(
         }
 
         var aujourdHui = clock.AujourdHui();
-        var moteur = await MoteurAsync(aujourdHui, cancellationToken);
+        var (politiques, calendrier) = await ReferentielsAsync(aujourdHui, cancellationToken);
+        var moteur = new MoteurEcheances(politiques, calendrier, options);
         foreach (var personneId in ids)
         {
             var situation = await ChargerSituationAsync(personneId, cancellationToken);
@@ -43,6 +46,13 @@ public sealed class RecalculObligations(
             }
 
             EvenementsIntegration.Publier(existantes.Concat(nouvelles), outbox);
+
+            // ARC-33 : les processus de reprise suivent l'obligation qui vient d'être recalculée (même transaction).
+            if (situation.Reprises.Count > 0)
+            {
+                await synchronisationReprise.SynchroniserAsync(
+                    personneId, [.. existantes, .. nouvelles], rendezVous, moteur, resultat, calendrier, cancellationToken);
+            }
         }
 
         return ids.Count;
@@ -110,6 +120,9 @@ public static class EvenementsIntegration
                     case ObligationDevenueEchue e:
                         outbox.Add(new ObligationEchue(e.ObligationId, e.PersonneId, e.AffilieId, e.Type.Code(), e.DateLimite));
                         break;
+                    case ObligationDevenueCloturee e:
+                        outbox.Add(new ObligationCloturee(e.ObligationId, e.PersonneId, e.AffilieId, e.Type.Code(), e.Statut.ToString(), e.Motif, e.Date));
+                        break;
                 }
             }
 
@@ -118,5 +131,5 @@ public static class EvenementsIntegration
     }
 
     /// <summary>Conserve le compilateur honnête : un événement de domaine inconnu ne doit pas être ignoré en silence.</summary>
-    internal static bool EstConnu(IDomainEvent evenement) => evenement is ObligationOuverte or ObligationDevenueEchue;
+    internal static bool EstConnu(IDomainEvent evenement) => evenement is ObligationOuverte or ObligationDevenueEchue or ObligationDevenueCloturee;
 }

@@ -254,10 +254,11 @@ public sealed class MoteurEcheances(IPolitiquesLegales politiques, BusinessCalen
 
     private IEnumerable<EcheanceCalculee> Reprises(SituationTravailleur situation, IReadOnlyList<Examen> examens, Func<Guid, bool> sorti)
     {
-        foreach (var reprise in situation.Reprises.Where(r => r.PersonneId == situation.PersonneId))
+        // Une reprise annulée (ARC-33) n'attend plus d'examen : l'obligation ouverte est annulée par le recalcul.
+        foreach (var reprise in situation.Reprises.Where(r => r.PersonneId == situation.PersonneId && !r.Annulee))
         {
             var minimum = politiques.Duree(CodesParametres.RepriseAbsenceMinimum, reprise.DateReprise);
-            if (minimum.AjouterA(reprise.DebutAbsence, calendrier) > reprise.DateReprise)
+            if (!ExamenRepriseRequis(reprise.DebutAbsence, reprise.DateReprise))
             {
                 continue;
             }
@@ -284,6 +285,13 @@ public sealed class MoteurEcheances(IPolitiquesLegales politiques, BusinessCalen
                 ("delai", delai.Description));
         }
     }
+
+    /// <summary>
+    /// §5.1 : une absence d'au moins SANTE.REPRISE.ABSENCE_MINIMUM (4 semaines) avant la date de reprise donne lieu à
+    /// l'examen de reprise ; sinon l'examen n'est pas requis (branche « examen non requis » du processus de reprise, ARC-33).
+    /// </summary>
+    public bool ExamenRepriseRequis(DateOnly debutAbsence, DateOnly dateReprise) =>
+        politiques.Duree(CodesParametres.RepriseAbsenceMinimum, dateReprise).AjouterA(debutAbsence, calendrier) <= dateReprise;
 
     private IEnumerable<EcheanceCalculee> Demandes(SituationTravailleur situation, IReadOnlyList<Examen> examens, Func<Guid, bool> sorti)
     {
@@ -358,7 +366,7 @@ public sealed class MoteurEcheances(IPolitiquesLegales politiques, BusinessCalen
             var duree = politiques.Duree(CodesParametres.EstimationPotentiel, incapacite.DateDebut);
             var due = duree.AjouterA(incapacite.DateDebut, calendrier);
             var realisation = PremierExamen(examens, TypeObligation.EstimationPotentielTravail, incapacite.DateDebut);
-            var repriseAvant = situation.Reprises.FirstOrDefault(r => r.PersonneId == situation.PersonneId && r.DateReprise > incapacite.DateDebut && r.DateReprise <= due);
+            var repriseAvant = situation.Reprises.FirstOrDefault(r => r.PersonneId == situation.PersonneId && !r.Annulee && r.DateReprise > incapacite.DateDebut && r.DateReprise <= due);
             if (realisation is null && (repriseAvant is not null || sorti(incapacite.AffilieId)))
             {
                 continue;
@@ -461,6 +469,9 @@ public sealed class MoteurEcheances(IPolitiquesLegales politiques, BusinessCalen
 
     private static Examen? PremierExamen(IReadOnlyList<Examen> examens, TypeObligation type, DateOnly depuis) =>
         examens.FirstOrDefault(e => e.Type == type && e.Date >= depuis);
+
+    /// <summary>Clé de l'obligation d'examen de reprise : lie le processus de reprise à son obligation.</summary>
+    public static string CleReprise(Guid affilieId, DateOnly dateReprise) => Cle("REPRISE", affilieId, Jour(dateReprise));
 
     private static string Cle(string prefixe, Guid affilieId, params string[] parties) =>
         string.Join(':', [prefixe, affilieId.ToString("N"), .. parties]);

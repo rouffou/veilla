@@ -44,11 +44,11 @@ public static class ReconciliationObligations
         {
             if (resultat.EstSortiDe(obligation.AffilieId))
             {
-                obligation.SortirDeLEntreprise();
+                obligation.SortirDeLEntreprise(maintenant);
             }
             else
             {
-                obligation.Annuler(MotifAnnulation.Recalcul);
+                obligation.Annuler(MotifAnnulation.Recalcul, maintenant);
             }
         }
 
@@ -73,12 +73,32 @@ public static class ReconciliationObligations
             .ThenByDescending(r => r.RendezVousId)
             .FirstOrDefault();
 
-        if (actif is not null)
+        if (actif is { Absent: true })
+        {
+            // SAN-13 : absence constatée à ce rendez-vous ; l'obligation attend un nouveau rendez-vous.
+            // Absence reçue avant le rendez-vous planifié : l'obligation passe par « planifié » puis « absent ».
+            if (obligation.Statut == StatutObligation.APlanifier && obligation.RendezVousId is null)
+            {
+                obligation.Planifier(actif.RendezVousId, actif.Debut!.Value);
+            }
+
+            if (MachineEtatsObligation.EstPlanifie(obligation.Statut) && obligation.RendezVousId == actif.RendezVousId)
+            {
+                obligation.MarquerAbsent();
+            }
+        }
+        else if (actif is not null)
         {
             if (actif.RendezVousId != obligation.RendezVousId
                 || (MachineEtatsObligation.EstPlanifie(obligation.Statut) && obligation.DateRendezVous != actif.Debut))
             {
                 obligation.Planifier(actif.RendezVousId, actif.Debut!.Value);
+            }
+
+            // SAN-10 : la convocation du rendez-vous a été remise au canal d'envoi (quel que soit l'ordre de réception).
+            if (obligation.Statut == StatutObligation.Planifie && obligation.RendezVousId == actif.RendezVousId && actif.ConvocationAJour)
+            {
+                obligation.Convoquer();
             }
         }
         else if (MachineEtatsObligation.EstPlanifie(obligation.Statut))

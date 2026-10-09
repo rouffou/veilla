@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.Contracts.BffEmployeur;
+using Sepp.Contracts.Documents;
 using Sepp.Contracts.Integrations;
 using Sepp.Contracts.Personnes;
 using Sepp.Contracts.Planification;
@@ -17,6 +18,7 @@ using Sepp.Obligations.Adapters.Securite;
 using Sepp.Obligations.Adapters.Traitement;
 using Sepp.Obligations.Application;
 using Sepp.Obligations.Application.Projections;
+using Sepp.Obligations.Application.Reprises;
 using Sepp.Obligations.Domain.Calcul;
 
 namespace Sepp.Obligations.Adapters;
@@ -48,11 +50,22 @@ public static class DependencyInjection
         services.AddIntegrationEventHandler<TrajetDemarre, TrajetDemarreHandler>();
         services.AddIntegrationEventHandler<TrajetTermine, TrajetTermineHandler>();
         services.AddIntegrationEventHandler<ListeNominativeGeneree, ListeNominativeGenereeHandler>();
+
+        // ARC-33 : jalons du processus de reprise.
+        services.AddIntegrationEventHandler<ConvocationEnvoyee, ConvocationEnvoyeeHandler>();
+        services.AddIntegrationEventHandler<ConvocationNonRemise, ConvocationNonRemiseHandler>();
+        services.AddIntegrationEventHandler<UrgenceNonCouverte, UrgenceNonCouverteHandler>();
+        services.AddIntegrationEventHandler<AbsenceRendezVousConstatee, AbsenceRendezVousConstateeHandler>();
+        services.AddIntegrationEventHandler<RendezVousReplanifie, RendezVousReplanifieHandler>();
+        services.AddIntegrationEventHandler<DecisionEmise, DecisionEmiseHandler>();
+        services.AddIntegrationEventHandler<DocumentPublie, DocumentPublieHandler>();
         services.AddSeppConsumer<ObligationsDbContext>(configuration);
 
         services.AddScoped<IObligationRepository, ObligationRepository>();
         services.AddScoped<IDemandeRepository, DemandeRepository>();
         services.AddScoped<IProjectionRepository, ProjectionRepository>();
+        services.AddScoped<IProcessusRepriseRepository, ProcessusRepriseRepository>();
+        services.AddScoped<IDecisionRecueRepository, DecisionRecueRepository>();
         services.AddScoped<IPerimetreAffilies, HttpPerimetreAffilies>();
 
         // Réglages de lecture et d'organisation (section « Obligations ») : pas des délais légaux, qui viennent des politiques légales (ARC-21).
@@ -62,6 +75,14 @@ public static class DependencyInjection
         var calcul = new OptionsCalcul();
         configuration.GetSection("Obligations:Calcul").Bind(calcul);
         services.AddSingleton(calcul);
+
+        // Processus de reprise (ARC-33) : seuils « à valider » et replanification automatique (désactivée par défaut).
+        var reprise = new OptionsReprise();
+        configuration.GetSection("Obligations:Reprise").Bind(reprise);
+        services.AddSingleton(reprise);
+        services.Configure<OptionsMinuteriesReprise>(configuration.GetSection("Obligations:Reprise"));
+        services.AddSingleton<MinuteriesRepriseService>();
+        services.AddHostedService(sp => sp.GetRequiredService<MinuteriesRepriseService>());
 
         services.Configure<OptionsTraitementPeriodique>(configuration.GetSection("Obligations:Traitement"));
         services.AddHostedService<TraitementPeriodiqueService>();

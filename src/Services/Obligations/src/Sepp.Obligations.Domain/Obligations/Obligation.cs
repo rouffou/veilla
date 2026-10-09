@@ -137,7 +137,7 @@ public sealed class Obligation : AggregateRoot
         var change = AppliquerEcheance(echeance, maintenant);
         if (echeance.Realisation is { } realisation)
         {
-            Realiser(realisation);
+            Realiser(realisation, maintenant);
             return true;
         }
 
@@ -153,12 +153,17 @@ public sealed class Obligation : AggregateRoot
     }
 
     /// <summary>Un examen du type attendu a été clôturé (ExamenCloture) : l'obligation est réalisée, quel que soit son statut ouvert.</summary>
-    public void Realiser(Realisation realisation)
+    public void Realiser(Realisation realisation, DateTimeOffset? maintenant = null)
     {
+        var etaitOuverte = EstOuverte;
         Changer(StatutObligation.Realise);
         DateRealisation = realisation.Date;
         ExamenId = realisation.ExamenId;
         MotifAnnulation = null;
+        if (etaitOuverte)
+        {
+            RaiseCloturee(StatutCloture.Realise, null, realisation.Date, maintenant);
+        }
     }
 
     /// <summary>Un rendez-vous couvre l'obligation (RendezVousPlanifie) ; un nouveau rendez-vous remplace le précédent.</summary>
@@ -223,20 +228,22 @@ public sealed class Obligation : AggregateRoot
     /// <summary>Absence justifiée : à reconvoquer.</summary>
     public void Excuser() => Changer(StatutObligation.Excuse);
 
-    public void Annuler(MotifAnnulation motif)
+    public void Annuler(MotifAnnulation motif, DateTimeOffset? maintenant = null)
     {
         Changer(StatutObligation.Annule);
         MotifAnnulation = motif;
         RendezVousId = null;
         DateRendezVous = null;
+        RaiseCloturee(StatutCloture.Annule, motif.ToString(), null, maintenant);
     }
 
     /// <summary>Le travailleur n'est plus occupé chez l'affilié (OccupationTerminee).</summary>
-    public void SortirDeLEntreprise()
+    public void SortirDeLEntreprise(DateTimeOffset? maintenant = null)
     {
         Changer(StatutObligation.SortiEntreprise);
         RendezVousId = null;
         DateRendezVous = null;
+        RaiseCloturee(StatutCloture.SortiEntreprise, null, null, maintenant);
     }
 
     /// <summary>
@@ -293,6 +300,16 @@ public sealed class Obligation : AggregateRoot
         }
 
         Statut = cible;
+    }
+
+    /// <summary>
+    /// Clôture d'une obligation ouverte (réalisée, annulée ou sortie de l'entreprise) : publiée en ObligationCloturee, pour que
+    /// la Planification libère le rendez-vous qui ne couvre plus d'obligation ouverte (SAN-04, ARC-33).
+    /// </summary>
+    private void RaiseCloturee(StatutCloture statut, string? motif, DateOnly? date, DateTimeOffset? maintenant)
+    {
+        var quand = maintenant ?? DateTimeOffset.UtcNow;
+        Raise(new ObligationDevenueCloturee(Id, PersonneId, AffilieId, Type, statut, motif, date ?? JourBelge.De(quand), quand));
     }
 
     private void RaiseOuverte(DateTimeOffset maintenant) =>
@@ -358,6 +375,19 @@ public sealed class TraceCalcul : Entity
 /// <summary>L'obligation est due (création ou réouverture) : publiée en ObligationCreee.</summary>
 public sealed record ObligationOuverte(
     Guid ObligationId, Guid PersonneId, Guid AffilieId, TypeObligation Type, DateOnly DateDue, DateOnly? DateLimite, DateTimeOffset OccurredAt) : IDomainEvent;
+
+/// <summary>Statut de clôture d'une obligation (<c>ObligationCloturee.Statut</c>).</summary>
+public enum StatutCloture
+{
+    Realise,
+    Annule,
+    SortiEntreprise,
+}
+
+/// <summary>Une obligation ouverte est clôturée (réalisée, annulée, sortie de l'entreprise) : publiée en ObligationCloturee.</summary>
+public sealed record ObligationDevenueCloturee(
+    Guid ObligationId, Guid PersonneId, Guid AffilieId, TypeObligation Type, StatutCloture Statut, string? Motif, DateOnly Date, DateTimeOffset OccurredAt)
+    : IDomainEvent;
 
 /// <summary>La date limite d'une obligation ouverte est dépassée : publiée en ObligationEchue.</summary>
 public sealed record ObligationDevenueEchue(

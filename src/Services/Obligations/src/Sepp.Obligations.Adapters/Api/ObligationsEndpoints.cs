@@ -32,6 +32,7 @@ public static class ObligationsEndpoints
         var api = app.MapGroup("/api/v1").RequirePermission(Permissions.ObligationLire);
         MapConsultation(api);
         MapGestion(api);
+        app.MapRepriseEndpoints();
         return app;
     }
 

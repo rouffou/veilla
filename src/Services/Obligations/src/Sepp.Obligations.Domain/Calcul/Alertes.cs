@@ -21,6 +21,17 @@ public enum TypeAlerte
 
     /// <summary>Liste nominative non revue depuis SANTE.LISTES_NOMINATIVES.REVUE_ALERTE (12 mois par défaut).</summary>
     ListeNominativeNonRevue,
+
+    // Alertes du processus de reprise (ARC-33, POR-04) : voir ProcessusReprise.Alertes.
+    RepriseEcheanceMenacee,
+    RepriseHorsDelai,
+    RepriseConvocationNonRemise,
+    RepriseUrgenceNonCouverte,
+    RepriseReplanificationRequise,
+    RepriseRendezVousApresDateLimite,
+    RepriseRendezVousSansCloture,
+    RepriseDecisionEnAttente,
+    RepriseExpiree,
 }
 
 public sealed record Alerte(

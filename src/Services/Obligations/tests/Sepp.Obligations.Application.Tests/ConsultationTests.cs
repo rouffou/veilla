@@ -254,7 +254,7 @@ public class ConsultationTests
 
         // Liste nominative non revue depuis plus de 12 mois.
         Store.Listes.Add(new ListeNominativeLocale(Guid.CreateVersion7(), _banc.Affilie, "EXPOSES", 1, new DateOnly(2025, 1, 1), new DateOnly(2025, 1, 5)));
-        var handler = new ListerAlertesHandler(Store, Store, _banc.Recalcul, new FakePerimetre(true, _banc.Affilie), Banc.Employeur, _banc.Clock, _banc.Options);
+        var handler = new ListerAlertesHandler(Store, Store, _banc.Recalcul, new FakePerimetre(true, _banc.Affilie), Banc.Employeur, _banc.Clock, _banc.Options, Store);
 
         var alertes = (await handler.HandleAsync(new ListerAlertes(_banc.Affilie), Ct)).Value;
 
@@ -266,7 +266,7 @@ public class ConsultationTests
     public async Task Le_delai_de_revue_des_listes_vient_du_parametre_legal_recu()
     {
         Store.Listes.Add(new ListeNominativeLocale(Guid.CreateVersion7(), _banc.Affilie, "EXPOSES", 1, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5)));
-        var handler = new ListerAlertesHandler(Store, Store, _banc.Recalcul, FakePerimetre.Interne, Banc.Cpmt, _banc.Clock, _banc.Options);
+        var handler = new ListerAlertesHandler(Store, Store, _banc.Recalcul, FakePerimetre.Interne, Banc.Cpmt, _banc.Clock, _banc.Options, Store);
 
         (await handler.HandleAsync(new ListerAlertes(_banc.Affilie), Ct)).Value.ShouldBeEmpty();
 
@@ -277,7 +277,7 @@ public class ConsultationTests
     [Fact]
     public async Task Les_alertes_d_un_autre_affilie_sont_interdites_a_un_externe()
     {
-        var handler = new ListerAlertesHandler(Store, Store, _banc.Recalcul, new FakePerimetre(true, _banc.Affilie), Banc.Employeur, _banc.Clock, _banc.Options);
+        var handler = new ListerAlertesHandler(Store, Store, _banc.Recalcul, new FakePerimetre(true, _banc.Affilie), Banc.Employeur, _banc.Clock, _banc.Options, Store);
 
         (await handler.HandleAsync(new ListerAlertes(Guid.CreateVersion7()), Ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
     }

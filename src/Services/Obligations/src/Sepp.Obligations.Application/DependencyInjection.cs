@@ -5,6 +5,7 @@ using Sepp.BuildingBlocks.Application;
 using Sepp.Obligations.Application.Calcul;
 using Sepp.Obligations.Application.Consultation;
 using Sepp.Obligations.Application.Gestion;
+using Sepp.Obligations.Application.Reprises;
 using Sepp.Obligations.Domain.Calcul;
 
 namespace Sepp.Obligations.Application;
@@ -17,6 +18,16 @@ public static class DependencyInjection
         services.TryAddSingleton(new OptionsObligations());
         services.TryAddSingleton(new OptionsCalcul());
         services.TryAddSingleton(TimeProvider.System);
+
+        services.TryAddSingleton(new OptionsReprise());
+        services.AddScoped<SynchronisationProcessusReprise>();
+        services.AddScoped<EnregistrementReprise>();
+        services.AddScoped<TraiterMinuteriesReprise>();
+        services.AddScoped<ICommandHandler<EnregistrerReprise, ResultatEnregistrement>, EnregistrerRepriseHandler>();
+        services.AddScoped<ICommandHandler<ModifierReprise, ResultatEnregistrement>, ModifierRepriseHandler>();
+        services.AddScoped<ICommandHandler<AnnulerReprise, Unit>, AnnulerRepriseHandler>();
+        services.AddScoped<IQueryHandler<ObtenirReprise, RepriseDto>, ObtenirRepriseHandler>();
+        services.AddScoped<IQueryHandler<ListerReprises, IReadOnlyList<RepriseDto>>, ListerReprisesHandler>();
 
         services.AddScoped<RecalculObligations>();
         services.AddScoped<Projections.MiseAJourProjection>();

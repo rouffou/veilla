@@ -21,7 +21,7 @@ public enum ActionStatut
 public sealed record ChangerStatutObligation(Guid ObligationId, ActionStatut Action, DateOnly? DateReport = null, string? Motif = null);
 
 public sealed class ChangerStatutObligationHandler(
-    IObligationRepository obligations, IUnitOfWork unitOfWork, ICurrentUser user, TimeProvider clock)
+    IObligationRepository obligations, IUnitOfWork unitOfWork, IIntegrationEventOutbox outbox, ICurrentUser user, TimeProvider clock)
     : ICommandHandler<ChangerStatutObligation, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(ChangerStatutObligation command, CancellationToken cancellationToken)
@@ -85,7 +85,7 @@ public sealed class ChangerStatutObligationHandler(
                     obligation.Excuser();
                     break;
                 default:
-                    obligation.Annuler(motif!.Value);
+                    obligation.Annuler(motif!.Value, clock.GetUtcNow());
                     break;
             }
         }
@@ -94,6 +94,7 @@ public sealed class ChangerStatutObligationHandler(
             return Error.Validation("obligation.invalide", ex.Message);
         }
 
+        EvenementsIntegration.Publier([obligation], outbox);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }
@@ -180,7 +181,7 @@ public sealed record ResultatTraitement(int PersonnesRecalculees, int Obligation
 /// </summary>
 public sealed class TraitementEcheances(
     RecalculObligations recalcul, IObligationRepository obligations, IDemandeRepository demandes, IUnitOfWork unitOfWork,
-    IIntegrationEventOutbox outbox, TimeProvider clock)
+    IIntegrationEventOutbox outbox, TimeProvider clock, IProcessusRepriseRepository reprises)
 {
     private const int TailleLot = 100;
 
@@ -188,6 +189,7 @@ public sealed class TraitementEcheances(
     {
         var personnes = (await obligations.PersonnesAvecObligationsOuvertesAsync(cancellationToken))
             .Concat(await demandes.PersonnesAsync(cancellationToken))
+            .Concat(await reprises.PersonnesNonSynchroniseesAsync(cancellationToken))
             .Distinct()
             .Order()
             .ToList();
