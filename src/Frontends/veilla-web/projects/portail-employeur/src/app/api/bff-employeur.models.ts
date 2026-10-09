@@ -182,6 +182,46 @@ export interface PropositionSoumise {
   readonly statut: string;
 }
 
+/** POR-04 : statuts d'une reprise lisibles par l'employeur (aucune donnée médicale). */
+export const STATUTS_REPRISE = [
+  'Annoncee',
+  'ObligationOuverte',
+  'Planifiee',
+  'NonCouverte',
+  'Convoquee',
+  'ExamenRealise',
+  'DecisionEmise',
+  'Terminee',
+  'ExamenNonRequis',
+  'Annulee',
+  'SansObjet',
+] as const;
+
+/** Suivi d'une reprise du travail : statut du processus et date limite, sans identifiant d'examen ni de décision. */
+export interface Reprise {
+  readonly id: string;
+  readonly personneId: string;
+  readonly dateReprise: string;
+  readonly debutAbsence: string;
+  readonly statut: string;
+  readonly dateLimite: string | null;
+  readonly enRetard: boolean;
+  readonly horsDelai: boolean;
+}
+
+export interface RepriseCorps {
+  readonly personneId: string;
+  readonly dateReprise: string;
+  readonly debutAbsence: string;
+}
+
+export interface RepriseAnnoncee {
+  readonly repriseId: string;
+  /** false : la reprise était déjà connue (annonce idempotente). */
+  readonly cree: boolean;
+  readonly statut: string;
+}
+
 /** Fichier téléchargé (POR-06). */
 export interface Fichier {
   readonly nom: string;

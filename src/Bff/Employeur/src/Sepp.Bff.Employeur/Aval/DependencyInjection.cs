@@ -13,6 +13,8 @@ public sealed class ServicesAvalOptions
     public Uri? Personnes { get; set; }
 
     public Uri? PostesRisques { get; set; }
+
+    public Uri? Obligations { get; set; }
 }
 
 public static class DependencyInjection
@@ -31,9 +33,10 @@ public static class DependencyInjection
                 o.Affilies ??= Adresse(configuration, "Sepp:Services:Affilies");
                 o.Personnes ??= Adresse(configuration, "Sepp:Services:Personnes");
                 o.PostesRisques ??= Adresse(configuration, "Sepp:Services:Postes_Risques");
+                o.Obligations ??= Adresse(configuration, "Sepp:Services:Obligations");
             })
-            .Validate(o => o.Affilies is not null && o.Personnes is not null && o.PostesRisques is not null,
-                $"Les adresses {ServicesAvalOptions.Section}:Affilies, :Personnes et :PostesRisques sont obligatoires.")
+            .Validate(o => o.Affilies is not null && o.Personnes is not null && o.PostesRisques is not null && o.Obligations is not null,
+                $"Les adresses {ServicesAvalOptions.Section}:Affilies, :Personnes, :PostesRisques et :Obligations sont obligatoires.")
             .ValidateOnStart();
 
         services.AddTransient<PropagationJetonHandler>();
@@ -45,7 +48,10 @@ public static class DependencyInjection
         services.AddHttpClient<IPostesRisquesApi, PostesRisquesApi>((sp, c) => c.BaseAddress = Base(sp, o => o.PostesRisques))
             .AddHttpMessageHandler<PropagationJetonHandler>();
 
-        // Une proposition (POST) n'est pas idempotente : jamais rejouée automatiquement, seules les lectures le sont.
+        services.AddHttpClient<IObligationsApi, ObligationsApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Obligations))
+            .AddHttpMessageHandler<PropagationJetonHandler>();
+
+        // Une annonce de reprise ou une proposition (POST) n'est pas idempotente : jamais rejouée automatiquement, seules les lectures le sont.
         services.PostConfigureAll<HttpStandardResilienceOptions>(o => o.Retry.DisableForUnsafeHttpMethods());
         return services;
     }

@@ -48,6 +48,11 @@ export const routes: Routes = [
         title: 'proposals.title',
       },
       {
+        path: 'reprises',
+        loadComponent: () => import('./reprises/reprises-page').then((m) => m.ReprisesPage),
+        title: 'resumptions.title',
+      },
+      {
         path: 'demandes',
         component: PlaceholderPage,
         title: 'nav.requests',

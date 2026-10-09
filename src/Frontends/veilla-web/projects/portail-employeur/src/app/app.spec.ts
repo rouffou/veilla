@@ -33,7 +33,7 @@ describe('App (portail employeur)', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('.vl-skip-link')).not.toBeNull();
     expect(root.querySelector('main#contenu-principal')).not.toBeNull();
-    expect(root.querySelectorAll('nav a').length).toBe(8);
+    expect(root.querySelectorAll('nav a').length).toBe(9);
   });
 });
 

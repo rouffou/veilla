@@ -14,6 +14,7 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
     public const string Affilies = "affilies.test";
     public const string Personnes = "personnes.test";
     public const string PostesRisques = "postes-risques.test";
+    public const string Obligations = "obligations.test";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
