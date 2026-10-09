@@ -1,10 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 
+using Npgsql;
+
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
+using Sepp.Obligations.Application;
 using Sepp.Obligations.Domain.Demandes;
 using Sepp.Obligations.Domain.Obligations;
 using Sepp.Obligations.Domain.Projections;
+using Sepp.Obligations.Domain.Reprises;
 
 namespace Sepp.Obligations.Adapters.Persistence;
 
@@ -47,6 +51,25 @@ public sealed class ObligationsDbContext(DbContextOptions<ObligationsDbContext> 
     public DbSet<TrajetLocal> Trajets => Set<TrajetLocal>();
 
     public DbSet<ListeNominativeLocale> ListesNominatives => Set<ListeNominativeLocale>();
+
+    public DbSet<ProcessusReprise> Processus => Set<ProcessusReprise>();
+
+    public DbSet<DecisionRecue> DecisionsRecues => Set<DecisionRecue>();
+
+    /// <summary>Index d'unicité du processus de reprise actif : départage deux annonces simultanées (ARC-33).</summary>
+    public const string IndexProcessusActif = "ux_processus_reprise_actif";
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: IndexProcessusActif })
+        {
+            throw new DoublonProcessusRepriseException(ex);
+        }
+    }
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
@@ -185,13 +208,50 @@ public sealed class ObligationsDbContext(DbContextOptions<ObligationsDbContext> 
             b.Property(r => r.RendezVousId).ValueGeneratedNever();
             b.HasIndex(r => r.PersonneId);
             b.PrimitiveCollection(r => r.ObligationIds);
+            b.Property(r => r.MotifAnnulation).HasMaxLength(CodeLength);
             b.Ignore(r => r.EstActif);
+            b.Ignore(r => r.ConvocationAJour);
+            b.Ignore(r => r.ConvocationNonRemise);
         });
 
         modelBuilder.Entity<RepriseLocale>(b =>
         {
             b.ToTable("reprise_locale");
             b.HasKey(r => new { r.PersonneId, r.AffilieId, r.DateReprise });
+        });
+
+        modelBuilder.Entity<ProcessusReprise>(b =>
+        {
+            b.ToTable("processus_reprise");
+            b.HasKey(p => p.Id);
+            b.Property(p => p.Id).ValueGeneratedNever();
+            b.Property(p => p.Origine).HasConversion<string>().HasMaxLength(EnumLength);
+            b.Property(p => p.Statut).HasConversion<string>().HasMaxLength(EnumLength);
+            b.Property(p => p.TypeMinuterie).HasConversion<string>().HasMaxLength(EnumLength);
+            b.Property(p => p.MotifReplanification).HasConversion<string>().HasMaxLength(EnumLength);
+            b.Property(p => p.MotifAnnulation).HasMaxLength(CodeLength);
+            b.PrimitiveCollection(p => p.RendezVousAbsents);
+            b.PrimitiveCollection(p => p.MinuteriesDeclenchees);
+            b.Ignore(p => p.NombreAbsences);
+            b.Ignore(p => p.EstAnnulee);
+            b.Ignore(p => p.EstActif);
+            b.Ignore(p => p.ConvocationNonRemise);
+
+            // Un seul processus actif par travailleur, affilié et date de reprise (hors annulés) : idempotence des annonces simultanées.
+            b.HasIndex(p => new { p.PersonneId, p.AffilieId, p.DateReprise }).IsUnique().HasFilter("annulee_le IS NULL").HasDatabaseName(IndexProcessusActif);
+            b.HasIndex(p => p.PersonneId);
+            b.HasIndex(p => p.ObligationId);
+            b.HasIndex(p => p.ExamenId);
+            b.HasIndex(p => p.DecisionId);
+            b.HasIndex(p => p.AffilieId);
+            b.HasIndex(p => p.ProchaineEcheance).HasFilter("prochaine_echeance IS NOT NULL");
+        });
+
+        modelBuilder.Entity<DecisionRecue>(b =>
+        {
+            b.ToTable("decision_recue");
+            b.HasKey(d => d.ExamenId);
+            b.Property(d => d.ExamenId).ValueGeneratedNever();
         });
 
         modelBuilder.Entity<IncapaciteLocale>(b =>

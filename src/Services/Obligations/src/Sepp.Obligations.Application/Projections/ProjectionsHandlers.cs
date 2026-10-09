@@ -8,8 +8,10 @@ using Sepp.Contracts.Referentiels;
 using Sepp.Contracts.Reintegration;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Obligations.Application.Calcul;
+using Sepp.Obligations.Application.Reprises;
 using Sepp.Obligations.Domain.Calcul;
 using Sepp.Obligations.Domain.Projections;
+using Sepp.Obligations.Domain.Reprises;
 
 namespace Sepp.Obligations.Application.Projections;
 
@@ -314,29 +316,22 @@ public sealed class RendezVousAnnuleHandler(IProjectionRepository projections, M
             projections.Add(rendezVous);
         }
 
-        rendezVous.Annuler();
+        rendezVous.Annuler(e.Motif);
         await miseAJour.TerminerAsync([e.PersonneId], cancellationToken);
     }
 }
 
-/// <summary>§5.1 : reprise annoncée par l'employeur → examen de reprise du jour de la reprise à J+10 ouvrables.</summary>
-public sealed class RepriseAnnonceeHandler(IProjectionRepository projections, MiseAJourProjection miseAJour)
+/// <summary>
+/// §5.1, ARC-33 : reprise annoncée par l'événement <c>bff-employeur.reprise-annoncee</c> (rétrocompatibilité) → délègue à
+/// l'enregistrement du processus de reprise, avec l'origine « Evenement ». Une annonce invalide est ignorée (pas de rejeu infini).
+/// </summary>
+public sealed class RepriseAnnonceeHandler(EnregistrementReprise enregistrement)
     : IIntegrationEventHandler<RepriseAnnoncee>
 {
     public async Task HandleAsync(RepriseAnnoncee integrationEvent, CancellationToken cancellationToken)
     {
         var e = integrationEvent;
-        var reprise = await projections.GetRepriseAsync(e.PersonneId, e.AffilieId, e.DateReprise, cancellationToken);
-        if (reprise is null)
-        {
-            projections.Add(new RepriseLocale(e.PersonneId, e.AffilieId, e.DateReprise, e.DebutAbsence, e.OccurredAt));
-        }
-        else if (!reprise.Appliquer(e.DebutAbsence, e.OccurredAt))
-        {
-            return;
-        }
-
-        await miseAJour.TerminerAsync([e.PersonneId], cancellationToken);
+        await enregistrement.EnregistrerAsync(e.PersonneId, e.AffilieId, e.DateReprise, e.DebutAbsence, OrigineReprise.Evenement, e.OccurredAt, cancellationToken);
     }
 }
 

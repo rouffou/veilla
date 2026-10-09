@@ -299,7 +299,7 @@ public class ProjectionsTests
     [Fact]
     public async Task La_reprise_annoncee_cree_l_examen_de_reprise_a_dix_jours_ouvrables()
     {
-        await new RepriseAnnonceeHandler(Store, _banc.MiseAJour).HandleAsync(
+        await new RepriseAnnonceeHandler(_banc.Enregistrement).HandleAsync(
             new RepriseAnnoncee(_banc.Personne, _banc.Affilie, new DateOnly(2026, 4, 27), new DateOnly(2026, 3, 23)), Ct);
 
         var obligation = Store.Obligations.ShouldHaveSingleItem();
@@ -317,7 +317,7 @@ public class ProjectionsTests
         estimation.DateDue.ShouldBe(new DateOnly(2026, 6, 10));
         estimation.DateLimite.ShouldBeNull();
 
-        await new RepriseAnnonceeHandler(Store, _banc.MiseAJour).HandleAsync(
+        await new RepriseAnnonceeHandler(_banc.Enregistrement).HandleAsync(
             new RepriseAnnoncee(_banc.Personne, _banc.Affilie, new DateOnly(2026, 5, 20), new DateOnly(2026, 4, 15)), Ct);
 
         estimation.Statut.ShouldBe(StatutObligation.Annule);
@@ -356,7 +356,7 @@ public class ProjectionsTests
     [Fact]
     public async Task Un_parametre_legal_modifie_recalcule_les_echeances_qui_en_dependent()
     {
-        await new RepriseAnnonceeHandler(Store, _banc.MiseAJour).HandleAsync(
+        await new RepriseAnnonceeHandler(_banc.Enregistrement).HandleAsync(
             new RepriseAnnoncee(_banc.Personne, _banc.Affilie, new DateOnly(2026, 4, 27), new DateOnly(2026, 3, 23)), Ct);
 
         await new ParametreLegalModifieHandler(Store, _banc.MiseAJour).HandleAsync(
@@ -380,7 +380,7 @@ public class ProjectionsTests
     [Fact]
     public async Task Les_jours_feries_supplementaires_recalculent_les_delais_en_jours_ouvrables()
     {
-        await new RepriseAnnonceeHandler(Store, _banc.MiseAJour).HandleAsync(
+        await new RepriseAnnonceeHandler(_banc.Enregistrement).HandleAsync(
             new RepriseAnnoncee(_banc.Personne, _banc.Affilie, new DateOnly(2026, 4, 27), new DateOnly(2026, 3, 23)), Ct);
 
         await new JoursFeriesModifiesHandler(Store, _banc.MiseAJour).HandleAsync(new JoursFeriesModifies(2026, [new DateOnly(2026, 5, 4)]), Ct);

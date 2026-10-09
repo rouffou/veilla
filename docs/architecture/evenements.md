@@ -39,8 +39,8 @@ Règles :
 | planification | `planification.rappel-rendez-vous-du.v1` | RappelRendezVousDu | RendezVousId, PersonneId, AffilieId, LieuId, Debut, Canal, NumeroRappel | Communications (rappels J-7 / J-1, SAN-13) |
 | planification | `planification.rendez-vous-annule.v1` | RendezVousAnnule | RendezVousId, PersonneId, Motif | Communications, Obligations |
 | planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Obligations, Surveillance médicale (ouverture d'examen) |
-| planification | `planification.rendez-vous-replanifie.v1` | RendezVousReplanifie | RendezVousId, PersonneId, AffilieId, AncienDebut, NouveauDebut, Motif | Communications, Reporting (PLA-07) |
-| planification | `planification.urgence-non-couverte.v1` | UrgenceNonCouverte | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Communications (alerte au planificateur, PLA-06) |
+| planification | `planification.rendez-vous-replanifie.v1` | RendezVousReplanifie | RendezVousId, PersonneId, AffilieId, AncienDebut, NouveauDebut, Motif | Communications, Obligations (saga de reprise : date du rendez-vous), Reporting (PLA-07) |
+| planification | `planification.urgence-non-couverte.v1` | UrgenceNonCouverte | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Communications (alerte au planificateur, PLA-06), Obligations (saga de reprise : jalon « non couvert ») |
 | postes-risques | `postes-risques.liste-nominative-generee.v1` | ListeNominativeGeneree | ListeNominativeId, AffilieId, TypeListe, Version, DateReference, DateGeneration | Obligations (alerte de revue des listes, AFF-32) |
 | postes-risques | `postes-risques.profil-risque-poste-modifie.v1` | ProfilRisquePosteModifie | PosteId, AffilieId, CodesRisques, ValideDu | Obligations, Reporting, Surveillance médicale (SAN-20) |
 | postes-risques | `postes-risques.regle-surveillance-modifiee.v1` | RegleSurveillanceModifiee | RisqueId, CodeRisque, Categorie, Version, TypeSurveillance, FrequenceMois, SurveillanceProlongee, ValideDu | Obligations (SAN-01) |

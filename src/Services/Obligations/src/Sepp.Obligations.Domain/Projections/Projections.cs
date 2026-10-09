@@ -467,9 +467,54 @@ public sealed class RendezVousLocal
 
     public bool Annule { get; private set; }
 
+    /// <summary>Motif d'annulation reçu (<c>RendezVousAnnule.Motif</c>) : <c>ObligationLevee</c> = compensation, pas de replanification.</summary>
+    public string? MotifAnnulation { get; private set; }
+
     public DateTimeOffset? PlanifieDu { get; private set; }
 
+    /// <summary>SAN-13 : la personne ne s'est pas présentée (planification.absence-rendez-vous-constatee), définitif.</summary>
+    public bool Absent { get; private set; }
+
+    /// <summary>
+    /// PLA-07 : date de la dernière replanification (<c>RendezVousReplanifie.OccurredAt</c>) : un « planifié » plus ancien ne
+    /// ramène pas le rendez-vous à son ancienne date.
+    /// </summary>
+    public DateTimeOffset? ReplanifieDu { get; private set; }
+
+    /// <summary>Dernière convocation remise au canal d'envoi (planification.convocation-envoyee, SAN-10).</summary>
+    public DateTimeOffset? ConvocationEnvoyeeLe { get; private set; }
+
+    /// <summary>Dernière convocation abandonnée (planification.convocation-non-remise, SAN-10).</summary>
+    public DateTimeOffset? ConvocationNonRemiseLe { get; private set; }
+
     public bool EstActif => !Annule && Debut is not null;
+
+    /// <summary>
+    /// La convocation envoyée est postérieure à la dernière (re)planification : elle concerne bien la date actuelle. Une
+    /// replanification sans nouvelle convocation remet l'obligation à « planifié ».
+    /// </summary>
+    public bool ConvocationAJour
+    {
+        get
+        {
+            if (ConvocationEnvoyeeLe is not { } envoyee)
+            {
+                return false;
+            }
+
+            var reference = PlanifieDu ?? DateTimeOffset.MinValue;
+            if (ReplanifieDu is { } replanifie && replanifie > reference)
+            {
+                reference = replanifie;
+            }
+
+            return envoyee >= reference;
+        }
+    }
+
+    /// <summary>La dernière convocation a été abandonnée et n'a pas été remplacée par un envoi plus récent.</summary>
+    public bool ConvocationNonRemise =>
+        ConvocationNonRemiseLe is { } abandonnee && (ConvocationEnvoyeeLe is not { } envoyee || abandonnee > envoyee);
 
     public bool Planifier(Guid affilieId, DateTimeOffset debut, IEnumerable<Guid> obligationIds, DateTimeOffset evenementDu)
     {
@@ -479,13 +524,72 @@ public sealed class RendezVousLocal
         }
 
         AffilieId = affilieId;
-        Debut = debut;
         ObligationIds = obligationIds.Distinct().ToList();
         PlanifieDu = evenementDu;
+        if (ReplanifieDu is not { } replanifie || evenementDu >= replanifie)
+        {
+            Debut = debut;
+        }
+
         return true;
     }
 
-    public void Annuler() => Annule = true;
+    /// <summary>PLA-07 : le rendez-vous est déplacé ; l'événement le plus récent l'emporte.</summary>
+    /// <returns><c>false</c> si un état plus récent est déjà connu.</returns>
+    public bool Replanifier(DateTimeOffset nouveauDebut, DateTimeOffset evenementDu)
+    {
+        if (ReplanifieDu is { } connu && evenementDu <= connu)
+        {
+            return false;
+        }
+
+        Debut = nouveauDebut;
+        ReplanifieDu = evenementDu;
+        return true;
+    }
+
+    /// <summary>SAN-13 : absence constatée, définitive quel que soit l'ordre de réception.</summary>
+    /// <returns><c>false</c> si l'absence était déjà notée.</returns>
+    public bool MarquerAbsent()
+    {
+        if (Absent)
+        {
+            return false;
+        }
+
+        Absent = true;
+        return true;
+    }
+
+    /// <returns><c>false</c> si un envoi plus récent est déjà connu.</returns>
+    public bool EnregistrerConvocation(DateTimeOffset envoyeeLe)
+    {
+        if (ConvocationEnvoyeeLe is { } connu && envoyeeLe <= connu)
+        {
+            return false;
+        }
+
+        ConvocationEnvoyeeLe = envoyeeLe;
+        return true;
+    }
+
+    /// <returns><c>false</c> si un abandon plus récent est déjà connu.</returns>
+    public bool EnregistrerConvocationNonRemise(DateTimeOffset le)
+    {
+        if (ConvocationNonRemiseLe is { } connu && le <= connu)
+        {
+            return false;
+        }
+
+        ConvocationNonRemiseLe = le;
+        return true;
+    }
+
+    public void Annuler(string? motif = null)
+    {
+        Annule = true;
+        MotifAnnulation = motif;
+    }
 }
 
 /// <summary>Reprise annoncée par l'employeur (bff-employeur.reprise-annoncee, §14.6). Clé : (travailleur, affilié, date de reprise).</summary>
@@ -495,14 +599,21 @@ public sealed class RepriseLocale
     {
     }
 
-    public RepriseLocale(Guid personneId, Guid affilieId, DateOnly dateReprise, DateOnly debutAbsence, DateTimeOffset evenementDu)
+    public RepriseLocale(Guid personneId, Guid affilieId, DateOnly dateReprise, DateOnly debutAbsence, DateTimeOffset evenementDu, Guid? repriseId = null)
     {
         PersonneId = personneId;
         AffilieId = affilieId;
         DateReprise = dateReprise;
         DebutAbsence = debutAbsence;
         EvenementDu = evenementDu;
+        RepriseId = repriseId;
     }
+
+    /// <summary>Processus de reprise (ProcessusReprise) qui a enregistré cette reprise ; <c>null</c> pour une annonce antérieure au processus.</summary>
+    public Guid? RepriseId { get; private set; }
+
+    /// <summary>Reprise annulée (ARC-33) : le moteur d'échéances l'ignore, l'obligation d'examen de reprise est annulée par le recalcul.</summary>
+    public bool Annulee { get; private set; }
 
     public Guid PersonneId { get; private set; }
 
@@ -524,6 +635,31 @@ public sealed class RepriseLocale
         DebutAbsence = debutAbsence;
         EvenementDu = evenementDu;
         return true;
+    }
+
+    /// <summary>Rattache la reprise à son processus (annonce antérieure au processus, ou nouvelle annonce après annulation).</summary>
+    public void Lier(Guid repriseId) => RepriseId = repriseId;
+
+    /// <summary>Annulation par le processus : définitive pour ce processus, l'événement le plus récent l'emporte.</summary>
+    public bool MarquerAnnulee(DateTimeOffset evenementDu)
+    {
+        if (evenementDu < EvenementDu)
+        {
+            return false;
+        }
+
+        Annulee = true;
+        EvenementDu = evenementDu;
+        return true;
+    }
+
+    /// <summary>Nouvelle annonce de la même reprise après son annulation : un nouveau processus la remplace.</summary>
+    public void Reactiver(Guid repriseId, DateOnly debutAbsence, DateTimeOffset evenementDu)
+    {
+        RepriseId = repriseId;
+        Annulee = false;
+        DebutAbsence = debutAbsence;
+        EvenementDu = evenementDu > EvenementDu ? evenementDu : EvenementDu;
     }
 }
 

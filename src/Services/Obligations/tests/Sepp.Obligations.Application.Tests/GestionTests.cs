@@ -31,7 +31,7 @@ public class GestionTests
         return obligation;
     }
 
-    private ChangerStatutObligationHandler Statut(ICurrentUser? user = null) => new(Store, Store, user ?? Banc.Cpmt, _banc.Clock);
+    private ChangerStatutObligationHandler Statut(ICurrentUser? user = null) => new(Store, Store, Store, user ?? Banc.Cpmt, _banc.Clock);
 
     [Fact]
     public async Task Le_cpmt_fait_passer_une_obligation_planifiee_a_convoquee_puis_absente()
@@ -190,7 +190,7 @@ public class GestionTests
     public async Task Le_traitement_periodique_annule_les_obligations_que_plus_aucune_projection_ne_justifie_sans_les_signaler_echues()
     {
         var orpheline = Ajouter("ORPHELINE", new DateOnly(2026, 6, 1));
-        var traitement = new TraitementEcheances(_banc.Recalcul, Store, Store, Store, Store, _banc.Clock);
+        var traitement = new TraitementEcheances(_banc.Recalcul, Store, Store, Store, Store, _banc.Clock, Store);
 
         var resultat = await traitement.ExecuterAsync(Ct);
 
@@ -206,7 +206,7 @@ public class GestionTests
         // Reprise annoncée : l'examen est dû, la date limite (12 mai) est dépassée au 15 juin.
         Store.Reprises.Add(new Sepp.Obligations.Domain.Projections.RepriseLocale(_banc.Personne, _banc.Affilie, new DateOnly(2026, 4, 27), new DateOnly(2026, 3, 23), Banc.Midi));
         await _banc.Recalcul.RecalculerAsync([_banc.Personne], Ct);
-        var traitement = new TraitementEcheances(_banc.Recalcul, Store, Store, Store, Store, _banc.Clock);
+        var traitement = new TraitementEcheances(_banc.Recalcul, Store, Store, Store, Store, _banc.Clock, Store);
 
         var premier = await traitement.ExecuterAsync(Ct);
         var second = await traitement.ExecuterAsync(Ct);
@@ -222,7 +222,7 @@ public class GestionTests
     [Fact]
     public async Task Le_traitement_periodique_a_la_demande_exige_la_permission_de_gestion()
     {
-        var traitement = new TraitementEcheances(_banc.Recalcul, Store, Store, Store, Store, _banc.Clock);
+        var traitement = new TraitementEcheances(_banc.Recalcul, Store, Store, Store, Store, _banc.Clock, Store);
 
         (await new TraiterEcheancesHandler(traitement, Banc.Employeur).HandleAsync(new TraiterEcheances(), Ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
         (await new TraiterEcheancesHandler(traitement, Banc.Cpmt).HandleAsync(new TraiterEcheances(), Ct)).IsSuccess.ShouldBeTrue();
@@ -240,8 +240,8 @@ public class GestionTests
         await banc.Recalcul.RecalculerAsync([banc.Personne], Ct);
         banc.Store.Obligations.Single().Statut.ShouldBe(StatutObligation.APlanifier);
 
-        banc.Clock.Now = new DateTimeOffset(2026, 6, 2, 10, 0, 0, TimeSpan.Zero);
-        await new TraitementEcheances(banc.Recalcul, banc.Store, banc.Store, banc.Store, banc.Store, banc.Clock).ExecuterAsync(Ct);
+        banc.Clock.SetUtcNow(new DateTimeOffset(2026, 6, 2, 10, 0, 0, TimeSpan.Zero));
+        await new TraitementEcheances(banc.Recalcul, banc.Store, banc.Store, banc.Store, banc.Store, banc.Clock, banc.Store).ExecuterAsync(Ct);
 
         banc.Store.Obligations.Single().Statut.ShouldBe(StatutObligation.SortiEntreprise);
     }

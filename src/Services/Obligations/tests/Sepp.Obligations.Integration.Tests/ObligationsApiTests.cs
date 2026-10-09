@@ -39,7 +39,7 @@ namespace Sepp.Obligations.Integration.Tests;
 /// Service complet contre un vrai PostgreSQL dans un conteneur éphémère (ARC-23) : migrations, persistance,
 /// outbox, réception idempotente et désordonnée des événements, API, permissions et périmètre de l'affilié.
 /// </summary>
-public sealed class ObligationsApiTests : IAsyncLifetime
+public sealed partial class ObligationsApiTests : IAsyncLifetime
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
@@ -61,6 +61,7 @@ public sealed class ObligationsApiTests : IAsyncLifetime
             b.UseSetting("Database:MigrateOnStartup", "true");
             b.UseSetting("Outbox:PollingInterval", "00:00:00.200");
             b.UseSetting("Obligations:Traitement:Actif", "false");
+            b.UseSetting("Obligations:Reprise:Actif", "false");
             b.ConfigureTestServices(s =>
             {
                 s.RemoveAll<TimeProvider>();

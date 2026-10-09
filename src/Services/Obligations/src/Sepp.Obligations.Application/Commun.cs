@@ -21,6 +21,8 @@ internal static class Acces
     public static bool PeutVoir(IPerimetreAffilies perimetre, Obligation obligation) =>
         perimetre.PeutAcceder(obligation.AffilieId) && !(perimetre.EstExterne && obligation.Type.EstConfidentiel());
 
+    public static Error RepriseInconnue(Guid id) => Error.NotFound("reprise.inconnue", $"Reprise {id} inconnue.");
+
     public static Error ObligationInconnue(Guid id) => Error.NotFound("obligation.inconnue", $"Obligation {id} inconnue.");
 }
 

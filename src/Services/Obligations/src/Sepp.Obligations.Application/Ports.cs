@@ -1,8 +1,59 @@
 using Sepp.Obligations.Domain.Demandes;
 using Sepp.Obligations.Domain.Obligations;
 using Sepp.Obligations.Domain.Projections;
+using Sepp.Obligations.Domain.Reprises;
 
 namespace Sepp.Obligations.Application;
+
+/// <summary>Deux annonces simultanées de la même reprise : l'index d'unicité du processus actif a refusé la seconde.</summary>
+public sealed class DoublonProcessusRepriseException(Exception? inner = null)
+    : Exception("Un processus de reprise actif existe déjà pour ce travailleur, cet affilié et cette date.", inner);
+
+/// <summary>Processus de reprise (ARC-33, ADR 0008) : table <c>processus_reprise</c>.</summary>
+public interface IProcessusRepriseRepository
+{
+    Task<ProcessusReprise?> GetAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Processus non annulé de la reprise (unicité partielle sur travailleur, affilié et date de reprise).</summary>
+    Task<ProcessusReprise?> GetActifAsync(Guid personneId, Guid affilieId, DateOnly dateReprise, CancellationToken cancellationToken);
+
+    Task<ProcessusReprise?> GetParObligationAsync(Guid obligationId, CancellationToken cancellationToken);
+
+    Task<ProcessusReprise?> GetParExamenAsync(Guid examenId, CancellationToken cancellationToken);
+
+    Task<ProcessusReprise?> GetParDecisionAsync(Guid decisionId, CancellationToken cancellationToken);
+
+    /// <summary>Tous les processus d'un travailleur, annulés compris.</summary>
+    Task<IReadOnlyList<ProcessusReprise>> ListParPersonneAsync(Guid personneId, CancellationToken cancellationToken);
+
+    /// <summary>Processus filtrés (affilié, statut, minuterie échue avant la date), au plus <paramref name="nombreMaximum"/>.</summary>
+    Task<IReadOnlyList<ProcessusReprise>> ListAsync(
+        Guid? affilieId, StatutReprise? statut, DateOnly? echeanceAvant, int nombreMaximum, CancellationToken cancellationToken);
+
+    /// <summary>Processus encore suivis d'un affilié (alertes).</summary>
+    Task<IReadOnlyList<ProcessusReprise>> ListActifsParAffilieAsync(Guid affilieId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Réserve les processus dont la minuterie est échue (<c>FOR UPDATE SKIP LOCKED</c>) : à appeler dans une transaction
+    /// qui garde les verrous jusqu'à l'enregistrement, pour que deux instances ne traitent jamais le même processus.
+    /// </summary>
+    Task<IReadOnlyList<ProcessusReprise>> ReserverEchusAsync(DateOnly aujourdHui, int nombreMaximum, CancellationToken cancellationToken);
+
+    /// <summary>Travailleurs dont un processus n'a pas encore d'obligation liée (enregistrement interrompu) : repris par le traitement périodique.</summary>
+    Task<IReadOnlyList<Guid>> PersonnesNonSynchroniseesAsync(CancellationToken cancellationToken);
+
+    void Add(ProcessusReprise processus);
+
+    /// <summary>Abandonne les changements non enregistrés (après un doublon détecté).</summary>
+    void AbandonnerChangements();
+}
+
+public interface IDecisionRecueRepository
+{
+    Task<DecisionRecue?> GetAsync(Guid examenId, CancellationToken cancellationToken);
+
+    void Add(DecisionRecue decision);
+}
 
 public interface IObligationRepository
 {

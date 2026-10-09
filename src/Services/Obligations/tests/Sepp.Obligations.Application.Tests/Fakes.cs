@@ -1,17 +1,21 @@
+using Microsoft.Extensions.Time.Testing;
+
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Contracts;
 using Sepp.Obligations.Application;
 using Sepp.Obligations.Application.Calcul;
+using Sepp.Obligations.Application.Reprises;
 using Sepp.Obligations.Domain.Calcul;
 using Sepp.Obligations.Domain.Demandes;
 using Sepp.Obligations.Domain.Obligations;
 using Sepp.Obligations.Domain.Projections;
+using Sepp.Obligations.Domain.Reprises;
 
 namespace Sepp.Obligations.Application.Tests;
 
 /// <summary>Adaptateurs en mémoire : la couche application est testée sans infrastructure (ARC-23).</summary>
-internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IObligationRepository, IDemandeRepository, IProjectionRepository
+internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IObligationRepository, IDemandeRepository, IProjectionRepository, IProcessusRepriseRepository, IDecisionRecueRepository
 {
     private readonly List<IntegrationEvent> _pending = [];
 
@@ -225,6 +229,61 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IObl
         Task.FromResult<IReadOnlyList<ListeNominativeLocale>>(Listes.Where(l => l.AffilieId == affilieId).ToList());
 
     public void Add(ListeNominativeLocale liste) => Listes.Add(liste);
+
+    // Processus de reprise
+    public List<ProcessusReprise> Processus { get; } = [];
+
+    public List<DecisionRecue> Decisions { get; } = [];
+
+    Task<ProcessusReprise?> IProcessusRepriseRepository.GetAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(Processus.SingleOrDefault(p => p.Id == id));
+
+    public Task<ProcessusReprise?> GetActifAsync(Guid personneId, Guid affilieId, DateOnly dateReprise, CancellationToken cancellationToken) =>
+        Task.FromResult(Processus.SingleOrDefault(p => p.PersonneId == personneId && p.AffilieId == affilieId && p.DateReprise == dateReprise && !p.EstAnnulee));
+
+    public Task<ProcessusReprise?> GetParObligationAsync(Guid obligationId, CancellationToken cancellationToken) =>
+        Task.FromResult(Processus.FirstOrDefault(p => p.ObligationId == obligationId && !p.EstAnnulee));
+
+    public Task<ProcessusReprise?> GetParExamenAsync(Guid examenId, CancellationToken cancellationToken) =>
+        Task.FromResult(Processus.FirstOrDefault(p => p.ExamenId == examenId));
+
+    public Task<ProcessusReprise?> GetParDecisionAsync(Guid decisionId, CancellationToken cancellationToken) =>
+        Task.FromResult(Processus.FirstOrDefault(p => p.DecisionId == decisionId));
+
+    Task<IReadOnlyList<ProcessusReprise>> IProcessusRepriseRepository.ListParPersonneAsync(Guid personneId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<ProcessusReprise>>(Processus.Where(p => p.PersonneId == personneId).ToList());
+
+    public Task<IReadOnlyList<ProcessusReprise>> ListAsync(
+        Guid? affilieId, StatutReprise? statut, DateOnly? echeanceAvant, int nombreMaximum, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<ProcessusReprise>>(Processus
+            .Where(p => (affilieId is null || p.AffilieId == affilieId) && (statut is null || p.Statut == statut)
+                        && (echeanceAvant is null || (p.DateLimite is { } l && l <= echeanceAvant)))
+            .Take(nombreMaximum)
+            .ToList());
+
+    public Task<IReadOnlyList<ProcessusReprise>> ListActifsParAffilieAsync(Guid affilieId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<ProcessusReprise>>(Processus.Where(p => p.AffilieId == affilieId && p.EstActif).ToList());
+
+    public Task<IReadOnlyList<ProcessusReprise>> ReserverEchusAsync(DateOnly aujourdHui, int nombreMaximum, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<ProcessusReprise>>(Processus
+            .Where(p => !p.EstAnnulee && p.ProchaineEcheance is { } e && e <= aujourdHui)
+            .OrderBy(p => p.ProchaineEcheance)
+            .Take(nombreMaximum)
+            .ToList());
+
+    public Task<IReadOnlyList<Guid>> PersonnesNonSynchroniseesAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Guid>>(Processus.Where(p => p.Statut == StatutReprise.Annoncee && !p.EstAnnulee).Select(p => p.PersonneId).Distinct().ToList());
+
+    public void Add(ProcessusReprise processus) => Processus.Add(processus);
+
+    public void AbandonnerChangements()
+    {
+    }
+
+    Task<DecisionRecue?> IDecisionRecueRepository.GetAsync(Guid examenId, CancellationToken cancellationToken) =>
+        Task.FromResult(Decisions.SingleOrDefault(d => d.ExamenId == examenId));
+
+    public void Add(DecisionRecue decision) => Decisions.Add(decision);
 }
 
 internal sealed class FakeUser(string userId, params string[] roles) : ICurrentUser
@@ -248,13 +307,6 @@ internal sealed class FakePerimetre(bool externe, params Guid[] affilies) : IPer
     public bool PeutAcceder(Guid affilieId) => !externe || affilies.Contains(affilieId);
 }
 
-internal sealed class FixedClock(DateTimeOffset now) : TimeProvider
-{
-    public DateTimeOffset Now { get; set; } = now;
-
-    public override DateTimeOffset GetUtcNow() => Now;
-}
-
 /// <summary>Assemble les cas d'usage sur un magasin en mémoire et une horloge fixe.</summary>
 internal sealed class Banc
 {
@@ -262,14 +314,22 @@ internal sealed class Banc
 
     public Banc(DateTimeOffset? maintenant = null)
     {
-        Clock = new FixedClock(maintenant ?? Midi);
-        Recalcul = new RecalculObligations(Store, Store, Store, Store, Clock, new OptionsCalcul());
+        Clock = new FakeTimeProvider(maintenant ?? Midi);
+        Synchronisation = new SynchronisationProcessusReprise(Store, Store, Store, Store, OptionsReprise, Clock);
+        Recalcul = new RecalculObligations(Store, Store, Store, Store, Clock, new OptionsCalcul(), Synchronisation);
         MiseAJour = new Projections.MiseAJourProjection(Recalcul, Store, Store, Store);
+        Enregistrement = new EnregistrementReprise(Store, Store, MiseAJour, Store, Store, OptionsReprise, Clock);
     }
 
     public InMemoryStore Store { get; } = new();
 
-    public FixedClock Clock { get; }
+    public FakeTimeProvider Clock { get; }
+
+    public OptionsReprise OptionsReprise { get; } = new();
+
+    public SynchronisationProcessusReprise Synchronisation { get; }
+
+    public EnregistrementReprise Enregistrement { get; }
 
     public RecalculObligations Recalcul { get; }
 
