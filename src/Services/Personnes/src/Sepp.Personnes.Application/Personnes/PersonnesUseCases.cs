@@ -147,6 +147,40 @@ public sealed class RechercherParNissHandler(
     }
 }
 
+/// <summary>
+/// SAN-60 : identification interne d'une personne par NISS pour le compte technique du service Intégrations (permission
+/// <c>personne:identifier</c>), qui publie <c>integrations.incapacite-notifiee</c> avec le seul <c>personne_id</c>. Rend
+/// l'identifiant et rien d'autre : ni identité, ni NISS masqué, ni occupation (aucune lecture de la fiche, DAT-06).
+/// </summary>
+public sealed record IdentifierPersonne(string Niss)
+{
+    public override string ToString() => "IdentifierPersonne { Niss = masqué }";
+}
+
+public sealed record IdentificationDto(Guid PersonneId);
+
+public sealed class IdentifierPersonneHandler(IPersonneRepository repository, INissIndex index, ICurrentUser currentUser)
+    : IQueryHandler<IdentifierPersonne, IdentificationDto>
+{
+    public async Task<Result<IdentificationDto>> HandleAsync(IdentifierPersonne query, CancellationToken cancellationToken)
+    {
+        if (!currentUser.HasPermission(Permissions.PersonneIdentifier))
+        {
+            return Error.Forbidden("personnes.interdit", "Identification réservée au compte technique du service Intégrations.");
+        }
+
+        if (!Niss.TryParse(query.Niss, out var niss, out var erreur))
+        {
+            return Error.Validation("personne.niss-invalide", erreur);
+        }
+
+        var personne = await repository.GetParNissHashAsync(index.Calculer(niss), cancellationToken);
+        return personne is null
+            ? Error.NotFound("personne.inconnue", "Aucune personne ne correspond à ce NISS.")
+            : new IdentificationDto(personne.Id);
+    }
+}
+
 public sealed record ObtenirPersonne(Guid PersonneId);
 
 public sealed class ObtenirPersonneHandler(AccesPersonnes acces, PerimetreUtilisateur perimetre) : IQueryHandler<ObtenirPersonne, PersonneDto>
