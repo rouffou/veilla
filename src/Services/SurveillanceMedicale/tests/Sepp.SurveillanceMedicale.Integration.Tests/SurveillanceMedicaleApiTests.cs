@@ -7,6 +7,7 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Contracts.Obligations;
 using Sepp.Contracts.Planification;
 using Sepp.Contracts.Prevention;
+using Sepp.Contracts.Referentiels;
 using Sepp.SurveillanceMedicale.Application.Conservation;
 using Sepp.SurveillanceMedicale.Application.Consultation;
 using Sepp.SurveillanceMedicale.Application.Decisions;
@@ -210,7 +211,49 @@ public sealed class SurveillanceMedicaleApiTests(SurveillanceMedicaleFixture fix
             commentaire = "Décision du médecin-inspecteur",
         }, _ct), HttpStatusCode.NoContent);
         (await employeur.GetFromJsonAsync<DecisionResumeDto>($"/api/v1/decisions/{decisionId}", Json, _ct))!.Categorie.ShouldBe("APTE");
-        (await fixture.EvenementsAsync(_ct)).Count(e => e.Type == "surveillance-medicale.decision-emise.v1" && e.Payload.Contains(decisionId.ToString())).ShouldBe(2);
+        var emises = (await fixture.EvenementsAsync(_ct)).Where(e => e.Type == "surveillance-medicale.decision-emise.v1" && e.Payload.Contains(decisionId.ToString())).ToList();
+        emises.Count.ShouldBe(2);
+
+        // Saga « examen de reprise » : la décision signée puis réformée porte le même examen d'origine.
+        emises.ShouldAllBe(e => JsonDocument.Parse(e.Payload, default).RootElement.GetProperty("examenId").GetGuid() == examenId);
+    }
+
+    [Fact]
+    public async Task Une_obligation_annulee_est_retiree_des_examens_dus_et_les_jours_feries_sont_projetes()
+    {
+        var personne = Guid.CreateVersion7();
+        var dossierId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = personne }, _ct));
+        var obligation = new ObligationCreee(Guid.CreateVersion7(), personne, _affilie, "EXAMEN_REPRISE", new DateOnly(2026, 3, 2), new DateOnly(2026, 3, 16));
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), obligation, _ct)).ShouldBe(1);
+        var vue = () => Cpmt.GetFromJsonAsync<VueConsultationDto>($"/api/v1/dossiers/{dossierId}/consultation?date=2026-03-03", Json, _ct);
+        (await vue())!.ExamensDus.ShouldHaveSingleItem();
+
+        var cloturee = new ObligationCloturee(obligation.ObligationId, personne, _affilie, "EXAMEN_REPRISE", "Annule", null, new DateOnly(2026, 3, 3));
+        var message = Guid.CreateVersion7();
+        (await fixture.DispatcherAsync(message, cloturee, _ct)).ShouldBe(1);
+        (await fixture.DispatcherAsync(message, cloturee, _ct)).ShouldBe(0);
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), cloturee, _ct)).ShouldBe(1);
+        (await vue())!.ExamensDus.ShouldBeEmpty();
+        (await fixture.ScalaireAsync("SELECT statut_retrait FROM obligation_due WHERE obligation_id = @id", _ct, ("id", obligation.ObligationId))).ShouldBe("Annule");
+
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), new JoursFeriesModifies(2031, [new DateOnly(2031, 3, 5)]), _ct)).ShouldBe(1);
+        (await fixture.ScalaireAsync("SELECT jours_supplementaires[1] FROM calendrier_local WHERE annee = 2031", _ct)).ShouldBe(new DateOnly(2031, 3, 5));
+    }
+
+    [Fact]
+    public async Task La_migration_de_donnees_remplace_l_ancien_code_actes_supplementaires()
+    {
+        var obligationId = Guid.CreateVersion7();
+        await fixture.ScalaireAsync(
+            "INSERT INTO obligation_due (obligation_id, personne_id, affilie_id, type_examen, date_due) VALUES (@id, @id, @id, 'ACTES_SUPPLEMENTAIRES', DATE '2026-03-01')",
+            _ct, ("id", obligationId));
+
+        // Retour à la migration précédente (le Down de la migration de données est sans effet), puis réapplication.
+        await fixture.MigrerAsync("20261007142352_RetraitObligationsEtCalendrierLocal", _ct);
+        await fixture.MigrerAsync(null, _ct);
+
+        (await fixture.ScalaireAsync("SELECT type_examen FROM obligation_due WHERE obligation_id = @id", _ct, ("id", obligationId)))
+            .ShouldBe("ACTES_MEDICAUX_SUPPLEMENTAIRES");
     }
 
     [Fact]

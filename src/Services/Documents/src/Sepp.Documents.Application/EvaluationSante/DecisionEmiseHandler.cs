@@ -31,7 +31,10 @@ public static class LibellesDecision
 /// Formulaire d'évaluation de santé (saga de reprise, §14.6 étape 5) : à chaque <see cref="DecisionEmise"/>, génère trois
 /// exemplaires — employeur (zone standard : uniquement la décision, c'est-à-dire catégorie, mesures et validité),
 /// travailleur et dossier de santé (zone médicale) — puis publie les exemplaires employeur et travailleur pour que
-/// Communications les dépose. Idempotent : inbox (ARC-31) et clé d'idempotence par exemplaire.
+/// Communications les dépose. Idempotent : inbox (ARC-31) et clé d'idempotence par exemplaire. Chaque document a pour
+/// objet la décision (<c>ObjetType = "decision"</c>, <c>ObjetId = DecisionId</c>), repris dans <c>DocumentPublie</c> pour
+/// le processus de reprise (ARC-33). <c>DecisionEmise.ExamenId</c> (ajout facultatif v1) n'est pas nécessaire : une
+/// décision d'un producteur antérieur, sans examen, est traitée de la même façon.
 /// </summary>
 /// <remarks>
 /// Si un modèle n'est pas publié dans la langue requise, l'événement échoue (exception) et reste à traiter : le bus le

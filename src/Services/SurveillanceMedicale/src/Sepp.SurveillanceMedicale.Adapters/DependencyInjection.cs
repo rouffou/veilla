@@ -63,6 +63,8 @@ public static class DependencyInjection
         services.AddIntegrationEventHandler<ProfilRisquePosteModifie, ProfilRisquePosteModifieHandler>();
         services.AddIntegrationEventHandler<MesurageEnregistre, MesurageEnregistreHandler>();
         services.AddIntegrationEventHandler<ParametreLegalModifie, ParametreLegalModifieHandler>();
+        services.AddIntegrationEventHandler<ObligationCloturee, ObligationClotureeHandler>();
+        services.AddIntegrationEventHandler<JoursFeriesModifies, JoursFeriesModifiesHandler>();
         services.AddSeppConsumer<SurveillanceMedicaleDbContext>(configuration);
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

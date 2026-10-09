@@ -48,7 +48,7 @@ Règles :
 | prestations | `prestations.prestation-enregistree.v1` | PrestationEnregistree | PrestationId, AffilieId, Discipline, TypePrestation, Unites, Date | Reporting, Intégrations |
 | prevention | `prevention.mesurage-enregistre.v1` | MesurageEnregistre | MesurageId, GroupeExpositionId, AffilieId, Agent, Niveau, Date | Surveillance médicale, Reporting |
 | prevention | `prevention.mesure-prevention-creee.v1` | MesurePreventionCreee | MesureId, AffilieId, SourceType, Echeance | Reporting, BFF employeur |
-| referentiels | `referentiels.jours-feries-modifies.v1` | JoursFeriesModifies | Annee, JoursSupplementaires | Obligations (délais en jours ouvrables, DAT-08), Planification (calendrier local), services calculant des délais légaux |
+| referentiels | `referentiels.jours-feries-modifies.v1` | JoursFeriesModifies | Annee, JoursSupplementaires | Obligations (délais en jours ouvrables, DAT-08), Planification (calendrier local), Surveillance médicale (délais de concertation et de recours, SAN-34), services calculant des délais légaux |
 | referentiels | `referentiels.nomenclature-modifiee.v1` | NomenclatureModifiee | NomenclatureId, Code, Version | Services utilisant la nomenclature |
 | referentiels | `referentiels.parametre-legal-modifie.v1` | ParametreLegalModifie | Code, Valeur, Unite, ValideDu, ValideJusquAu | Tous les services (politiques légales, ARC-21) |
 | reintegration | `reintegration.trajet-demarre.v1` | TrajetDemarre | TrajetId, PersonneId, AffilieId, Initiateur, DateDemande | Intégrations, Prestations |

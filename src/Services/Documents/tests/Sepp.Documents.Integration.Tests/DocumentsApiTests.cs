@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.Contracts;
+using Sepp.Contracts.Documents;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Documents.Adapters.Persistence;
 using Sepp.Documents.Application.EvaluationSante;
@@ -349,6 +350,14 @@ public sealed class DocumentsApiTests : IAsyncLifetime
         (await employeur.GetAsync($"/api/v1/documents/{exemplaireDossier}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         await Eventually(() => Publies.Count(m => m.EventType == "documents.document-publie.v1") == 2);
+
+        // Saga « examen de reprise » : chaque publication porte la décision d'origine, même venant d'un producteur v1 sans ExamenId.
+        foreach (var publie in Publies.Where(m => m.EventType == "documents.document-publie.v1"))
+        {
+            var evenement = JsonSerializer.Deserialize<DocumentPublie>(publie.Payload, EventSerialization.Options)!;
+            evenement.ObjetType.ShouldBe("decision");
+            evenement.ObjetId.ShouldBe(decision.DecisionId);
+        }
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<DocumentsDbContext>();

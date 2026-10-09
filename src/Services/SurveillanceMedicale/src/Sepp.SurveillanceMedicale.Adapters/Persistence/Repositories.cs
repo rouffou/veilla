@@ -203,4 +203,12 @@ internal sealed class ProjectionRepository(SurveillanceMedicaleDbContext db) : I
             .OrderByDescending(p => p.ValideDu).FirstOrDefaultAsync(cancellationToken);
 
     public void Add(ParametreLegalLocal parametre) => db.Parametres.Add(parametre);
+
+    public Task<CalendrierLocal?> GetCalendrierAsync(int annee, CancellationToken cancellationToken) =>
+        db.Calendriers.SingleOrDefaultAsync(c => c.Annee == annee, cancellationToken);
+
+    public async Task<IReadOnlyList<CalendrierLocal>> ListerCalendriersAsync(int anneeDebut, int anneeFin, CancellationToken cancellationToken) =>
+        await db.Calendriers.Where(c => c.Annee >= anneeDebut && c.Annee <= anneeFin).ToListAsync(cancellationToken);
+
+    public void Add(CalendrierLocal calendrier) => db.Calendriers.Add(calendrier);
 }

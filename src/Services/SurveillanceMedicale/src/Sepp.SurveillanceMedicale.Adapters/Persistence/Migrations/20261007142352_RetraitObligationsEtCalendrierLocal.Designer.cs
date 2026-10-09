@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sepp.SurveillanceMedicale.Adapters.Persistence;
@@ -12,9 +13,11 @@ using Sepp.SurveillanceMedicale.Adapters.Persistence;
 namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
 {
     [DbContext(typeof(SurveillanceMedicaleDbContext))]
-    partial class SurveillanceMedicaleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261007142352_RetraitObligationsEtCalendrierLocal")]
+    partial class RetraitObligationsEtCalendrierLocal
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

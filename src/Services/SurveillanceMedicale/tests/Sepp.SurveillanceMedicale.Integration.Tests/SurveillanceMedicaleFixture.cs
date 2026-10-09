@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -168,6 +170,14 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
         }
 
         return total;
+    }
+
+    /// <summary>Applique les migrations jusqu'à <paramref name="cible"/> (la dernière si <c>null</c>).</summary>
+    public async Task MigrerAsync(string? cible, CancellationToken ct)
+    {
+        await using var scope = Factory.Services.CreateAsyncScope();
+        var migrateur = scope.ServiceProvider.GetRequiredService<SurveillanceMedicaleDbContext>().GetService<IMigrator>();
+        await migrateur.MigrateAsync(cible, ct);
     }
 
     public async Task<object?> ScalaireAsync(string sql, CancellationToken ct, params (string Nom, object Valeur)[] parametres)

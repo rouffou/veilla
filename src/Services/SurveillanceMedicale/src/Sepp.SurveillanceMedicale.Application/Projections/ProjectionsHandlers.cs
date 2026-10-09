@@ -27,7 +27,40 @@ public sealed class ObligationCreeeHandler(IProjectionRepository projections, IU
         }
         else
         {
-            obligation.Appliquer(e.PersonneId, e.AffilieId, e.TypeExamen, e.DateDue, e.DateLimite);
+            obligation.Appliquer(e.PersonneId, e.AffilieId, e.TypeExamen, e.DateDue, e.DateLimite, e.OccurredAt);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// SAN-20, ARC-33 (saga « examen de reprise ») : une obligation annulée (<c>Annule</c>) ou devenue sans objet par la
+/// sortie de l'entreprise (<c>SortiEntreprise</c>) n'est plus un examen dû : elle est retirée de la projection. Une
+/// obligation réalisée (<c>Realise</c>) l'a été par la clôture d'un examen de ce service, qui l'a déjà satisfaite : rien à
+/// faire. Idempotent (inbox, puis comparaison des horodatages) ; une clôture reçue avant la création crée l'examen dû
+/// déjà retiré, pour qu'un <c>ObligationCreee</c> plus ancien arrivé ensuite ne le fasse pas réapparaître.
+/// </summary>
+public sealed class ObligationClotureeHandler(IProjectionRepository projections, IUnitOfWork unitOfWork) : IIntegrationEventHandler<ObligationCloturee>
+{
+    public const string StatutRealise = "Realise";
+
+    public async Task HandleAsync(ObligationCloturee integrationEvent, CancellationToken cancellationToken)
+    {
+        var e = integrationEvent;
+        if (string.Equals(e.Statut, StatutRealise, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var obligation = await projections.GetObligationAsync(e.ObligationId, cancellationToken);
+        if (obligation is null)
+        {
+            projections.Add(ObligationDue.Retiree(e.ObligationId, e.PersonneId, e.AffilieId, e.TypeExamen, e.Date, e.Statut, e.OccurredAt));
+        }
+        else if (!obligation.Retirer(e.Statut, e.OccurredAt))
+        {
+            return;
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -121,13 +154,15 @@ public sealed class MesurageEnregistreHandler(IProjectionRepository projections,
     }
 }
 
-/// <summary>ARC-21 : paramètres légaux utilisés par ce service (conservation du dossier, délai de l'examen de reprise).</summary>
+/// <summary>
+/// ARC-21 : paramètres légaux utilisés par ce service (conservation du dossier). Le délai de l'examen de reprise
+/// (<c>SANTE.REPRISE.DELAI</c>) n'est plus suivi : la date limite est reçue du service Obligations avec l'obligation.
+/// </summary>
 public sealed class ParametreLegalModifieHandler(IProjectionRepository projections, IUnitOfWork unitOfWork) : IIntegrationEventHandler<ParametreLegalModifie>
 {
     public static readonly IReadOnlySet<string> ParametresSuivis = new HashSet<string>(StringComparer.Ordinal)
     {
         PolitiqueConservationDossier.CodeParametreMinimum,
-        PolitiqueDelaiReprise.CodeParametreDelai,
     };
 
     public async Task HandleAsync(ParametreLegalModifie integrationEvent, CancellationToken cancellationToken)
@@ -146,6 +181,35 @@ public sealed class ParametreLegalModifieHandler(IProjectionRepository projectio
         else
         {
             parametre.Appliquer(e.ValideJusquAu, e.Valeur, e.Unite);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// DAT-08 : jours fériés supplémentaires de l'année (referentiels.jours-feries-modifies, état complet), utilisés par les
+/// délais de concertation et de recours en jours ouvrables (SAN-34). Un message plus ancien que l'état connu est ignoré.
+/// </summary>
+public sealed class JoursFeriesModifiesHandler(IProjectionRepository projections, IUnitOfWork unitOfWork) : IIntegrationEventHandler<JoursFeriesModifies>
+{
+    public async Task HandleAsync(JoursFeriesModifies integrationEvent, CancellationToken cancellationToken)
+    {
+        var e = integrationEvent;
+        if (e.JoursSupplementaires is null)
+        {
+            // Producteur antérieur à l'ajout du champ (ARC-34) : l'état complet est inconnu, rien à projeter.
+            return;
+        }
+
+        var calendrier = await projections.GetCalendrierAsync(e.Annee, cancellationToken);
+        if (calendrier is null)
+        {
+            projections.Add(new CalendrierLocal(e.Annee, e.JoursSupplementaires, e.OccurredAt));
+        }
+        else if (!calendrier.Appliquer(e.JoursSupplementaires, e.OccurredAt))
+        {
+            return;
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

@@ -81,6 +81,8 @@ public sealed class SurveillanceMedicaleDbContext(
 
     public DbSet<ParametreLegalLocal> Parametres => Set<ParametreLegalLocal>();
 
+    public DbSet<CalendrierLocal> Calendriers => Set<CalendrierLocal>();
+
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
         var encryptor = chiffrement.Encryptor;
@@ -371,6 +373,7 @@ public sealed class SurveillanceMedicaleDbContext(
             b.HasKey(o => o.ObligationId);
             b.HasIndex(o => o.PersonneId);
             b.Property(o => o.TypeExamen).HasMaxLength(CodeLength);
+            b.Property(o => o.StatutRetrait).HasMaxLength(EnumLength);
         });
 
         modelBuilder.Entity<RendezVousPrevu>(b =>
@@ -411,6 +414,14 @@ public sealed class SurveillanceMedicaleDbContext(
             b.Property(p => p.Code).HasMaxLength(100);
             b.Property(p => p.Unite).HasMaxLength(EnumLength);
             b.Property(p => p.Valeur).HasPrecision(18, 4);
+        });
+
+        modelBuilder.Entity<CalendrierLocal>(b =>
+        {
+            b.ToTable("calendrier_local");
+            b.HasKey(c => c.Annee);
+            b.Property(c => c.Annee).ValueGeneratedNever();
+            b.PrimitiveCollection(c => c.JoursSupplementaires);
         });
     }
 

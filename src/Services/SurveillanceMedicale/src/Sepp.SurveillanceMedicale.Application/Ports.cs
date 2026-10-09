@@ -160,6 +160,13 @@ public interface IProjectionRepository
     Task<ParametreLegalLocal?> ParametreApplicableAsync(string code, DateOnly date, CancellationToken cancellationToken);
 
     void Add(ParametreLegalLocal parametre);
+
+    Task<CalendrierLocal?> GetCalendrierAsync(int annee, CancellationToken cancellationToken);
+
+    /// <summary>Jours fériés supplémentaires des années [<paramref name="anneeDebut"/>, <paramref name="anneeFin"/>] (DAT-08).</summary>
+    Task<IReadOnlyList<CalendrierLocal>> ListerCalendriersAsync(int anneeDebut, int anneeFin, CancellationToken cancellationToken);
+
+    void Add(CalendrierLocal calendrier);
 }
 
 /// <summary>
