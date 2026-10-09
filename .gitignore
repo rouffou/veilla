@@ -483,3 +483,56 @@ $RECYCLE.BIN/
 
 # Worktrees des agents Claude Code
 .claude/
+
+# ---------------------------------------------------------------------------
+# Projet SEPP (veilla) — compléments au modèle dotnet
+# ---------------------------------------------------------------------------
+
+# Cache Angular créé quand la CLI est lancée depuis la racine du dépôt
+/.angular/
+
+# Terraform : état, plans et fichiers de variables locaux (l'état distant est dans Azure, ADR 0007)
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.auto.tfvars
+*.auto.tfvars.json
+.terraformrc
+terraform.rc
+
+# Secrets et certificats locaux : ne jamais versionner (CTR-16, Key Vault en Azure)
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.crt
+*.cer
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json
+deploy/local/**/*.secret
+
+# Sorties d'outils (couverture, rapports SBOM et Trivy, graphify)
+coverage/
+*.coverage
+*.cobertura.xml
+sbom*.spdx.json
+trivy*.sarif
+graphify-out/
+
+# Éditeurs et systèmes
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*~
+Thumbs.db
+desktop.ini
