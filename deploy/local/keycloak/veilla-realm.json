@@ -79,6 +79,9 @@
       },
       {
         "name": "communications"
+      },
+      {
+        "name": "affilies"
       }
     ]
   },
@@ -382,6 +385,20 @@
       "defaultClientScopes": [
         "sepp-api"
       ]
+    },
+    {
+      "clientId": "veilla-affilies",
+      "name": "Service Affiliés (compte technique, développement local)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "affilies-local-dev",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "defaultClientScopes": [
+        "sepp-api"
+      ]
     }
   ],
   "users": [
@@ -627,6 +644,14 @@
       "serviceAccountClientId": "veilla-communications",
       "realmRoles": [
         "communications"
+      ]
+    },
+    {
+      "username": "service-account-veilla-affilies",
+      "enabled": true,
+      "serviceAccountClientId": "veilla-affilies",
+      "realmRoles": [
+        "affilies"
       ]
     }
   ],

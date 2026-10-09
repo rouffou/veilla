@@ -168,7 +168,7 @@ documentation des services obtenue.
   communiqués (seuls l'adresse, le nom, le prénom, la langue et le décès sont traités), la stabilité de la référence de
   mutation d'un envoi à l'autre (elle sert de clé d'idempotence) et l'ordre d'arrivée (les mutations sont appliquées dans
   l'ordre de réception ; une mutation plus ancienne arrivant après une plus récente du même type l'écraserait).
-- **Consommateur Affiliés de `integrations.donnees-bce-recues.v1`** : à écrire dans le service Affiliés — gestionnaire
-  idempotent qui met à jour la fiche (dénomination, forme juridique, NACE) et les unités d'établissement de l'affilié
-  (lecture des adresses par l'API ci-dessus), en passant par l'historique AFF-05 sous l'identité technique du service.
+- **Consommateur Affiliés de `integrations.donnees-bce-recues.v1`** : écrit (`DonneesBceRecuesHandler`, voir le README du
+  service Affiliés). Il lit `GET /api/v1/bce/entreprises/{numeroBce}` avec le compte technique `veilla-affilies` (rôle
+  `affilies`, permission `integrations:bce-lire`, lecture seule des données d'entreprise publiques).
 - Adaptateurs réels BCE et BCSS : à implémenter après INT-03 / INT-04.

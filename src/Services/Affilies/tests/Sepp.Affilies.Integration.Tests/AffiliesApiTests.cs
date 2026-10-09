@@ -16,11 +16,15 @@ using Microsoft.Extensions.Options;
 
 using Sepp.Affilies.Adapters.Persistence;
 using Sepp.Affilies.Adapters.Securite;
+using Sepp.Affilies.Application;
 using Sepp.Affilies.Application.Affilies;
+using Sepp.Affilies.Application.Bce;
 using Sepp.Affilies.Application.Historique;
 using Sepp.Affilies.Domain.Affilies;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
+using Sepp.Contracts;
+using Sepp.Contracts.Integrations;
 
 using Shouldly;
 
@@ -53,6 +57,10 @@ public sealed class AffiliesApiTests : IAsyncLifetime
             b.ConfigureTestServices(s =>
             {
                 s.AddAuthentication(TestAuth.Name).AddScheme<AuthenticationSchemeOptions, TestAuth>(TestAuth.Name, _ => { });
+
+                // Intégrations n'est pas démarré : ses données BCE sont simulées.
+                s.AddSingleton<EntrepriseBceSimulee>();
+                s.AddSingleton<IEntrepriseBceClient>(sp => sp.GetRequiredService<EntrepriseBceSimulee>());
                 s.PostConfigure<AuthenticationOptions>(o =>
                 {
                     o.DefaultAuthenticateScheme = TestAuth.Name;
@@ -298,6 +306,138 @@ public sealed class AffiliesApiTests : IAsyncLifetime
         var groupes = await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/groupes", Ct);
         groupes!.ShouldHaveSingleItem().GetProperty("nom").GetString().ShouldBe("Dupont Holding");
         (await Client(Roles.Sipp, id).PostAsJsonAsync("/api/v1/groupes", new { nom = "X" }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    private static string NumeroUnite(string huitChiffres) =>
+        huitChiffres + (97 - (long.Parse(huitChiffres, System.Globalization.CultureInfo.InvariantCulture) % 97)).ToString("00", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Formate(string numeroUnite) => new NumeroUniteEtablissement(numeroUnite).Formate;
+
+    private static UniteBce UniteBce(string numero, string nom, string rue) => new(numero, nom, rue, "16", null, "1000", "Bruxelles", "BE", new DateOnly(2010, 1, 1));
+
+    private EntrepriseBceSimulee Bce => _factory.Services.GetRequiredService<EntrepriseBceSimulee>();
+
+    /// <summary>Remet <c>donnees-bce-recues</c> au consommateur comme le fait le bus (inbox : une exécution par message).</summary>
+    private async Task<int> RecevoirBceAsync(string numeroBce, Guid? messageId = null)
+    {
+        var evenement = new DonneesBceRecues(numeroBce, null, "Dupont & Fils SA", "SA", "47.110", [], new DateOnly(2026, 10, 9));
+        var dispatcher = _factory.Services.GetRequiredService<IntegrationEventDispatcher<AffiliesDbContext>>();
+        return await dispatcher.DispatchAsync(messageId ?? Guid.CreateVersion7(), EventContractAttribute.Of(typeof(DonneesBceRecues)).FullName,
+            JsonSerializer.Serialize(evenement, EventSerialization.Options), Ct);
+    }
+
+    [Fact]
+    public async Task Les_donnees_BCE_recues_mettent_l_affilie_a_jour_avec_historique_et_validite_de_maniere_idempotente()
+    {
+        var id = await CreerAsync();
+        var siege = NumeroUnite("21234567");
+        var depot = NumeroUnite("21234568");
+        Bce.Reponse = new EntrepriseBce("0202239951", "Dupont & Fils SA", "SA", "47.110", new DateOnly(2026, 10, 9),
+            [UniteBce(siege, "Siège BCE", "Rue de la Loi"), UniteBce(depot, "Dépôt BCE", "Avenue Louise")]);
+        var message = Guid.CreateVersion7();
+
+        (await RecevoirBceAsync("0202239951", message)).ShouldBe(1);
+        (await RecevoirBceAsync("0202239951", message)).ShouldBe(0); // même message rejoué : inbox
+
+        var fiche = await ObtenirAsync(id);
+        fiche.Fiche.Denomination.ShouldBe("Dupont & Fils SA");
+        fiche.Fiche.FormeJuridique.ShouldBe("SA");
+        fiche.Fiche.CodeNace.ShouldBe("47.110");
+        fiche.UnitesEtablissement.Select(u => u.Numero).Order().ToList().ShouldBe(new[] { Formate(depot), Formate(siege) }.Order().ToList());
+        fiche.UnitesEtablissement.ShouldAllBe(u => u.ValideJusquAu == null && u.ValideDu == new DateOnly(2010, 1, 1));
+
+        // Nouvelle réception (autre message) : le dépôt disparaît de la BCE, le siège change d'adresse → fermeture par validité.
+        var versionApres = fiche.Version;
+        Bce.Reponse = Bce.Reponse with { Unites = [UniteBce(siege, "Siège BCE", "Rue Neuve")] };
+        (await RecevoirBceAsync("0202239951")).ShouldBe(1);
+        var apres = await ObtenirAsync(id);
+        apres.Version.ShouldBeGreaterThan(versionApres);
+        apres.UnitesEtablissement.Single(u => u.Numero == Formate(siege)).Adresse.Rue.ShouldBe("Rue Neuve");
+        apres.UnitesEtablissement.Single(u => u.Numero == Formate(depot)).ValideJusquAu.ShouldBe(new DateOnly(2026, 10, 9));
+
+        // Une réception identique ne change rien.
+        (await RecevoirBceAsync("0202239951")).ShouldBe(1);
+        (await ObtenirAsync(id)).Version.ShouldBe(apres.Version);
+
+        var historique = await Gestionnaire.GetFromJsonAsync<List<ModificationDto>>($"/api/v1/affilies/{id}/historique", Json, Ct);
+        var bce = historique!.Where(h => h.Action == "affilie.donnees-bce-appliquees").ToList();
+        bce.Count.ShouldBe(2);
+        bce.ShouldAllBe(h => h.Auteur == "system");
+        bce[0].Avant!.Value.GetProperty("fiche").GetProperty("denomination").GetString().ShouldBe("Boulangerie Dupont");
+
+        (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce", Ct))!.ShouldBeEmpty();
+        var publisher = (InMemoryMessagePublisher)_factory.Services.GetRequiredService<IMessagePublisher>();
+        await Eventually(() => publisher.Published.Any(m => m.EventType == "affilies.affilie-modifie.v1"), Ct);
+    }
+
+    [Fact]
+    public async Task Les_donnees_BCE_d_un_affilie_inconnu_sont_un_ecart_visible_du_gestionnaire_et_ne_font_pas_boucler_le_message()
+    {
+        Bce.Reponse = null;
+
+        (await RecevoirBceAsync("0403.170.701")).ShouldBe(1);
+        (await RecevoirBceAsync("0403.170.701")).ShouldBe(1); // autre message, même constat : pas de doublon
+
+        var ecarts = await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce", Ct);
+        var ecart = ecarts!.ShouldHaveSingleItem();
+        ecart.GetProperty("code").GetString().ShouldBe("affilie-inconnu");
+        ecart.GetProperty("numeroBce").GetString().ShouldBe("0403170701");
+        ecart.GetProperty("statut").GetString().ShouldBe("Ouvert");
+        (await Client(Roles.Employeur).GetAsync("/api/v1/ecarts-bce", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var id = ecart.GetProperty("id").GetGuid();
+        (await Client(Roles.Employeur).PostAsync($"/api/v1/ecarts-bce/{id}/resolution", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Gestionnaire.PostAsync($"/api/v1/ecarts-bce/{id}/resolution", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce", Ct))!.ShouldBeEmpty();
+        (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce?ouverts=false", Ct))!.ShouldHaveSingleItem().GetProperty("statut").GetString().ShouldBe("Resolu");
+    }
+
+    [Fact]
+    public async Task Une_unite_deja_rattachee_a_un_autre_affilie_est_un_ecart_en_base()
+    {
+        var premier = await CreerAsync();
+        var second = await CreerAsync("0403.170.701");
+        var partagee = NumeroUnite("21234567");
+        (await Gestionnaire.PostAsJsonAsync($"/api/v1/affilies/{premier}/unites-etablissement",
+            new { numero = partagee, nom = "Siège", adresse = Adresse, langue = "Fr", depuis = "2024-01-01" }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Created);
+        Bce.Reponse = new EntrepriseBce("0403170701", "Second SA", "SA", "47.110", new DateOnly(2026, 10, 9), [UniteBce(partagee, "Siège", "Rue de la Loi")]);
+
+        (await RecevoirBceAsync("0403170701")).ShouldBe(1);
+
+        var ecart = (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce", Ct))!.ShouldHaveSingleItem();
+        ecart.GetProperty("code").GetString().ShouldBe("unite-autre-affilie");
+        ecart.GetProperty("affilieId").GetGuid().ShouldBe(second);
+        (await ObtenirAsync(second)).UnitesEtablissement.ShouldBeEmpty();
+        (await ObtenirAsync(second)).Fiche.Denomination.ShouldBe("Second SA");
+        (await ObtenirAsync(premier)).UnitesEtablissement.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task Une_panne_de_lecture_chez_Integrations_n_est_pas_consignee_comme_ecart()
+    {
+        await CreerAsync();
+        Bce.Indisponible = true;
+        try
+        {
+            await Should.ThrowAsync<EntrepriseBceIndisponibleException>(() => RecevoirBceAsync("0202239951"));
+        }
+        finally
+        {
+            Bce.Indisponible = false;
+        }
+
+        (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce?ouverts=false", Ct))!.ShouldBeEmpty();
+    }
+
+    /// <summary>Données BCE d'Intégrations, simulées.</summary>
+    private sealed class EntrepriseBceSimulee : IEntrepriseBceClient
+    {
+        public EntrepriseBce? Reponse { get; set; }
+
+        public bool Indisponible { get; set; }
+
+        public Task<EntrepriseBce?> LireAsync(string numeroBce, CancellationToken cancellationToken) =>
+            Indisponible ? throw new EntrepriseBceIndisponibleException("Intégrations injoignable.") : Task.FromResult(Reponse);
     }
 
     private static async Task Eventually(Func<bool> condition, CancellationToken ct)

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using Sepp.Affilies.Domain.Affilies;
+using Sepp.Affilies.Domain.Ecarts;
 using Sepp.Affilies.Domain.Groupes;
 using Sepp.Affilies.Domain.Historique;
 using Sepp.BuildingBlocks.Application.Security;
@@ -19,6 +20,8 @@ public sealed class AffiliesDbContext(DbContextOptions<AffiliesDbContext> option
     public DbSet<Groupe> Groupes => Set<Groupe>();
 
     public DbSet<ModificationAffilie> Historique => Set<ModificationAffilie>();
+
+    public DbSet<EcartSynchronisation> EcartsSynchronisation => Set<EcartSynchronisation>();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
@@ -155,6 +158,23 @@ public sealed class AffiliesDbContext(DbContextOptions<AffiliesDbContext> option
             b.Property(m => m.Auteur).HasMaxLength(100);
             b.Property(m => m.Avant).HasColumnType("jsonb");
             b.Property(m => m.Apres).HasColumnType("jsonb");
+        });
+
+        // AFF-01, AFF-02, INT-04 — Écarts de synchronisation BCE à traiter par le gestionnaire de dossiers. Pas de clé
+        // étrangère : l'écart existe aussi pour un numéro BCE sans affilié. Un seul écart ouvert par (BCE, code, référence).
+        modelBuilder.Entity<EcartSynchronisation>(b =>
+        {
+            b.ToTable("ecart_synchronisation");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Id).ValueGeneratedNever();
+            b.Property(e => e.NumeroBce).HasMaxLength(20);
+            b.Property(e => e.Code).HasMaxLength(50);
+            b.Property(e => e.Reference).HasMaxLength(100);
+            b.Property(e => e.Detail).HasMaxLength(1000);
+            b.Property(e => e.Statut).HasConversion<string>().HasMaxLength(20);
+            b.Property(e => e.ResoluPar).HasMaxLength(100);
+            b.HasIndex(e => new { e.NumeroBce, e.Code, e.Reference }).IsUnique().HasFilter("statut = 'Ouvert'");
+            b.HasIndex(e => e.Statut);
         });
     }
 

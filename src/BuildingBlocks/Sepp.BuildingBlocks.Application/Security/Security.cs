@@ -47,6 +47,10 @@ public static class Roles
     // Communications — rôle technique du compte de service du service Communications (client credentials OIDC), jamais
     // attribué à une personne : résolution des coordonnées et préférences de canal des destinataires (DOC-03, SAN-10).
     public const string Communications = "communications";
+
+    // Affiliés — rôle technique du compte de service du service Affiliés (client credentials OIDC), jamais attribué à une
+    // personne : lecture des données d'entreprise de la BCE chez Intégrations pour mettre l'affilié à jour (AFF-01, AFF-02).
+    public const string Affilies = "affilies";
 }
 
 /// <summary>
@@ -87,6 +91,9 @@ public static class Permissions
 
     // Intégrations (INT-02) : tableau de suivi des flux, relance manuelle, lancement à la demande, correspondances.
     public const string IntegrationsAdministrer = "integrations:administrer";
+
+    // Lecture des seules données d'entreprise de la BCE (publiques) par le compte technique du service Affiliés.
+    public const string IntegrationsBceLire = "integrations:bce-lire";
 
     // Surveillance médicale (§3.3, zone médicale) : destruction validée par le responsable du traitement (SAN-44, NF-22),
     // protocoles médicaux (valeurs de référence, schémas vaccinaux, questionnaires, durées de conservation),
@@ -260,6 +267,7 @@ public static class RolePermissions
         Grant(Roles.GestionnaireDossiers, Permissions.IntegrationsAdministrer);
         Grant(Roles.AdministrateurFonctionnel, Permissions.IntegrationsAdministrer);
         Grant(Roles.Integrations, Permissions.PersonneEcrire);
+        Grant(Roles.Affilies, Permissions.IntegrationsBceLire);
 
         // Surveillance médicale — le CPMT dirigeant, responsable du traitement, valide la destruction des dossiers et les
         // protocoles médicaux ; CPMT et infirmiers gèrent le stock de vaccins de leur centre. Le questionnaire de santé
