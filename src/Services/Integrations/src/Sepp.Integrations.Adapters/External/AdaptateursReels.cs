@@ -31,6 +31,16 @@ public static class DocumentationAObtenir
         "la référence de mutation doit être stable d'un envoi à l'autre, elle sert de clé d'idempotence).";
 }
 
+public static class DocumentationAObtenirEHealth
+{
+    public const string Incapacites =
+        "Adaptateur eHealth des notifications d'incapacité réel non implémenté (INT-04, SAN-60) : obtenir auprès de la plateforme " +
+        "eHealth et des organismes concernés (mutualités, INAMI) la documentation du service de mise à disposition des " +
+        "notifications d'incapacité de travail pour un SEPP (service, version, schéma, mode d'échange et de reprise), la " +
+        "délibération du Comité de sécurité de l'information (INT-03) et le certificat eHealth du SEPP, puis traduire vers " +
+        "NotificationIncapacite en ne retenant que la référence, le travailleur, l'employeur, l'émetteur et les dates (aucun diagnostic).";
+}
+
 /// <summary>Accès aux services de la BCSS : point d'accès et certificat (configuration <c>Integrations:Bcss</c>, voir README).</summary>
 public sealed class ConfigurationBcss
 {
@@ -56,6 +66,12 @@ public sealed class DimonaAdaptateurReel(ConfigurationBcss configuration) : IFlu
 
     public Task<LotFlux<DeclarationDimona>> RecupererDeclarationsAsync(string? position, CancellationToken cancellationToken) =>
         throw new NotImplementedException(DocumentationAObtenir.Dimona);
+}
+
+public sealed class IncapacitesEHealthAdaptateurReel : IFluxIncapacites
+{
+    public Task<LotFlux<NotificationIncapacite>> RecupererNotificationsAsync(string? position, CancellationToken cancellationToken) =>
+        throw new NotImplementedException(DocumentationAObtenirEHealth.Incapacites);
 }
 
 public sealed class RegistreNationalAdaptateurReel(ConfigurationBcss configuration) : IRegistreNational

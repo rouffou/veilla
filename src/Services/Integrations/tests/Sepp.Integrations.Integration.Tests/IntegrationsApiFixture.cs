@@ -54,6 +54,7 @@ public sealed class IntegrationsApiFixture : IAsyncLifetime
             b.UseSetting("Integrations:Adaptateurs:Bce", "Simulateur");
             b.UseSetting("Integrations:Adaptateurs:Dimona", "Simulateur");
             b.UseSetting("Integrations:Adaptateurs:RegistreNational", "Simulateur");
+            b.UseSetting("Integrations:Adaptateurs:Incapacites", "Simulateur");
             b.UseSetting("Integrations:Planification:Actif", "false");
             b.UseSetting("Integrations:Conservation:ApresTraitement", "00:00:00");
             b.UseSetting("Integrations:Personnes:BaseAddress", AdressePersonnes);
@@ -138,6 +139,8 @@ public sealed partial class FauxPersonnes : HttpMessageHandler
     /// <summary>Déclare une personne connue de Personnes (sans quoi une mutation est signalée « personne inconnue »).</summary>
     public void ConnaitPersonne(string niss) => _nissConnus.TryAdd(niss, Guid.CreateVersion7());
 
+    public Guid PersonneDe(string niss) => _nissConnus[niss];
+
     /// <summary>Si renseigné, toute requête vers Personnes reçoit ce statut (panne simulée).</summary>
     public HttpStatusCode? Panne { get; set; }
 
@@ -187,6 +190,15 @@ public sealed partial class FauxPersonnes : HttpMessageHandler
 
             var nouvelle = _mutations.TryAdd(reference, personne);
             return Json(HttpStatusCode.OK, JsonSerializer.Serialize(new { personneId = personne, statut = nouvelle ? "Appliquee" : "DejaAppliquee" }));
+        }
+
+        if (chemin == "/api/v1/identifications")
+        {
+            // SAN-60 : identifiant seul, 404 si la personne n'est pas suivie.
+            using var document = JsonDocument.Parse(corps);
+            return _nissConnus.TryGetValue(document.RootElement.GetProperty("niss").GetString()!, out var personne)
+                ? Json(HttpStatusCode.OK, JsonSerializer.Serialize(new { personneId = personne }))
+                : Json(HttpStatusCode.NotFound, """{"title":"personne.inconnue","code":"personne.inconnue","detail":"Aucune personne."}""", "application/problem+json");
         }
 
         if (Sortie().Match(chemin) is { Success: true } sortie)

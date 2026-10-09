@@ -20,7 +20,7 @@ public sealed class OptionsPlanification
     public TimeSpan DelaiInitial { get; set; } = TimeSpan.FromMinutes(1);
 
     /// <summary>Flux exécutés à chaque passage, dans cet ordre (BCE d'abord : les correspondances d'employeurs servent à DIMONA).</summary>
-    public TypeFlux[] Flux { get; set; } = [TypeFlux.Bce, TypeFlux.Dimona, TypeFlux.RegistreNational];
+    public TypeFlux[] Flux { get; set; } = [TypeFlux.Bce, TypeFlux.Dimona, TypeFlux.RegistreNational, TypeFlux.Incapacites];
 }
 
 /// <summary>

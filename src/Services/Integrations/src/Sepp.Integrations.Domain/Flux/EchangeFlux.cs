@@ -13,6 +13,9 @@ public enum TypeFlux
 
     /// <summary>BCSS — identification (registre national) et mutations.</summary>
     RegistreNational,
+
+    /// <summary>eHealth — notifications d'incapacité de travail de l'employeur ou du médecin-conseil (SAN-60, Lot 3).</summary>
+    Incapacites,
 }
 
 public enum SensFlux

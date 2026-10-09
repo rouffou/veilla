@@ -92,6 +92,17 @@ public static class DependencyInjection
                 services.AddScoped<IRegistreNational, RegistreNationalAdaptateurReel>();
                 break;
         }
+
+        // SAN-60 : notifications d'incapacité reçues par eHealth (Lot 3).
+        switch (Choix(configuration, "Incapacites"))
+        {
+            case Simulateur:
+                services.AddScoped<IFluxIncapacites, SimulateurIncapacites>();
+                break;
+            default:
+                services.AddScoped<IFluxIncapacites, IncapacitesEHealthAdaptateurReel>();
+                break;
+        }
     }
 
     private static string Choix(IConfiguration configuration, string flux)

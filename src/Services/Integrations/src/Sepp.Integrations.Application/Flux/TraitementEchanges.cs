@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.Contracts.Integrations;
+using Sepp.Contracts.Reintegration;
 using Sepp.Integrations.Application.Correspondances;
 using Sepp.Integrations.Application.Externe;
 using Sepp.Integrations.Domain;
@@ -22,6 +23,7 @@ public static class TypesMessage
     public const string EntreeDimona = "dimona.entree";
     public const string SortieDimona = "dimona.sortie";
     public const string MutationIdentite = "registre-national.mutation";
+    public const string NotificationIncapacite = "ehealth.incapacite";
 }
 
 /// <summary>Sérialisation des charges utiles au format canonique interne.</summary>
@@ -66,6 +68,7 @@ public sealed class TraitementEchanges(
                 TypesMessage.EntreeDimona => await TraiterEntreeAsync(echange.ChargeUtile!, cancellationToken),
                 TypesMessage.SortieDimona => await TraiterSortieAsync(echange.ChargeUtile!, cancellationToken),
                 TypesMessage.MutationIdentite => await TraiterMutationAsync(echange.ChargeUtile!, cancellationToken),
+                TypesMessage.NotificationIncapacite => await TraiterIncapaciteAsync(echange.ChargeUtile!, cancellationToken),
                 _ => Issue.Rejet("integrations.type-message-inconnu", $"Type de message inconnu : {echange.TypeMessage}."),
             };
         }
@@ -197,6 +200,52 @@ public sealed class TraitementEchanges(
         var mutation = ChargesUtiles.Lire<MutationRegistreNational>(chargeUtile);
         var resultat = await personnes.AppliquerMutationAsync(mutation, cancellationToken);
         return resultat.Issue == IssueAppel.Succes ? Issue.Traite(1) : Issue.Depuis(resultat);
+    }
+
+    /// <summary>
+    /// SAN-60 : notification d'incapacité → employeur (correspondance BCE) et personne (identification par Personnes) →
+    /// <c>integrations.incapacite-notifiee</c> vers Réintégration et Obligations. L'identifiant de l'incapacité est stable
+    /// (correspondance référence ↔ incapacité) : une relance ou une prolongation republie le même <c>IncapaciteId</c>.
+    /// </summary>
+    private async Task<Issue> TraiterIncapaciteAsync(string chargeUtile, CancellationToken cancellationToken)
+    {
+        var notification = ChargesUtiles.Lire<NotificationIncapacite>(chargeUtile);
+        var reference = CorrespondanceIdentifiant.Normaliser(TypeIdentifiantExterne.ReferenceIncapacite, notification.ReferenceIncapacite);
+        if (notification.DateFinPrevue is { } fin && fin < notification.DateDebut)
+        {
+            return Issue.Rejet("integrations.incapacite-dates-invalides", $"La fin prévue de l'incapacité {reference} précède son début.");
+        }
+
+        var employeur = await AffilieAsync(notification.NumeroBceEmployeur, cancellationToken);
+        if (employeur is null)
+        {
+            return Issue.Rejet("integrations.employeur-inconnu",
+                $"L'employeur BCE {Formater(notification.NumeroBceEmployeur)} n'est pas un affilié connu (correspondance absente).");
+        }
+
+        var identification = await personnes.IdentifierAsync(notification.Niss, cancellationToken);
+        if (identification.Issue != IssueAppel.Succes)
+        {
+            return Issue.Depuis(identification);
+        }
+
+        if (identification.Valeur is not { } personneId)
+        {
+            return Issue.Rejet("integrations.personne-inconnue", $"Le travailleur de l'incapacité {reference} n'est pas suivi par le SEPP.");
+        }
+
+        var connue = await correspondances.GetAsync(TypeIdentifiantExterne.ReferenceIncapacite, reference, cancellationToken);
+        var incapaciteId = connue?.IdentifiantInterne ?? Guid.CreateVersion7();
+        if (connue is null)
+        {
+            await registre.DefinirAsync(TypeIdentifiantExterne.ReferenceIncapacite, reference, TypeObjetInterne.Incapacite, incapaciteId, cancellationToken);
+        }
+
+        var source = notification.Emetteur == EmetteurIncapacite.MedecinConseil
+            ? CodesReintegration.SourcesIncapacite.MedecinConseil
+            : CodesReintegration.SourcesIncapacite.Employeur;
+        outbox.Add(new IncapaciteNotifiee(incapaciteId, personneId, employeur.Value, notification.DateDebut, source, notification.DateFinPrevue));
+        return Issue.Traite(1);
     }
 
     private async Task<Guid?> AffilieAsync(string numeroBce, CancellationToken cancellationToken) =>

@@ -32,6 +32,7 @@ public sealed class ExecutionFlux(
     IRegistreBce registreBce,
     IFluxDimona fluxDimona,
     IRegistreNational registreNational,
+    IFluxIncapacites fluxIncapacites,
     TraitementEchanges traitement,
     IUnitOfWork unitOfWork,
     TimeProvider horloge)
@@ -58,6 +59,9 @@ public sealed class ExecutionFlux(
                     break;
                 case TypeFlux.RegistreNational:
                     await RecevoirLotAsync(flux, registreNational.RecupererMutationsAsync, Journaliser, compteur, cancellationToken);
+                    break;
+                case TypeFlux.Incapacites:
+                    await RecevoirLotAsync(flux, fluxIncapacites.RecupererNotificationsAsync, Journaliser, compteur, cancellationToken);
                     break;
                 default:
                     throw new DomainException($"Flux inconnu : {flux}.");
@@ -192,6 +196,18 @@ public sealed class ExecutionFlux(
         return reference.Length is 0 or > 100 || DonneesPersonnelles.Masquer(reference) != reference
             ? (TypesMessage.MutationIdentite, $"illisible:{ChargesUtiles.Empreinte(chargeUtile)}", null)
             : (TypesMessage.MutationIdentite, $"mutation:{reference}", reference);
+    }
+
+    /// <summary>
+    /// SAN-60 : clé d'une notification d'incapacité = référence de l'incapacité et empreinte du contenu. Une prolongation
+    /// (même référence, autre date de fin prévue) est une nouvelle réception ; un renvoi identique ne l'est pas.
+    /// </summary>
+    private static (string, string, string?) Journaliser(NotificationIncapacite n, string chargeUtile)
+    {
+        var reference = n.ReferenceIncapacite?.Trim() ?? string.Empty;
+        return reference.Length is 0 or > 100 || DonneesPersonnelles.Masquer(reference) != reference
+            ? (TypesMessage.NotificationIncapacite, $"illisible:{ChargesUtiles.Empreinte(chargeUtile)}", null)
+            : (TypesMessage.NotificationIncapacite, $"incapacite:{reference.ToUpperInvariant()}:{ChargesUtiles.Empreinte(chargeUtile)}", reference);
     }
 
     private static bool ReferenceLisible(string? valeur, out string reference)

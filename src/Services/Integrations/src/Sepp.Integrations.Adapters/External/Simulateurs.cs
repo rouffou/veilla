@@ -147,6 +147,54 @@ public sealed class SimulateurDimona(ICorrespondanceRepository correspondances) 
 }
 
 /// <summary>
+/// Simulateur eHealth des notifications d'incapacité (SAN-60) : un lot unique et déterministe (position « lot-1 ») pour les
+/// trois premiers affiliés connus — incapacité du salarié DIMONA simulé notifiée par l'employeur puis prolongée (même
+/// référence, nouvelle fin prévue), incapacité de l'étudiant notifiée par le médecin-conseil —, plus une notification pour un
+/// employeur non affilié et une pour une personne que le SEPP ne suit pas (rejets attendus). Aucun diagnostic.
+/// </summary>
+public sealed class SimulateurIncapacites(ICorrespondanceRepository correspondances) : IFluxIncapacites
+{
+    public const string PositionApresLot = "lot-1";
+
+    /// <summary>Début de l'incapacité simulée du salarié (pendant son occupation DIMONA simulée).</summary>
+    public static readonly DateOnly DebutSalarie = new(2026, 3, 2);
+
+    public async Task<LotFlux<NotificationIncapacite>> RecupererNotificationsAsync(string? position, CancellationToken cancellationToken)
+    {
+        if (position == PositionApresLot)
+        {
+            return new LotFlux<NotificationIncapacite>([], PositionApresLot);
+        }
+
+        var employeurs = await correspondances.ListerAsync(TypeIdentifiantExterne.NumeroBce, null, 3, cancellationToken);
+        var notifications = new List<NotificationIncapacite>();
+        foreach (var employeur in employeurs.Select(e => e.ValeurExterne).Where(e => e != SimulateurDimona.EmployeurNonAffilie))
+        {
+            notifications.AddRange(Notifications(employeur));
+        }
+
+        notifications.Add(new NotificationIncapacite($"SIMINC{SimulateurDimona.EmployeurNonAffilie}01",
+            DonneesFictives.Niss(DonneesFictives.Graine(SimulateurDimona.EmployeurNonAffilie)), SimulateurDimona.EmployeurNonAffilie,
+            EmetteurIncapacite.Employeur, DebutSalarie, null));
+        return new LotFlux<NotificationIncapacite>(notifications, PositionApresLot);
+    }
+
+    /// <summary>Notifications fictives des travailleurs DIMONA simulés d'un employeur (exposées pour les tests).</summary>
+    public static IReadOnlyList<NotificationIncapacite> Notifications(string numeroBceEmployeur)
+    {
+        var declarations = SimulateurDimona.Declarations(numeroBceEmployeur);
+        return
+        [
+            new($"SIMINC{numeroBceEmployeur}01", declarations[0].Niss, numeroBceEmployeur, EmetteurIncapacite.Employeur, DebutSalarie, new DateOnly(2026, 4, 30)),
+            new($"SIMINC{numeroBceEmployeur}01", declarations[0].Niss, numeroBceEmployeur, EmetteurIncapacite.Employeur, DebutSalarie, new DateOnly(2026, 6, 30)),
+            new($"SIMINC{numeroBceEmployeur}02", declarations[1].Niss, numeroBceEmployeur, EmetteurIncapacite.MedecinConseil, new DateOnly(2026, 7, 6), null),
+            new($"SIMINC{numeroBceEmployeur}03", DonneesFictives.NissDe(new DateOnly(1980, 1, 1), 998), numeroBceEmployeur,
+                EmetteurIncapacite.MedecinConseil, new DateOnly(2026, 5, 4), null),
+        ];
+    }
+}
+
+/// <summary>
 /// Simulateur du registre national (BCSS, identification et mutations) : identité fictive dérivée de tout NISS valide
 /// (numéro d'ordre 998 : inconnu) ; un lot unique et déterministe de mutations (position « lot-1 ») pour les travailleurs
 /// fictifs du simulateur DIMONA des trois premiers affiliés connus — changements d'adresse, de nom, de prénom et de langue du

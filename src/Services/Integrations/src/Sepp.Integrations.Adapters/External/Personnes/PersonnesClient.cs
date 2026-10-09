@@ -88,7 +88,19 @@ internal sealed class PersonnesHttpClient(HttpClient http) : IPersonnesClient
             async reponse => (await reponse.Content.ReadFromJsonAsync<MutationPersonnes>(Json, cancellationToken))!,
             cancellationToken);
 
-    private async Task<ResultatAppel<T>> AppelerAsync<T>(Func<Task<HttpResponseMessage>> appel, Func<HttpResponseMessage, Task<T>> lire, CancellationToken cancellationToken)
+    /// <summary>
+    /// SAN-60 : <c>POST api/v1/identifications</c> (NISS dans le corps, permission <c>personne:identifier</c>) ; un 404 signifie
+    /// que Personnes ne suit pas la personne (succès sans identifiant).
+    /// </summary>
+    public Task<ResultatAppel<Guid?>> IdentifierAsync(string niss, CancellationToken cancellationToken) =>
+        AppelerAsync<Guid?>(
+            () => http.PostAsJsonAsync("api/v1/identifications", new { niss }, Json, cancellationToken),
+            async reponse => (await reponse.Content.ReadFromJsonAsync<Identification>(Json, cancellationToken))!.PersonneId,
+            cancellationToken,
+            introuvable: true);
+
+    private async Task<ResultatAppel<T>> AppelerAsync<T>(
+        Func<Task<HttpResponseMessage>> appel, Func<HttpResponseMessage, Task<T>> lire, CancellationToken cancellationToken, bool introuvable = false)
     {
         if (http.BaseAddress is null)
         {
@@ -101,6 +113,11 @@ internal sealed class PersonnesHttpClient(HttpClient http) : IPersonnesClient
             if (reponse.IsSuccessStatusCode)
             {
                 return ResultatAppel<T>.Succes(await lire(reponse));
+            }
+
+            if (introuvable && reponse.StatusCode == HttpStatusCode.NotFound)
+            {
+                return ResultatAppel<T>.Succes(default!);
             }
 
             var (code, detail) = await LireProblemeAsync(reponse, cancellationToken);
@@ -143,6 +160,8 @@ internal sealed class PersonnesHttpClient(HttpClient http) : IPersonnesClient
         }
     }
 }
+
+internal sealed record Identification(Guid PersonneId);
 
 /// <summary>Jeton du compte technique indisponible (configuration incomplète ou refus du fournisseur d'identité).</summary>
 public sealed class JetonIndisponibleException : Exception
