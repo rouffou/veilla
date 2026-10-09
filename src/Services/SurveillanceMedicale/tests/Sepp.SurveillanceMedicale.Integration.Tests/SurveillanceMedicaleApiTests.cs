@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.Contracts.Decisions;
 using Sepp.Contracts.Obligations;
 using Sepp.Contracts.Planification;
 using Sepp.Contracts.Prevention;
@@ -185,7 +186,7 @@ public sealed class SurveillanceMedicaleApiTests(SurveillanceMedicaleFixture fix
         await Ok(await Cpmt.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct));
 
         var resume = await employeur.GetFromJsonAsync<DecisionResumeDto>($"/api/v1/decisions/{decisionId}", Json, _ct);
-        resume!.Categorie.ShouldBe("INAPTITUDE_TEMPORAIRE");
+        resume!.Categorie.ShouldBe(CategoriesDecision.InaptitudeTemporaire);
         (await employeur.GetStringAsync($"/api/v1/decisions/{decisionId}/formulaire?exemplaire=Employeur", _ct)).ShouldNotContain("Machinchose");
         (await employeur.GetAsync($"/api/v1/decisions/{decisionId}/formulaire?exemplaire=Dossier", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await employeur.GetAsync($"/api/v1/decisions/{decisionId}/complete", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);

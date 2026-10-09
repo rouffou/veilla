@@ -3,6 +3,7 @@ using System.Text.Json;
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
+using Sepp.Contracts.Decisions;
 using Sepp.Contracts.Documents;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Documents.Application.EvaluationSante;
@@ -25,7 +26,7 @@ public class EvaluationSanteTests
 
     private DecisionEmiseHandler Handler() => new(_ctx.Generateur, _ctx.Store, _ctx.Store);
 
-    private static DecisionEmise Decision(string categorie = "APTE_AVEC_MESURES") =>
+    private static DecisionEmise Decision(string categorie = CategoriesDecision.ApteAvecMesures) =>
         new(Guid.CreateVersion7(), Personne, Affilie, categorie, ["AMENAGEMENT_POSTE", "PAS_DE_CHARGES"], new DateOnly(2027, 10, 5));
 
     /// <summary>Publie les modèles de départ, comme le ferait le département médical après relecture.</summary>
@@ -114,7 +115,8 @@ public class EvaluationSanteTests
 
         var employeur = _ctx.Store.Documents.Single(d => d.Exemplaire == "employeur");
         var contenu = FakeRendu.Texte(_ctx.Chiffrement.Dechiffrer(employeur.Zone, employeur.Id, _ctx.Stockage.Objets[employeur.StockageUri]));
-        contenu.ShouldContain("Apte moyennant des mesures");
+        contenu.ShouldContain("Apte avec mesures");
+        contenu.ShouldNotContain(CategoriesDecision.ApteAvecMesures, Case.Sensitive);
         contenu.ShouldContain(decision.DecisionId.ToString());
         contenu.ShouldContain("2027");
 
@@ -174,6 +176,51 @@ public class EvaluationSanteTests
         _ctx.Store.Modeles.ShouldAllBe(m => m.Statut == StatutModele.Brouillon);
         _ctx.Store.Modeles.Select(m => m.Langue).Distinct().Order().ShouldBe([Language.Fr, Language.Nl, Language.De]);
         _ctx.Store.Modeles.ShouldAllBe(m => m.Description!.Contains("valider", StringComparison.Ordinal));
+    }
+
+    /// <summary>#293 : chaque catégorie émise par la Surveillance médicale a un libellé dans les quatre langues, sans repli.</summary>
+    [Fact]
+    public void Chaque_categorie_de_decision_partagee_a_un_libelle_dans_les_quatre_langues()
+    {
+        foreach (var code in CategoriesDecision.Connus)
+        {
+            var libelle = LibellesDecision.Libelle(code);
+            libelle.ShouldNotBeNull($"{code} n'a pas de libellé.");
+            libelle.En.ShouldNotBeNullOrWhiteSpace($"{code} n'a pas de libellé anglais.");
+            foreach (var langue in Enum.GetValues<Language>())
+            {
+                var texte = LibellesDecision.Categorie(code, langue);
+                texte.ShouldNotBeNullOrWhiteSpace();
+                texte.ShouldNotBe(code, $"{code} serait imprimé sous son code brut en {langue}.");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(CategoriesDecision.InaptitudeTemporaire, "Inaptitude temporaire")]
+    [InlineData(CategoriesDecision.InaptitudeDefinitive, "Inaptitude définitive")]
+    [InlineData(CategoriesDecision.Mutation, "Mutation")]
+    [InlineData(CategoriesDecision.EcartementMaternite, "Écartement (maternité)")]
+    public async Task Les_categories_emises_par_la_surveillance_medicale_sont_imprimees_sous_leur_libelle(string categorie, string libelle)
+    {
+        PublierModelesParDefaut();
+
+        await Handler().HandleAsync(Decision(categorie), _ct);
+
+        var employeur = _ctx.Store.Documents.Single(d => d.Exemplaire == "employeur");
+        var contenu = FakeRendu.Texte(_ctx.Chiffrement.Dechiffrer(employeur.Zone, employeur.Id, _ctx.Stockage.Objets[employeur.StockageUri]));
+        contenu.ShouldContain(libelle);
+        contenu.ShouldNotContain(categorie, Case.Sensitive);
+    }
+
+    [Fact]
+    public async Task Une_categorie_inconnue_fait_echouer_l_evenement_au_lieu_d_imprimer_le_code_brut()
+    {
+        PublierModelesParDefaut();
+
+        await Should.ThrowAsync<InvalidOperationException>(() => Handler().HandleAsync(Decision("INAPTE_TEMPORAIRE"), _ct));
+
+        _ctx.Store.Published.OfType<DocumentPublie>().ShouldBeEmpty();
     }
 
     [Fact]
