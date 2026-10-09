@@ -147,27 +147,62 @@ public sealed class SimulateurDimona(ICorrespondanceRepository correspondances) 
 }
 
 /// <summary>
-/// Simulateur du registre national (BCSS, identification) : identité fictive dérivée de tout NISS valide (numéro
-/// d'ordre 998 : inconnu) ; un lot unique d'une mutation d'identité fictive.
+/// Simulateur du registre national (BCSS, identification et mutations) : identité fictive dérivée de tout NISS valide
+/// (numéro d'ordre 998 : inconnu) ; un lot unique et déterministe de mutations (position « lot-1 ») pour les travailleurs
+/// fictifs du simulateur DIMONA des trois premiers affiliés connus — changements d'adresse, de nom, de prénom et de langue du
+/// salarié, décès de l'étudiant —, plus un changement de nom d'une personne qu'aucun service ne suit (ignoré par Personnes).
 /// </summary>
-public sealed class SimulateurRegistreNational : IRegistreNational
+public sealed class SimulateurRegistreNational(ICorrespondanceRepository correspondances) : IRegistreNational
 {
     public const string PositionApresLot = "lot-1";
 
+    /// <summary>Référence de la mutation de la personne non suivie.</summary>
+    public const string ReferenceMutationInconnue = "SIM-RN-INCONNU";
+
+    /// <summary>NISS fictif d'une personne que le SEPP ne suit pas.</summary>
     public static readonly string NissMutation = DonneesFictives.Niss(4242);
+
+    /// <summary>Date du décès fictif de l'étudiant : elle tombe pendant son occupation DIMONA simulée (1er juillet au 31 août 2026).</summary>
+    public static readonly DateOnly DateDeces = new(2026, 7, 15);
 
     public Task<IdentiteRegistreNational?> ConsulterIdentiteAsync(string niss, CancellationToken cancellationToken) =>
         Task.FromResult(DonneesFictives.Identite(niss));
 
-    public Task<LotFlux<MutationRegistreNational>> RecupererMutationsAsync(string? position, CancellationToken cancellationToken)
+    public async Task<LotFlux<MutationRegistreNational>> RecupererMutationsAsync(string? position, CancellationToken cancellationToken)
     {
         if (position == PositionApresLot)
         {
-            return Task.FromResult(new LotFlux<MutationRegistreNational>([], PositionApresLot));
+            return new LotFlux<MutationRegistreNational>([], PositionApresLot);
         }
 
-        var identite = DonneesFictives.Identite(NissMutation)! with { Nom = "Simule-Nouveau-Nom" };
-        return Task.FromResult(new LotFlux<MutationRegistreNational>(
-            [new MutationRegistreNational("SIM-RN-0001", NissMutation, new DateOnly(2026, 9, 1), identite)], PositionApresLot));
+        var employeurs = await correspondances.ListerAsync(TypeIdentifiantExterne.NumeroBce, null, 3, cancellationToken);
+        var mutations = new List<MutationRegistreNational>();
+        foreach (var employeur in employeurs.Select(e => e.ValeurExterne).Where(e => e != SimulateurDimona.EmployeurNonAffilie))
+        {
+            mutations.AddRange(Mutations(employeur));
+        }
+
+        mutations.Add(new MutationRegistreNational(ReferenceMutationInconnue, NissMutation, TypeMutationRegistreNational.ChangementNom,
+            new DateOnly(2026, 9, 1), Nom: "Simule-Nouveau-Nom"));
+        return new LotFlux<MutationRegistreNational>(mutations, PositionApresLot);
+    }
+
+    /// <summary>Mutations fictives des travailleurs DIMONA simulés d'un employeur (exposées pour les tests).</summary>
+    public static IReadOnlyList<MutationRegistreNational> Mutations(string numeroBceEmployeur)
+    {
+        var declarations = SimulateurDimona.Declarations(numeroBceEmployeur);
+        var salarie = declarations[0].Niss;
+        var etudiant = declarations[1].Niss;
+        var effet = new DateOnly(2026, 3, 1);
+        return
+        [
+            new($"SIMRN{numeroBceEmployeur}01", salarie, TypeMutationRegistreNational.ChangementAdresse, effet,
+                new AdresseRegistreNational("Rue de la Mutation Simulée", "12", "B", "5000", "Namur")),
+            new($"SIMRN{numeroBceEmployeur}02", salarie, TypeMutationRegistreNational.ChangementNom, effet, Nom: "Simule-Nouveau-Nom"),
+            new($"SIMRN{numeroBceEmployeur}03", salarie, TypeMutationRegistreNational.ChangementPrenom, effet, Prenom: "Simule-Nouveau-Prenom"),
+            new($"SIMRN{numeroBceEmployeur}04", salarie, TypeMutationRegistreNational.ChangementLangue, effet, Langue: Language.De),
+            new($"SIMRN{numeroBceEmployeur}05", etudiant, TypeMutationRegistreNational.Deces, DateDeces),
+        ];
     }
 }
+

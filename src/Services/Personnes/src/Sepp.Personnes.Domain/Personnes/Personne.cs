@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Sepp.BuildingBlocks.Domain;
 
 namespace Sepp.Personnes.Domain.Personnes;
@@ -86,6 +88,7 @@ public sealed class Personne : AggregateRoot
 {
     private readonly List<Occupation> _occupations = [];
     private readonly List<EtatParticulier> _etatsParticuliers = [];
+    private readonly List<MutationRegistreNational> _mutations = [];
 
     private Personne()
     {
@@ -120,6 +123,12 @@ public sealed class Personne : AggregateRoot
     public string? Telephone { get; private set; }
 
     public CanalCommunication CanalPrefere { get; private set; }
+
+    /// <summary>Date du décès communiquée par le registre national ; <c>null</c> tant que la personne n'est pas décédée.</summary>
+    public DateOnly? DateDeces { get; private set; }
+
+    /// <summary>Historique des mutations du registre national appliquées (DAT-04).</summary>
+    public IReadOnlyList<MutationRegistreNational> Mutations => _mutations.AsReadOnly();
 
     public IReadOnlyList<Occupation> Occupations => _occupations.AsReadOnly();
 
@@ -226,14 +235,112 @@ public sealed class Personne : AggregateRoot
         }
 
         occupation.Terminer(dateFin);
+        CloturerAffectations(occupation, dateFin);
+        Raise(new OccupationCloturee(Id, occupation.Id, occupation.AffilieId, dateFin, DateTimeOffset.UtcNow));
+        return true;
+    }
+
+    private void CloturerAffectations(Occupation occupation, DateOnly dateFin)
+    {
         foreach (var affectation in occupation.Affectations.Where(a => a.Validite.ValidTo is not { } fin || fin > dateFin.AddDays(1)))
         {
             affectation.Cloturer(dateFin.AddDays(1));
             Raise(new AffectationHistorisee(Id, affectation.Id, affectation.PosteId, affectation.Validite, DateTimeOffset.UtcNow));
         }
+    }
 
-        Raise(new OccupationCloturee(Id, occupation.Id, occupation.AffilieId, dateFin, DateTimeOffset.UtcNow));
-        return true;
+    /// <summary>
+    /// AFF-20, AFF-22 : applique une mutation du registre national (changement d'adresse, de nom, de prénom, de langue ou décès).
+    /// Idempotent sur la référence de la mutation : un rejeu identique ne change rien. Chaque mutation appliquée est conservée
+    /// dans l'historique (DAT-04). Un décès clôt à la date du décès les occupations encore actives (et leurs affectations).
+    /// </summary>
+    /// <returns>La mutation, et <c>false</c> si elle avait déjà été appliquée.</returns>
+    public (MutationRegistreNational Mutation, bool Appliquee) AppliquerMutation(DemandeMutationRegistreNational demande)
+    {
+        var reference = demande.Reference?.Trim() ?? string.Empty;
+        if (reference.Length is 0 or > 100)
+        {
+            throw new DomainException("La référence de la mutation est obligatoire (100 caractères maximum).");
+        }
+
+        var existante = _mutations.SingleOrDefault(m => m.Reference == reference);
+        if (existante is not null)
+        {
+            if (existante.Type != demande.Type || existante.DateEffet != demande.DateEffet)
+            {
+                throw new DomainException($"La référence de mutation {reference} est déjà utilisée pour une autre mutation.");
+            }
+
+            return (existante, false);
+        }
+
+        string? avant;
+        string? apres;
+        switch (demande.Type)
+        {
+            case TypeMutationRegistreNational.ChangementAdresse:
+                var adresse = demande.Adresse ?? throw new DomainException("Le changement d'adresse exige la nouvelle adresse.");
+                (avant, apres) = (Adresse is null ? null : JsonSerializer.Serialize(Adresse), JsonSerializer.Serialize(adresse));
+                Adresse = adresse;
+                break;
+            case TypeMutationRegistreNational.ChangementNom:
+                var nom = Texte(demande.Nom, "nom", 100);
+                (avant, apres) = (JsonSerializer.Serialize(Nom), JsonSerializer.Serialize(nom));
+                Nom = nom;
+                break;
+            case TypeMutationRegistreNational.ChangementPrenom:
+                var prenom = Texte(demande.Prenom, "prénom", 100);
+                (avant, apres) = (JsonSerializer.Serialize(Prenom), JsonSerializer.Serialize(prenom));
+                Prenom = prenom;
+                break;
+            case TypeMutationRegistreNational.ChangementLangue:
+                if (demande.Langue is not { } langue || !Enum.IsDefined(langue))
+                {
+                    throw new DomainException("Le changement de langue exige une langue connue.");
+                }
+
+                (avant, apres) = (JsonSerializer.Serialize(Langue.ToString()), JsonSerializer.Serialize(langue.ToString()));
+                Langue = langue;
+                break;
+            case TypeMutationRegistreNational.Deces:
+                avant = DateDeces is { } precedente ? JsonSerializer.Serialize(precedente) : null;
+                apres = JsonSerializer.Serialize(demande.DateEffet);
+                EnregistrerDeces(demande.DateEffet);
+                break;
+            default:
+                throw new DomainException("Type de mutation du registre national inconnu.");
+        }
+
+        var mutation = new MutationRegistreNational(NewId(), reference, demande.Type, demande.DateEffet, avant, apres);
+        _mutations.Add(mutation);
+        return (mutation, true);
+    }
+
+    private void EnregistrerDeces(DateOnly dateDeces)
+    {
+        if (DateDeces is { } connue && connue != dateDeces)
+        {
+            throw new DomainException($"Un décès est déjà enregistré au {connue:yyyy-MM-dd} : la correction d'une date de décès est traitée manuellement.");
+        }
+
+        if (dateDeces < DateNaissance)
+        {
+            throw new DomainException("La date du décès précède la date de naissance.");
+        }
+
+        var aClore = _occupations.Where(o => o.DateFin is null || o.DateFin > dateDeces).ToList();
+        if (aClore.Any(o => o.DateDebut > dateDeces))
+        {
+            throw new DomainException("Le décès précède le début d'une occupation : à corriger manuellement.");
+        }
+
+        DateDeces = dateDeces;
+        foreach (var occupation in aClore)
+        {
+            occupation.ClotureAu(dateDeces);
+            CloturerAffectations(occupation, dateDeces);
+            Raise(new OccupationCloturee(Id, occupation.Id, occupation.AffilieId, dateDeces, DateTimeOffset.UtcNow));
+        }
     }
 
     /// <summary>AFF-22 : rattache le travailleur à un poste d'un site pour une période [valideDu, valideJusquAu[.</summary>

@@ -59,7 +59,27 @@ public sealed class PersonnesDbContext(
             b.Navigation(p => p.Occupations).AutoInclude();
             b.HasMany(p => p.EtatsParticuliers).WithOne().HasForeignKey("personne_id").IsRequired().OnDelete(DeleteBehavior.Cascade);
             b.Navigation(p => p.EtatsParticuliers).AutoInclude();
+            b.HasMany(p => p.Mutations).WithOne().HasForeignKey("personne_id").IsRequired().OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(p => p.Mutations).AutoInclude();
             b.Ignore(p => p.Affectations);
+        });
+
+        modelBuilder.Entity<MutationRegistreNational>(b =>
+        {
+            b.ToTable("mutation_registre_national");
+            b.HasKey(m => m.Id);
+            b.Property(m => m.Id).ValueGeneratedNever();
+            b.Property(m => m.Type).HasConversion<string>().HasMaxLength(30);
+
+            // Idempotence : la référence de la mutation est unique pour tout le service.
+            b.Property(m => m.Reference).HasMaxLength(100).IsRequired();
+            b.HasIndex(m => m.Reference).IsUnique();
+
+            // ARC-45 : nom, prénom, adresse et date de décès (avant / après) ne sont jamais stockés en clair.
+            b.Property(m => m.Avant).HasColumnName("avant_chiffre").HasMaxLength(2000)
+                .HasConversion(new ValueConverter<string?, string?>(v => v == null ? null : encryptor.Encrypt(v), v => v == null ? null : encryptor.Decrypt(v)));
+            b.Property(m => m.Apres).HasColumnName("apres_chiffre").HasMaxLength(2000)
+                .HasConversion(new ValueConverter<string?, string?>(v => v == null ? null : encryptor.Encrypt(v), v => v == null ? null : encryptor.Decrypt(v)));
         });
 
         modelBuilder.Entity<Occupation>(b =>

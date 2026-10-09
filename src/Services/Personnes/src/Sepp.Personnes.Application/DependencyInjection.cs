@@ -4,6 +4,7 @@ using Sepp.BuildingBlocks.Application;
 using Sepp.Personnes.Application.Affectations;
 using Sepp.Personnes.Application.EtatsParticuliers;
 using Sepp.Personnes.Application.Imports;
+using Sepp.Personnes.Application.Mutations;
 using Sepp.Personnes.Application.Occupations;
 using Sepp.Personnes.Application.Personnes;
 
@@ -29,6 +30,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<TerminerOccupation, Unit>, TerminerOccupationHandler>();
         services.AddScoped<ICommandHandler<EnregistrerEntreeDimona, DimonaEnregistreeDto>, EnregistrerEntreeDimonaHandler>();
         services.AddScoped<ICommandHandler<EnregistrerSortieDimona, Unit>, EnregistrerSortieDimonaHandler>();
+
+        services.AddScoped<ICommandHandler<EnregistrerMutationRegistreNational, MutationEnregistreeDto>, EnregistrerMutationRegistreNationalHandler>();
 
         services.AddScoped<IQueryHandler<ListerAffectations, IReadOnlyList<AffectationDto>>, ListerAffectationsHandler>();
         services.AddScoped<ICommandHandler<Affecter, Guid>, AffecterHandler>();

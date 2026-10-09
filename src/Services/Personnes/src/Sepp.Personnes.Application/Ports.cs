@@ -12,6 +12,9 @@ public interface IPersonneRepository
 
     Task<Personne?> GetParReferenceDimonaAsync(string referenceDimona, CancellationToken cancellationToken);
 
+    /// <summary>Personne dont l'historique contient la mutation du registre national portant cette référence (idempotence).</summary>
+    Task<Personne?> GetParReferenceMutationAsync(string referenceMutation, CancellationToken cancellationToken);
+
     /// <summary>Personnes occupées (ou mises à disposition) chez l'affilié à la date donnée.</summary>
     Task<IReadOnlyList<Personne>> ListerParAffilieAsync(Guid affilieId, DateOnly date, CancellationToken cancellationToken);
 

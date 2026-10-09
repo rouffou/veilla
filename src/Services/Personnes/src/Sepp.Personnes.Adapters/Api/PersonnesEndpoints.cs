@@ -12,6 +12,7 @@ using Sepp.Personnes.Application;
 using Sepp.Personnes.Application.Affectations;
 using Sepp.Personnes.Application.EtatsParticuliers;
 using Sepp.Personnes.Application.Imports;
+using Sepp.Personnes.Application.Mutations;
 using Sepp.Personnes.Application.Occupations;
 using Sepp.Personnes.Application.Personnes;
 using Sepp.Personnes.Domain.Personnes;
@@ -36,7 +37,18 @@ public static class PersonnesEndpoints
         // AFF-20 : points d'entrée internes appelés par le compte technique du service Intégrations (rôle « integrations »),
         // qui n'a que personne:ecrire. Hors du groupe en lecture : la permission personne:lire n'y est pas exigée.
         MapDimona(app.MapGroup("/api/v1/dimona").WithTags("Interne : alimentation DIMONA (service Intégrations)").RequirePermission(Permissions.PersonneEcrire));
+
+        // AFF-20, AFF-22 : mutations du registre national, même compte technique et mêmes garanties (NISS dans le corps uniquement).
+        MapRegistreNational(app.MapGroup("/api/v1/registre-national").WithTags("Interne : mutations du registre national (service Intégrations)").RequirePermission(Permissions.PersonneEcrire));
         return app;
+    }
+
+    private static void MapRegistreNational(RouteGroupBuilder registre)
+    {
+        registre.MapPost("/mutations", async (EnregistrerMutationRegistreNational body, ICommandHandler<EnregistrerMutationRegistreNational, MutationEnregistreeDto> handler, CancellationToken ct) =>
+                (await handler.HandleAsync(body, ct)).ToHttpResult())
+            .WithName("EnregistrerMutationRegistreNational")
+            .WithSummary("AFF-20, AFF-22 : changement d'adresse, de nom, de prénom, de langue ou décès reçu du registre national par le service Intégrations ; historisé (DAT-04), idempotent sur la référence de la mutation. Un décès clôt les occupations actives.");
     }
 
     private static void MapPersonnes(RouteGroupBuilder personnes)

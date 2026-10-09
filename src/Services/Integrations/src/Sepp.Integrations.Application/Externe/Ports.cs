@@ -72,10 +72,39 @@ public sealed record DeclarationDimona(
     public override string ToString() => $"DeclarationDimona {{ ReferenceDimona = {ReferenceDimona}, Type = {Type}, Niss = masqué }}";
 }
 
-/// <summary>Mutation d'identité signalée par le registre national (format canonique interne).</summary>
-public sealed record MutationRegistreNational(string ReferenceMutation, string Niss, DateOnly DateMutation, IdentiteRegistreNational Identite)
+/// <summary>Nature d'une mutation du registre national, alignée sur l'API interne du service Personnes (AFF-20, AFF-22).</summary>
+public enum TypeMutationRegistreNational
 {
-    public override string ToString() => $"MutationRegistreNational {{ ReferenceMutation = {ReferenceMutation}, Niss = masqué }}";
+    ChangementAdresse,
+    ChangementNom,
+    ChangementPrenom,
+    ChangementLangue,
+    Deces,
+}
+
+/// <summary>Adresse postale communiquée par le registre national (format canonique interne).</summary>
+public sealed record AdresseRegistreNational(string Rue, string Numero, string? Boite, string CodePostal, string Localite, string Pays = "BE")
+{
+    public override string ToString() => "AdresseRegistreNational { masquée }";
+}
+
+/// <summary>
+/// Mutation signalée par le registre national (format canonique interne) : changement d'adresse, de nom, de prénom, de
+/// langue ou décès. <see cref="ReferenceMutation"/> est la clé d'idempotence (jamais un NISS) ; <see cref="DateEffet"/> est la
+/// date d'effet (pour un décès : la date du décès) ; seule la valeur propre au <see cref="Type"/> est renseignée.
+/// </summary>
+public sealed record MutationRegistreNational(
+    string ReferenceMutation,
+    string Niss,
+    TypeMutationRegistreNational Type,
+    DateOnly DateEffet,
+    AdresseRegistreNational? Adresse = null,
+    string? Nom = null,
+    string? Prenom = null,
+    Language? Langue = null)
+{
+    // ARC-06, DAT-06 : ni le NISS ni les données d'identité ne doivent fuir par une trace.
+    public override string ToString() => $"MutationRegistreNational {{ ReferenceMutation = {ReferenceMutation}, Type = {Type}, Niss = masqué }}";
 }
 
 /// <summary>Flux BCE : données d'une entreprise et de ses unités d'établissement.</summary>
@@ -138,6 +167,9 @@ public sealed record EntreeDimonaPersonnes(
 
 public sealed record OccupationDimona(Guid PersonneId, Guid OccupationId, bool DejaEnregistree);
 
+/// <summary>Issue d'une mutation côté Personnes : <c>Appliquee</c>, <c>DejaAppliquee</c> ou <c>PersonneInconnue</c>.</summary>
+public sealed record MutationPersonnes(Guid? PersonneId, string Statut);
+
 /// <summary>API interne du service Personnes (appel HTTP authentifié par le compte technique du service).</summary>
 public interface IPersonnesClient
 {
@@ -145,6 +177,9 @@ public interface IPersonnesClient
 
     Task<ResultatAppel<bool>> EnregistrerSortieDimonaAsync(string referenceDimona, DateOnly dateFin, CancellationToken cancellationToken);
 
-    /// <summary>Mise à jour de l'identité d'une personne connue, désignée par son NISS (mutation du registre national).</summary>
-    Task<ResultatAppel<bool>> AppliquerMutationIdentiteAsync(string niss, IdentiteRegistreNational identite, CancellationToken cancellationToken);
+    /// <summary>
+    /// Mutation du registre national (adresse, nom, prénom, langue, décès) appliquée à la personne désignée par son NISS
+    /// (dans le corps de l'appel uniquement). Idempotent sur la référence de la mutation.
+    /// </summary>
+    Task<ResultatAppel<MutationPersonnes>> AppliquerMutationAsync(MutationRegistreNational mutation, CancellationToken cancellationToken);
 }
