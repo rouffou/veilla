@@ -182,14 +182,12 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<Correl
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var correlationId = context.Request.Headers[Header].FirstOrDefault();
-        // Valeur fournie par l'appelant puis écrite dans les journaux : seuls les caractères d'un identifiant
-        // (lettres, chiffres, « - », « _ », « . », « : ») sont acceptés, sinon un nouvel identifiant est généré
-        // (pas d'injection de lignes dans les journaux, CodeQL cs/log-forging).
-        if (string.IsNullOrWhiteSpace(correlationId) || correlationId.Length > 100 || !EstIdentifiantValide(correlationId))
-        {
-            correlationId = System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.CreateVersion7().ToString();
-        }
+        // Valeur fournie par l'appelant puis écrite dans les journaux : elle n'est reprise que si elle s'analyse comme un
+        // GUID (format « D » des identifiants de la plateforme ou « N » des trace-id W3C), et c'est notre propre
+        // formatage du GUID qui est propagé et journalisé, jamais la chaîne reçue (CodeQL cs/log-forging, NF-04).
+        var correlationId = Normaliser(context.Request.Headers[Header].FirstOrDefault())
+            ?? System.Diagnostics.Activity.Current?.TraceId.ToString()
+            ?? Guid.CreateVersion7().ToString();
 
         context.TraceIdentifier = correlationId;
         context.Response.Headers[Header] = correlationId;
@@ -199,6 +197,13 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<Correl
         }
     }
 
-    private static bool EstIdentifiantValide(string valeur) =>
-        valeur.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or ':');
+    private static string? Normaliser(string? valeur)
+    {
+        if (Guid.TryParseExact(valeur, "D", out var guid))
+        {
+            return guid.ToString("D");
+        }
+
+        return Guid.TryParseExact(valeur, "N", out guid) ? guid.ToString("N") : null;
+    }
 }
