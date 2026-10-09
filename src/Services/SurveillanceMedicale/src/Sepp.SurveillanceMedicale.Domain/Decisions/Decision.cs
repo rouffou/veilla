@@ -23,7 +23,12 @@ public enum StatutDecision
     Emise,
 }
 
-/// <summary>Codes publiés dans <c>DecisionEmise.Categorie</c> : seule la catégorie sort de la zone médicale (ARC-06).</summary>
+/// <summary>
+/// Codes publiés dans <c>DecisionEmise.Categorie</c> : seule la catégorie sort de la zone médicale (ARC-06). Ce sont les
+/// codes partagés <c>Sepp.Contracts.Decisions.CategoriesDecision</c> (le domaine ne référence pas les contrats : la
+/// conformité est garantie par un test de la couche application, #293). Tout ajout ici s'accompagne d'un ajout aux codes
+/// partagés et d'un libellé dans le service Documents.
+/// </summary>
 public static class CodesDecision
 {
     public static string Code(CategorieDecision categorie) => categorie switch

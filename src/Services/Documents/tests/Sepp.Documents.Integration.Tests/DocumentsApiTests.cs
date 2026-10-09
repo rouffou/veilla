@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.Contracts;
+using Sepp.Contracts.Decisions;
 using Sepp.Contracts.Documents;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Documents.Adapters.Persistence;
@@ -327,7 +328,7 @@ public sealed class DocumentsApiTests : IAsyncLifetime
             (await Client(Roles.AdministrateurFonctionnel).PostAsync($"/api/v1/modeles/{id}/publication", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         }
 
-        var decision = new DecisionEmise(Guid.CreateVersion7(), Personne, Affilie, "APTE_AVEC_MESURES", ["AMENAGEMENT_POSTE"], new DateOnly(2027, 10, 5));
+        var decision = new DecisionEmise(Guid.CreateVersion7(), Personne, Affilie, CategoriesDecision.ApteAvecMesures, ["AMENAGEMENT_POSTE"], new DateOnly(2027, 10, 5));
         var message = Guid.CreateVersion7();
         var payload = JsonSerializer.Serialize(decision, EventSerialization.Options);
         var dispatcher = _factory.Services.GetRequiredService<IntegrationEventDispatcher<DocumentsDbContext>>();

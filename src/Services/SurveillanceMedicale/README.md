@@ -80,6 +80,11 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
 - **Codes de type d'examen** : constantes partagées `Sepp.Contracts.Examens.TypesExamen` (le domaine ne déclare plus ses
   propres codes) ; l'ancien code `ACTES_SUPPLEMENTAIRES` est remplacé par `ACTES_MEDICAUX_SUPPLEMENTAIRES` (migration de
   données `CodeActesMedicauxSupplementaires` : examens, décisions, examens dus, messages non publiés de l'outbox).
+- **Codes de catégorie de décision** (`DecisionEmise.Categorie`) : codes partagés `Sepp.Contracts.Decisions.CategoriesDecision`
+  (`APTE`, `APTE_AVEC_MESURES`, `INAPTITUDE_TEMPORAIRE`, `INAPTITUDE_DEFINITIVE`, `MUTATION`, `ECARTEMENT_MATERNITE`). Le
+  domaine garde sa table `CodesDecision` (il ne référence pas les contrats) ; un test de la couche application vérifie
+  qu'elle émet exactement `CategoriesDecision.Connus`. Toute nouvelle catégorie exige un code partagé et un libellé dans
+  Documents.
 
 ## Contrat avec le service Documents (SAN-30, SAN-33)
 
