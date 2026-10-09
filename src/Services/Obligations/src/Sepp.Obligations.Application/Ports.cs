@@ -127,6 +127,9 @@ public interface IProjectionRepository
     /// <summary>Travailleurs occupés (occupation en cours) chez l'affilié à la date.</summary>
     Task<IReadOnlyList<Guid>> PersonnesOccupeesAsync(Guid affilieId, DateOnly date, CancellationToken cancellationToken);
 
+    /// <summary>Le travailleur a une occupation chez l'affilié couvrant la date (début connu ou non, fin non antérieure à la date).</summary>
+    Task<bool> OccupationActiveAsync(Guid personneId, Guid affilieId, DateOnly date, CancellationToken cancellationToken);
+
     void Add(OccupationLocale occupation);
 
     Task<EtatParticulierLocal?> GetEtatParticulierAsync(Guid etatParticulierId, CancellationToken cancellationToken);

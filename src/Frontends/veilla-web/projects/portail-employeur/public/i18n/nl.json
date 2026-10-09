@@ -28,7 +28,8 @@
     "introuvable": "Het gevraagde element werd niet gevonden.",
     "invalide": "De aanvraag kon niet worden aanvaard. Controleer de ingevoerde gegevens.",
     "reseau": "Geen verbinding met de server. Controleer uw internetverbinding.",
-    "inattendue": "Er is een onverwachte fout opgetreden. Probeer het later opnieuw."
+    "inattendue": "Er is een onverwachte fout opgetreden. Probeer het later opnieuw.",
+    "repriseOccupationInactive": "Deze werkhervatting kan niet worden aangekondigd: de werknemer heeft op de hervattingsdatum geen actieve tewerkstelling bij deze aangeslotene. Controleer de werknemer en de hervattingsdatum."
   },
   "form": {
     "summary": "Het formulier bevat fouten:",

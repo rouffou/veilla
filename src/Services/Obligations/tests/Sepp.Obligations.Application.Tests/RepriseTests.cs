@@ -24,6 +24,9 @@ public class RepriseTests
 
     private readonly Banc _banc = new();
 
+    // Préalable de toute annonce (#298) : le travailleur est occupé chez l'affilié.
+    public RepriseTests() => _banc.OccupationActive();
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private InMemoryStore Store => _banc.Store;
@@ -420,9 +423,7 @@ public class RepriseTests
     public async Task La_sortie_de_l_entreprise_rend_le_processus_sans_objet_et_publie_la_cloture()
     {
         await Annonce();
-        var occupation = Guid.CreateVersion7();
-        await new OccupationDebuteeHandler(Store, _banc.MiseAJour).HandleAsync(
-            new Sepp.Contracts.Personnes.OccupationDebutee(occupation, _banc.Personne, _banc.Affilie, new DateOnly(2025, 1, 1)), Ct);
+        var occupation = _banc.OccupationActive().OccupationId;
         await new OccupationTermineeHandler(Store, _banc.MiseAJour).HandleAsync(
             new Sepp.Contracts.Personnes.OccupationTerminee(occupation, _banc.Personne, _banc.Affilie, new DateOnly(2026, 6, 10)), Ct);
 
@@ -442,6 +443,107 @@ public class RepriseTests
 
         Store.Processus.ShouldHaveSingleItem().Origine.ShouldBe(OrigineReprise.Evenement);
         Store.Publies<RepriseEnregistree>().ShouldHaveSingleItem().Origine.ShouldBe("Evenement");
+    }
+
+    private Task FinOccupation(DateOnly fin) =>
+        new OccupationTermineeHandler(Store, _banc.MiseAJour).HandleAsync(
+            new Sepp.Contracts.Personnes.OccupationTerminee(_banc.OccupationActive().OccupationId, _banc.Personne, _banc.Affilie, fin) { OccurredAt = _banc.Clock.GetUtcNow() }, Ct);
+
+    private static async Task<Result<ResultatEnregistrement>> Tenter(Banc banc, DateOnly? dateReprise = null) =>
+        await new EnregistrerRepriseHandler(banc.Enregistrement, FakePerimetre.Interne, Gestionnaire, banc.Clock).HandleAsync(
+            new EnregistrerReprise(banc.Personne, banc.Affilie, dateReprise ?? DateReprise, DebutAbsence), Ct);
+
+    private static void DoitEtreRefusee(Result<ResultatEnregistrement> resultat)
+    {
+        resultat.IsSuccess.ShouldBeFalse();
+        resultat.Error!.Kind.ShouldBe(ErrorKind.Unprocessable);
+        resultat.Error.Code.ShouldBe("reprise.occupation-inactive");
+    }
+
+    [Fact]
+    public async Task Une_annonce_sans_occupation_chez_l_affilie_est_refusee_en_422_sans_effet()
+    {
+        var banc = new Banc();
+
+        DoitEtreRefusee(await Tenter(banc));
+
+        banc.Store.Processus.ShouldBeEmpty();
+        banc.Store.Reprises.ShouldBeEmpty();
+        banc.Store.Publies<RepriseEnregistree>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Une_occupation_chez_un_autre_affilie_ne_suffit_pas()
+    {
+        var banc = new Banc();
+        var ailleurs = new Domain.Projections.OccupationLocale(Guid.CreateVersion7(), banc.Personne, Guid.CreateVersion7());
+        ailleurs.Debuter(new DateOnly(2025, 1, 1));
+        banc.Store.Add(ailleurs);
+
+        DoitEtreRefusee(await Tenter(banc));
+    }
+
+    [Fact]
+    public async Task Une_occupation_terminee_avant_la_date_de_reprise_ou_pas_encore_commencee_est_refusee()
+    {
+        await FinOccupation(DateReprise.AddDays(-1));
+        DoitEtreRefusee(await Tenter(_banc));
+
+        var futur = new Banc();
+        var occupation = new Domain.Projections.OccupationLocale(Guid.CreateVersion7(), futur.Personne, futur.Affilie);
+        occupation.Debuter(DateReprise.AddDays(1));
+        futur.Store.Add(occupation);
+        DoitEtreRefusee(await Tenter(futur));
+    }
+
+    [Fact]
+    public async Task Une_occupation_qui_se_termine_le_jour_de_la_reprise_est_active_ce_jour_la()
+    {
+        await FinOccupation(DateReprise);
+
+        (await Tenter(_banc)).IsSuccess.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Une_modification_est_refusee_si_l_occupation_n_est_plus_active_a_la_date_de_reprise()
+    {
+        var annonce = await Annonce();
+        await FinOccupation(DateReprise.AddDays(-1));
+
+        var resultat = await new ModifierRepriseHandler(_banc.Enregistrement, Store, FakePerimetre.Interne, Gestionnaire, _banc.Clock)
+            .HandleAsync(new ModifierReprise(annonce.RepriseId, DebutAbsence.AddDays(-7)), Ct);
+
+        DoitEtreRefusee(resultat);
+        Processus.DebutAbsence.ShouldBe(DebutAbsence);
+    }
+
+    /// <summary>
+    /// À valider : les événements arrivent dans le désordre. Tant que <c>personnes.occupation-debutee</c> n'est pas reçu, la projection est
+    /// vide et l'annonce est refusée ; elle aboutit dès que l'occupation est connue (le portail peut réessayer).
+    /// </summary>
+    [Fact]
+    public async Task Une_annonce_avant_la_reception_de_l_occupation_est_refusee_puis_acceptee_une_fois_l_occupation_recue()
+    {
+        var banc = new Banc();
+        DoitEtreRefusee(await Tenter(banc));
+
+        await new OccupationDebuteeHandler(banc.Store, banc.MiseAJour).HandleAsync(
+            new Sepp.Contracts.Personnes.OccupationDebutee(Guid.CreateVersion7(), banc.Personne, banc.Affilie, new DateOnly(2025, 1, 1)), Ct);
+
+        (await Tenter(banc)).IsSuccess.ShouldBeTrue();
+        banc.Store.Processus.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task L_annonce_par_evenement_sans_occupation_est_ignoree_sans_exception_ni_processus()
+    {
+        var banc = new Banc();
+
+        await new RepriseAnnonceeHandler(banc.Enregistrement).HandleAsync(
+            new RepriseAnnoncee(banc.Personne, banc.Affilie, DateReprise, DebutAbsence), Ct);
+
+        banc.Store.Processus.ShouldBeEmpty();
+        banc.Store.Publies<RepriseEnregistree>().ShouldBeEmpty();
     }
 
     [Fact]
