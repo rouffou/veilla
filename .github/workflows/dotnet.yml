@@ -21,21 +21,6 @@ on:
       - ".editorconfig"
       - ".github/workflows/dotnet.yml"
   pull_request:
-    paths:
-      - "src/BuildingBlocks/**"
-      - "src/Contracts/**"
-      - "src/Services/**"
-      - "src/Bff/**"
-      - "tests/**"
-      - "**/*.slnx"
-      - "src/Bff/**"
-      - "tools/regenerate-solutions.sh"
-      - "Directory.Build.props"
-      - "Directory.Packages.props"
-      - "global.json"
-      - "dotnet-tools.json"
-      - ".editorconfig"
-      - ".github/workflows/dotnet.yml"
   workflow_dispatch:
 
 permissions:
@@ -52,10 +37,50 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  # Porte de fusion (protection de main) : le workflow se déclenche sur toutes les PR ; ce job
+  # détermine si la PR touche les chemins concernés, sinon les jobs sont ignorés et « Statut .NET » reste vert.
+  changements:
+    name: Détection des changements
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      concerne: ${{ steps.filtre.outputs.concerne }}
+    steps:
+      - name: Récupération des sources
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Chemins modifiés par la PR
+        id: filtre
+        env:
+          EVENEMENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^tests/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
+        run: |
+          if [ "$EVENEMENT" != "pull_request" ]; then
+            echo "concerne=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$BASE" HEAD | grep -qE "$MOTIF"; then
+            echo "concerne=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "concerne=false" >> "$GITHUB_OUTPUT"
+            echo "Aucun chemin concerné : jobs ignorés."
+          fi
+
   # Une solution par microservice / BFF + le socle (ADR 0002) : chaque service est compilé et testé
   # dans son propre job, en parallèle.
   plan:
     name: Découverte des solutions
+    needs: changements
+    if: ${{ needs.changements.outputs.concerne == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -76,6 +101,8 @@ jobs:
 
   style:
     name: Style de code et solutions à jour
+    needs: changements
+    if: ${{ needs.changements.outputs.concerne == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -183,6 +210,8 @@ jobs:
 
   dependencies:
     name: Analyse des dépendances NuGet
+    needs: changements
+    if: ${{ needs.changements.outputs.concerne == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -224,3 +253,25 @@ jobs:
 
       - name: Paquets obsolètes (dépréciés) — information
         run: dotnet list Sepp.slnx package --deprecated --include-transitive || true
+
+  # Seul contrôle exigé par la règle de protection de main (noms stables, quel que soit le nombre de jobs de matrice).
+  statut:
+    name: Statut .NET
+    if: ${{ always() }}
+    needs: [changements, plan, style, build-test, dependencies]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Résultat des jobs
+        env:
+          RESULTATS: ${{ toJson(needs.*.result) }}
+        run: |
+          echo "$RESULTATS"
+          if echo "$RESULTATS" | grep -qE '"(failure|cancelled)"'; then
+            echo "::error::Au moins un job a échoué ou a été annulé."
+            exit 1
+          fi
