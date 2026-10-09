@@ -107,7 +107,7 @@ public class ReservationEnLigneTests
     public async Task Sans_obligation_a_planifier_pour_ce_type_d_acte_la_reservation_est_refusee()
     {
         var h = new Harness();
-        var creneau = h.AjouterCreneau(Harness.Lundi, 9, enLigne: true, typeActe: "VISITE_PERIODIQUE");
+        var creneau = h.AjouterCreneau(Harness.Lundi, 9, enLigne: true, typeActe: "EVALUATION_PERIODIQUE");
         h.AjouterObligation("EXAMEN_REPRISE");
 
         var resultat = await Reserve(h, FakePerimetre.Employeur(h.Affilie), Harness.EmployeurUser, creneau);
@@ -139,7 +139,7 @@ public class ReservationEnLigneTests
         var chevauchant = h.AjouterCreneau(Harness.Lundi, 9, 15, enLigne: true, ressource: h.AjouterRessource(Domain.Ressources.TypeRessource.Conseiller, "Dr B."));
         h.AjouterObligation();
         h.AjouterObligation("EXAMEN_REPRISE");
-        h.Store.Creneaux.Last().TypeActe.ShouldBe("VISITE_PERIODIQUE");
+        h.Store.Creneaux.Last().TypeActe.ShouldBe("EVALUATION_PERIODIQUE");
 
         (await Reserve(h, FakePerimetre.Employeur(h.Affilie), Harness.EmployeurUser, premier)).IsSuccess.ShouldBeTrue();
         h.AjouterObligation();
@@ -196,7 +196,7 @@ public class ReservationEnLigneTests
         var handler = new ListerCreneauxOuvertsHandler(h.Store, h.Store, h.Store, FakePerimetre.Employeur(h.Affilie), h.Parametres, h.Horloge, Harness.EmployeurUser);
 
         var resultat = await handler.HandleAsync(
-            new ListerCreneauxOuverts(h.Affilie, "visite-periodique", Harness.Instant(Harness.Lundi, 0), Harness.Instant(Harness.Lundi.AddDays(1), 0), null), CancellationToken.None);
+            new ListerCreneauxOuverts(h.Affilie, "evaluation-periodique", Harness.Instant(Harness.Lundi, 0), Harness.Instant(Harness.Lundi.AddDays(1), 0), null), CancellationToken.None);
 
         resultat.Value.Select(c => c.Id).ShouldBe([ouvert.Id, chezLui.Id]);
     }
@@ -209,9 +209,9 @@ public class ReservationEnLigneTests
         var periode = (Harness.Instant(Harness.Lundi, 0), Harness.Instant(Harness.Lundi.AddDays(1), 0));
         var handler = new ListerCreneauxOuvertsHandler(h.Store, h.Store, h.Store, FakePerimetre.Travailleur(h.Personne), h.Parametres, h.Horloge, Harness.TravailleurUser);
 
-        var sans = await handler.HandleAsync(new ListerCreneauxOuverts(h.Affilie, "VISITE_PERIODIQUE", periode.Item1, periode.Item2, null), CancellationToken.None);
+        var sans = await handler.HandleAsync(new ListerCreneauxOuverts(h.Affilie, "EVALUATION_PERIODIQUE", periode.Item1, periode.Item2, null), CancellationToken.None);
         h.AjouterObligation();
-        var avec = await handler.HandleAsync(new ListerCreneauxOuverts(h.Affilie, "VISITE_PERIODIQUE", periode.Item1, periode.Item2, null), CancellationToken.None);
+        var avec = await handler.HandleAsync(new ListerCreneauxOuverts(h.Affilie, "EVALUATION_PERIODIQUE", periode.Item1, periode.Item2, null), CancellationToken.None);
 
         sans.Error!.Code.ShouldBe("perimetre.interdit");
         avec.Value.ShouldHaveSingleItem();

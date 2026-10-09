@@ -10,6 +10,7 @@ namespace Sepp.Communications.Application.Expedition;
 /// <param name="RecommandeRequis">La loi impose un recommandé (SAN-11) : un envoi recommandé s'ajoute à l'envoi simple.</param>
 /// <param name="Debut">Début du rendez-vous, pour les convocations et rappels.</param>
 /// <param name="Resolu">Destinataire déjà résolu (alertes) ; sinon il est lu dans l'annuaire.</param>
+/// <param name="ReferenceOrigineId">Identifiant de l'événement d'origine (<c>ConvocationId</c>), repris dans <c>message-envoye</c> et <c>message-abandonne</c>.</param>
 public sealed record DemandeMessage(
     TypeMessage Type,
     TypeDestinataire TypeDestinataire,
@@ -20,7 +21,8 @@ public sealed record DemandeMessage(
     Canal? CanalSouhaite = null,
     bool RecommandeRequis = false,
     DateTimeOffset? Debut = null,
-    Destinataire? Resolu = null);
+    Destinataire? Resolu = null,
+    Guid? ReferenceOrigineId = null);
 
 /// <summary>
 /// Création des messages d'un fait métier (DOC-03) : lecture du destinataire, choix du canal (souhait de l'émetteur,
@@ -28,7 +30,12 @@ public sealed record DemandeMessage(
 /// introuvable ou un recommandé impossible laisse un message abandonné, visible dans le journal, plutôt qu'une perte
 /// silencieuse. L'unité de travail est validée par l'appelant.
 /// </summary>
-public sealed class CreateurMessages(IMessageRepository messages, IAnnuaireDestinataires annuaire, OptionsLiens liens, TimeProvider horloge)
+public sealed class CreateurMessages(
+    IMessageRepository messages,
+    IAnnuaireDestinataires annuaire,
+    OptionsLiens liens,
+    IIntegrationEventOutbox outbox,
+    TimeProvider horloge)
 {
     public async Task<IReadOnlyList<Message>> CreerAsync(DemandeMessage demande, CancellationToken cancellationToken)
     {
@@ -69,6 +76,13 @@ public sealed class CreateurMessages(IMessageRepository messages, IAnnuaireDesti
             }
         }
 
+        // Un message abandonné dès sa création (destinataire inconnu, recommandé impossible) est lui aussi annoncé : le service
+        // émetteur ne doit pas rester dans l'ignorance d'une convocation qui ne partira jamais.
+        foreach (var message in crees)
+        {
+            PublicationEvenementsMessage.Publier(message, outbox);
+        }
+
         return crees;
     }
 
@@ -78,7 +92,7 @@ public sealed class CreateurMessages(IMessageRepository messages, IAnnuaireDesti
         var id = Message.NouvelIdentifiant();
         var contenu = Gabarits.Construire(demande.Type, canal, langue, demande.Debut, liens.Pour(demande.TypeDestinataire, id));
         var message = Message.Creer(new NouveauMessage(id, demande.Type, canal, recommande, demande.TypeDestinataire, demande.DestinataireId, langue,
-            demande.ObjetType, demande.ObjetId, cle, contenu), maintenant);
+            demande.ObjetType, demande.ObjetId, cle, contenu, demande.ReferenceOrigineId), maintenant);
         messages.Add(message);
         return message;
     }
@@ -95,6 +109,7 @@ public sealed class CreateurMessages(IMessageRepository messages, IAnnuaireDesti
         var canalEffectif = recommande ? Canal.Courrier : canal;
         var message = Creer(demande, langue, canalEffectif, recommande, cle, maintenant);
         message.EnregistrerEchec(maintenant, code, definitif: true, PolitiqueReprise.Defaut);
+        PublicationEvenementsMessage.Publier(message, outbox);
         return [message];
     }
 }

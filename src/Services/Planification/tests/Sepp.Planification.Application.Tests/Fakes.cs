@@ -13,7 +13,7 @@ namespace Sepp.Planification.Application.Tests;
 /// <summary>Adaptateurs en mémoire : la couche application est testée sans infrastructure (ARC-23).</summary>
 internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, ILieuRepository, IRessourceRepository, IAbsenceRepository, IModeleAgendaRepository,
     IDureeStandardRepository, ICreneauRepository, IRendezVousRepository, IConvocationRepository, IPreferenceConvocationRepository, ISessionRepository,
-    IObligationRepository, IParametreLocalRepository
+    IObligationRepository, IParametreLocalRepository, ICalendrierLocalRepository
 {
     private readonly List<IntegrationEvent> _pending = [];
 
@@ -40,6 +40,8 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, ILie
     public List<ObligationAPlanifier> Obligations { get; } = [];
 
     public List<ParametreLegalLocal> Parametres { get; } = [];
+
+    public List<CalendrierLocal> Calendriers { get; } = [];
 
     public List<IntegrationEvent> Published { get; } = [];
 
@@ -137,6 +139,17 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, ILie
 
     void IRendezVousRepository.Add(RendezVous rendezVous) => RendezVous.Add(rendezVous);
 
+    Task<Convocation?> IConvocationRepository.GetAsync(Guid convocationId, CancellationToken cancellationToken) =>
+        Task.FromResult(Convocations.SingleOrDefault(c => c.Id == convocationId));
+
+    Task<CalendrierLocal?> ICalendrierLocalRepository.GetAsync(int annee, CancellationToken cancellationToken) =>
+        Task.FromResult(Calendriers.SingleOrDefault(c => c.Annee == annee));
+
+    Task<IReadOnlyList<CalendrierLocal>> ICalendrierLocalRepository.ListAsync(int anneeDebut, int anneeFin, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<CalendrierLocal>>(Calendriers.Where(c => c.Annee >= anneeDebut && c.Annee <= anneeFin).ToList());
+
+    void ICalendrierLocalRepository.Add(CalendrierLocal calendrier) => Calendriers.Add(calendrier);
+
     Task<IReadOnlyList<Convocation>> IConvocationRepository.ListAsync(Guid rendezVousId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Convocation>>(Convocations.Where(c => c.RendezVousId == rendezVousId).ToList());
 
@@ -165,7 +178,7 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, ILie
     Task<IReadOnlyList<ObligationAPlanifier>> IObligationRepository.ListerAPlanifierAsync(IReadOnlyCollection<Guid>? affilieIds, DateOnly horizon,
         CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<ObligationAPlanifier>>(Obligations
-            .Where(o => o.RendezVousId is null && o.DateDue <= horizon && (affilieIds is null || affilieIds.Contains(o.AffilieId)))
+            .Where(o => o.RendezVousId is null && !o.Cloturee && o.DateDue <= horizon && (affilieIds is null || affilieIds.Contains(o.AffilieId)))
             .OrderBy(o => o.DateDue).ThenBy(o => o.ObligationId)
             .ToList());
 

@@ -140,8 +140,8 @@ internal sealed class Contexte
             PortailEmployeur = "https://employeur.exemple.test/messages",
             Interne = "https://interne.exemple.test/messages",
         };
-        Createur = new CreateurMessages(Store, Annuaire, Liens, Horloge);
-        Expediteur = new ExpediteurMessages(Store, Annuaire, Canaux.Values, Store, Horloge);
+        Createur = new CreateurMessages(Store, Annuaire, Liens, Store, Horloge);
+        Expediteur = new ExpediteurMessages(Store, Annuaire, Canaux.Values, Store, Store, Horloge);
     }
 
     public InMemoryStore Store { get; } = new();

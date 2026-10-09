@@ -3,6 +3,7 @@ using Sepp.Communications.Application.Evenements;
 using Sepp.Communications.Domain.Messages;
 using Sepp.Contracts.Audit;
 using Sepp.Contracts.Documents;
+using Sepp.Contracts.Examens;
 using Sepp.Contracts.Planification;
 
 using Shouldly;
@@ -22,14 +23,12 @@ public class EvenementsTests
 
     private ConvocationEmiseHandler Convocation() => new(_c.Createur, _c.Store);
 
-    private RendezVousPlanifieHandler RendezVousPlanifie() => new(_c.Createur, _c.Store);
-
     private RendezVousAnnuleHandler RendezVousAnnule() => new(_c.Createur, _c.Store, _c.Store);
 
     private RappelRendezVousDuHandler Rappel() => new(_c.Createur, _c.Store, _c.Store);
 
     private static ConvocationEmise ConvocationDe(Guid rendezVous, string canal = "Email", bool recommande = false, string type = "Convocation") =>
-        new(Guid.CreateVersion7(), rendezVous, Personne, Affilie, Guid.CreateVersion7(), "VISITE_PERIODIQUE", Debut, canal, recommande, type, null);
+        new(Guid.CreateVersion7(), rendezVous, Personne, Affilie, Guid.CreateVersion7(), TypesExamen.EvaluationPeriodique, Debut, canal, recommande, type, null);
 
     // ---- Un e-mail ne contient jamais de donnée de santé ---------------------------------------------------------------
 
@@ -130,14 +129,14 @@ public class EvenementsTests
     // ---- Rendez-vous ---------------------------------------------------------------------------------------------------
 
     [Fact]
-    public async Task Une_convocation_et_l_evenement_de_planification_n_envoient_qu_une_fois()
+    public async Task Une_convocation_rejouee_n_envoie_qu_une_fois()
     {
         _c.Annuaire.Personne(Personne);
         var rendezVous = Guid.CreateVersion7();
+        var convocation = ConvocationDe(rendezVous, "Email");
 
-        await RendezVousPlanifie().HandleAsync(new RendezVousPlanifie(rendezVous, Personne, Affilie, Debut, []), _ct);
-        await Convocation().HandleAsync(ConvocationDe(rendezVous, "Email"), _ct);
-        await Convocation().HandleAsync(ConvocationDe(rendezVous, "Email"), _ct);
+        await Convocation().HandleAsync(convocation, _ct);
+        await Convocation().HandleAsync(convocation, _ct);
         await _c.Expediteur.ExpedierEchusAsync(_ct);
 
         _c.Store.Messages.ShouldHaveSingleItem().Type.ShouldBe(TypeMessage.ConvocationRendezVous);

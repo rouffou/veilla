@@ -25,7 +25,7 @@ public class CreneauTests
     {
         var debut = Fabrique.Instant(Fabrique.Lundi, 9);
 
-        Should.Throw<DomainException>(() => Creneau.Creer(Fabrique.Conseiller, Fabrique.Lieu, debut, debut, "VISITE_PERIODIQUE", false, false, null));
+        Should.Throw<DomainException>(() => Creneau.Creer(Fabrique.Conseiller, Fabrique.Lieu, debut, debut, "EVALUATION_PERIODIQUE", false, false, null));
     }
 
     [Fact]

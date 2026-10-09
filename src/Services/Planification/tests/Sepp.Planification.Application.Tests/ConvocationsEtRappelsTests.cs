@@ -37,7 +37,7 @@ public class ConvocationsEtRappelsTests
         var convocation = h.Store.Evenements<ConvocationEmise>().ShouldHaveSingleItem();
         convocation.Canal.ShouldBe("Courrier");
         convocation.Recommande.ShouldBeFalse();
-        convocation.TypeActe.ShouldBe("VISITE_PERIODIQUE");
+        convocation.TypeActe.ShouldBe("EVALUATION_PERIODIQUE");
         convocation.Debut.ShouldBe(rdv.Debut);
     }
 
@@ -106,7 +106,7 @@ public class ConvocationsEtRappelsTests
     {
         var h = new Harness();
         var o1 = h.AjouterObligation();
-        var o2 = h.AjouterObligation("VISITE_PERIODIQUE");
+        var o2 = h.AjouterObligation("EVALUATION_PERIODIQUE");
 
         var rdv = await h.PlanifierRendezVous(h.AjouterCreneau(Harness.Lundi, 9), o1, o2);
 

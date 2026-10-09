@@ -111,6 +111,11 @@ public sealed class PlanifierRendezVousHandler(
             return Error.Validation("obligation.inconnue", "Une obligation est inconnue ou ne concerne pas cette personne et cet affilié.");
         }
 
+        if (trouvees.Any(o => o.Cloturee))
+        {
+            return Error.Conflict("obligation.cloturee", "Une des obligations est close : elle n'est plus à planifier.");
+        }
+
         return trouvees.Any(o => !o.EstAPlanifier)
             ? Error.Conflict("obligation.deja-couverte", "Une des obligations est déjà couverte par un rendez-vous.")
             : null;

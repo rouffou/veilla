@@ -14,7 +14,7 @@ public class ModeleAgendaTests
     private static ModeleAgenda Modele()
     {
         var modele = ModeleAgenda.Creer(Fabrique.Conseiller, Fabrique.Lieu, new Validity(new DateOnly(2027, 1, 1)));
-        modele.AjouterPlage(DayOfWeek.Monday, new TimeOnly(9, 0), new TimeOnly(11, 0), "visite-periodique", 30, false, true, null);
+        modele.AjouterPlage(DayOfWeek.Monday, new TimeOnly(9, 0), new TimeOnly(11, 0), "evaluation-periodique", 30, false, true, null);
         modele.AjouterPlage(DayOfWeek.Monday, new TimeOnly(14, 0), new TimeOnly(15, 0), "EXAMEN_REPRISE", 20, true, true, null);
         return modele;
     }
@@ -24,7 +24,7 @@ public class ModeleAgendaTests
     {
         var creneaux = Modele().Projeter(Fabrique.Lundi, Fabrique.Lundi, Calendrier.IsBusinessDay).ToList();
 
-        creneaux.Count(c => c.TypeActe == "VISITE_PERIODIQUE").ShouldBe(4);
+        creneaux.Count(c => c.TypeActe == "EVALUATION_PERIODIQUE").ShouldBe(4);
         creneaux.Count(c => c.TypeActe == "EXAMEN_REPRISE").ShouldBe(3);
         creneaux[0].Debut.ShouldBe(Fabrique.Instant(Fabrique.Lundi, 9));
         creneaux[0].Fin.ShouldBe(Fabrique.Instant(Fabrique.Lundi, 9, 30));
@@ -55,7 +55,7 @@ public class ModeleAgendaTests
     public void Les_jours_de_presence_sont_ceux_des_plages()
     {
         var modele = Modele();
-        modele.AjouterPlage(DayOfWeek.Thursday, new TimeOnly(9, 0), new TimeOnly(12, 0), "VISITE_PERIODIQUE", 30, false, false, null);
+        modele.AjouterPlage(DayOfWeek.Thursday, new TimeOnly(9, 0), new TimeOnly(12, 0), "EVALUATION_PERIODIQUE", 30, false, false, null);
 
         modele.JoursPresence.ShouldBe([DayOfWeek.Monday, DayOfWeek.Thursday]);
     }
@@ -65,7 +65,7 @@ public class ModeleAgendaTests
     {
         var modele = Modele();
 
-        Should.Throw<DomainException>(() => modele.AjouterPlage(DayOfWeek.Monday, new TimeOnly(10, 30), new TimeOnly(12, 0), "VISITE_PERIODIQUE", 30, false, false, null));
+        Should.Throw<DomainException>(() => modele.AjouterPlage(DayOfWeek.Monday, new TimeOnly(10, 30), new TimeOnly(12, 0), "EVALUATION_PERIODIQUE", 30, false, false, null));
     }
 
     [Theory]
@@ -76,7 +76,7 @@ public class ModeleAgendaTests
     {
         var modele = ModeleAgenda.Creer(Fabrique.Conseiller, Fabrique.Lieu, new Validity(new DateOnly(2027, 1, 1)));
 
-        Should.Throw<DomainException>(() => modele.AjouterPlage(DayOfWeek.Friday, new TimeOnly(9, 0), new TimeOnly(11, 0), "VISITE_PERIODIQUE", duree, false, false, null));
+        Should.Throw<DomainException>(() => modele.AjouterPlage(DayOfWeek.Friday, new TimeOnly(9, 0), new TimeOnly(11, 0), "EVALUATION_PERIODIQUE", duree, false, false, null));
     }
 
     [Fact]
@@ -85,13 +85,13 @@ public class ModeleAgendaTests
         var autre = Guid.CreateVersion7();
         List<DureeStandard> durees =
         [
-            DureeStandard.Creer("VISITE_PERIODIQUE", null, 30),
-            DureeStandard.Creer("VISITE_PERIODIQUE", Fabrique.Conseiller, 45),
+            DureeStandard.Creer("EVALUATION_PERIODIQUE", null, 30),
+            DureeStandard.Creer("EVALUATION_PERIODIQUE", Fabrique.Conseiller, 45),
             DureeStandard.Creer("EXAMEN_REPRISE", null, 20),
         ];
 
-        DureeStandard.Resoudre(durees, "VISITE_PERIODIQUE", Fabrique.Conseiller).ShouldBe(45);
-        DureeStandard.Resoudre(durees, "VISITE_PERIODIQUE", autre).ShouldBe(30);
+        DureeStandard.Resoudre(durees, "EVALUATION_PERIODIQUE", Fabrique.Conseiller).ShouldBe(45);
+        DureeStandard.Resoudre(durees, "EVALUATION_PERIODIQUE", autre).ShouldBe(30);
         DureeStandard.Resoudre(durees, "EXAMEN_REPRISE", Fabrique.Conseiller).ShouldBe(20);
         DureeStandard.Resoudre(durees, "INCONNU", Fabrique.Conseiller).ShouldBeNull();
     }

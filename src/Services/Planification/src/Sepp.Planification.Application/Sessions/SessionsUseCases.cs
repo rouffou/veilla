@@ -101,7 +101,7 @@ public sealed class ProposerSessionsHandler(
                 personne.Select(Echeance).Min()));
         }
 
-        var calendrier = parametres.Calendrier(query.Du, query.Au);
+        var calendrier = await parametres.CalendrierAsync(query.Du, query.Au, cancellationToken);
         var besoins = parSite.Select(kv => new BesoinSite(kv.Key, tousLieux.First(l => l.Id == kv.Key).Position, kv.Value));
         var propositions = PlanificateurSessions.Proposer(besoins, depart?.Position, query.Du, query.CapaciteParSession, calendrier.IsBusinessDay);
         var noms = tousLieux.ToDictionary(l => l.Id, l => l.Nom);
@@ -210,7 +210,7 @@ public sealed class CreerSessionHandler(
             return e3;
         }
 
-        if (!parametres.Calendrier(command.Date, command.Date).IsBusinessDay(command.Date))
+        if (!(await parametres.CalendrierAsync(command.Date, command.Date, cancellationToken)).IsBusinessDay(command.Date))
         {
             return Error.Validation("session.jour-non-ouvrable", "Une session se tient un jour ouvrable.");
         }

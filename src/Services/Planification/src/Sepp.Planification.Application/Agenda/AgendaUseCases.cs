@@ -325,7 +325,7 @@ public sealed class GenererCreneauxHandler(
             return Error.Validation("ressource.inactive", "La ressource du modèle est inactive.");
         }
 
-        var calendrier = parametres.Calendrier(command.Du, command.Au);
+        var calendrier = await parametres.CalendrierAsync(command.Du, command.Au, cancellationToken);
         var prevus = modele.Projeter(command.Du, command.Au, calendrier.IsBusinessDay).ToList();
         if (prevus.Count == 0)
         {

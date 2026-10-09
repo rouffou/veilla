@@ -53,6 +53,8 @@ public sealed class PlanificationDbContext(DbContextOptions<PlanificationDbConte
 
     public DbSet<ParametreLegalLocal> ParametresLegaux => Set<ParametreLegalLocal>();
 
+    public DbSet<CalendrierLocal> Calendriers => Set<CalendrierLocal>();
+
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Lieu>(b =>
@@ -236,9 +238,19 @@ public sealed class PlanificationDbContext(DbContextOptions<PlanificationDbConte
             b.Property(o => o.ObligationId).ValueGeneratedNever();
             b.Property(o => o.TypeExamen).HasMaxLength(100);
             b.Ignore(o => o.EstAPlanifier);
+            b.Property(o => o.StatutCloture).HasMaxLength(30);
             b.HasIndex(o => new { o.AffilieId, o.DateDue });
             b.HasIndex(o => o.PersonneId);
             b.HasIndex(o => o.RendezVousId);
+        });
+
+        // DAT-08 : jours fériés supplémentaires par année (referentiels.jours-feries-modifies).
+        modelBuilder.Entity<CalendrierLocal>(b =>
+        {
+            b.ToTable("calendrier_local");
+            b.HasKey(c => c.Annee);
+            b.Property(c => c.Annee).ValueGeneratedNever();
+            b.PrimitiveCollection(c => c.JoursSupplementaires);
         });
 
         // ARC-21 : copie locale des paramètres légaux (délais d'urgence, rappels).

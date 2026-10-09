@@ -17,7 +17,9 @@ public enum TypeConvocation
 /// <summary>
 /// Convocation (§15.3 : id, rendez_vous_id, canal, recommande, date_envoi, message_id). Le service Planification
 /// décide qui est convoqué, quand et par quel canal ; l'envoi effectif (gabarit, coordonnées, recommandé électronique
-/// ou papier) relève du service Communications, informé par l'événement <c>planification.convocation-emise</c>.
+/// ou papier) relève du service Communications, informé par l'événement <c>planification.convocation-emise</c> ; son retour
+/// (<c>message-envoye</c>, <c>message-abandonne</c>) est enregistré ici (<see cref="EnregistrerEnvoi"/>,
+/// <see cref="MarquerNonRemise"/>). Un message de Communications porte le <c>ConvocationId</c> comme référence d'origine.
 /// </summary>
 public sealed class Convocation : AggregateRoot
 {
@@ -50,6 +52,9 @@ public sealed class Convocation : AggregateRoot
     /// <summary>Date d'envoi effective communiquée par le service Communications.</summary>
     public DateTimeOffset? DateEnvoi { get; private set; }
 
+    /// <summary>L'envoi a été abandonné par le service Communications : la personne n'a pas reçu la convocation.</summary>
+    public DateTimeOffset? DateNonRemise { get; private set; }
+
     /// <summary>Identifiant du message chez le service Communications.</summary>
     public string? MessageId { get; private set; }
 
@@ -73,15 +78,44 @@ public sealed class Convocation : AggregateRoot
         };
     }
 
-    public void EnregistrerEnvoi(string messageId, DateTimeOffset dateEnvoi)
+    /// <summary>
+    /// Le service Communications a envoyé la convocation (<c>communications.message-envoye</c>). Idempotent : une convocation
+    /// recommandée donne deux messages et un événement peut être rejoué ; seul le premier envoi est retenu. Un envoi réussi
+    /// lève la marque « non remise » d'un abandon antérieur (relance manuelle du message).
+    /// </summary>
+    /// <returns><c>true</c> si l'envoi vient d'être enregistré, <c>false</c> s'il l'était déjà (rien à publier).</returns>
+    public bool EnregistrerEnvoi(string messageId, DateTimeOffset dateEnvoi)
     {
         if (string.IsNullOrWhiteSpace(messageId) || messageId.Length > 100)
         {
             throw new DomainException("Identifiant de message invalide.");
         }
 
+        if (DateEnvoi is not null)
+        {
+            return false;
+        }
+
         MessageId = messageId.Trim();
         DateEnvoi = dateEnvoi;
+        DateNonRemise = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Le service Communications a abandonné l'envoi (<c>communications.message-abandonne</c>) : la personne n'est pas
+    /// informée. Idempotent ; sans effet si la convocation est déjà partie par un autre message.
+    /// </summary>
+    /// <returns><c>true</c> si la convocation vient d'être marquée non remise, <c>false</c> sinon (rien à publier).</returns>
+    public bool MarquerNonRemise(DateTimeOffset date)
+    {
+        if (DateEnvoi is not null || DateNonRemise is not null)
+        {
+            return false;
+        }
+
+        DateNonRemise = date;
+        return true;
     }
 }
 

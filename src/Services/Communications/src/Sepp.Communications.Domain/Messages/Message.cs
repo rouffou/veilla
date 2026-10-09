@@ -17,6 +17,7 @@ public sealed record ContenuMessage(string Sujet, string Corps, bool EstGeneriqu
 /// <param name="Id">Identifiant du message, connu avant sa création pour composer le lien opaque de la notification.</param>
 /// <param name="CleIdempotence">Un même fait métier ne produit qu'un message (DOC-03 : envoi idempotent).</param>
 /// <param name="ObjetType">Type de l'objet à l'origine du message (<c>document</c>, <c>rendez-vous</c>, <c>audit-entree</c>…).</param>
+/// <param name="ReferenceOrigineId">Identifiant de l'événement d'origine (par ex. le <c>ConvocationId</c>), repris dans les événements d'envoi.</param>
 public sealed record NouveauMessage(
     Guid Id,
     TypeMessage Type,
@@ -28,7 +29,8 @@ public sealed record NouveauMessage(
     string ObjetType,
     Guid ObjetId,
     string CleIdempotence,
-    ContenuMessage Contenu);
+    ContenuMessage Contenu,
+    Guid? ReferenceOrigineId = null);
 
 /// <summary>
 /// Message envoyé à un destinataire par un canal (§15.3 <c>message</c> : id, canal, destinataire_id, objet, statut ; DOC-03 à
@@ -67,6 +69,12 @@ public sealed class Message : AggregateRoot
     public Guid ObjetId { get; private set; }
 
     public string CleIdempotence { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Identifiant de l'objet qui a demandé le message dans le service émetteur (pour une convocation : le
+    /// <c>ConvocationId</c>). Il permet à ce service de rapprocher l'envoi ou l'abandon (saga de reprise, ARC-33).
+    /// </summary>
+    public Guid? ReferenceOrigineId { get; private set; }
 
     public string Sujet { get; private set; } = string.Empty;
 
@@ -152,6 +160,7 @@ public sealed class Message : AggregateRoot
             ObjetType = n.ObjetType.Trim(),
             ObjetId = n.ObjetId,
             CleIdempotence = n.CleIdempotence.Trim(),
+            ReferenceOrigineId = n.ReferenceOrigineId,
             Sujet = n.Contenu.Sujet,
             Corps = n.Contenu.Corps,
             ContenuGenerique = n.Contenu.EstGenerique,
@@ -183,6 +192,7 @@ public sealed class Message : AggregateRoot
         DerniereErreur = null;
         var preuve = new PreuveEnvoi(Guid.CreateVersion7(), typePreuve, date, reference, EmpreinteContenu());
         _preuves.Add(preuve);
+        Raise(new MessageEnvoyeDomaine(Id, ObjetType, ObjetId, ReferenceOrigineId, Type, Canal, Recommande, date));
         return preuve;
     }
 
@@ -203,6 +213,7 @@ public sealed class Message : AggregateRoot
         {
             Statut = StatutMessage.Abandonne;
             ProchaineTentative = null;
+            Raise(new MessageAbandonneDomaine(Id, ObjetType, ObjetId, ReferenceOrigineId, Type, Canal, Recommande, DerniereErreur ?? code, date));
             return;
         }
 
@@ -237,6 +248,32 @@ public sealed class Message : AggregateRoot
         DerniereErreur = null;
     }
 }
+
+/// <summary>L'envoi d'un message a réussi (DOC-05) : publié en <c>communications.message-envoye</c> avec la preuve d'envoi.</summary>
+public sealed record MessageEnvoyeDomaine(
+    Guid MessageId,
+    string ObjetType,
+    Guid ObjetId,
+    Guid? ReferenceOrigineId,
+    TypeMessage Type,
+    Canal Canal,
+    bool Recommande,
+    DateTimeOffset OccurredAt) : IDomainEvent;
+
+/// <summary>
+/// Un message est abandonné (erreur définitive ou reprises épuisées, DOC-05) : publié en
+/// <c>communications.message-abandonne</c>. <c>CodeErreur</c> est un code technique, jamais une coordonnée.
+/// </summary>
+public sealed record MessageAbandonneDomaine(
+    Guid MessageId,
+    string ObjetType,
+    Guid ObjetId,
+    Guid? ReferenceOrigineId,
+    TypeMessage Type,
+    Canal Canal,
+    bool Recommande,
+    string CodeErreur,
+    DateTimeOffset OccurredAt) : IDomainEvent;
 
 /// <summary>
 /// Preuve d'envoi (§15.3 <c>preuve_envoi</c> : id, message_id, type, horodatage, reference) : accusé de dépôt SMTP, accusé du
