@@ -15,6 +15,7 @@ docker compose -f deploy/local/compose.yaml up -d --build
 | Service Audit | http://localhost:5114 | idem |
 | Service Intégrations | http://localhost:5115 | simulateurs BCE, DIMONA, registre national ; flux lancés par `POST /api/v1/flux/{flux}/executions` |
 | BFF employeur | http://localhost:5200 | API du portail employeur ; voir [src/Bff/Employeur/README.md](../../src/Bff/Employeur/README.md) |
+| BFF travailleur | http://localhost:5201 | API du portail travailleur ; voir [src/Bff/Travailleur/README.md](../../src/Bff/Travailleur/README.md) |
 | Application interne | http://localhost:8081 | |
 | Portail employeur | http://localhost:8082 | |
 | Portail travailleur | http://localhost:8083 | |

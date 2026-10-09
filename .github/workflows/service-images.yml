@@ -143,6 +143,13 @@ jobs:
                 "paths": "src/Bff/Employeur/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
               },
               {
+                "name": "bff-travailleur",
+                "context": ".",
+                "dockerfile": "src/Bff/Travailleur/Dockerfile",
+                "build_args": "",
+                "paths": "src/Bff/Travailleur/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
+              },
+              {
                 "name": "integrations",
                 "context": ".",
                 "dockerfile": "src/Services/Integrations/Dockerfile",
