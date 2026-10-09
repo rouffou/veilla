@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { ErreurApi } from '../api/bff-employeur.service';
 
@@ -12,6 +12,14 @@ import { ErreurApi } from '../api/bff-employeur.service';
 export class Chargement {}
 
 /**
+ * Codes fonctionnels des services aval dont le message est traduit dans le portail (FR, NL, DE, EN) ; les autres erreurs de
+ * validation affichent le détail (français) renvoyé par le service.
+ */
+const MESSAGES_PAR_CODE: Readonly<Record<string, string>> = {
+  'reprise.occupation-inactive': 'errors.repriseOccupationInactive',
+};
+
+/**
  * Message d'erreur d'un appel au BFF (rôle alert) : texte selon la catégorie (service indisponible,
  * accès refusé, introuvable…) et, pour une erreur de validation, le détail renvoyé par le service.
  */
@@ -21,9 +29,13 @@ export class Chargement {}
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="app-alerte" role="alert" *transloco="let t">
-      <p>{{ t('errors.' + erreur().type) }}</p>
-      @if (erreur().type === 'invalide' && erreur().detail; as detail) {
-        <p lang="fr">{{ detail }}</p>
+      @if (cleCode(); as cle) {
+        <p>{{ t(cle) }}</p>
+      } @else {
+        <p>{{ t('errors.' + erreur().type) }}</p>
+        @if (erreur().type === 'invalide' && erreur().detail; as detail) {
+          <p lang="fr">{{ detail }}</p>
+        }
       }
       @if (reessayable()) {
         <button type="button" class="vl-button vl-button--secondary" (click)="reessayer.emit()">
@@ -35,6 +47,7 @@ export class Chargement {}
 })
 export class ErreurApiMessage {
   readonly erreur = input.required<ErreurApi>();
+  protected readonly cleCode = computed(() => MESSAGES_PAR_CODE[this.erreur().code ?? ''] ?? null);
   readonly reessayable = input(false);
   readonly reessayer = output();
 }

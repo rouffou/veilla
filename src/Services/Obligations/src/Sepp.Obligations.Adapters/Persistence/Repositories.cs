@@ -105,6 +105,11 @@ internal sealed class ProjectionRepository(ObligationsDbContext db) : IProjectio
     public async Task<IReadOnlyList<OccupationLocale>> OccupationsDeAsync(Guid personneId, CancellationToken cancellationToken) =>
         await db.Occupations.Where(o => o.PersonneId == personneId).ToListAsync(cancellationToken);
 
+    public async Task<bool> OccupationActiveAsync(Guid personneId, Guid affilieId, DateOnly date, CancellationToken cancellationToken) =>
+        await db.Occupations.AnyAsync(
+            o => o.PersonneId == personneId && o.AffilieId == affilieId && (o.DateDebut == null || o.DateDebut <= date) && (o.DateFin == null || o.DateFin >= date),
+            cancellationToken);
+
     public async Task<IReadOnlyList<Guid>> PersonnesOccupeesAsync(Guid affilieId, DateOnly date, CancellationToken cancellationToken) =>
         await db.Occupations
             .Where(o => o.AffilieId == affilieId && (o.DateDebut == null || o.DateDebut <= date) && (o.DateFin == null || o.DateFin >= date))

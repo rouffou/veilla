@@ -170,4 +170,26 @@ describe('ReprisesPage (POR-04)', () => {
     expect(root.querySelector<HTMLInputElement>('#reprise-absence')!.value).toBe('2026-08-01');
     bff().verify();
   });
+
+  it("affiche un message traduit quand le travailleur n'a pas d'occupation active (reprise.occupation-inactive)", async () => {
+    const fixture = await ouvrir([]);
+    const root = fixture.nativeElement as HTMLElement;
+    saisir(root, '#reprise-travailleur', 't1');
+    saisir(root, '#reprise-absence', '2026-08-01');
+    root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    await stable(fixture);
+    bff()
+      .expectOne((r) => r.method === 'POST' && r.url === `${AFF}/reprises`)
+      .flush(
+        { code: 'reprise.occupation-inactive', detail: 'Message français du service.' },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+    await stable(fixture);
+
+    const alerte = root.querySelector('[role="alert"]');
+    expect(alerte?.textContent).toContain('errors.repriseOccupationInactive');
+    expect(alerte?.textContent).not.toContain('Message français du service.');
+    expect(root.querySelector<HTMLInputElement>('#reprise-absence')!.value).toBe('2026-08-01');
+    bff().verify();
+  });
 });

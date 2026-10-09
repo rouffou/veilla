@@ -23,6 +23,8 @@ public sealed class EnregistrementReprise(
     OptionsReprise options,
     TimeProvider clock)
 {
+    public const string CodeOccupationInactive = "reprise.occupation-inactive";
+
     public async Task<Result<ResultatEnregistrement>> EnregistrerAsync(
         Guid personneId, Guid affilieId, DateOnly dateReprise, DateOnly debutAbsence, OrigineReprise origine, DateTimeOffset evenementDu,
         CancellationToken cancellationToken)
@@ -39,6 +41,14 @@ public sealed class EnregistrementReprise(
 
         var maintenant = clock.GetUtcNow();
         var existant = await processus.GetActifAsync(personneId, affilieId, dateReprise, cancellationToken);
+        if ((existant is null || existant.DebutAbsence != debutAbsence) && !await projections.OccupationActiveAsync(personneId, affilieId, dateReprise, cancellationToken))
+        {
+            // POR-04, ARC-33 : pas de reprise sans occupation active chez l'affilié à la date de reprise (création et modification).
+            // À valider : une projection d'occupation pas encore reçue (événements en désordre) est indiscernable d'une absence
+            // d'occupation ; l'annonce est alors refusée tant que personnes.occupation-debutee n'est pas arrivé.
+            return Error.Unprocessable(CodeOccupationInactive, "Le travailleur n'a pas d'occupation active chez cet affilié à la date de reprise.");
+        }
+
         var local = await projections.GetRepriseAsync(personneId, affilieId, dateReprise, cancellationToken);
 
         if (existant is null && local is { Annulee: true } && evenementDu < local.EvenementDu)

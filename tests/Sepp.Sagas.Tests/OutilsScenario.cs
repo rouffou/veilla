@@ -7,7 +7,10 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.BuildingBlocks.Infrastructure.Messaging;
+using Sepp.Contracts;
 using Sepp.Contracts.Examens;
+using Sepp.Contracts.Personnes;
 using Sepp.Obligations.Adapters.Traitement;
 using Sepp.Sagas.Tests.Plateforme;
 
@@ -123,10 +126,30 @@ public sealed partial class OutilsScenario(PlateformeSaga plateforme)
     /// <summary>Annonce la reprise comme le fait l'application interne (gestionnaire) : <c>POST /api/v1/reprises</c>.</summary>
     public async Task<Guid> AnnoncerAsync(Travailleur travailleur)
     {
+        // Préalable (#298) : le travailleur est occupé chez l'affilié avant toute annonce de reprise.
+        await EtablirOccupationAsync(travailleur);
         var reponse = await plateforme.Obligations.Client(Roles.GestionnaireDossiers, "gest-1").PostAsJsonAsync("/api/v1/reprises",
             new { personneId = travailleur.Personne, affilieId = travailleur.Affilie, dateReprise = travailleur.DateReprise, debutAbsence = travailleur.DebutAbsence }, Json, Ct);
         reponse.StatusCode.ShouldBe(HttpStatusCode.Created, await reponse.Content.ReadAsStringAsync(Ct));
         return (await reponse.Content.ReadFromJsonAsync<JsonElement>(Json, Ct)).GetProperty("repriseId").GetGuid();
+    }
+
+    /// <summary>Remet à Obligations l'événement <c>personnes.occupation-debutee</c> du travailleur (occupation en cours depuis un an).</summary>
+    public async Task EtablirOccupationAsync(Travailleur travailleur)
+    {
+        var evenement = new OccupationDebutee(Guid.CreateVersion7(), travailleur.Personne, travailleur.Affilie, travailleur.DateReprise.AddYears(-1));
+        await plateforme.Obligations.Distribuer(
+            Guid.CreateVersion7(), EventContractAttribute.Of(typeof(OccupationDebutee)).FullName, JsonSerializer.Serialize(evenement, EventSerialization.Options), Ct);
+    }
+
+    /// <summary>Annonce sans vérifier l'issue : renvoie le statut HTTP et le code d'erreur éventuel (ProblemDetails).</summary>
+    public async Task<(HttpStatusCode Statut, string? Code)> TenterAnnonceAsync(Travailleur travailleur)
+    {
+        var reponse = await plateforme.Obligations.Client(Roles.GestionnaireDossiers, "gest-1").PostAsJsonAsync("/api/v1/reprises",
+            new { personneId = travailleur.Personne, affilieId = travailleur.Affilie, dateReprise = travailleur.DateReprise, debutAbsence = travailleur.DebutAbsence }, Json, Ct);
+        var corps = await reponse.Content.ReadAsStringAsync(Ct);
+        var code = reponse.IsSuccessStatusCode ? null : JsonDocument.Parse(corps).RootElement.GetProperty("code").GetString();
+        return (reponse.StatusCode, code);
     }
 
     public async Task<JsonElement> RepriseAsync(Guid repriseId) =>

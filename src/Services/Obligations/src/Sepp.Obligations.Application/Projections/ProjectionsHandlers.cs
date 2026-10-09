@@ -323,7 +323,10 @@ public sealed class RendezVousAnnuleHandler(IProjectionRepository projections, M
 
 /// <summary>
 /// §5.1, ARC-33 : reprise annoncée par l'événement <c>bff-employeur.reprise-annoncee</c> (rétrocompatibilité) → délègue à
-/// l'enregistrement du processus de reprise, avec l'origine « Evenement ». Une annonce invalide est ignorée (pas de rejeu infini).
+/// l'enregistrement du processus de reprise, avec l'origine « Evenement ». Une annonce refusée (invalide, ou sans occupation
+/// active chez l'affilié : <c>reprise.occupation-inactive</c>) est ignorée sans exception, comme les autres rejets métier du service
+/// (pas de rejeu infini ni de dead-letter). À valider : si l'occupation arrive après l'annonce (événements en désordre),
+/// l'annonce n'est pas rejouée.
 /// </summary>
 public sealed class RepriseAnnonceeHandler(EnregistrementReprise enregistrement)
     : IIntegrationEventHandler<RepriseAnnoncee>
