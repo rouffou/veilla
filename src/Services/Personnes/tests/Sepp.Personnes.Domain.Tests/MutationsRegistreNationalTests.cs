@@ -178,4 +178,140 @@ public class MutationsRegistreNationalTests
         occupation.DateFin.ShouldBeNull();
         personne.Mutations.ShouldBeEmpty();
     }
+
+    private static Adresse Adr(string rue) => new(rue, "1", null, "1000", "Bruxelles");
+
+    private static DemandeMutationRegistreNational ChangementAdresse(string reference, DateOnly effet, string rue) =>
+        Demande(reference, TypeMutationRegistreNational.ChangementAdresse, effet) with { Adresse = Adr(rue) };
+
+    [Fact]
+    public void Une_mutation_d_adresse_plus_ancienne_recue_apres_une_plus_recente_est_historisee_sans_changer_l_adresse_courante()
+    {
+        var personne = Travailleuse();
+        var (recente, _) = personne.AppliquerMutation(ChangementAdresse("RN-2", new DateOnly(2026, 9, 1), "Rue Récente"));
+
+        var (tardive, appliquee) = personne.AppliquerMutation(ChangementAdresse("RN-1", new DateOnly(2026, 3, 1), "Rue Ancienne"));
+
+        appliquee.ShouldBeTrue();
+        personne.Adresse!.Rue.ShouldBe("Rue Récente");
+        personne.Mutations.Count.ShouldBe(2);
+        personne.EstValeurCourante(recente).ShouldBeTrue();
+        personne.EstValeurCourante(tardive).ShouldBeFalse();
+
+        // Avant / après de la mutation tardive : la valeur en vigueur à sa date d'effet (celle d'origine), puis la nouvelle.
+        tardive.Avant!.ShouldContain("Rue de la Loi");
+        tardive.Apres!.ShouldContain("Rue Ancienne");
+    }
+
+    [Fact]
+    public void Une_mutation_tardive_s_intercale_dans_l_historique_apres_la_mutation_qui_la_precede()
+    {
+        var personne = Travailleuse();
+        personne.AppliquerMutation(ChangementAdresse("RN-1", new DateOnly(2026, 2, 1), "Rue A"));
+        personne.AppliquerMutation(ChangementAdresse("RN-3", new DateOnly(2026, 9, 1), "Rue C"));
+
+        var (milieu, _) = personne.AppliquerMutation(ChangementAdresse("RN-2", new DateOnly(2026, 5, 1), "Rue B"));
+
+        personne.Adresse!.Rue.ShouldBe("Rue C");
+        milieu.Avant!.ShouldContain("Rue A");
+        milieu.Apres!.ShouldContain("Rue B");
+    }
+
+    [Fact]
+    public void Une_mutation_plus_ancienne_que_toutes_les_autres_a_pour_avant_la_valeur_d_origine()
+    {
+        var personne = Travailleuse();
+        personne.AppliquerMutation(ChangementAdresse("RN-1", new DateOnly(2026, 6, 1), "Rue A"));
+
+        var (premiere, _) = personne.AppliquerMutation(ChangementAdresse("RN-0", new DateOnly(2026, 1, 15), "Rue Z"));
+
+        personne.Adresse!.Rue.ShouldBe("Rue A");
+        premiere.Avant!.ShouldContain("Rue de la Loi");
+    }
+
+    [Fact]
+    public void A_dates_d_effet_egales_la_derniere_mutation_recue_l_emporte()
+    {
+        var personne = Travailleuse();
+        var (premiere, _) = personne.AppliquerMutation(ChangementAdresse("RN-1", Effet, "Rue Première"));
+
+        var (seconde, _) = personne.AppliquerMutation(ChangementAdresse("RN-2", Effet, "Rue Seconde"));
+
+        personne.Adresse!.Rue.ShouldBe("Rue Seconde");
+        personne.EstValeurCourante(seconde).ShouldBeTrue();
+        personne.EstValeurCourante(premiere).ShouldBeFalse();
+        (premiere.Rang, seconde.Rang).ShouldBe((1, 2));
+    }
+
+    [Fact]
+    public void L_ordre_des_dates_d_effet_est_independant_par_attribut()
+    {
+        var personne = Travailleuse();
+        personne.AppliquerMutation(Demande("RN-1", TypeMutationRegistreNational.ChangementNom, new DateOnly(2026, 9, 1)) with { Nom = "Martin" });
+
+        // Un prénom plus ancien que le nom reste appliqué : aucune mutation de prénom n'est plus récente.
+        personne.AppliquerMutation(Demande("RN-2", TypeMutationRegistreNational.ChangementPrenom, new DateOnly(2026, 3, 1)) with { Prenom = "Claire" });
+        personne.AppliquerMutation(Demande("RN-3", TypeMutationRegistreNational.ChangementNom, new DateOnly(2026, 2, 1)) with { Nom = "Durand" });
+
+        (personne.Nom, personne.Prenom).ShouldBe(("Martin", "Claire"));
+    }
+
+    [Fact]
+    public void Une_langue_ou_un_nom_anterieurs_recus_tardivement_ne_remplacent_pas_la_valeur_courante()
+    {
+        var personne = Travailleuse();
+        personne.AppliquerMutation(Demande("RN-1", TypeMutationRegistreNational.ChangementLangue, new DateOnly(2026, 9, 1)) with { Langue = Language.Nl });
+        personne.AppliquerMutation(Demande("RN-2", TypeMutationRegistreNational.ChangementLangue, new DateOnly(2026, 4, 1)) with { Langue = Language.De });
+
+        personne.Langue.ShouldBe(Language.Nl);
+        personne.Mutations.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void Le_deces_n_est_pas_soumis_a_l_ordre_des_dates_d_effet()
+    {
+        var personne = Travailleuse();
+        personne.AppliquerMutation(Demande("RN-1", TypeMutationRegistreNational.Deces, new DateOnly(2026, 9, 15)));
+
+        // Une autre date de décès reste refusée : la correction est manuelle, même si elle est plus ancienne.
+        Should.Throw<DomainException>(() => personne.AppliquerMutation(Demande("RN-2", TypeMutationRegistreNational.Deces, new DateOnly(2026, 9, 1))))
+            .Message.ShouldContain("traitée manuellement");
+        personne.DateDeces.ShouldBe(new DateOnly(2026, 9, 15));
+    }
+
+    [Fact]
+    public void Une_occupation_qui_debute_apres_le_deces_est_refusee_avec_un_code_explicite()
+    {
+        var personne = Travailleuse();
+        personne.AppliquerMutation(Demande("RN-9", TypeMutationRegistreNational.Deces, new DateOnly(2026, 9, 15)));
+        personne.ClearDomainEvents();
+
+        var nouvelle = new NouvelleOccupation(Affilie, null, TypeTravailleur.Salarie, TypeContrat.DureeIndeterminee, new DateOnly(2026, 9, 16), null, "DIM1");
+
+        Should.Throw<OccupationApresDecesException>(() => personne.DebuterOccupation(nouvelle))
+            .Message.ShouldContain("après le décès");
+        OccupationApresDecesException.Code.ShouldBe("occupation.apres-deces");
+        personne.Occupations.ShouldBeEmpty();
+        personne.DomainEvents.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Une_occupation_qui_debute_le_jour_du_deces_ou_avant_est_cloturee_a_la_date_du_deces()
+    {
+        var personne = Travailleuse();
+        var deces = new DateOnly(2026, 9, 15);
+        personne.AppliquerMutation(Demande("RN-9", TypeMutationRegistreNational.Deces, deces));
+        personne.ClearDomainEvents();
+
+        var ouverte = personne.DebuterOccupation(new NouvelleOccupation(Affilie, null, TypeTravailleur.Salarie, TypeContrat.DureeIndeterminee, new DateOnly(2026, 6, 1), null, null));
+        var jourDuDeces = personne.DebuterOccupation(new NouvelleOccupation(Guid.CreateVersion7(), null, TypeTravailleur.Salarie, TypeContrat.DureeIndeterminee, deces, null, null));
+        var finPlusTard = personne.DebuterOccupation(new NouvelleOccupation(Guid.CreateVersion7(), null, TypeTravailleur.Salarie, TypeContrat.DureeDeterminee, new DateOnly(2026, 7, 1), new DateOnly(2026, 12, 31), null));
+        var finAvant = personne.DebuterOccupation(new NouvelleOccupation(Guid.CreateVersion7(), null, TypeTravailleur.Salarie, TypeContrat.DureeDeterminee, new DateOnly(2026, 7, 1), new DateOnly(2026, 8, 31), null));
+
+        ouverte.DateFin.ShouldBe(deces);
+        jourDuDeces.DateFin.ShouldBe(deces);
+        finPlusTard.DateFin.ShouldBe(deces);
+        finAvant.DateFin.ShouldBe(new DateOnly(2026, 8, 31));
+        personne.DomainEvents.OfType<OccupationCloturee>().Count().ShouldBe(4);
+    }
 }

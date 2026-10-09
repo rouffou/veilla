@@ -182,6 +182,10 @@ internal static class Regles
         {
             return regle();
         }
+        catch (OccupationApresDecesException ex)
+        {
+            return Error.Validation(OccupationApresDecesException.Code, ex.Message);
+        }
         catch (DomainException ex)
         {
             return Error.Validation(code, ex.Message);

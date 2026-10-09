@@ -3,6 +3,7 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.Contracts.Personnes;
 using Sepp.Personnes.Application.Mutations;
+using Sepp.Personnes.Application.Occupations;
 using Sepp.Personnes.Application.Personnes;
 using Sepp.Personnes.Domain.Personnes;
 
@@ -131,6 +132,74 @@ public class MutationsRegistreNationalTests
         json.ShouldNotContain(niss);
         json.ShouldNotContain("Dupont");
         json.ShouldNotContain("Marie");
+    }
+
+    private static AdresseDto Adresse(string rue) => new(rue, "1", null, "1000", "Bruxelles");
+
+    [Fact]
+    public async Task Une_mutation_d_adresse_arrivee_dans_le_desordre_est_historisee_sans_remplacer_l_adresse_courante()
+    {
+        var niss = NissValide(42);
+        var id = await CreerTravailleur(niss);
+        var handler = Handler(Roles.Integrations);
+        var recente = Mutation(niss, "RN-2", TypeMutationRegistreNational.ChangementAdresse, new DateOnly(2026, 9, 1)) with { Adresse = Adresse("Rue Récente") };
+        var ancienne = Mutation(niss, "RN-1", TypeMutationRegistreNational.ChangementAdresse, new DateOnly(2026, 3, 1)) with { Adresse = Adresse("Rue Ancienne") };
+
+        var premiere = await handler.HandleAsync(recente, _ct);
+        var tardive = await handler.HandleAsync(ancienne, _ct);
+
+        premiere.Value.ShouldBe(new MutationEnregistreeDto(id, StatutMutation.Appliquee));
+        tardive.Value.ShouldBe(new MutationEnregistreeDto(id, StatutMutation.Historisee));
+        var personne = _store.Personnes.Single();
+        personne.Adresse!.Rue.ShouldBe("Rue Récente");
+        personne.Mutations.Select(m => m.Reference).ShouldBe(["RN-2", "RN-1"]);
+
+        // Le rejeu de la mutation tardive reste idempotent.
+        (await handler.HandleAsync(ancienne, _ct)).Value.Statut.ShouldBe(StatutMutation.DejaAppliquee);
+    }
+
+    [Fact]
+    public async Task Une_occupation_debutant_apres_le_deces_est_refusee_par_la_saisie_avec_un_code_explicite()
+    {
+        var niss = NissValide(42);
+        var id = await CreerTravailleur(niss);
+        await Handler(Roles.Integrations).HandleAsync(Mutation(niss, "RN-9", TypeMutationRegistreNational.Deces, new DateOnly(2026, 9, 15)), _ct);
+        _store.Published.Clear();
+        var user = new FakeUser(Roles.GestionnaireDossiers);
+        var saisie = new DebuterOccupationHandler(
+            new AccesPersonnes(_store, user, new PerimetreUtilisateur(user, new FakeContexte())), new PerimetreUtilisateur(user, new FakeContexte()), _store, _store);
+        var occupation = new NouvelleOccupationDto(Guid.CreateVersion7(), null, TypeTravailleur.Salarie, TypeContrat.DureeIndeterminee, new DateOnly(2026, 9, 16), null);
+
+        var refusee = await saisie.HandleAsync(new DebuterOccupation(id, occupation), _ct);
+        var acceptee = await saisie.HandleAsync(new DebuterOccupation(id, occupation with { DateDebut = new DateOnly(2026, 9, 10) }), _ct);
+
+        refusee.Error!.Code.ShouldBe("occupation.apres-deces");
+        refusee.Error.Kind.ShouldBe(ErrorKind.Validation);
+        acceptee.IsSuccess.ShouldBeTrue();
+        _store.Personnes.Single().Occupations.Single(o => o.Id == acceptee.Value).DateFin.ShouldBe(new DateOnly(2026, 9, 15));
+        _store.Published.OfType<OccupationTerminee>().ShouldHaveSingleItem().DateFin.ShouldBe(new DateOnly(2026, 9, 15));
+    }
+
+    [Fact]
+    public async Task Une_entree_dimona_apres_le_deces_est_refusee_avec_un_code_explicite_et_sans_effet()
+    {
+        var niss = NissValide(42);
+        await CreerTravailleur(niss);
+        await Handler(Roles.Integrations).HandleAsync(Mutation(niss, "RN-9", TypeMutationRegistreNational.Deces, new DateOnly(2026, 9, 15)), _ct);
+        _store.Published.Clear();
+        var user = new FakeUser(Roles.Integrations);
+        var dimona = new EnregistrerEntreeDimonaHandler(
+            _store, new EnregistrementTravailleurs(_store, _index), _index, _store, _store, user, new PerimetreUtilisateur(user, new FakeContexte()));
+        var entree = new EnregistrerEntreeDimona(
+            "DIM0001", niss, new IdentiteDto("Dupont", "Marie", new DateOnly(1985, 7, 30), Sexe.Feminin, Language.Fr),
+            Guid.CreateVersion7(), null, TypeTravailleur.Etudiant, TypeContrat.Etudiant, new DateOnly(2026, 10, 1), null);
+        var occupationsAvant = _store.Personnes.Single().Occupations.Count;
+
+        var result = await dimona.HandleAsync(entree, _ct);
+
+        result.Error!.Code.ShouldBe("occupation.apres-deces");
+        _store.Personnes.Single().Occupations.Count.ShouldBe(occupationsAvant);
+        _store.Published.ShouldBeEmpty();
     }
 
     [Fact]

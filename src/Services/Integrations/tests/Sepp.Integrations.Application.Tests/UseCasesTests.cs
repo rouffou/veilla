@@ -192,6 +192,23 @@ public sealed class FluxDimonaTests
     }
 
     [Fact]
+    public async Task Une_entree_dimona_apres_le_deces_est_rejetee_et_tracee_avec_le_code_de_personnes()
+    {
+        var ctx = new Contexte();
+        ctx.AffilieConnu();
+        ctx.Dimona.Declarations.Add(Contexte.Entree());
+        ctx.Personnes.ReponseEntree = () => ResultatAppel<OccupationDimona>.Rejet(
+            "occupation.apres-deces", "L'occupation débute le 2026-10-01, après le décès du travailleur (2026-09-15) : elle est refusée.");
+
+        var rapport = await ctx.Execution.ExecuterAsync(TypeFlux.Dimona, _ct);
+
+        rapport.Rejetes.ShouldBe(1);
+        var echange = ctx.Store.Journal.Single();
+        echange.Statut.ShouldBe(StatutEchange.Rejete);
+        echange.CodeErreur.ShouldBe("occupation.apres-deces");
+    }
+
+    [Fact]
     public async Task Une_sortie_recue_avant_son_entree_reste_en_erreur_puis_aboutit()
     {
         var ctx = new Contexte();

@@ -198,8 +198,26 @@ public sealed class Personne : AggregateRoot
     }
 
     /// <summary>AFF-20, AFF-21, AFF-23 : enregistre une occupation chez un affilié.</summary>
+    /// <remarks>
+    /// Après un décès connu, une occupation ne peut pas commencer après la date du décès : elle est refusée
+    /// (<see cref="OccupationApresDecesException"/>, code <c>occupation.apres-deces</c>), qu'elle vienne de DIMONA, d'un import ou d'une saisie.
+    /// Une occupation commencée avant le décès est clôturée à la date du décès, comme le fait le traitement du décès.
+    /// </remarks>
     public Occupation DebuterOccupation(NouvelleOccupation nouvelle)
     {
+        if (DateDeces is { } deces)
+        {
+            if (nouvelle.DateDebut > deces)
+            {
+                throw new OccupationApresDecesException(deces, nouvelle.DateDebut);
+            }
+
+            if (nouvelle.DateFin is null || nouvelle.DateFin > deces)
+            {
+                nouvelle = nouvelle with { DateFin = deces };
+            }
+        }
+
         var occupation = Occupation.Creer(NewId(), nouvelle);
         if (occupation.ReferenceDimona is { } reference && _occupations.Any(o => o.ReferenceDimona == reference))
         {
@@ -252,7 +270,9 @@ public sealed class Personne : AggregateRoot
     /// <summary>
     /// AFF-20, AFF-22 : applique une mutation du registre national (changement d'adresse, de nom, de prénom, de langue ou décès).
     /// Idempotent sur la référence de la mutation : un rejeu identique ne change rien. Chaque mutation appliquée est conservée
-    /// dans l'historique (DAT-04). Un décès clôt à la date du décès les occupations encore actives (et leurs affectations).
+    /// dans l'historique (DAT-04) mais ne remplace la valeur courante que si sa date d'effet est la plus récente de son type
+    /// (à égalité, la dernière reçue l'emporte) : une mutation ancienne reçue tardivement est seulement historisée
+    /// (voir <see cref="EstValeurCourante"/>). Un décès échappe à cet ordre. Un décès clôt à la date du décès les occupations encore actives (et leurs affectations).
     /// </summary>
     /// <returns>La mutation, et <c>false</c> si elle avait déjà été appliquée.</returns>
     public (MutationRegistreNational Mutation, bool Appliquee) AppliquerMutation(DemandeMutationRegistreNational demande)
@@ -274,24 +294,25 @@ public sealed class Personne : AggregateRoot
             return (existante, false);
         }
 
-        string? avant;
-        string? apres;
+        // Valeur de la mutation, validée avant toute modification de la personne.
+        string apres;
+        Action appliquer;
         switch (demande.Type)
         {
             case TypeMutationRegistreNational.ChangementAdresse:
                 var adresse = demande.Adresse ?? throw new DomainException("Le changement d'adresse exige la nouvelle adresse.");
-                (avant, apres) = (Adresse is null ? null : JsonSerializer.Serialize(Adresse), JsonSerializer.Serialize(adresse));
-                Adresse = adresse;
+                apres = JsonSerializer.Serialize(adresse);
+                appliquer = () => Adresse = adresse;
                 break;
             case TypeMutationRegistreNational.ChangementNom:
                 var nom = Texte(demande.Nom, "nom", 100);
-                (avant, apres) = (JsonSerializer.Serialize(Nom), JsonSerializer.Serialize(nom));
-                Nom = nom;
+                apres = JsonSerializer.Serialize(nom);
+                appliquer = () => Nom = nom;
                 break;
             case TypeMutationRegistreNational.ChangementPrenom:
                 var prenom = Texte(demande.Prenom, "prénom", 100);
-                (avant, apres) = (JsonSerializer.Serialize(Prenom), JsonSerializer.Serialize(prenom));
-                Prenom = prenom;
+                apres = JsonSerializer.Serialize(prenom);
+                appliquer = () => Prenom = prenom;
                 break;
             case TypeMutationRegistreNational.ChangementLangue:
                 if (demande.Langue is not { } langue || !Enum.IsDefined(langue))
@@ -299,19 +320,60 @@ public sealed class Personne : AggregateRoot
                     throw new DomainException("Le changement de langue exige une langue connue.");
                 }
 
-                (avant, apres) = (JsonSerializer.Serialize(Langue.ToString()), JsonSerializer.Serialize(langue.ToString()));
-                Langue = langue;
+                apres = JsonSerializer.Serialize(langue.ToString());
+                appliquer = () => Langue = langue;
                 break;
             case TypeMutationRegistreNational.Deces:
-                avant = DateDeces is { } precedente ? JsonSerializer.Serialize(precedente) : null;
-                apres = JsonSerializer.Serialize(demande.DateEffet);
+                // Le décès n'est pas soumis à l'ordre des dates d'effet : sa correction reste manuelle (voir EnregistrerDeces).
+                var avantDeces = DateDeces is { } precedente ? JsonSerializer.Serialize(precedente) : null;
                 EnregistrerDeces(demande.DateEffet);
-                break;
+                return Historiser(reference, demande, avantDeces, JsonSerializer.Serialize(demande.DateEffet));
             default:
                 throw new DomainException("Type de mutation du registre national inconnu.");
         }
 
-        var mutation = new MutationRegistreNational(NewId(), reference, demande.Type, demande.DateEffet, avant, apres);
+        // AFF-20, AFF-22, DAT-04 : la valeur courante est celle de la mutation dont la date d'effet est la plus récente ;
+        // à dates d'effet égales, la mutation reçue en dernier l'emporte (ordre de réception, Rang). Une mutation plus
+        // ancienne reçue tardivement est historisée sans toucher à la valeur courante.
+        var historique = _mutations.Where(m => m.Type == demande.Type).OrderBy(m => m.DateEffet).ThenBy(m => m.Rang).ToList();
+        string? avant;
+        if (historique.Count == 0 || demande.DateEffet >= historique[^1].DateEffet)
+        {
+            avant = ValeurCourante(demande.Type);
+            appliquer();
+        }
+        else
+        {
+            // Valeur en vigueur à la date d'effet de la mutation tardive : le résultat de la mutation qui la précède,
+            // à défaut la valeur qui précédait la toute première mutation de ce type.
+            avant = historique.LastOrDefault(m => m.DateEffet <= demande.DateEffet)?.Apres ?? historique[0].Avant;
+        }
+
+        return Historiser(reference, demande, avant, apres);
+    }
+
+    /// <summary>
+    /// <c>true</c> si la mutation détermine la valeur courante de son attribut : aucune mutation du même type n'a une date d'effet
+    /// plus récente, ni la même date reçue après elle. Toujours <c>true</c> pour un décès.
+    /// </summary>
+    public bool EstValeurCourante(MutationRegistreNational mutation) =>
+        mutation.Type == TypeMutationRegistreNational.Deces
+        || !_mutations.Any(m => m.Type == mutation.Type && (m.DateEffet > mutation.DateEffet || (m.DateEffet == mutation.DateEffet && m.Rang > mutation.Rang)));
+
+    private string? ValeurCourante(TypeMutationRegistreNational type) => type switch
+    {
+        TypeMutationRegistreNational.ChangementAdresse => Adresse is null ? null : JsonSerializer.Serialize(Adresse),
+        TypeMutationRegistreNational.ChangementNom => JsonSerializer.Serialize(Nom),
+        TypeMutationRegistreNational.ChangementPrenom => JsonSerializer.Serialize(Prenom),
+        TypeMutationRegistreNational.ChangementLangue => JsonSerializer.Serialize(Langue.ToString()),
+        _ => null,
+    };
+
+    private (MutationRegistreNational Mutation, bool Appliquee) Historiser(
+        string reference, DemandeMutationRegistreNational demande, string? avant, string? apres)
+    {
+        var rang = _mutations.Count == 0 ? 1 : _mutations.Max(m => m.Rang) + 1;
+        var mutation = new MutationRegistreNational(NewId(), reference, demande.Type, demande.DateEffet, rang, avant, apres);
         _mutations.Add(mutation);
         return (mutation, true);
     }

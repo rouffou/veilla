@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sepp.Personnes.Adapters.Persistence;
@@ -12,9 +13,11 @@ using Sepp.Personnes.Adapters.Persistence;
 namespace Sepp.Personnes.Adapters.Persistence.Migrations
 {
     [DbContext(typeof(PersonnesDbContext))]
-    partial class PersonnesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009130914_OrdreMutationsRegistreNational")]
+    partial class OrdreMutationsRegistreNational
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

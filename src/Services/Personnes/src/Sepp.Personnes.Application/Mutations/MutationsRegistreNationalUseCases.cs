@@ -11,6 +11,12 @@ public enum StatutMutation
     /// <summary>La mutation a été appliquée et historisée.</summary>
     Appliquee,
 
+    /// <summary>
+    /// La mutation a été historisée (DAT-04) mais une mutation de même type a une date d'effet plus récente : la valeur
+    /// courante est inchangée (AFF-22).
+    /// </summary>
+    Historisee,
+
     /// <summary>Rejeu : la mutation avait déjà été appliquée (idempotence sur la référence), rien n'a changé.</summary>
     DejaAppliquee,
 
@@ -95,6 +101,8 @@ public sealed class EnregistrerMutationRegistreNationalHandler(
         // Un décès publie OccupationTerminee / AffectationModifiee (identifiants et dates seulement, ARC-06) : Obligations recalcule.
         EvenementsIntegration.Publier(personne, outbox);
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        return new MutationEnregistreeDto(personne.Id, StatutMutation.Appliquee);
+        return new MutationEnregistreeDto(
+            personne.Id,
+            personne.EstValeurCourante(applique.Value.Mutation) ? StatutMutation.Appliquee : StatutMutation.Historisee);
     }
 }
