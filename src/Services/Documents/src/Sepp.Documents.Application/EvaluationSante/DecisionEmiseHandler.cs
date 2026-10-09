@@ -1,5 +1,6 @@
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Domain;
+using Sepp.Contracts.Decisions;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Documents.Application.Generation;
 using Sepp.Documents.Domain.Documents;
@@ -9,22 +10,42 @@ using Sepp.Documents.Domain.Langues;
 namespace Sepp.Documents.Application.EvaluationSante;
 
 /// <summary>
-/// Libellés des catégories de décision reçues de la Surveillance médicale. Les codes sont ceux du service Surveillance
-/// médicale (développé en parallèle) : table à aligner sur sa nomenclature ; un code inconnu est imprimé tel quel.
+/// Libellés des catégories de décision reçues de la Surveillance médicale (SAN-30, SAN-31, DOC-01), un par code partagé
+/// <see cref="CategoriesDecision"/> et dans les quatre langues (FR, NL, DE, EN) : aucun code brut n'est imprimé sur le
+/// formulaire. Un code inconnu fait échouer la génération (l'événement reste à traiter, puis est rejoué quand la table
+/// est complétée), comme un modèle non publié.
 /// </summary>
+/// <remarks>
+/// Les libellés français reprennent les termes de SAN-31 tels que les cite le cahier des charges (§5.5) ; le cahier ne
+/// reproduit pas le texte de l'annexe I.4-2 du code du bien-être au travail ni ses versions néerlandaise et allemande.
+/// Les libellés NL, DE et EN sont des formulations neutres : à valider par le département médical, comme les libellés
+/// français, contre le texte officiel de l'annexe I.4-2 avant mise en production. Aucun n'est présenté comme officiel.
+/// </remarks>
 public static class LibellesDecision
 {
     private static readonly Dictionary<string, LocalizedLabel> Categories = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["APTE"] = new("Apte", "Geschikt", "Tauglich"),
-        ["APTE_AVEC_MESURES"] = new("Apte moyennant des mesures", "Geschikt mits maatregelen", "Tauglich mit Maßnahmen"),
-        ["INAPTE_TEMPORAIRE"] = new("Inapte temporairement", "Tijdelijk ongeschikt", "Vorübergehend untauglich"),
-        ["INAPTE_DEFINITIF"] = new("Inapte définitivement", "Definitief ongeschikt", "Endgültig untauglich"),
-        ["DECISION_REPORTEE"] = new("Décision reportée", "Beslissing uitgesteld", "Entscheidung aufgeschoben"),
+        // À valider par le département médical (NL, DE, EN : formulations neutres, hors cahier des charges).
+        [CategoriesDecision.Apte] = new("Apte", "Geschikt", "Tauglich", "Fit"),
+        [CategoriesDecision.ApteAvecMesures] = new("Apte avec mesures", "Geschikt mits maatregelen", "Tauglich mit Maßnahmen", "Fit with measures"),
+        [CategoriesDecision.InaptitudeTemporaire] = new("Inaptitude temporaire", "Tijdelijke ongeschiktheid", "Vorübergehende Untauglichkeit", "Temporary unfitness"),
+        [CategoriesDecision.InaptitudeDefinitive] = new("Inaptitude définitive", "Definitieve ongeschiktheid", "Endgültige Untauglichkeit", "Permanent unfitness"),
+        [CategoriesDecision.Mutation] = new("Mutation", "Overplaatsing", "Versetzung", "Transfer to another job"),
+        [CategoriesDecision.EcartementMaternite] = new("Écartement (maternité)", "Werkverwijdering (moederschap)", "Arbeitsfreistellung (Mutterschaft)", "Removal from work (maternity)"),
     };
 
-    public static string Categorie(string code, Language langue) =>
-        Categories.TryGetValue(code.Trim(), out var libelle) ? libelle.In(langue) : code.Trim();
+    /// <summary>Libellé de la catégorie, ou <c>null</c> si le code n'est pas connu.</summary>
+    public static LocalizedLabel? Libelle(string code) => Categories.GetValueOrDefault(code.Trim());
+
+    /// <summary>Libellé imprimé ; jamais le code brut (#293).</summary>
+    public static string Categorie(string code, Language langue)
+    {
+        var libelle = Libelle(code)
+            ?? throw new InvalidOperationException($"Catégorie de décision sans libellé : « {code} ». Compléter LibellesDecision (codes partagés CategoriesDecision).");
+        return langue == Language.En
+            ? libelle.En ?? throw new InvalidOperationException($"Catégorie de décision sans libellé anglais : « {code} ».")
+            : libelle.In(langue);
+    }
 }
 
 /// <summary>
