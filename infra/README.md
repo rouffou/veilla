@@ -6,8 +6,8 @@ Ce dossier décrit en code l'ensemble de l'infrastructure Azure du logiciel mét
 
 - Plateforme d'exécution : **Azure Container Apps** (CTR-00, décision d'architecture).
 - Outil : **Terraform** avec le provider `hashicorp/azurerm` 4.x (épinglé `~> 4.80`).
-  Le provider `azapi` n'est pas nécessaire à ce stade : toutes les ressources sont
-  couvertes par `azurerm`.
+  Le provider `Azure/azapi` (`~> 2.13`) complète `azurerm` pour la seule règle `$Default`
+  des subscriptions Service Bus (ADR 0007, amendement #295) ; tout le reste est en `azurerm`.
 - Région principale : **Belgium Central** (`belgiumcentral`), région de reprise UE
   paramétrable (ARC-52).
 
@@ -89,29 +89,38 @@ Internet ──► Application Gateway WAF_v2 (IP publique, TLS, OWASP/DRS 2.1, 
   `personnes.etat-particulier-declare.v1` à Obligations (une validation Terraform impose
   aux autres abonnés du topic `personnes` de déclarer leurs sujets).
 
-### Limite connue : règle `$Default` des subscriptions
+### Règle `$Default` des subscriptions filtrées
 
-Azure crée avec chaque subscription une règle `$Default` (filtre vrai) qui accepte tous
-les messages. Le fournisseur `azurerm` 4.x (`~> 4.80`, 4.81.0 vérifié) ne propose aucun
-moyen propre de la supprimer ou de la remplacer : `azurerm_servicebus_subscription` n'a
-pas d'argument de règle par défaut et `azurerm_servicebus_subscription_rule` n'importe
-pas une règle qui existe déjà (un bloc `import` échouerait au premier déploiement, la
-subscription n'existant pas encore au moment du plan). Les règles `filtre-sujets` sont
-donc créées mais **restent sans effet tant que `$Default` existe** (les règles
-s'additionnent en OU). Après le premier déploiement, supprimer la règle hors Terraform :
+Azure crée avec chaque subscription une règle `$Default` (filtre vrai) ; les règles
+s'additionnent en OU, donc un filtre ajouté à côté serait sans effet. Pour chaque
+subscription ayant des `subject_filters`, le module `servicebus` **remplace le contenu de
+`$Default`** par le filtre SQL `sys.Label IN (...)` avec `azapi_update_resource`
+(`Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01`, PUT « create or
+update » de l'API ARM). Aucune étape manuelle, aucune suppression ni recréation de règle
+(décision : ADR 0007, amendement). Les autres subscriptions gardent `$Default` (tous les
+messages). Le provider `azapi` est configuré dans chaque environnement
+(`subscription_id`, ou `ARM_SUBSCRIPTION_ID`) et exige les mêmes droits que `azurerm`.
+
+Points d'attention :
+
+- retirer un abonné de `subject_filters` ne rétablit pas `1=1` (la destruction de
+  `azapi_update_resource` ne fait rien) : écrire alors la règle `$Default` voulue
+  explicitement ou recréer la subscription ;
+- la règle `filtre-sujets` (azurerm) du premier déploiement de la saga #264 est détruite
+  lors du premier `apply` suivant ce changement.
+
+Vérification après déploiement (une seule règle, `$Default`, de type `SqlFilter`) :
 
 ```bash
-az servicebus topic subscription rule delete --resource-group <rg> --namespace-name <ns> \
-  --topic-name audit --subscription-name communications --name '$Default'
+az servicebus topic subscription rule list --resource-group <rg> --namespace-name <ns> \
+  --topic-name audit --subscription-name communications \
+  --query "[].{nom:name, type:filterType, filtre:sqlFilter.sqlExpression}" -o table
 ```
 
-(idem pour chaque subscription filtrée : `terraform output`/`variables.tf`, clés
-`subject_filters`). Le filtre n'est qu'une défense en profondeur : le répartiteur des
-consommateurs ignore les contrats qu'il n'a pas souscrits, et le contenu des événements
-est conforme à ARC-06. À revoir si `azurerm` ajoute la gestion de la règle par défaut
-(ou en adoptant le fournisseur `azapi`, décision d'architecture). Le comportement réel
-n'a pu être vérifié que par `terraform validate` (pas d'accès Azure) : à contrôler par
-un `terraform plan` / une recette.
+Résultat attendu : `$Default  SqlFilter  sys.Label IN ('audit.bris-de-glace-signale.v1')`.
+Idem pour `personnes` / `postes-risques` (`personnes.affectation-modifiee.v1`). Le `terraform
+plan` d'un nouvel environnement n'a pu être validé que par `terraform validate` (pas
+d'accès Azure en CI) : contrôler le résultat réel par la commande ci-dessus.
 
 ## Correspondance avec les exigences
 
