@@ -1,6 +1,6 @@
 # Chaîne d'images conteneur par service (CTR-20, CTR-06) :
-#   construction (buildx) -> analyse Trivy (vulnérabilités, secrets, licences ; échec si CRITICAL)
-#   -> SBOM SPDX (Syft) -> [main uniquement, si le registre est configuré]
+#   construction (buildx) -> analyse Trivy (SARIF code scanning : vulnérabilités ; rapport archivé :
+#   vulnérabilités, secrets, licences ; échec si CRITICAL corrigeable) -> SBOM SPDX (Syft) -> [main uniquement, si le registre est configuré]
 #   connexion Azure OIDC -> publication ACR (étiquette immuable semver+sha)
 #   -> signature cosign sans clé -> attestation SBOM.
 #
@@ -96,7 +96,8 @@ jobs:
       - name: Calcul de la matrice
         id: detect
         env:
-          # name : nom de l'image ; paths : préfixes déclenchant la reconstruction.
+          # name : nom de l'image ; paths : préfixes déclenchant la reconstruction ;
+          # no_cache_filters (facultatif) : étapes du Dockerfile construites sans cache.
           SERVICES: |
             [
               {
@@ -188,6 +189,7 @@ jobs:
                 "context": "src/Frontends/veilla-web",
                 "dockerfile": "src/Frontends/veilla-web/Dockerfile",
                 "build_args": "APP=app-interne",
+                "no_cache_filters": "runtime",
                 "paths": "src/Frontends/veilla-web/"
               },
               {
@@ -195,6 +197,7 @@ jobs:
                 "context": "src/Frontends/veilla-web",
                 "dockerfile": "src/Frontends/veilla-web/Dockerfile",
                 "build_args": "APP=portail-employeur",
+                "no_cache_filters": "runtime",
                 "paths": "src/Frontends/veilla-web/"
               },
               {
@@ -202,6 +205,7 @@ jobs:
                 "context": "src/Frontends/veilla-web",
                 "dockerfile": "src/Frontends/veilla-web/Dockerfile",
                 "build_args": "APP=portail-travailleur",
+                "no_cache_filters": "runtime",
                 "paths": "src/Frontends/veilla-web/"
               }
             ]
@@ -306,17 +310,33 @@ jobs:
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          # Étapes reconstruites sans cache (ex. « runtime » des fronts : apk upgrade), afin que les
+          # correctifs de sécurité publiés depuis la dernière construction soient toujours appliqués (CTR-04).
+          no-cache-filters: ${{ matrix.no_cache_filters }}
 
-      # Rapport complet (vulnérabilités, secrets, licences) envoyé au code scanning.
+      # SARIF envoyé au code scanning : vulnérabilités uniquement (#294). Les licences des paquets
+      # système ne sont pas des failles : elles restent dans le rapport complet archivé ci-dessous.
       - name: Analyse Trivy (rapport SARIF)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE_LOCALE }}
-          scanners: vuln,secret,license
+          scanners: vuln
           format: sarif
           output: trivy-${{ matrix.name }}.sarif
           severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
           exit-code: "0"
+
+      # Rapport complet (vulnérabilités, secrets, licences), archivé avec le SBOM, non envoyé au code scanning.
+      - name: Analyse Trivy (rapport complet archivé)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_LOCALE }}
+          scanners: vuln,secret,license
+          format: json
+          output: trivy-${{ matrix.name }}.json
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          exit-code: "0"
+          skip-setup-trivy: true
 
       # Code scanning requiert GitHub Advanced Security sur un dépôt privé :
       # activé par la variable de dépôt CODE_SCANNING_ENABLED=true.
@@ -355,6 +375,7 @@ jobs:
           path: |
             sbom-${{ matrix.name }}.spdx.json
             trivy-${{ matrix.name }}.sarif
+            trivy-${{ matrix.name }}.json
           retention-days: 90
           if-no-files-found: warn
 
