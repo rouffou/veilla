@@ -153,6 +153,9 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IObl
             .Distinct()
             .ToList());
 
+    public Task<bool> OccupationActiveAsync(Guid personneId, Guid affilieId, DateOnly date, CancellationToken cancellationToken) =>
+        Task.FromResult(Occupations.Any(o => o.PersonneId == personneId && o.AffilieId == affilieId && (o.DateDebut is null || o.DateDebut <= date) && o.EstEnCoursOuAVenirAu(date)));
+
     public void Add(OccupationLocale occupation) => Occupations.Add(occupation);
 
     public Task<EtatParticulierLocal?> GetEtatParticulierAsync(Guid etatParticulierId, CancellationToken cancellationToken) =>
@@ -322,6 +325,20 @@ internal sealed class Banc
     }
 
     public InMemoryStore Store { get; } = new();
+
+    /// <summary>Occupation en cours chez l'affilié depuis 2025 (préalable de toute annonce de reprise, #298) ; idempotent.</summary>
+    public OccupationLocale OccupationActive()
+    {
+        var occupation = Store.Occupations.SingleOrDefault(o => o.PersonneId == Personne && o.AffilieId == Affilie);
+        if (occupation is null)
+        {
+            occupation = new OccupationLocale(Guid.CreateVersion7(), Personne, Affilie);
+            occupation.Debuter(new DateOnly(2025, 1, 1));
+            Store.Add(occupation);
+        }
+
+        return occupation;
+    }
 
     public FakeTimeProvider Clock { get; }
 

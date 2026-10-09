@@ -123,6 +123,24 @@ public sealed class ScenariosSagaTests(PlateformeSaga plateforme) : IClassFixtur
     }
 
     [Fact]
+    public async Task Scenario_annonce_refusee_sans_occupation_active_chez_l_affilie()
+    {
+        var t = _o.Demarrer(9);
+
+        var (statut, code) = await _o.TenterAnnonceAsync(t);
+        await _o.PomperAsync();
+
+        statut.ShouldBe((System.Net.HttpStatusCode)422);
+        code.ShouldBe("reprise.occupation-inactive");
+        _o.PubliesPour("obligations.reprise-enregistree.v1", t.Personne).ShouldBeEmpty();
+        _o.PubliesPour("obligations.obligation-creee.v1", t.Personne).ShouldBeEmpty();
+
+        // Une fois l'occupation connue, la même annonce aboutit.
+        await _o.EtablirOccupationAsync(t);
+        (await _o.TenterAnnonceAsync(t)).Statut.ShouldBe(System.Net.HttpStatusCode.Created);
+    }
+
+    [Fact]
     public async Task Scenario_2_une_absence_de_moins_de_quatre_semaines_ne_requiert_aucun_examen()
     {
         var t = _o.Demarrer(1, semainesAbsence: 2);

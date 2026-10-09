@@ -412,6 +412,7 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
     [Theory]
     [InlineData(HttpStatusCode.Conflict, "reprise.conflit")]
     [InlineData(HttpStatusCode.UnprocessableEntity, "reprise.date-invalide")]
+    [InlineData(HttpStatusCode.UnprocessableEntity, "reprise.occupation-inactive")]
     public async Task Les_refus_409_et_422_d_Obligations_sont_traduits_en_ProblemDetails_sans_rejeu(HttpStatusCode status, string code)
     {
         _aval.Probleme(ServicesAvalSimules.Obligations, "/api/v1/reprises", status, code, "POST");

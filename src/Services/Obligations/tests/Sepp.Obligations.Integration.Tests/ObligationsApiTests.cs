@@ -312,6 +312,7 @@ public sealed partial class ObligationsApiTests : IAsyncLifetime
     public async Task La_reprise_annoncee_et_les_parametres_de_referentiels_donnent_l_examen_de_reprise_et_ses_alertes()
     {
         var personne = Guid.CreateVersion7();
+        await OccuperAsync(personne);
         await Livrer(Guid.CreateVersion7(), new RepriseAnnoncee(personne, _affilie, new DateOnly(2026, 4, 27), new DateOnly(2026, 3, 23)));
         (await Obligations(personne)).Single().DateLimite.ShouldBe(new DateOnly(2026, 5, 12));
 
@@ -331,6 +332,7 @@ public sealed partial class ObligationsApiTests : IAsyncLifetime
     public async Task Le_traitement_periodique_publie_ObligationEchue_une_seule_fois()
     {
         var personne = Guid.CreateVersion7();
+        await OccuperAsync(personne);
         await Livrer(Guid.CreateVersion7(), new RepriseAnnoncee(personne, _affilie, new DateOnly(2026, 4, 27), new DateOnly(2026, 3, 23)));
         (await Employeur.PostAsync("/api/v1/traitement-echeances", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 

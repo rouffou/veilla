@@ -28,7 +28,8 @@
     "introuvable": "The requested item could not be found.",
     "invalide": "The request could not be accepted. Please check the information entered.",
     "reseau": "Unable to reach the server. Please check your Internet connection.",
-    "inattendue": "An unexpected error occurred. Please try again later."
+    "inattendue": "An unexpected error occurred. Please try again later.",
+    "repriseOccupationInactive": "This return to work cannot be announced: the worker has no active employment with this affiliate on the resumption date. Check the worker and the resumption date."
   },
   "form": {
     "summary": "The form contains errors:",

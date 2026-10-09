@@ -35,10 +35,47 @@ public sealed partial class ObligationsApiTests
         return (await reponse.Content.ReadFromJsonAsync<ResultatEnregistrement>(Json, Ct))!;
     }
 
+    /// <summary>Établit l'occupation du travailleur chez l'affilié (préalable de toute annonce de reprise, #298).</summary>
+    private Task<int> OccuperAsync(Guid personne, DateOnly? debut = null) =>
+        Livrer(Guid.CreateVersion7(), new Sepp.Contracts.Personnes.OccupationDebutee(Guid.CreateVersion7(), personne, _affilie, debut ?? new DateOnly(2025, 1, 1)));
+
+    [Fact]
+    public async Task Une_annonce_sans_occupation_active_est_refusee_en_422_puis_acceptee_quand_l_occupation_est_recue()
+    {
+        var personne = Guid.CreateVersion7();
+
+        var refus = await Gestionnaire.PostAsJsonAsync("/api/v1/reprises", Annonce(personne, _affilie), Json, Ct);
+
+        refus.StatusCode.ShouldBe((HttpStatusCode)422);
+        (await refus.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(Ct)).GetProperty("code").GetString().ShouldBe("reprise.occupation-inactive");
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ObligationsDbContext>();
+            (await db.Processus.CountAsync(p => p.PersonneId == personne, Ct)).ShouldBe(0);
+        }
+
+        // À valider : événements en désordre ; l'occupation arrive après la première tentative.
+        await OccuperAsync(personne);
+        (await AnnoncerAsync(Gestionnaire, personne)).Cree.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Une_annonce_par_evenement_sans_occupation_active_est_ignoree()
+    {
+        var personne = Guid.CreateVersion7();
+
+        await Livrer(Guid.CreateVersion7(), new Sepp.Contracts.BffEmployeur.RepriseAnnoncee(personne, _affilie, DateReprise, DebutAbsence));
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ObligationsDbContext>();
+        (await db.Processus.CountAsync(p => p.PersonneId == personne, Ct)).ShouldBe(0);
+    }
+
     [Fact]
     public async Task Une_reprise_annoncee_est_idempotente_consultable_modifiable_et_annulable()
     {
         var personne = Guid.CreateVersion7();
+        await OccuperAsync(personne);
 
         var premiere = await AnnoncerAsync(Gestionnaire, personne);
         var seconde = await AnnoncerAsync(Gestionnaire, personne, HttpStatusCode.OK);
@@ -67,6 +104,7 @@ public sealed partial class ObligationsApiTests
     public async Task L_annulation_apres_la_cloture_de_l_examen_est_refusee_en_409()
     {
         var personne = Guid.CreateVersion7();
+        await OccuperAsync(personne);
         var reprise = await AnnoncerAsync(Gestionnaire, personne);
         (await Livrer(Guid.CreateVersion7(), new ExamenCloture(Guid.CreateVersion7(), personne, _affilie, TypesExamen.ExamenReprise, DateReprise.AddDays(1)))).ShouldBe(1);
 
@@ -80,6 +118,7 @@ public sealed partial class ObligationsApiTests
     public async Task L_employeur_annonce_dans_son_perimetre_seulement_et_les_roles_sans_droit_sont_refuses()
     {
         var personne = Guid.CreateVersion7();
+        await OccuperAsync(personne);
 
         var reprise = await AnnoncerAsync(Employeur, personne);
         (await Employeur.PostAsJsonAsync("/api/v1/reprises", Annonce(personne, Guid.CreateVersion7()), Json, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
@@ -96,6 +135,7 @@ public sealed partial class ObligationsApiTests
     public async Task Deux_annonces_simultanees_ne_creent_qu_un_seul_processus()
     {
         var personne = Guid.CreateVersion7();
+        await OccuperAsync(personne);
 
         var reponses = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Gestionnaire.PostAsJsonAsync("/api/v1/reprises", Annonce(personne, _affilie), Json, Ct)));
 
@@ -119,6 +159,7 @@ public sealed partial class ObligationsApiTests
         var personnes = Enumerable.Range(0, 6).Select(_ => Guid.CreateVersion7()).ToList();
         foreach (var personne in personnes)
         {
+            await OccuperAsync(personne);
             var reponse = await Gestionnaire.PostAsJsonAsync("/api/v1/reprises", Annonce(personne, _affilie, new DateOnly(2026, 5, 18), new DateOnly(2026, 4, 1)), Json, Ct);
             reponse.StatusCode.ShouldBe(HttpStatusCode.Created);
         }
@@ -141,6 +182,7 @@ public sealed partial class ObligationsApiTests
     public async Task Les_alertes_de_l_affilie_incluent_les_reprises_hors_delai()
     {
         var personne = Guid.CreateVersion7();
+        await OccuperAsync(personne);
         await Gestionnaire.PostAsJsonAsync("/api/v1/reprises", Annonce(personne, _affilie, new DateOnly(2026, 5, 18), new DateOnly(2026, 4, 1)), Json, Ct);
         await _factory.Services.GetServices<IHostedService>().OfType<MinuteriesRepriseService>().Single().ExecuterUneFoisAsync(Ct);
 

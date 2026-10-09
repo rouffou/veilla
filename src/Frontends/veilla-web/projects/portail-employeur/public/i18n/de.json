@@ -28,7 +28,8 @@
     "introuvable": "Das angeforderte Element wurde nicht gefunden.",
     "invalide": "Die Anfrage konnte nicht angenommen werden. Bitte prüfen Sie Ihre Eingaben.",
     "reseau": "Keine Verbindung zum Server. Bitte prüfen Sie Ihre Internetverbindung.",
-    "inattendue": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut."
+    "inattendue": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.",
+    "repriseOccupationInactive": "Diese Wiederaufnahme der Arbeit kann nicht gemeldet werden: Der Arbeitnehmer hat am Datum der Wiederaufnahme keine aktive Beschäftigung bei diesem Mitglied. Prüfen Sie den Arbeitnehmer und das Datum der Wiederaufnahme."
   },
   "form": {
     "summary": "Das Formular enthält Fehler:",
