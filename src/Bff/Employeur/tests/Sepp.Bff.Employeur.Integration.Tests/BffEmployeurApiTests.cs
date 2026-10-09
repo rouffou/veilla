@@ -181,14 +181,15 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
         AffilieConnu(_autreAffilieDuJeton, "Atelier Lambert");
         var jeton = Jeton("sipp", [_affilie, _autreAffilieDuJeton]);
         using var client = Client(jeton);
-        client.DefaultRequestHeaders.Add("X-Correlation-Id", "corr-portail-42");
+        const string correlation = "0192a5c8-0000-7000-8000-0000000000c4"; // ARC-47 : seul un GUID est repris (#300).
+        client.DefaultRequestHeaders.Add("X-Correlation-Id", correlation);
 
         var json = await Json(await client.GetAsync("/api/v1/affilies", Ct));
 
         json.GetProperty("affilies").EnumerateArray().Select(a => a.GetProperty("denomination").GetString())
             .ShouldBe(["Atelier Lambert", "Boulangerie Dupont"]);
         _aval.Requetes.Count.ShouldBe(2);
-        _aval.Requetes.ShouldAllBe(r => r.Authorization == $"Bearer {jeton}" && r.Correlation == "corr-portail-42");
+        _aval.Requetes.ShouldAllBe(r => r.Authorization == $"Bearer {jeton}" && r.Correlation == correlation);
     }
 
     [Fact]

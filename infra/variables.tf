@@ -80,8 +80,8 @@ variable "tags" {
 #   service producteur ou consommateur n'est pas encore écrit (commentaire en regard) ;
 # - subject_filters : topic -> sujets (nom versionné du contrat, ex. audit.bris-de-glace-signale.v1) acceptés par la
 #   subscription ; crée une règle SQL `sys.Label IN (...)` (ADR 0004 : le sujet du message est le nom versionné du
-#   contrat). Absent = tous les messages du topic. Limite : la règle `$Default` créée par Azure doit être supprimée
-#   (voir infra/README.md) ;
+#   contrat). Absent = tous les messages du topic. Le filtre remplace la règle `$Default` créée par Azure
+#   (azapi, voir infra/README.md) ;
 # - http_concurrency : seuil de la règle KEDA HTTP ; queue_scaling / message_count : règles KEDA Service Bus (CTR-13) ;
 # - image : image complète (sinon <acr>/sepp/<service>:<image_tag>) ;
 # - key_vault_secrets : variables alimentées par des secrets du Key Vault de la zone, nom -> nom du secret (CTR-16).

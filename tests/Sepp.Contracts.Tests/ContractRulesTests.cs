@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using Sepp.Contracts.Decisions;
 using Sepp.Contracts.Documents;
 using Sepp.Contracts.Examens;
 using Sepp.Contracts.SurveillanceMedicale;
@@ -148,6 +149,27 @@ public partial class ContractRulesTests
             .Select(f => (string)f.GetRawConstantValue()!);
 
         declares.OrderBy(c => c, StringComparer.Ordinal).ShouldBe(TypesExamen.Connus.OrderBy(c => c, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Les_codes_de_categorie_de_decision_respectent_le_format_et_sont_uniques()
+    {
+        CategoriesDecision.Connus.ShouldNotBeEmpty();
+        CategoriesDecision.Connus.ShouldBeUnique();
+        foreach (var code in CategoriesDecision.Connus)
+        {
+            ExamCode().IsMatch(code).ShouldBeTrue($"{code} : attendu ^[A-Z0-9_]+$.");
+        }
+    }
+
+    [Fact]
+    public void Les_codes_de_CategoriesDecision_declares_sont_tous_dans_Connus()
+    {
+        var declares = typeof(CategoriesDecision).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(f => f.IsLiteral)
+            .Select(f => (string)f.GetRawConstantValue()!);
+
+        declares.OrderBy(c => c, StringComparer.Ordinal).ShouldBe(CategoriesDecision.Connus.OrderBy(c => c, StringComparer.Ordinal));
     }
 
     private static object? SampleValue(Type type) => type switch

@@ -115,6 +115,8 @@ updates:
       # Changement majeur de provider : migration planifiée à part (ADR 0007), pas de montée automatique.
       - dependency-name: "hashicorp/azurerm"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "azure/azapi"
+        update-types: ["version-update:semver-major"]
     schedule:
       interval: weekly
       day: monday

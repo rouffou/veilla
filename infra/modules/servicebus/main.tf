@@ -15,6 +15,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.80"
     }
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.13"
+    }
   }
 }
 
@@ -60,17 +64,28 @@ resource "azurerm_servicebus_subscription" "this" {
 
 # Filtre par sujet (ADR 0004) : le sujet (label) du message est le nom versionné du contrat, par ex.
 # « audit.bris-de-glace-signale.v1 » (ServiceBusMessagePublisher : Subject = OutboxMessage.EventType).
-# LIMITE : Azure crée la règle « $Default » (TrueFilter) avec chaque subscription et le fournisseur azurerm 4.x ne
-# permet ni de la supprimer ni de la remplacer (aucun argument sur azurerm_servicebus_subscription, et créer une règle
-# nommée « $Default » se heurte à la règle existante). Tant qu'elle n'est pas supprimée (infra/README.md), elle accepte
-# tous les messages et le filtre est sans effet ; les consommateurs ignorent de toute façon les contrats non souscrits.
-resource "azurerm_servicebus_subscription_rule" "subject_filter" {
+# Azure crée avec chaque subscription une règle « $Default » (TrueFilter, « 1=1 ») et les règles s'additionnent en OU :
+# une règle de filtre ajoutée à côté serait sans effet. azurerm ne sait ni supprimer ni remplacer « $Default », et le
+# modèle ARM de la subscription n'a pas de propriété de règle par défaut. L'API ARM « Rules - Create Or Update » est un
+# PUT qui met aussi à jour une règle existante : azapi_update_resource écrase donc le contenu de « $Default » avec le
+# filtre SQL, sans la supprimer ni la recréer, sans étape manuelle (ADR 0007, amendement). À la destruction, rien n'est
+# fait côté Azure (la règle disparaît avec la subscription) ; retirer un abonné de subject_filters ne rétablit pas
+# « 1=1 » (infra/README.md). Remplace l'ancienne règle « filtre-sujets » (azurerm), détruite au premier apply.
+resource "azapi_update_resource" "subject_filter" {
   for_each = { for k, s in var.subscriptions : k => s if length(s.subjects) > 0 }
 
-  name            = "filtre-sujets"
-  subscription_id = azurerm_servicebus_subscription.this[each.key].id
-  filter_type     = "SqlFilter"
-  sql_filter      = "sys.Label IN (${join(", ", [for x in each.value.subjects : "'${x}'"])})"
+  type      = "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules@2024-01-01"
+  name      = "$Default"
+  parent_id = azurerm_servicebus_subscription.this[each.key].id
+
+  body = {
+    properties = {
+      filterType = "SqlFilter"
+      sqlFilter = {
+        sqlExpression = "sys.Label IN (${join(", ", [for x in each.value.subjects : "'${x}'"])})"
+      }
+    }
+  }
 }
 
 # --- RBAC (CTR-16) ---------------------------------------------------------------

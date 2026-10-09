@@ -202,6 +202,7 @@ public static class EvenementsIntegration
             IntegrationEvent? integration = evenement switch
             {
                 ExamenClotureLocal e => new ExamenCloture(e.ExamenId, e.PersonneId, e.AffilieId, e.TypeExamen, e.Date),
+                // Catégorie : code partagé Sepp.Contracts.Decisions.CategoriesDecision (conformité testée, #293).
                 DecisionTransmise e => new DecisionEmise(e.DecisionId, e.PersonneId, e.AffilieId, CodesDecision.Code(e.Categorie), [.. e.Mesures], e.ValideJusquAu, e.ExamenId),
                 VaccinationEnregistree e => new VaccinationAdministree(e.VaccinationId, e.PersonneId, e.VaccinCode, e.Dose, e.Date),
                 _ => null,
