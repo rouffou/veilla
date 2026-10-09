@@ -189,10 +189,27 @@ internal sealed class FakePersonnes : IPersonnesClient
             : ResultatAppel<bool>.Erreur("occupation.inconnue", $"Aucune occupation pour la référence DIMONA {referenceDimona}."));
     }
 
-    public Task<ResultatAppel<bool>> AppliquerMutationIdentiteAsync(string niss, IdentiteRegistreNational identite, CancellationToken cancellationToken)
+    /// <summary>Réponse imposée au prochain appel de mutation (puis retour au comportement normal).</summary>
+    public Func<ResultatAppel<MutationPersonnes>?>? ReponseMutation { get; set; }
+
+    public List<MutationRegistreNational> MutationsRecues { get; } = [];
+
+    /// <summary>Idempotent sur la référence de la mutation, comme le vrai service.</summary>
+    public Task<ResultatAppel<MutationPersonnes>> AppliquerMutationAsync(MutationRegistreNational mutation, CancellationToken cancellationToken)
     {
-        Mutations.Add(niss);
-        return Task.FromResult(ResultatAppel<bool>.Succes(true));
+        MutationsRecues.Add(mutation);
+        if (ReponseMutation?.Invoke() is { } imposee)
+        {
+            return Task.FromResult(imposee);
+        }
+
+        var deja = Mutations.Contains(mutation.ReferenceMutation);
+        if (!deja)
+        {
+            Mutations.Add(mutation.ReferenceMutation);
+        }
+
+        return Task.FromResult(ResultatAppel<MutationPersonnes>.Succes(new MutationPersonnes(Guid.Empty, deja ? "DejaAppliquee" : "Appliquee")));
     }
 
     public OccupationDimona Occupation(string reference) => _occupations[reference];

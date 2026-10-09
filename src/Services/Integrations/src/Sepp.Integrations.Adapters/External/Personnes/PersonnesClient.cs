@@ -69,13 +69,24 @@ internal sealed class PersonnesHttpClient(HttpClient http) : IPersonnesClient
             cancellationToken);
 
     /// <summary>
-    /// Lacune documentée : le service Personnes n'expose pas d'API de mise à jour de l'identité par NISS accessible au
-    /// compte technique (la correction d'identité se fait par identifiant de personne et la recherche par NISS exige
-    /// personne:lire). La mutation reste en erreur, relançable, jusqu'à l'ajout de ce point d'entrée (voir README).
+    /// Mutation du registre national (AFF-20, AFF-22) : <c>POST api/v1/registre-national/mutations</c>. Le NISS est dans le
+    /// corps uniquement ; Personnes est idempotent sur la référence de la mutation, une reprise ne duplique rien.
     /// </summary>
-    public Task<ResultatAppel<bool>> AppliquerMutationIdentiteAsync(string niss, IdentiteRegistreNational identite, CancellationToken cancellationToken) =>
-        Task.FromResult(ResultatAppel<bool>.Erreur("integrations.personnes-api-mutation-absente",
-            "Le service Personnes n'expose pas encore de point d'entrée interne de mise à jour d'identité par NISS : mutation à relancer une fois ce point d'entrée disponible."));
+    public Task<ResultatAppel<MutationPersonnes>> AppliquerMutationAsync(MutationRegistreNational mutation, CancellationToken cancellationToken) =>
+        AppelerAsync(
+            () => http.PostAsJsonAsync("api/v1/registre-national/mutations", new
+            {
+                mutation.ReferenceMutation,
+                mutation.Niss,
+                mutation.Type,
+                mutation.DateEffet,
+                mutation.Adresse,
+                mutation.Nom,
+                mutation.Prenom,
+                mutation.Langue,
+            }, Json, cancellationToken),
+            async reponse => (await reponse.Content.ReadFromJsonAsync<MutationPersonnes>(Json, cancellationToken))!,
+            cancellationToken);
 
     private async Task<ResultatAppel<T>> AppelerAsync<T>(Func<Task<HttpResponseMessage>> appel, Func<HttpResponseMessage, Task<T>> lire, CancellationToken cancellationToken)
     {
