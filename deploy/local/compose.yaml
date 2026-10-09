@@ -244,6 +244,40 @@ services:
       obligations:
         condition: service_started
 
+  bff-travailleur:
+    # BFF du portail travailleur (ARC-43) : sans base ; propage le jeton de l'utilisateur aux services (ARC-40).
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Bff/Travailleur/Dockerfile
+    image: sepp/bff-travailleur:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Authentication__Authority: http://localhost:8180/realms/veilla
+      Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
+      Authentication__ValidIssuer: http://localhost:8180/realms/veilla
+      Authentication__RequireHttpsMetadata: "false"
+      ServicesAval__Planification: http://planification:8080
+      ServicesAval__SurveillanceMedicale: http://surveillance-medicale:8080
+      ServicesAval__Obligations: http://obligations:8080
+      ServicesAval__Documents: http://documents:8080
+      Cors__Origines__0: http://localhost:8083
+      Cors__Origines__1: http://localhost:4202
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
+    ports:
+      - "5201:8080"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      planification:
+        condition: service_started
+      surveillance-medicale:
+        condition: service_started
+      obligations:
+        condition: service_started
+      documents:
+        condition: service_started
+
   integrations:
     # Couche anti-corruption vers les organismes (§12). En local : simulateurs (données fictives) et traitements
     # planifiés désactivés ; flux lancés par l'API d'administration (appsettings.Development.json).
@@ -426,7 +460,7 @@ services:
         APP: portail-travailleur
     image: sepp/portail-travailleur:local
     environment:
-      VEILLA_API_BASE_URL: http://localhost:5300
+      VEILLA_API_BASE_URL: http://localhost:5201
       VEILLA_OIDC_AUTHORITY: http://localhost:8180/realms/veilla
       VEILLA_OIDC_CLIENT_ID: veilla-portail-travailleur
     ports:

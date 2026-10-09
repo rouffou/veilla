@@ -65,7 +65,7 @@ npm run lint                    # ESLint sur les quatre projets
 npm run build:shared            # paquet de la bibliothèque (facultatif)
 ```
 
-En développement, `ng serve` affiche la page « Connexion impossible » tant qu'aucun fournisseur d'identité n'écoute sur l'`authority` de `public/assets/config.json` (Keycloak local attendu sur `http://localhost:8180/realms/veilla`, voir ADR 0005). Le BFF employeur écoute sur `http://localhost:5200` (`src/Bff/Employeur`) ; les URL `5100` et `5300` (BFF interne et travailleur) sont provisoires.
+En développement, `ng serve` affiche la page « Connexion impossible » tant qu'aucun fournisseur d'identité n'écoute sur l'`authority` de `public/assets/config.json` (Keycloak local attendu sur `http://localhost:8180/realms/veilla`, voir ADR 0005). Le BFF employeur écoute sur `http://localhost:5200` (`src/Bff/Employeur`), le BFF travailleur sur `http://localhost:5201` (`src/Bff/Travailleur`) ; l'URL `5100` (BFF interne) est provisoire.
 
 ## Configuration d'exécution (CTR-05)
 
@@ -115,7 +115,7 @@ Aucune valeur d'environnement n'est compilée : `main.ts` charge `assets/config.
 Chaque application a une page d'accueil protégée avec des cartes à **l'état vide** (« Aucune donnée à afficher pour le moment ») : aucune donnée fictive n'est présentée comme réelle.
 
 - Portail employeur : branché sur le BFF employeur (voir ci-dessous). Pages « à venir » : demandes (POR-04), décisions et rapports (POR-05).
-- Portail travailleur : rendez-vous (POR-11), questionnaires et demande de consultation (POR-12), documents (POR-13).
+- Portail travailleur : branché sur le BFF travailleur (voir ci-dessous).
 - Application interne : agenda du jour, tâches, dossiers récents.
 
 ### Portail employeur (Lot 1, §10.1)
@@ -135,6 +135,24 @@ Chaque application a une page d'accueil protégée avec des cartes à **l'état 
 - Accessibilité : tableaux avec `caption`, `th scope`, formulaires étiquetés, erreurs reliées par `aria-describedby` et `aria-invalid`, résumé d'erreurs `role="alert"`, accusés `role="status"`, focus déplacé sur l'accusé de soumission, navigation et pagination au clavier.
 - Erreurs du BFF (ProblemDetails) traduites par catégorie (service indisponible, accès refusé, introuvable, validation, réseau) avec bouton « Réessayer ».
 - Écrans secondaires chargés à la demande (`loadComponent`) pour respecter le budget du bundle initial.
+
+### Portail travailleur (Lot 3, §10.2)
+
+Écrans branchés sur le BFF travailleur (`src/Bff/Travailleur`, client typé `BffTravailleurService`) ; le jeton porte `personne_id`,
+aucun identifiant de personne n'est envoyé par le portail :
+
+| Route | Écran | Exigences |
+| --- | --- | --- |
+| `/` | accueil composite : prochains rendez-vous, nombre de questionnaires, documents récents ; section indisponible signalée | POR-11 à POR-13 |
+| `/rendez-vous` | mes rendez-vous, annulation, recherche de créneaux ouverts et réservation (employeur connu par ses rendez-vous ou par `?affilieId=&typeActe=` d'un lien de convocation) | POR-11 |
+| `/questionnaires` | questionnaire de santé à remplir à l'avance : écriture seule, formulaire effacé après l'envoi, aucune réponse relue | POR-12 |
+| `/demande` | consultation spontanée ou visite de pré-reprise, sans motif | POR-12 |
+| `/documents` | documents publiés pour le travailleur, téléchargement PDF | POR-13 |
+
+- Langues FR, NL, DE, EN (sélecteur, `<html lang>`, libellés des questionnaires dans la langue active) ; un test vérifie que les
+  quatre fichiers ont les mêmes clés (POR-14). Accessibilité : mêmes règles que le portail employeur, lint `templateAccessibility`.
+- Lacunes des services (déplacement, motif d'annulation, demandes d'Obligations, carnet de vaccination, employeurs du
+  travailleur) : voir le README du BFF travailleur.
 
 ## Conteneurisation (CTR-01 à CTR-07)
 
@@ -161,7 +179,7 @@ docker run --rm -p 8080:8080 \
 ## Limites connues
 
 - Image Docker non construite localement (Docker indisponible au moment de l'écriture) : Dockerfile, configuration nginx et script d'entrée restent à valider en CI (`docker build` + `nginx -t` + test de fumée). Le script d'entrée a été testé hors conteneur.
-- Portail employeur testé de bout en bout avec le Keycloak local et le BFF (compose). Le realm local ne déclare que la portée `sepp-api` : les portées `profile`, `email` et `offline_access` demandées par défaut sont refusées (`invalid_scope`) ; en local, utiliser `VEILLA_OIDC_SCOPE=openid` ou compléter les portées du realm. Les portail interne et travailleur n'ont pas encore de BFF.
+- Portail employeur testé de bout en bout avec le Keycloak local et le BFF (compose). Le realm local ne déclare que la portée `sepp-api` : les portées `profile`, `email` et `offline_access` demandées par défaut sont refusées (`invalid_scope`) ; en local, utiliser `VEILLA_OIDC_SCOPE=openid` ou compléter les portées du realm. Le portail interne n'a pas encore de BFF ; le portail travailleur est testé contre un BFF simulé (pas encore de bout en bout avec Keycloak).
 - Pas de service worker : le portail travailleur a un manifeste et une icône SVG (installable), le mode hors ligne reste à concevoir (`ng add @angular/pwa`).
 - Traductions NL/DE/EN rédigées par l'équipe de développement : relecture par des locuteurs natifs à prévoir.
 - Accessibilité : les bonnes pratiques sont en place mais la conformité EN 301 549 devra être établie par un audit.

@@ -6,15 +6,125 @@
     "dashboard": "Accueil",
     "appointments": "Mes rendez-vous",
     "questionnaires": "Questionnaires de santé",
-    "documents": "Mes documents"
+    "documents": "Mes documents",
+    "request": "Demander une consultation"
+  },
+  "ui": {
+    "loading": "Chargement en cours…",
+    "retry": "Réessayer"
+  },
+  "errors": {
+    "indisponible": "Ce service est momentanément indisponible. Veuillez réessayer dans quelques instants.",
+    "interdit": "Vous n'avez pas accès à ces informations.",
+    "introuvable": "L'élément demandé est introuvable.",
+    "invalide": "La demande n'a pas pu être acceptée. Vérifiez les informations saisies.",
+    "reseau": "Connexion au serveur impossible. Vérifiez votre connexion Internet.",
+    "inattendue": "Une erreur inattendue est survenue. Veuillez réessayer plus tard.",
+    "annulationTardive": "Moins de 24 heures avant le rendez-vous, l'annulation en ligne n'est plus possible : contactez le SEPP.",
+    "creneauIndisponible": "Ce créneau n'est plus disponible. Choisissez-en un autre.",
+    "aucuneObligation": "Aucun examen n'est à planifier pour ce type de rendez-vous chez cet employeur.",
+    "perimetre": "Votre compte n'est associé à aucune personne ou à aucun employeur concerné : contactez le SEPP."
+  },
+  "form": {
+    "summary": "Le formulaire contient des erreurs :",
+    "choose": "— Choisir —"
+  },
+  "actes": {
+    "EVALUATION_PREALABLE": "Évaluation de santé préalable",
+    "EVALUATION_PERIODIQUE": "Évaluation de santé périodique",
+    "ACTES_MEDICAUX_SUPPLEMENTAIRES": "Actes médicaux supplémentaires",
+    "EXAMEN_REPRISE": "Examen de reprise du travail",
+    "VISITE_PRE_REPRISE": "Visite de pré-reprise",
+    "CONSULTATION_SPONTANEE": "Consultation spontanée",
+    "PROTECTION_MATERNITE": "Protection de la maternité",
+    "SURVEILLANCE_PROLONGEE": "Surveillance de santé prolongée",
+    "ESTIMATION_POTENTIEL_TRAVAIL": "Estimation du potentiel de travail",
+    "EVALUATION_REINTEGRATION": "Évaluation de réintégration",
+    "AUTRE_LEGISLATION": "Autre législation"
   },
   "dashboard": {
     "title": "Mon espace",
-    "intro": "Retrouvez ici vos rendez-vous, questionnaires et documents dès que le service sera connecté.",
+    "intro": "Retrouvez ici vos rendez-vous, questionnaires et documents.",
     "appointments": "Prochains rendez-vous",
     "questionnaires": "Questionnaires à remplir",
     "documents": "Documents récents",
     "consultation": "Demander une consultation",
-    "consultationText": "Consultation spontanée ou visite de pré-reprise, sans passer par votre employeur."
+    "consultationText": "Consultation spontanée ou visite de pré-reprise, sans passer par votre employeur.",
+    "unavailable": "Momentanément indisponible.",
+    "noAppointments": "Aucun rendez-vous à venir.",
+    "noDocuments": "Aucun document disponible.",
+    "questionnairesCount": "{{ n }} questionnaire(s) disponible(s)."
+  },
+  "appointments": {
+    "title": "Mes rendez-vous",
+    "intro": "Consultez vos rendez-vous, annulez-les ou réservez un créneau ouvert.",
+    "mine": "Mes rendez-vous",
+    "empty": "Vous n'avez aucun rendez-vous.",
+    "caption": "Liste de vos rendez-vous",
+    "date": "Date et heure",
+    "type": "Type de rendez-vous",
+    "status": "Statut",
+    "actions": "Actions",
+    "statuses": {
+      "Planifie": "Planifié",
+      "Arrive": "Arrivé",
+      "EnSalle": "En salle",
+      "Termine": "Terminé",
+      "Absent": "Absent",
+      "Annule": "Annulé",
+      "Inconnu": "Autre statut"
+    },
+    "cancel": "Annuler",
+    "cancelled": "Votre rendez-vous est annulé.",
+    "booked": "Votre rendez-vous est réservé.",
+    "moveHint": "Pour le déplacer, réservez ci-dessous un autre créneau.",
+    "bookTitle": "Réserver un créneau",
+    "noEmployer": "Pour réserver, ouvrez le lien de votre convocation ou contactez le SEPP : aucun employeur n'est encore connu de votre espace.",
+    "employer": "Employeur",
+    "employerN": "Employeur {{ n }}",
+    "search": "Chercher des créneaux",
+    "noSlots": "Aucun créneau ouvert dans les 60 prochains jours.",
+    "slots": "Créneaux ouverts",
+    "book": "Réserver"
+  },
+  "questionnaires": {
+    "title": "Questionnaires de santé",
+    "intro": "Remplissez à l'avance le questionnaire de santé demandé avant votre examen.",
+    "writeOnly": "Vos réponses sont transmises au service médical. Elles ne sont pas affichées à nouveau dans ce portail.",
+    "success": "Merci, votre questionnaire a bien été transmis.",
+    "empty": "Aucun questionnaire n'est disponible.",
+    "fill": "Remplir",
+    "submit": "Envoyer",
+    "submitting": "Envoi en cours…",
+    "back": "Retour à la liste",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "request": {
+    "title": "Demander une consultation",
+    "intro": "Demandez une consultation spontanée ou une visite de pré-reprise sans passer par votre employeur.",
+    "noReason": "Aucun motif n'est demandé ici : vous le donnerez au médecin lors de la consultation.",
+    "success": "Votre demande est enregistrée. Le SEPP vous proposera un rendez-vous.",
+    "noEmployer": "Aucun employeur n'est encore connu de votre espace : contactez le SEPP pour faire votre demande.",
+    "type": "Type de demande",
+    "submit": "Envoyer la demande",
+    "submitting": "Envoi en cours…"
+  },
+  "documents": {
+    "title": "Mes documents",
+    "intro": "Documents mis à votre disposition par le SEPP.",
+    "empty": "Aucun document n'est disponible.",
+    "caption": "Liste de vos documents",
+    "name": "Document",
+    "date": "Date",
+    "language": "Langue",
+    "actions": "Actions",
+    "download": "Télécharger",
+    "categories": {
+      "evaluation-sante": "Formulaire d'évaluation de santé",
+      "autre": "Autre document"
+    },
+    "notYetTitle": "Carnet de vaccination et copie du dossier",
+    "notYet": "Le carnet de vaccination et la demande de copie de votre dossier de santé ne sont pas encore disponibles dans ce portail : adressez votre demande au médecin du travail."
   }
 }

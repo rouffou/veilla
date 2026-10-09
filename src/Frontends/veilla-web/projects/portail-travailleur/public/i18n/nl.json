@@ -6,15 +6,125 @@
     "dashboard": "Startpagina",
     "appointments": "Mijn afspraken",
     "questionnaires": "Gezondheidsvragenlijsten",
-    "documents": "Mijn documenten"
+    "documents": "Mijn documenten",
+    "request": "Een raadpleging aanvragen"
+  },
+  "ui": {
+    "loading": "Bezig met laden…",
+    "retry": "Opnieuw proberen"
+  },
+  "errors": {
+    "indisponible": "Deze dienst is tijdelijk niet beschikbaar. Probeer het over enkele ogenblikken opnieuw.",
+    "interdit": "U hebt geen toegang tot deze gegevens.",
+    "introuvable": "Het gevraagde element werd niet gevonden.",
+    "invalide": "De aanvraag kon niet worden aanvaard. Controleer de ingevoerde gegevens.",
+    "reseau": "Geen verbinding met de server. Controleer uw internetverbinding.",
+    "inattendue": "Er is een onverwachte fout opgetreden. Probeer het later opnieuw.",
+    "annulationTardive": "Minder dan 24 uur voor de afspraak kunt u niet meer online annuleren: neem contact op met de EDPB.",
+    "creneauIndisponible": "Dit tijdslot is niet meer beschikbaar. Kies een ander tijdslot.",
+    "aucuneObligation": "Voor dit type afspraak moet er bij deze werkgever geen onderzoek worden gepland.",
+    "perimetre": "Uw account is niet gekoppeld aan een persoon of aan een betrokken werkgever: neem contact op met de EDPB."
+  },
+  "form": {
+    "summary": "Het formulier bevat fouten:",
+    "choose": "— Kiezen —"
+  },
+  "actes": {
+    "EVALUATION_PREALABLE": "Voorafgaande gezondheidsbeoordeling",
+    "EVALUATION_PERIODIQUE": "Periodieke gezondheidsbeoordeling",
+    "ACTES_MEDICAUX_SUPPLEMENTAIRES": "Bijkomende medische handelingen",
+    "EXAMEN_REPRISE": "Onderzoek bij werkhervatting",
+    "VISITE_PRE_REPRISE": "Bezoek voorafgaand aan de werkhervatting",
+    "CONSULTATION_SPONTANEE": "Spontane raadpleging",
+    "PROTECTION_MATERNITE": "Moederschapsbescherming",
+    "SURVEILLANCE_PROLONGEE": "Voortgezet gezondheidstoezicht",
+    "ESTIMATION_POTENTIEL_TRAVAIL": "Inschatting van het arbeidspotentieel",
+    "EVALUATION_REINTEGRATION": "Re-integratiebeoordeling",
+    "AUTRE_LEGISLATION": "Andere wetgeving"
   },
   "dashboard": {
     "title": "Mijn ruimte",
-    "intro": "Hier vindt u uw afspraken, vragenlijsten en documenten zodra de dienst gekoppeld is.",
-    "appointments": "Volgende afspraken",
+    "intro": "Hier vindt u uw afspraken, vragenlijsten en documenten.",
+    "appointments": "Komende afspraken",
     "questionnaires": "In te vullen vragenlijsten",
     "documents": "Recente documenten",
-    "consultation": "Een consult aanvragen",
-    "consultationText": "Spontane raadpleging of bezoek voorafgaand aan de werkhervatting, zonder tussenkomst van uw werkgever."
+    "consultation": "Een raadpleging aanvragen",
+    "consultationText": "Spontane raadpleging of bezoek voorafgaand aan de werkhervatting, zonder via uw werkgever te gaan.",
+    "unavailable": "Tijdelijk niet beschikbaar.",
+    "noAppointments": "Geen komende afspraken.",
+    "noDocuments": "Geen documenten beschikbaar.",
+    "questionnairesCount": "{{ n }} vragenlijst(en) beschikbaar."
+  },
+  "appointments": {
+    "title": "Mijn afspraken",
+    "intro": "Bekijk uw afspraken, annuleer ze of reserveer een open tijdslot.",
+    "mine": "Mijn afspraken",
+    "empty": "U hebt geen afspraken.",
+    "caption": "Lijst van uw afspraken",
+    "date": "Datum en uur",
+    "type": "Type afspraak",
+    "status": "Status",
+    "actions": "Acties",
+    "statuses": {
+      "Planifie": "Gepland",
+      "Arrive": "Aangekomen",
+      "EnSalle": "In de kamer",
+      "Termine": "Afgelopen",
+      "Absent": "Afwezig",
+      "Annule": "Geannuleerd",
+      "Inconnu": "Andere status"
+    },
+    "cancel": "Annuleren",
+    "cancelled": "Uw afspraak is geannuleerd.",
+    "booked": "Uw afspraak is gereserveerd.",
+    "moveHint": "Om ze te verplaatsen, reserveert u hieronder een ander tijdslot.",
+    "bookTitle": "Een tijdslot reserveren",
+    "noEmployer": "Om te reserveren opent u de link in uw oproeping of neemt u contact op met de EDPB: er is nog geen werkgever gekend in uw ruimte.",
+    "employer": "Werkgever",
+    "employerN": "Werkgever {{ n }}",
+    "search": "Tijdsloten zoeken",
+    "noSlots": "Geen open tijdslot in de komende 60 dagen.",
+    "slots": "Open tijdsloten",
+    "book": "Reserveren"
+  },
+  "questionnaires": {
+    "title": "Gezondheidsvragenlijsten",
+    "intro": "Vul vooraf de gezondheidsvragenlijst in die voor uw onderzoek gevraagd wordt.",
+    "writeOnly": "Uw antwoorden worden aan de medische dienst bezorgd. Ze worden in dit portaal niet opnieuw getoond.",
+    "success": "Bedankt, uw vragenlijst is verstuurd.",
+    "empty": "Er is geen vragenlijst beschikbaar.",
+    "fill": "Invullen",
+    "submit": "Versturen",
+    "submitting": "Bezig met versturen…",
+    "back": "Terug naar de lijst",
+    "yes": "Ja",
+    "no": "Nee"
+  },
+  "request": {
+    "title": "Een raadpleging aanvragen",
+    "intro": "Vraag een spontane raadpleging of een bezoek voorafgaand aan de werkhervatting aan, zonder via uw werkgever te gaan.",
+    "noReason": "Hier wordt geen reden gevraagd: u geeft die aan de arts tijdens de raadpleging.",
+    "success": "Uw aanvraag is geregistreerd. De EDPB stelt u een afspraak voor.",
+    "noEmployer": "Er is nog geen werkgever gekend in uw ruimte: neem contact op met de EDPB om uw aanvraag in te dienen.",
+    "type": "Type aanvraag",
+    "submit": "De aanvraag versturen",
+    "submitting": "Bezig met versturen…"
+  },
+  "documents": {
+    "title": "Mijn documenten",
+    "intro": "Documenten die de EDPB voor u ter beschikking stelt.",
+    "empty": "Er is geen document beschikbaar.",
+    "caption": "Lijst van uw documenten",
+    "name": "Document",
+    "date": "Datum",
+    "language": "Taal",
+    "actions": "Acties",
+    "download": "Downloaden",
+    "categories": {
+      "evaluation-sante": "Formulier voor de gezondheidsbeoordeling",
+      "autre": "Ander document"
+    },
+    "notYetTitle": "Vaccinatieboekje en kopie van het dossier",
+    "notYet": "Het vaccinatieboekje en de aanvraag van een kopie van uw gezondheidsdossier zijn nog niet beschikbaar in dit portaal: richt uw aanvraag tot de arbeidsarts."
   }
 }

@@ -6,15 +6,125 @@
     "dashboard": "Home",
     "appointments": "My appointments",
     "questionnaires": "Health questionnaires",
-    "documents": "My documents"
+    "documents": "My documents",
+    "request": "Request a consultation"
+  },
+  "ui": {
+    "loading": "Loading…",
+    "retry": "Try again"
+  },
+  "errors": {
+    "indisponible": "This service is temporarily unavailable. Please try again in a few moments.",
+    "interdit": "You do not have access to this information.",
+    "introuvable": "The requested item was not found.",
+    "invalide": "The request could not be accepted. Check the information entered.",
+    "reseau": "Cannot connect to the server. Check your Internet connection.",
+    "inattendue": "An unexpected error occurred. Please try again later.",
+    "annulationTardive": "Less than 24 hours before the appointment, online cancellation is no longer possible: contact the service.",
+    "creneauIndisponible": "This slot is no longer available. Choose another one.",
+    "aucuneObligation": "No examination needs to be scheduled for this type of appointment with this employer.",
+    "perimetre": "Your account is not linked to a person or to a relevant employer: contact the service."
+  },
+  "form": {
+    "summary": "The form contains errors:",
+    "choose": "— Choose —"
+  },
+  "actes": {
+    "EVALUATION_PREALABLE": "Pre-employment health assessment",
+    "EVALUATION_PERIODIQUE": "Periodic health assessment",
+    "ACTES_MEDICAUX_SUPPLEMENTAIRES": "Additional medical procedures",
+    "EXAMEN_REPRISE": "Return-to-work examination",
+    "VISITE_PRE_REPRISE": "Pre-return-to-work visit",
+    "CONSULTATION_SPONTANEE": "Spontaneous consultation",
+    "PROTECTION_MATERNITE": "Maternity protection",
+    "SURVEILLANCE_PROLONGEE": "Extended health surveillance",
+    "ESTIMATION_POTENTIEL_TRAVAIL": "Work potential assessment",
+    "EVALUATION_REINTEGRATION": "Reintegration assessment",
+    "AUTRE_LEGISLATION": "Other legislation"
   },
   "dashboard": {
     "title": "My space",
-    "intro": "Your appointments, questionnaires and documents will appear here once the service is connected.",
+    "intro": "Find your appointments, questionnaires and documents here.",
     "appointments": "Upcoming appointments",
     "questionnaires": "Questionnaires to complete",
     "documents": "Recent documents",
     "consultation": "Request a consultation",
-    "consultationText": "Spontaneous consultation or pre-return-to-work visit, without going through your employer."
+    "consultationText": "Spontaneous consultation or pre-return-to-work visit, without going through your employer.",
+    "unavailable": "Temporarily unavailable.",
+    "noAppointments": "No upcoming appointments.",
+    "noDocuments": "No documents available.",
+    "questionnairesCount": "{{ n }} questionnaire(s) available."
+  },
+  "appointments": {
+    "title": "My appointments",
+    "intro": "View your appointments, cancel them or book an open slot.",
+    "mine": "My appointments",
+    "empty": "You have no appointments.",
+    "caption": "List of your appointments",
+    "date": "Date and time",
+    "type": "Appointment type",
+    "status": "Status",
+    "actions": "Actions",
+    "statuses": {
+      "Planifie": "Scheduled",
+      "Arrive": "Arrived",
+      "EnSalle": "In the room",
+      "Termine": "Completed",
+      "Absent": "Absent",
+      "Annule": "Cancelled",
+      "Inconnu": "Other status"
+    },
+    "cancel": "Cancel",
+    "cancelled": "Your appointment is cancelled.",
+    "booked": "Your appointment is booked.",
+    "moveHint": "To move it, book another slot below.",
+    "bookTitle": "Book a slot",
+    "noEmployer": "To book, open the link in your invitation or contact the service: no employer is known in your space yet.",
+    "employer": "Employer",
+    "employerN": "Employer {{ n }}",
+    "search": "Search for slots",
+    "noSlots": "No open slot in the next 60 days.",
+    "slots": "Open slots",
+    "book": "Book"
+  },
+  "questionnaires": {
+    "title": "Health questionnaires",
+    "intro": "Fill in the health questionnaire requested before your examination in advance.",
+    "writeOnly": "Your answers are sent to the medical service. They are not displayed again in this portal.",
+    "success": "Thank you, your questionnaire has been sent.",
+    "empty": "No questionnaire is available.",
+    "fill": "Fill in",
+    "submit": "Send",
+    "submitting": "Sending…",
+    "back": "Back to the list",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "request": {
+    "title": "Request a consultation",
+    "intro": "Request a spontaneous consultation or a pre-return-to-work visit without going through your employer.",
+    "noReason": "No reason is requested here: you will give it to the doctor during the consultation.",
+    "success": "Your request is recorded. The service will offer you an appointment.",
+    "noEmployer": "No employer is known in your space yet: contact the service to make your request.",
+    "type": "Type of request",
+    "submit": "Send the request",
+    "submitting": "Sending…"
+  },
+  "documents": {
+    "title": "My documents",
+    "intro": "Documents made available to you by the service.",
+    "empty": "No document is available.",
+    "caption": "List of your documents",
+    "name": "Document",
+    "date": "Date",
+    "language": "Language",
+    "actions": "Actions",
+    "download": "Download",
+    "categories": {
+      "evaluation-sante": "Health assessment form",
+      "autre": "Other document"
+    },
+    "notYetTitle": "Vaccination record and copy of the file",
+    "notYet": "The vaccination record and the request for a copy of your health file are not yet available in this portal: send your request to the occupational physician."
   }
 }
