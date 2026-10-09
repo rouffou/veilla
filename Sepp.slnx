@@ -165,6 +165,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Sepp.BuildingBlocks.Tests/Sepp.BuildingBlocks.Tests.csproj" />
     <Project Path="tests/Sepp.Contracts.Tests/Sepp.Contracts.Tests.csproj" />
+    <Project Path="tests/Sepp.Sagas.Tests/Sepp.Sagas.Tests.csproj" />
     <Project Path="tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj" />
   </Folder>
 </Solution>

@@ -50,7 +50,7 @@ Consommés : `obligations.obligation-creee`, `obligations.obligation-echue`, `ob
 
 - Employeur (rôles `employeur`, `sipp`) : affiliés du claim multivalué `affilie_id`.
 - Travailleur (rôle `travailleur`) : claim `personne_id` = identifiant de la personne dans le service Personnes. **À confirmer avec
-  l'analyse du fournisseur d'identité** : ce claim n'est pas encore émis par le realm local ; sans lui, un travailleur ne peut rien réserver.
+  l'analyse du fournisseur d'identité** : le realm local l'émet pour l'utilisateur `travailleur` (mapper `personne_id`) ; sans lui, un travailleur ne peut rien réserver.
 
 ## Lacunes et hypothèses
 

@@ -27,5 +27,5 @@ Envoi des messages aux affiliés, travailleurs et dirigeants, journal et preuves
 - Personnes : identifiant eBox Citoyen du travailleur, existence d'un compte portail (le portail est supposé actif), consentement SMS.
 - Affiliés : adresse de correspondance et canal préféré de l'affilié (on utilise l'adresse de la première unité d'établissement et la personne de contact) ; l'identifiant eBox Entreprise est déduit du numéro BCE.
 - Fournisseur d'identité : membres des rôles CPMT dirigeant et CPAP dirigeant ; en attendant, la liste est configurée (`Communications:Annuaire:Dirigeants:<zone>`).
-- Realm Keycloak : client `veilla-communications` (rôle `communications`) à créer pour l'annuaire réel.
+- Realm Keycloak : le client `veilla-communications` (rôle `communications`) existe dans le realm local (`deploy/local/keycloak`, secret de développement repris dans `compose.yaml`) ; en production, secret dans Key Vault.
 - Portails : la consultation du message par lien (`/messages/{id}`) est à réaliser côté portails ; une API de boîte de réception des externes (périmètre `personne_id`, `affilie_id`) reste à ajouter.
