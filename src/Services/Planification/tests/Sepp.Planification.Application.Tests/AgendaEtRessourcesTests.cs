@@ -12,7 +12,7 @@ namespace Sepp.Planification.Application.Tests;
 /// <summary>PLA-01, PLA-02, PLA-03 : ressources, lieux, modèles d'agenda, durées standard, congés RH.</summary>
 public class AgendaEtRessourcesTests
 {
-    private static NouvellePlage Plage(string jour = "lundi", string debut = "09:00", string fin = "11:00", string type = "visite-periodique", int? duree = 30,
+    private static NouvellePlage Plage(string jour = "lundi", string debut = "09:00", string fin = "11:00", string type = "evaluation-periodique", int? duree = 30,
         bool urgence = false, bool enLigne = true) => new(jour, debut, fin, type, duree, urgence, enLigne, null);
 
     private static CreerModeleAgendaHandler Modeles(Harness h, ICurrentUser user) => new(h.Store, h.Store, h.Store, h.Store, h.Store, user);
@@ -52,8 +52,8 @@ public class AgendaEtRessourcesTests
     public async Task La_duree_d_une_plage_vient_de_la_duree_standard_du_cpmt_puis_de_la_duree_globale()
     {
         var h = new Harness();
-        h.Store.Durees.Add(DureeStandard.Creer("VISITE_PERIODIQUE", null, 30));
-        h.Store.Durees.Add(DureeStandard.Creer("VISITE_PERIODIQUE", h.Conseiller.Id, 20));
+        h.Store.Durees.Add(DureeStandard.Creer("EVALUATION_PERIODIQUE", null, 30));
+        h.Store.Durees.Add(DureeStandard.Creer("EVALUATION_PERIODIQUE", h.Conseiller.Id, 20));
         var handler = Modeles(h, Harness.Planificateur);
 
         var id = (await handler.HandleAsync(Modele(h, new DateOnly(2027, 1, 1), null, Plage(duree: null)), CancellationToken.None)).Value;
@@ -96,9 +96,9 @@ public class AgendaEtRessourcesTests
         (await Modeles(h, autre).HandleAsync(Modele(h, new DateOnly(2027, 9, 1)), CancellationToken.None)).Error!.Code.ShouldBe("modele-agenda.ressource-d-autrui");
 
         var durees = new DefinirDureeStandardHandler(h.Store, h.Store, h.Store, moi);
-        (await durees.HandleAsync(new DefinirDureeStandard("visite-periodique", 25, h.Conseiller.Id), CancellationToken.None)).IsSuccess.ShouldBeTrue();
-        (await durees.HandleAsync(new DefinirDureeStandard("visite-periodique", 25, null), CancellationToken.None)).Error!.Code.ShouldBe("duree-standard.globale");
-        (await new DefinirDureeStandardHandler(h.Store, h.Store, h.Store, autre).HandleAsync(new DefinirDureeStandard("visite-periodique", 25, h.Conseiller.Id), CancellationToken.None))
+        (await durees.HandleAsync(new DefinirDureeStandard("evaluation-periodique", 25, h.Conseiller.Id), CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await durees.HandleAsync(new DefinirDureeStandard("evaluation-periodique", 25, null), CancellationToken.None)).Error!.Code.ShouldBe("duree-standard.globale");
+        (await new DefinirDureeStandardHandler(h.Store, h.Store, h.Store, autre).HandleAsync(new DefinirDureeStandard("evaluation-periodique", 25, h.Conseiller.Id), CancellationToken.None))
             .Error!.Kind.ShouldBe(ErrorKind.Forbidden);
     }
 
@@ -108,12 +108,12 @@ public class AgendaEtRessourcesTests
         var h = new Harness();
         var durees = new DefinirDureeStandardHandler(h.Store, h.Store, h.Store, Harness.Planificateur);
 
-        var premiere = await durees.HandleAsync(new DefinirDureeStandard("visite-periodique", 30, null), CancellationToken.None);
-        var seconde = await durees.HandleAsync(new DefinirDureeStandard("VISITE_PERIODIQUE", 40, null), CancellationToken.None);
+        var premiere = await durees.HandleAsync(new DefinirDureeStandard("evaluation-periodique", 30, null), CancellationToken.None);
+        var seconde = await durees.HandleAsync(new DefinirDureeStandard("EVALUATION_PERIODIQUE", 40, null), CancellationToken.None);
 
         seconde.Value.ShouldBe(premiere.Value);
         h.Store.Durees.ShouldHaveSingleItem().DureeMinutes.ShouldBe(40);
-        (await durees.HandleAsync(new DefinirDureeStandard("VISITE_PERIODIQUE", 2, null), CancellationToken.None)).Error!.Kind.ShouldBe(ErrorKind.Validation);
+        (await durees.HandleAsync(new DefinirDureeStandard("EVALUATION_PERIODIQUE", 2, null), CancellationToken.None)).Error!.Kind.ShouldBe(ErrorKind.Validation);
     }
 
     private static async Task<Guid> ModeleEnPlace(Harness h)

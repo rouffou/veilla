@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,10 +21,14 @@ using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.Communications.Adapters.Annuaire;
 using Sepp.Communications.Adapters.Envois;
 using Sepp.Communications.Adapters.Persistence;
+using Sepp.Communications.Application;
+using Sepp.Communications.Application.Expedition;
 using Sepp.Communications.Domain.Messages;
 using Sepp.Contracts;
 using Sepp.Contracts.Audit;
+using Sepp.Contracts.Communications;
 using Sepp.Contracts.Documents;
+using Sepp.Contracts.Examens;
 using Sepp.Contracts.Planification;
 
 using Shouldly;
@@ -314,6 +319,94 @@ public sealed class CommunicationsApiTests : IAsyncLifetime
         var message = (await Messages($"destinataireId={Personne}")).GetProperty("messages")[0];
         message.GetProperty("statut").GetString().ShouldBe("EnEchec");
         message.GetProperty("derniereErreur").GetString()!.ShouldStartWith("smtp-indisponible");
+    }
+
+    // ---- Saga de reprise (ARC-33) : message-envoye / message-abandonne par l'outbox ----------------------------------------
+
+    private async Task<List<OutboxMessage>> Outbox(string eventType)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CommunicationsDbContext>();
+        return await db.OutboxMessages.AsNoTracking().Where(o => o.EventType == eventType).ToListAsync(_ct);
+    }
+
+    [Fact]
+    public async Task Un_envoi_reussi_ecrit_la_preuve_et_l_evenement_message_envoye_dans_l_outbox()
+    {
+        Demarrer();
+        var convocation = Guid.CreateVersion7();
+        var debut = new DateTimeOffset(2026, 10, 12, 7, 30, 0, TimeSpan.Zero);
+        await Dispatcher(new ConvocationEmise(convocation, Guid.CreateVersion7(), Personne, Guid.CreateVersion7(), Guid.CreateVersion7(),
+            TypesExamen.ExamenReprise, debut, "Email", false, "Convocation", null));
+
+        await Expedier();
+
+        var message = (await Messages($"destinataireId={Personne}")).GetProperty("messages")[0];
+        message.GetProperty("statut").GetString().ShouldBe("Envoye");
+        var lignes = await Outbox("communications.message-envoye.v1");
+        var evenement = JsonSerializer.Deserialize<MessageEnvoye>(lignes.ShouldHaveSingleItem().Payload, EventSerialization.Options)!;
+        evenement.MessageId.ShouldBe(message.GetProperty("id").GetGuid());
+        evenement.ReferenceOrigineId.ShouldBe(convocation);
+        evenement.TypeMessage.ShouldBe("ConvocationRendezVous");
+        (await Outbox("communications.message-abandonne.v1")).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Une_erreur_definitive_ecrit_message_abandonne_et_pas_message_envoye()
+    {
+        Demarrer();
+        _factory.Services.GetRequiredService<BoiteEnvoiSimulee>().ProgrammerEchec(Canal.Email, "adresse-email-invalide", definitif: true);
+        var convocation = Guid.CreateVersion7();
+        await Dispatcher(new ConvocationEmise(convocation, Guid.CreateVersion7(), Personne, Guid.CreateVersion7(), Guid.CreateVersion7(),
+            TypesExamen.ExamenReprise, DateTimeOffset.UtcNow.AddDays(5), "Email", false, "Convocation", null));
+
+        await Expedier();
+        await Expedier();
+
+        var evenement = JsonSerializer.Deserialize<MessageAbandonne>(
+            (await Outbox("communications.message-abandonne.v1")).ShouldHaveSingleItem().Payload, EventSerialization.Options)!;
+        evenement.ReferenceOrigineId.ShouldBe(convocation);
+        evenement.CodeErreur.ShouldBe("adresse-email-invalide");
+        (await Outbox("communications.message-envoye.v1")).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Une_validation_en_conflit_n_ecrit_ni_preuve_ni_evenement_car_l_outbox_partage_la_transaction()
+    {
+        Demarrer();
+        await Dispatcher(new ConvocationEmise(Guid.CreateVersion7(), Guid.CreateVersion7(), Personne, Guid.CreateVersion7(), Guid.CreateVersion7(),
+            TypesExamen.ExamenReprise, DateTimeOffset.UtcNow.AddDays(5), "Email", false, "Convocation", null));
+
+        // Le canal « piège » modifie le message dans une autre transaction pendant l'envoi : la validation échoue (verrou optimiste).
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CommunicationsDbContext>();
+            var expediteur = new ExpediteurMessages(scope.ServiceProvider.GetRequiredService<IMessageRepository>(),
+                scope.ServiceProvider.GetRequiredService<IAnnuaireDestinataires>(), [new CanalPiege(_factory.Services)], db, db, TimeProvider.System);
+
+            await Should.ThrowAsync<DbUpdateConcurrencyException>(() => expediteur.ExpedierEchusAsync(_ct));
+        }
+
+        (await Outbox("communications.message-envoye.v1")).ShouldBeEmpty();
+        await using var verification = _factory.Services.CreateAsyncScope();
+        var contexte = verification.ServiceProvider.GetRequiredService<CommunicationsDbContext>();
+        var message = await contexte.Messages.AsNoTracking().SingleAsync(m => m.DestinataireId == Personne, _ct);
+        message.Statut.ShouldNotBe(StatutMessage.Envoye);
+        message.Preuves.ShouldBeEmpty();
+    }
+
+    /// <summary>Canal qui réussit l'envoi mais fait avancer la version du message dans une autre transaction.</summary>
+    private sealed class CanalPiege(IServiceProvider services) : ICanalEnvoi
+    {
+        public Canal Canal => Canal.Email;
+
+        public async Task<ResultatEnvoi> EnvoyerAsync(Envoi envoi, CancellationToken cancellationToken)
+        {
+            await using var autre = services.CreateAsyncScope();
+            var autreDb = autre.ServiceProvider.GetRequiredService<CommunicationsDbContext>();
+            await autreDb.Database.ExecuteSqlAsync($"UPDATE message SET version = version + 1 WHERE id = {envoi.MessageId}", cancellationToken);
+            return new ResultatEnvoi("accuse-depot-smtp", "250 OK", DateTimeOffset.UtcNow);
+        }
     }
 
     /// <summary>Authentification de test : les rôles sont passés dans un en-tête.</summary>

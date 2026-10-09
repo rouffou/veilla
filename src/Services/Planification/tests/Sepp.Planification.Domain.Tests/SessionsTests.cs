@@ -114,15 +114,15 @@ public class SessionsTests
     {
         var conseiller = Guid.CreateVersion7();
 
-        Should.Throw<DomainException>(() => Session.Creer(Fabrique.Lieu, Fabrique.Affilie, Fabrique.Lundi, conseiller, Guid.CreateVersion7(), null, 10, "VISITE_PERIODIQUE", new TimeOnly(8, 0), 30));
-        Should.Throw<DomainException>(() => Session.Creer(Fabrique.Lieu, Fabrique.Affilie, Fabrique.Lundi, conseiller, null, null, 0, "VISITE_PERIODIQUE", new TimeOnly(8, 0), 30));
-        Should.Throw<DomainException>(() => Session.Creer(Fabrique.Lieu, Fabrique.Affilie, Fabrique.Lundi, conseiller, null, null, 40, "VISITE_PERIODIQUE", new TimeOnly(8, 0), 30));
+        Should.Throw<DomainException>(() => Session.Creer(Fabrique.Lieu, Fabrique.Affilie, Fabrique.Lundi, conseiller, Guid.CreateVersion7(), null, 10, "EVALUATION_PERIODIQUE", new TimeOnly(8, 0), 30));
+        Should.Throw<DomainException>(() => Session.Creer(Fabrique.Lieu, Fabrique.Affilie, Fabrique.Lundi, conseiller, null, null, 0, "EVALUATION_PERIODIQUE", new TimeOnly(8, 0), 30));
+        Should.Throw<DomainException>(() => Session.Creer(Fabrique.Lieu, Fabrique.Affilie, Fabrique.Lundi, conseiller, null, null, 40, "EVALUATION_PERIODIQUE", new TimeOnly(8, 0), 30));
     }
 
     [Fact]
     public void Les_creneaux_d_une_session_se_suivent_en_heure_belge()
     {
-        var session = Session.Creer(Fabrique.Lieu, Fabrique.Affilie, Fabrique.Lundi, Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), 3, "visite-periodique",
+        var session = Session.Creer(Fabrique.Lieu, Fabrique.Affilie, Fabrique.Lundi, Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), 3, "evaluation-periodique",
             new TimeOnly(8, 0), 30);
         session.DefinirItineraire([("Parking visiteurs, rue de l'Usine 1", new TimeOnly(7, 30), true, false, true)]);
 
@@ -138,19 +138,19 @@ public class SessionsTests
     [Fact]
     public void La_projection_d_obligation_ignore_un_evenement_plus_ancien()
     {
-        var obligation = new ObligationAPlanifier(Guid.CreateVersion7(), Fabrique.Personne, Fabrique.Affilie, "VISITE_PERIODIQUE", Fabrique.Lundi, null,
+        var obligation = new ObligationAPlanifier(Guid.CreateVersion7(), Fabrique.Personne, Fabrique.Affilie, "EVALUATION_PERIODIQUE", Fabrique.Lundi, null,
             Fabrique.Maintenant);
 
-        obligation.Appliquer(Fabrique.Personne, Fabrique.Affilie, "VISITE_PERIODIQUE", Fabrique.Lundi.AddDays(10), null, Fabrique.Maintenant.AddMinutes(-1)).ShouldBeFalse();
+        obligation.Appliquer(Fabrique.Personne, Fabrique.Affilie, "EVALUATION_PERIODIQUE", Fabrique.Lundi.AddDays(10), null, Fabrique.Maintenant.AddMinutes(-1)).ShouldBeFalse();
         obligation.DateDue.ShouldBe(Fabrique.Lundi);
-        obligation.Appliquer(Fabrique.Personne, Fabrique.Affilie, "VISITE_PERIODIQUE", Fabrique.Lundi.AddDays(10), null, Fabrique.Maintenant.AddMinutes(1)).ShouldBeTrue();
+        obligation.Appliquer(Fabrique.Personne, Fabrique.Affilie, "EVALUATION_PERIODIQUE", Fabrique.Lundi.AddDays(10), null, Fabrique.Maintenant.AddMinutes(1)).ShouldBeTrue();
         obligation.DateDue.ShouldBe(Fabrique.Lundi.AddDays(10));
     }
 
     [Fact]
     public void Une_obligation_redevient_a_planifier_quand_son_rendez_vous_tombe()
     {
-        var obligation = new ObligationAPlanifier(Guid.CreateVersion7(), Fabrique.Personne, Fabrique.Affilie, "VISITE_PERIODIQUE", Fabrique.Lundi, null,
+        var obligation = new ObligationAPlanifier(Guid.CreateVersion7(), Fabrique.Personne, Fabrique.Affilie, "EVALUATION_PERIODIQUE", Fabrique.Lundi, null,
             Fabrique.Maintenant);
         var rdv = Guid.CreateVersion7();
 

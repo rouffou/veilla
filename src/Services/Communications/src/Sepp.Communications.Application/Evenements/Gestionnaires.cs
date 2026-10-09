@@ -34,28 +34,19 @@ public sealed class DocumentPublieHandler(CreateurMessages createur, IUnitOfWork
     }
 }
 
-/// <summary>Clés d'idempotence des messages de rendez-vous : une convocation ne part qu'une fois, quel que soit l'événement qui l'annonce.</summary>
+/// <summary>Clés d'idempotence des messages de rendez-vous : une convocation ne part qu'une fois, même si l'événement est rejoué.</summary>
 internal static class ClesRendezVous
 {
     public static string Convocation(Guid rendezVousId, DateTimeOffset debut, string type) =>
         $"rdv:{rendezVousId:D}:{debut.UtcDateTime.ToString("yyyyMMddTHHmm", CultureInfo.InvariantCulture)}:{type.Trim().ToLowerInvariant()}";
 }
 
-/// <summary>SAN-10 : un rendez-vous est planifié ; le travailleur reçoit sa convocation (dédupliquée avec <see cref="ConvocationEmise"/>).</summary>
-public sealed class RendezVousPlanifieHandler(CreateurMessages createur, IUnitOfWork unitOfWork) : IIntegrationEventHandler<RendezVousPlanifie>
-{
-    public async Task HandleAsync(RendezVousPlanifie integrationEvent, CancellationToken cancellationToken)
-    {
-        await createur.CreerAsync(new DemandeMessage(TypeMessage.ConvocationRendezVous, TypeDestinataire.Personne, integrationEvent.PersonneId,
-            "rendez-vous", integrationEvent.RendezVousId, ClesRendezVous.Convocation(integrationEvent.RendezVousId, integrationEvent.Debut, "convocation"),
-            Debut: integrationEvent.Debut), cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-    }
-}
-
 /// <summary>
 /// SAN-10, SAN-11 : convocation émise par la Planification, par le canal qu'elle indique si le travailleur est joignable
 /// par ce canal ; <c>Recommande</c> ajoute un envoi recommandé (recommandé électronique, à défaut courrier recommandé).
+/// Seul événement qui crée une convocation : <c>planification.rendez-vous-planifie</c> n'en crée plus, car c'est la
+/// Planification qui décide qui est convoqué (une réservation peut ne pas convoquer). L'identifiant de la convocation est
+/// repris comme référence d'origine du message, pour que <c>message-envoye</c> et <c>message-abandonne</c> la rapprochent.
 /// </summary>
 public sealed class ConvocationEmiseHandler(CreateurMessages createur, IUnitOfWork unitOfWork) : IIntegrationEventHandler<ConvocationEmise>
 {
@@ -64,7 +55,8 @@ public sealed class ConvocationEmiseHandler(CreateurMessages createur, IUnitOfWo
         await createur.CreerAsync(new DemandeMessage(TypeMessage.ConvocationRendezVous, TypeDestinataire.Personne, integrationEvent.PersonneId,
             "rendez-vous", integrationEvent.RendezVousId,
             ClesRendezVous.Convocation(integrationEvent.RendezVousId, integrationEvent.Debut, integrationEvent.TypeConvocation),
-            Canaux.Depuis(integrationEvent.Canal), integrationEvent.Recommande, integrationEvent.Debut), cancellationToken);
+            Canaux.Depuis(integrationEvent.Canal), integrationEvent.Recommande, integrationEvent.Debut,
+            ReferenceOrigineId: integrationEvent.ConvocationId), cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

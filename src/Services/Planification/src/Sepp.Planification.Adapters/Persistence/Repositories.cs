@@ -172,8 +172,22 @@ internal sealed class RendezVousRepository(PlanificationDbContext db) : IRendezV
     public void Add(RendezVous rendezVous) => db.RendezVous.Add(rendezVous);
 }
 
+internal sealed class CalendrierLocalRepository(PlanificationDbContext db) : ICalendrierLocalRepository
+{
+    public async Task<CalendrierLocal?> GetAsync(int annee, CancellationToken cancellationToken) =>
+        await db.Calendriers.FindAsync([annee], cancellationToken);
+
+    public async Task<IReadOnlyList<CalendrierLocal>> ListAsync(int anneeDebut, int anneeFin, CancellationToken cancellationToken) =>
+        await db.Calendriers.Where(c => c.Annee >= anneeDebut && c.Annee <= anneeFin).ToListAsync(cancellationToken);
+
+    public void Add(CalendrierLocal calendrier) => db.Calendriers.Add(calendrier);
+}
+
 internal sealed class ConvocationRepository(PlanificationDbContext db) : IConvocationRepository
 {
+    public async Task<Convocation?> GetAsync(Guid convocationId, CancellationToken cancellationToken) =>
+        await db.Convocations.FindAsync([convocationId], cancellationToken);
+
     public async Task<IReadOnlyList<Convocation>> ListAsync(Guid rendezVousId, CancellationToken cancellationToken) =>
         db.Convocations.Local.Where(c => c.RendezVousId == rendezVousId)
             .Union(await db.Convocations.Where(c => c.RendezVousId == rendezVousId).ToListAsync(cancellationToken))
@@ -217,7 +231,7 @@ internal sealed class ObligationRepository(PlanificationDbContext db) : IObligat
     {
         var affilies = affilieIds?.ToArray();
         return await db.Obligations
-            .Where(o => o.RendezVousId == null && o.DateDue <= horizon && (affilies == null || affilies.Contains(o.AffilieId)))
+            .Where(o => o.RendezVousId == null && !o.Cloturee && o.DateDue <= horizon && (affilies == null || affilies.Contains(o.AffilieId)))
             .OrderBy(o => o.DateDue).ThenBy(o => o.ObligationId)
             .ToListAsync(cancellationToken);
     }

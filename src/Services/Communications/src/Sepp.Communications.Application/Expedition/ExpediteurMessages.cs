@@ -14,6 +14,7 @@ public sealed class ExpediteurMessages(
     IAnnuaireDestinataires annuaire,
     IEnumerable<ICanalEnvoi> canaux,
     IUnitOfWork unitOfWork,
+    IIntegrationEventOutbox outbox,
     TimeProvider horloge)
 {
     /// <summary>Durée pendant laquelle un message en cours d'envoi est réservé ; au-delà, un crash est présumé et il repart.</summary>
@@ -58,6 +59,8 @@ public sealed class ExpediteurMessages(
             message.EnregistrerEchec(horloge.GetUtcNow(), $"erreur-technique:{ex.GetType().Name}", definitif: false, politique);
         }
 
+        // DOC-05, ARC-32 : message-envoye ou message-abandonne rejoint l'outbox dans la transaction de la preuve d'envoi.
+        PublicationEvenementsMessage.Publier(message, outbox);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 

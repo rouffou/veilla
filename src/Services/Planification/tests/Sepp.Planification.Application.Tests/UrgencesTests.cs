@@ -56,9 +56,9 @@ public class UrgencesTests
     public async Task Un_creneau_reserve_aux_urgences_convient_si_la_ressource_a_la_competence()
     {
         var h = new Harness(Depart);
-        var incompetent = h.AjouterRessource(TypeRessource.Conseiller, "Dr B.", "kc-b", "VISITE_PERIODIQUE");
-        h.AjouterCreneau(new DateOnly(2026, 12, 21), 9, typeActe: "VISITE_PERIODIQUE", urgence: true, ressource: incompetent);
-        var competent = h.AjouterCreneau(new DateOnly(2026, 12, 22), 9, typeActe: "VISITE_PERIODIQUE", urgence: true);
+        var incompetent = h.AjouterRessource(TypeRessource.Conseiller, "Dr B.", "kc-b", "EVALUATION_PERIODIQUE");
+        h.AjouterCreneau(new DateOnly(2026, 12, 21), 9, typeActe: "EVALUATION_PERIODIQUE", urgence: true, ressource: incompetent);
+        var competent = h.AjouterCreneau(new DateOnly(2026, 12, 22), 9, typeActe: "EVALUATION_PERIODIQUE", urgence: true);
 
         await h.ObligationCreee("EXAMEN_REPRISE", Depart);
 
@@ -113,7 +113,7 @@ public class UrgencesTests
         var h = new Harness(Depart);
         h.AjouterCreneau(Echeance, 9);
 
-        await h.ObligationCreee("VISITE_PERIODIQUE", Depart.AddMonths(2));
+        await h.ObligationCreee("EVALUATION_PERIODIQUE", Depart.AddMonths(2));
 
         h.Store.Obligations.ShouldHaveSingleItem().EstAPlanifier.ShouldBeTrue();
         h.Store.RendezVous.ShouldBeEmpty();
@@ -142,8 +142,8 @@ public class UrgencesTests
         var obligationId = Guid.CreateVersion7();
         var echue = new ObligationEchueHandler(h.Store, h.Store);
 
-        await echue.HandleAsync(new ObligationEchue(obligationId, h.Personne, h.Affilie, "VISITE_PERIODIQUE", Depart), CancellationToken.None);
-        await h.ObligationCreee("VISITE_PERIODIQUE", Depart.AddDays(-30), null, obligationId);
+        await echue.HandleAsync(new ObligationEchue(obligationId, h.Personne, h.Affilie, "EVALUATION_PERIODIQUE", Depart), CancellationToken.None);
+        await h.ObligationCreee("EVALUATION_PERIODIQUE", Depart.AddDays(-30), null, obligationId);
 
         var obligation = h.Store.Obligations.ShouldHaveSingleItem();
         obligation.Echue.ShouldBeTrue();
@@ -178,7 +178,7 @@ public class UrgencesTests
         var h = new Harness(Depart);
         var handler = new ReserverUrgenceHandler(h.Urgence, h.Store, h.Store, Harness.Planificateur);
 
-        var resultat = await handler.HandleAsync(new ReserverUrgence(h.Personne, h.Affilie, "VISITE_PERIODIQUE", null, Depart, null), CancellationToken.None);
+        var resultat = await handler.HandleAsync(new ReserverUrgence(h.Personne, h.Affilie, "EVALUATION_PERIODIQUE", null, Depart, null), CancellationToken.None);
 
         resultat.Error!.Code.ShouldBe("urgence.type-non-urgent");
     }

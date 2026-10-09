@@ -115,6 +115,8 @@ public interface IRendezVousRepository
 
 public interface IConvocationRepository
 {
+    Task<Convocation?> GetAsync(Guid convocationId, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Convocation>> ListAsync(Guid rendezVousId, CancellationToken cancellationToken);
 
     void Add(Convocation convocation);
@@ -148,6 +150,16 @@ public interface IObligationRepository
     Task<IReadOnlyList<ObligationAPlanifier>> ListerParPersonneAsync(Guid personneId, CancellationToken cancellationToken);
 
     void Add(ObligationAPlanifier obligation);
+}
+
+/// <summary>Calendrier local des jours fériés supplémentaires, alimenté par <c>referentiels.jours-feries-modifies</c> (DAT-08).</summary>
+public interface ICalendrierLocalRepository
+{
+    Task<CalendrierLocal?> GetAsync(int annee, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<CalendrierLocal>> ListAsync(int anneeDebut, int anneeFin, CancellationToken cancellationToken);
+
+    void Add(CalendrierLocal calendrier);
 }
 
 public interface IParametreLocalRepository

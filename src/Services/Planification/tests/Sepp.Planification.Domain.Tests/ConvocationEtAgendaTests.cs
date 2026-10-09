@@ -46,6 +46,54 @@ public class ConvocationEtAgendaTests
         Should.Throw<DomainException>(() => convocation.EnregistrerEnvoi(" ", Fabrique.Maintenant));
     }
 
+    [Fact]
+    public void L_enregistrement_de_l_envoi_est_idempotent_et_garde_le_premier_message()
+    {
+        var convocation = Convocation.Emettre(Fabrique.RendezVous(), CanalConvocation.Email, true, TypeConvocation.Convocation, null, Fabrique.Maintenant);
+
+        convocation.EnregistrerEnvoi("msg-1", Fabrique.Maintenant).ShouldBeTrue();
+        convocation.EnregistrerEnvoi("msg-1", Fabrique.Maintenant.AddMinutes(5)).ShouldBeFalse();
+        convocation.EnregistrerEnvoi("msg-2-recommande", Fabrique.Maintenant.AddMinutes(9)).ShouldBeFalse();
+
+        convocation.MessageId.ShouldBe("msg-1");
+        convocation.DateEnvoi.ShouldBe(Fabrique.Maintenant);
+    }
+
+    [Fact]
+    public void Une_convocation_non_remise_est_marquee_une_seule_fois()
+    {
+        var convocation = Convocation.Emettre(Fabrique.RendezVous(), CanalConvocation.Email, false, TypeConvocation.Convocation, null, Fabrique.Maintenant);
+
+        convocation.MarquerNonRemise(Fabrique.Maintenant).ShouldBeTrue();
+        convocation.MarquerNonRemise(Fabrique.Maintenant.AddHours(1)).ShouldBeFalse();
+
+        convocation.DateNonRemise.ShouldBe(Fabrique.Maintenant);
+        convocation.DateEnvoi.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Une_convocation_deja_partie_n_est_pas_marquee_non_remise()
+    {
+        var convocation = Convocation.Emettre(Fabrique.RendezVous(), CanalConvocation.Email, false, TypeConvocation.Convocation, null, Fabrique.Maintenant);
+        convocation.EnregistrerEnvoi("msg-1", Fabrique.Maintenant);
+
+        convocation.MarquerNonRemise(Fabrique.Maintenant.AddHours(1)).ShouldBeFalse();
+
+        convocation.DateNonRemise.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Un_envoi_apres_un_abandon_leve_la_marque_non_remise()
+    {
+        var convocation = Convocation.Emettre(Fabrique.RendezVous(), CanalConvocation.Email, false, TypeConvocation.Convocation, null, Fabrique.Maintenant);
+        convocation.MarquerNonRemise(Fabrique.Maintenant);
+
+        convocation.EnregistrerEnvoi("msg-relance", Fabrique.Maintenant.AddHours(2)).ShouldBeTrue();
+
+        convocation.DateNonRemise.ShouldBeNull();
+        convocation.DateEnvoi.ShouldBe(Fabrique.Maintenant.AddHours(2));
+    }
+
     [Theory]
     [InlineData(null, null, CanalConvocation.Courrier, false, CanalConvocation.Courrier)]
     [InlineData(null, CanalConvocation.Email, CanalConvocation.Courrier, false, CanalConvocation.Email)]
@@ -82,7 +130,7 @@ public class ConvocationEtAgendaTests
     [Fact]
     public void Seule_une_ressource_humaine_rattache_un_agenda_externe()
     {
-        var conseiller = Ressource.Creer(TypeRessource.Conseiller, "Dr A.", "kc-user-1", ["visite-periodique", "EXAMEN_REPRISE"], null);
+        var conseiller = Ressource.Creer(TypeRessource.Conseiller, "Dr A.", "kc-user-1", ["evaluation-periodique", "EXAMEN_REPRISE"], null);
         var salle = Ressource.Creer(TypeRessource.Salle, "Salle 2", null, [], null);
 
         conseiller.RattacherAgendaExterne(FournisseurAgenda.Microsoft365, "a@sepp.test");
@@ -97,7 +145,7 @@ public class ConvocationEtAgendaTests
 
         ressource.Competences.ShouldBe(["AUDIOMETRIE", "SPIROMETRIE"]);
         ressource.PossedeCompetence("AUDIOMETRIE").ShouldBeTrue();
-        ressource.PossedeCompetence("VISITE_PERIODIQUE").ShouldBeFalse();
+        ressource.PossedeCompetence("EVALUATION_PERIODIQUE").ShouldBeFalse();
     }
 
     [Fact]

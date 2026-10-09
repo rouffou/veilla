@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using Sepp.BuildingBlocks.Infrastructure;
+using Sepp.Contracts.Communications;
 using Sepp.Contracts.Obligations;
 using Sepp.Contracts.Referentiels;
 using Sepp.Planification.Adapters.External;
@@ -12,6 +13,7 @@ using Sepp.Planification.Adapters.Persistence;
 using Sepp.Planification.Adapters.Securite;
 using Sepp.Planification.Adapters.Taches;
 using Sepp.Planification.Application;
+using Sepp.Planification.Application.Convocations;
 using Sepp.Planification.Application.Projections;
 
 namespace Sepp.Planification.Adapters;
@@ -43,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<IObligationRepository, ObligationRepository>();
         services.AddScoped<IParametreLocalRepository, ParametreLocalRepository>();
+        services.AddScoped<ICalendrierLocalRepository, CalendrierLocalRepository>();
 
         services.AddSingleton(configuration.GetSection("Planification:Parametres").Get<OptionsPlanification>() ?? new OptionsPlanification());
         services.AddScoped<IPerimetreUtilisateur, PerimetreHttp>();
@@ -56,6 +59,13 @@ public static class DependencyInjection
         services.AddIntegrationEventHandler<ObligationCreee, ObligationCreeeHandler>();
         services.AddIntegrationEventHandler<ObligationEchue, ObligationEchueHandler>();
         services.AddIntegrationEventHandler<ParametreLegalModifie, ParametreLegalModifieHandler>();
+        services.AddIntegrationEventHandler<JoursFeriesModifies, JoursFeriesModifiesHandler>();
+
+        // Saga de reprise (ARC-33) : compensation, replanification urgente et retour de l'envoi effectif des convocations.
+        services.AddIntegrationEventHandler<ObligationCloturee, ObligationClotureeHandler>();
+        services.AddIntegrationEventHandler<PlanificationUrgenteDemandee, PlanificationUrgenteDemandeeHandler>();
+        services.AddIntegrationEventHandler<MessageEnvoye, MessageEnvoyeHandler>();
+        services.AddIntegrationEventHandler<MessageAbandonne, MessageAbandonneHandler>();
         services.AddSeppConsumer<PlanificationDbContext>(configuration);
 
         services.AddExceptionHandler<Api.ChevauchementExceptionHandler>();

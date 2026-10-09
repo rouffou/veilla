@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sepp.Planification.Adapters.Persistence;
@@ -12,9 +13,11 @@ using Sepp.Planification.Adapters.Persistence;
 namespace Sepp.Planification.Adapters.Persistence.Migrations
 {
     [DbContext(typeof(PlanificationDbContext))]
-    partial class PlanificationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009050625_SagaRepriseClotureEtCalendrier")]
+    partial class SagaRepriseClotureEtCalendrier
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

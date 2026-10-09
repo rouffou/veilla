@@ -21,7 +21,7 @@ public class ReplanificationTests
     public async Task Les_rendez_vous_sont_deplaces_chez_un_collegue_et_les_personnes_notifiees()
     {
         var h = new Harness();
-        var collegue = h.AjouterRessource(TypeRessource.Conseiller, "Dr B.", "kc-b", "VISITE_PERIODIQUE");
+        var collegue = h.AjouterRessource(TypeRessource.Conseiller, "Dr B.", "kc-b", "EVALUATION_PERIODIQUE");
         var obligation = h.AjouterObligation();
         var ancien = h.AjouterCreneau(Harness.Lundi, 9);
         var remplacement = h.AjouterCreneau(Harness.Lundi.AddDays(1), 10, ressource: collegue);

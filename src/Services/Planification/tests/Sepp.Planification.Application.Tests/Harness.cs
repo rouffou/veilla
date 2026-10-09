@@ -24,12 +24,12 @@ internal sealed class Harness
     public Harness(DateOnly? aujourdhui = null)
     {
         Horloge = new FakeClock(HeureBelge.VersUtc(aujourdhui ?? Aujourdhui, new TimeOnly(8, 0)));
-        Parametres = new ParametresPlanification(Store, Options);
+        Parametres = new ParametresPlanification(Store, Store, Options);
         Annulation = new Annulation(Store, Store, Store, Horloge);
         Prise = new PriseDeRendezVous(Store, Store, Store, Store, Store, Store, Store, Parametres, Horloge);
         Urgence = new ReservationUrgence(Prise, Parametres, Store, Store, Horloge);
         Indisponibilites = new Indisponibilites(Store);
-        Conseiller = AjouterRessource(TypeRessource.Conseiller, "Dr A.", "kc-a", "VISITE_PERIODIQUE", "EXAMEN_REPRISE");
+        Conseiller = AjouterRessource(TypeRessource.Conseiller, "Dr A.", "kc-a", "EVALUATION_PERIODIQUE", "EXAMEN_REPRISE");
         Lieu = AjouterLieu("Centre de Namur");
     }
 
@@ -85,7 +85,7 @@ internal sealed class Harness
         return lieu;
     }
 
-    public Creneau AjouterCreneau(DateOnly jour, int heure, int minute = 0, string typeActe = "VISITE_PERIODIQUE", bool urgence = false, bool enLigne = false,
+    public Creneau AjouterCreneau(DateOnly jour, int heure, int minute = 0, string typeActe = "EVALUATION_PERIODIQUE", bool urgence = false, bool enLigne = false,
         Ressource? ressource = null, Lieu? lieu = null, int duree = 30, IEnumerable<Guid>? associees = null)
     {
         var debut = Instant(jour, heure, minute);
@@ -94,7 +94,7 @@ internal sealed class Harness
         return creneau;
     }
 
-    public ObligationAPlanifier AjouterObligation(string typeExamen = "VISITE_PERIODIQUE", Guid? personne = null, Guid? affilie = null, DateOnly? dateDue = null,
+    public ObligationAPlanifier AjouterObligation(string typeExamen = "EVALUATION_PERIODIQUE", Guid? personne = null, Guid? affilie = null, DateOnly? dateDue = null,
         DateOnly? dateLimite = null)
     {
         var obligation = new ObligationAPlanifier(Guid.CreateVersion7(), personne ?? Personne, affilie ?? Affilie, typeExamen, dateDue ?? Lundi, dateLimite,

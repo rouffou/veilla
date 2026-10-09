@@ -4,6 +4,7 @@ using Sepp.Contracts.Planification;
 using Sepp.Planification.Application.PriseRendezVous;
 using Sepp.Planification.Domain;
 using Sepp.Planification.Domain.Agenda;
+using Sepp.Planification.Domain.Convocations;
 
 namespace Sepp.Planification.Application.Urgences;
 
@@ -23,8 +24,16 @@ public sealed class ReservationUrgence(
     IIntegrationEventOutbox outbox,
     TimeProvider horloge)
 {
+    public Task<Result<(RendezVous? RendezVous, DateOnly Echeance)>> ReserverAsync(Guid personneId, Guid affilieId, string typeActe,
+        IReadOnlyList<Guid> obligationIds, DateOnly depart, DateOnly? dateLimite, CancellationToken cancellationToken) =>
+        ReserverAsync(personneId, affilieId, typeActe, obligationIds, depart, dateLimite, null, cancellationToken);
+
+    /// <summary>
+    /// Comme <c>ReserverAsync</c> ; avec <paramref name="reconvocationDeId"/>, le rendez-vous remplace un rendez-vous manqué
+    /// (SAN-13) : origine « reconvocation » et convocation de type <c>Reconvocation</c>.
+    /// </summary>
     public async Task<Result<(RendezVous? RendezVous, DateOnly Echeance)>> ReserverAsync(Guid personneId, Guid affilieId, string typeActe,
-        IReadOnlyList<Guid> obligationIds, DateOnly depart, DateOnly? dateLimite, CancellationToken cancellationToken)
+        IReadOnlyList<Guid> obligationIds, DateOnly depart, DateOnly? dateLimite, Guid? reconvocationDeId, CancellationToken cancellationToken)
     {
         var delai = await parametres.DelaiUrgenceAsync(typeActe, depart, cancellationToken);
         if (dateLimite is null && delai is null)
@@ -33,7 +42,7 @@ public sealed class ReservationUrgence(
                 $"{typeActe} n'est pas une urgence légale ({string.Join(", ", parametres.Options.TypesUrgence.Keys)}) : précisez la date limite.");
         }
 
-        var echeance = dateLimite ?? DelaiLegal.Echeance(depart, delai!.Value, parametres.Calendrier(depart, depart.AddYears(1)));
+        var echeance = dateLimite ?? DelaiLegal.Echeance(depart, delai!.Value, await parametres.CalendrierAsync(depart, depart.AddYears(1), cancellationToken));
         var maintenant = horloge.GetUtcNow();
         var finFenetre = HeureBelge.VersUtc(echeance.AddDays(1), TimeOnly.MinValue);
         var creneau = finFenetre > maintenant
@@ -55,7 +64,14 @@ public sealed class ReservationUrgence(
             return Result<(RendezVous? RendezVous, DateOnly Echeance)>.Success((null, echeance));
         }
 
-        var rdv = await prise.PlanifierAsync(creneau, new DemandeRendezVous(personneId, affilieId, obligationIds, OrigineRendezVous.Urgence, true), cancellationToken);
+        var demande = reconvocationDeId is { } manque
+            ? new DemandeRendezVous(personneId, affilieId, obligationIds, OrigineRendezVous.Reconvocation, true)
+            {
+                TypeConvocation = TypeConvocation.Reconvocation,
+                ReconvocationDeId = manque,
+            }
+            : new DemandeRendezVous(personneId, affilieId, obligationIds, OrigineRendezVous.Urgence, true);
+        var rdv = await prise.PlanifierAsync(creneau, demande, cancellationToken);
         return rdv.IsSuccess
             ? Result<(RendezVous? RendezVous, DateOnly Echeance)>.Success((rdv.Value, echeance))
             : rdv.Error!;

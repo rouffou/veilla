@@ -41,7 +41,6 @@ public static class DependencyInjection
 
         // DOC-03 à DOC-05, SAN-10, SAN-11, SAN-13 : messages déclenchés par les événements des autres services (ARC-31).
         services.AddIntegrationEventHandler<DocumentPublie, DocumentPublieHandler>();
-        services.AddIntegrationEventHandler<RendezVousPlanifie, RendezVousPlanifieHandler>();
         services.AddIntegrationEventHandler<RendezVousAnnule, RendezVousAnnuleHandler>();
         services.AddIntegrationEventHandler<ConvocationEmise, ConvocationEmiseHandler>();
         services.AddIntegrationEventHandler<RappelRendezVousDu, RappelRendezVousDuHandler>();

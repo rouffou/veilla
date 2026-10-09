@@ -38,7 +38,7 @@ Règles :
 | planification | `planification.convocation-non-remise.v1` | ConvocationNonRemise | ConvocationId, RendezVousId, PersonneId, AffilieId, ObligationIds, Canal, Recommande, Date | Obligations (alerte ou replanification) |
 | planification | `planification.rappel-rendez-vous-du.v1` | RappelRendezVousDu | RendezVousId, PersonneId, AffilieId, LieuId, Debut, Canal, NumeroRappel | Communications (rappels J-7 / J-1, SAN-13) |
 | planification | `planification.rendez-vous-annule.v1` | RendezVousAnnule | RendezVousId, PersonneId, Motif | Communications, Obligations |
-| planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Communications, Obligations, Surveillance médicale (ouverture d'examen) |
+| planification | `planification.rendez-vous-planifie.v1` | RendezVousPlanifie | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Obligations, Surveillance médicale (ouverture d'examen) |
 | planification | `planification.rendez-vous-replanifie.v1` | RendezVousReplanifie | RendezVousId, PersonneId, AffilieId, AncienDebut, NouveauDebut, Motif | Communications, Reporting (PLA-07) |
 | planification | `planification.urgence-non-couverte.v1` | UrgenceNonCouverte | ObligationId, PersonneId, AffilieId, TypeExamen, DateLimite | Communications (alerte au planificateur, PLA-06) |
 | postes-risques | `postes-risques.liste-nominative-generee.v1` | ListeNominativeGeneree | ListeNominativeId, AffilieId, TypeListe, Version, DateReference, DateGeneration | Obligations (alerte de revue des listes, AFF-32) |
@@ -48,7 +48,7 @@ Règles :
 | prestations | `prestations.prestation-enregistree.v1` | PrestationEnregistree | PrestationId, AffilieId, Discipline, TypePrestation, Unites, Date | Reporting, Intégrations |
 | prevention | `prevention.mesurage-enregistre.v1` | MesurageEnregistre | MesurageId, GroupeExpositionId, AffilieId, Agent, Niveau, Date | Surveillance médicale, Reporting |
 | prevention | `prevention.mesure-prevention-creee.v1` | MesurePreventionCreee | MesureId, AffilieId, SourceType, Echeance | Reporting, BFF employeur |
-| referentiels | `referentiels.jours-feries-modifies.v1` | JoursFeriesModifies | Annee, JoursSupplementaires | Obligations (délais en jours ouvrables, DAT-08), services calculant des délais légaux |
+| referentiels | `referentiels.jours-feries-modifies.v1` | JoursFeriesModifies | Annee, JoursSupplementaires | Obligations (délais en jours ouvrables, DAT-08), Planification (calendrier local), services calculant des délais légaux |
 | referentiels | `referentiels.nomenclature-modifiee.v1` | NomenclatureModifiee | NomenclatureId, Code, Version | Services utilisant la nomenclature |
 | referentiels | `referentiels.parametre-legal-modifie.v1` | ParametreLegalModifie | Code, Valeur, Unite, ValideDu, ValideJusquAu | Tous les services (politiques légales, ARC-21) |
 | reintegration | `reintegration.trajet-demarre.v1` | TrajetDemarre | TrajetId, PersonneId, AffilieId, Initiateur, DateDemande | Intégrations, Prestations |

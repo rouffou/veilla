@@ -91,10 +91,10 @@ public class SessionsEtSalleAttenteTests
     {
         var h = new Harness();
         var (unite, chauffeur, lieu) = Tournee(h);
-        h.Store.Durees.Add(DureeStandard.Creer("VISITE_PERIODIQUE", null, 30));
+        h.Store.Durees.Add(DureeStandard.Creer("EVALUATION_PERIODIQUE", null, 30));
 
         var resultat = await Createur(h).HandleAsync(
-            new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, unite.Id, chauffeur.Id, 4, "visite-periodique", "08:00", null,
+            new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, unite.Id, chauffeur.Id, 4, "evaluation-periodique", "08:00", null,
                 [new NouvelleEtape("Parking visiteurs", "07:30", true, false, true)]),
             CancellationToken.None);
 
@@ -116,7 +116,7 @@ public class SessionsEtSalleAttenteTests
         h.AjouterCreneau(Harness.Lundi, 9, ressource: h.AjouterRessource(TypeRessource.Conseiller, "Dr B."), associees: [unite.Id]);
 
         var resultat = await Createur(h).HandleAsync(
-            new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, unite.Id, chauffeur.Id, 4, "VISITE_PERIODIQUE", "08:00", 30, null), CancellationToken.None);
+            new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, unite.Id, chauffeur.Id, 4, "EVALUATION_PERIODIQUE", "08:00", 30, null), CancellationToken.None);
 
         resultat.Error!.Code.ShouldBe("session.conflit-ressources");
         h.Store.Sessions.ShouldBeEmpty();
@@ -128,15 +128,15 @@ public class SessionsEtSalleAttenteTests
         var h = new Harness();
         var (unite, chauffeur, lieu) = Tournee(h);
 
-        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, null, null, 4, "VISITE_PERIODIQUE", "08:00", 30, null), CancellationToken.None))
+        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, null, null, 4, "EVALUATION_PERIODIQUE", "08:00", 30, null), CancellationToken.None))
             .Error!.Code.ShouldBe("session.unite-mobile");
-        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, unite.Id, null, 4, "VISITE_PERIODIQUE", "08:00", 30, null), CancellationToken.None))
+        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, unite.Id, null, 4, "EVALUATION_PERIODIQUE", "08:00", 30, null), CancellationToken.None))
             .Error!.Kind.ShouldBe(ErrorKind.Validation);
-        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, new DateOnly(2027, 3, 14), h.Conseiller.Id, unite.Id, chauffeur.Id, 4, "VISITE_PERIODIQUE", "08:00", 30, null), CancellationToken.None))
+        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, new DateOnly(2027, 3, 14), h.Conseiller.Id, unite.Id, chauffeur.Id, 4, "EVALUATION_PERIODIQUE", "08:00", 30, null), CancellationToken.None))
             .Error!.Code.ShouldBe("session.jour-non-ouvrable");
-        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, unite.Id, chauffeur.Id, 4, "VISITE_PERIODIQUE", "08:00", null, null), CancellationToken.None))
+        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, unite.Id, chauffeur.Id, 4, "EVALUATION_PERIODIQUE", "08:00", null, null), CancellationToken.None))
             .Error!.Code.ShouldBe("session.duree-inconnue");
-        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, unite.Id, unite.Id, chauffeur.Id, 4, "VISITE_PERIODIQUE", "08:00", 30, null), CancellationToken.None))
+        (await Createur(h).HandleAsync(new CreerSession(lieu.Id, h.Affilie, Harness.Lundi, unite.Id, unite.Id, chauffeur.Id, 4, "EVALUATION_PERIODIQUE", "08:00", 30, null), CancellationToken.None))
             .Error!.Code.ShouldBe("session.ressource-invalide");
     }
 
@@ -145,11 +145,11 @@ public class SessionsEtSalleAttenteTests
     {
         var h = new Harness();
         var lieu = h.AjouterLieu("Cabinet X", h.Affilie);
-        var session = Session.Creer(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, null, null, 2, "VISITE_PERIODIQUE", new TimeOnly(9, 0), 30);
+        var session = Session.Creer(lieu.Id, h.Affilie, Harness.Lundi, h.Conseiller.Id, null, null, 2, "EVALUATION_PERIODIQUE", new TimeOnly(9, 0), 30);
         h.Store.Sessions.Add(session);
         foreach (var (debut, fin) in session.Horaires())
         {
-            h.Store.Creneaux.Add(Creneau.Creer(h.Conseiller.Id, lieu.Id, debut, fin, "VISITE_PERIODIQUE", false, false, null, null, session.Id));
+            h.Store.Creneaux.Add(Creneau.Creer(h.Conseiller.Id, lieu.Id, debut, fin, "EVALUATION_PERIODIQUE", false, false, null, null, session.Id));
         }
 
         var p1 = Guid.CreateVersion7();

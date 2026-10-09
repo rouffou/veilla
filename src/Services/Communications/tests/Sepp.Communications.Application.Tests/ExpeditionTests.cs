@@ -119,7 +119,7 @@ public class ExpeditionTests
         _c.Annuaire.Destinataires[(TypeDestinataire.Personne, Personne)] = null;
         _c.Annuaire.Personne(Personne);
         var canal = new CanalQuiPlante();
-        var expediteur = new Expedition.ExpediteurMessages(_c.Store, _c.Annuaire, [canal], _c.Store, _c.Horloge);
+        var expediteur = new Expedition.ExpediteurMessages(_c.Store, _c.Annuaire, [canal], _c.Store, _c.Store, _c.Horloge);
 
         await expediteur.ExpedierEchusAsync(_ct);
 
@@ -144,7 +144,7 @@ public class ExpeditionTests
     public async Task Un_canal_non_configure_abandonne_le_message()
     {
         var message = await Creer();
-        var expediteur = new Expedition.ExpediteurMessages(_c.Store, _c.Annuaire, [], _c.Store, _c.Horloge);
+        var expediteur = new Expedition.ExpediteurMessages(_c.Store, _c.Annuaire, [], _c.Store, _c.Store, _c.Horloge);
 
         await expediteur.ExpedierEchusAsync(_ct);
 

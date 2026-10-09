@@ -27,7 +27,15 @@ Agendas, créneaux, rendez-vous, convocations et tournées (cahier des charges �
 Publiés : `planification.rendez-vous-planifie`, `rendez-vous-annule` (contrats existants) ; `convocation-emise`, `rappel-rendez-vous-du`,
 `rendez-vous-replanifie`, `absence-rendez-vous-constatee`, `urgence-non-couverte` (`src/Contracts/Sepp.Contracts/Planification`,
 catalogue `docs/architecture/evenements.md`). Le service Communications consomme `convocation-emise` et `rappel-rendez-vous-du`.
-Consommés : `obligations.obligation-creee`, `obligations.obligation-echue`, `referentiels.parametre-legal-modifie`.
+Publiés aussi (saga de reprise, ARC-33) : `convocation-envoyee`, `convocation-non-remise` (retour de Communications), `rendez-vous-annule` avec le motif `ObligationLevee` (compensation).
+Consommés : `obligations.obligation-creee`, `obligations.obligation-echue`, `obligations.obligation-cloturee`, `obligations.planification-urgente-demandee`, `referentiels.parametre-legal-modifie`, `referentiels.jours-feries-modifies`, `communications.message-envoye`, `communications.message-abandonne`.
+
+## Saga de reprise (ARC-33)
+
+- **Envoi effectif** : `message-envoye` / `message-abandonne` ne sont traités que pour `TypeMessage = ConvocationRendezVous` et une `ReferenceOrigineId` égale à un `ConvocationId` connu. `Convocation.EnregistrerEnvoi` est idempotent (le premier message retenu ; une convocation recommandée en donne deux) et publie `ConvocationEnvoyee` une seule fois ; `Convocation.MarquerNonRemise` publie `ConvocationNonRemise` une seule fois, sans effet si la convocation est déjà partie. Limite : si seul le recommandé d'une convocation recommandée est abandonné alors que le courriel est parti, aucun `ConvocationNonRemise` n'est publié (le message abandonné reste visible dans le journal de Communications) — à valider.
+- **Compensation** : `ObligationCloturee` clôt la projection `ObligationAPlanifier` (plus à planifier, création plus ancienne ignorée) ; un rendez-vous futur dont toutes les obligations sont closes est annulé avec le motif `ObligationLevee`.
+- **Replanification urgente** : `PlanificationUrgenteDemandee` passe par `ReservationUrgence` (créneau d'urgence avant la date limite, sinon `UrgenceNonCouverte`) ; pour une absence, le nouveau rendez-vous est une reconvocation du rendez-vous manqué ; pour une convocation non remise, le rendez-vous est reconvoqué (type `Reconvocation`) une seule fois, pour éviter une boucle d'échecs.
+- **Jours fériés** : `JoursFeriesModifies` alimente le calendrier local (`calendrier_local`, par année) ; pour une année connue il remplace `Planification:Parametres:JoursFeriesSupplementaires`, qui reste la valeur initiale. Les types d'urgence sont construits à partir de `Sepp.Contracts.Examens.TypesExamen`.
 
 ## Pas de double réservation
 
@@ -46,10 +54,8 @@ Consommés : `obligations.obligation-creee`, `obligations.obligation-echue`, `re
 
 ## Lacunes et hypothèses
 
-- Les codes de type d'examen reçus des obligations servent de types d'acte des créneaux (`EXAMEN_REPRISE`, `CONSULTATION_SPONTANEE`,
-  `VISITE_PRE_REPRISE` pour les urgences) : à aligner avec le service Obligations dès son écriture (`Planification:Parametres:TypesUrgence`).
-- L'envoi effectif des convocations (message, date d'envoi) est connu de Communications : `Convocation.EnregistrerEnvoi` existe dans le
-  domaine mais aucune route ni consommateur ne l'appelle encore.
+- Les codes de type d'examen reçus des obligations servent de types d'acte des créneaux ; ceux des urgences (`EXAMEN_REPRISE`, `CONSULTATION_SPONTANEE`,
+  `VISITE_PRE_REPRISE`) viennent de `Sepp.Contracts.Examens.TypesExamen` (surcharge possible par `Planification:Parametres:TypesUrgence`).
 - L'outil RH et les inscriptions d'application Microsoft Entra / Google ne sont pas identifiés : adaptateurs « Reel » en squelette documenté
   (`Adapters/External/Adaptateurs.cs`) ; `Planification:Adaptateurs:*` vaut `Simulateur` en développement.
 - Tâches planifiées (rappels, synchronisation) : une seule instance du service ; désactivées en développement (`Planification:Taches:Actif`).

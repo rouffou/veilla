@@ -19,7 +19,7 @@ internal static class Fabrique
 
     public static DateTimeOffset Instant(DateOnly jour, int heure, int minute = 0) => HeureBelge.VersUtc(jour, new TimeOnly(heure, minute));
 
-    public static Creneau Creneau(DateOnly? jour = null, int heure = 9, int minutes = 30, string typeActe = "VISITE_PERIODIQUE", bool urgence = false,
+    public static Creneau Creneau(DateOnly? jour = null, int heure = 9, int minutes = 30, string typeActe = "EVALUATION_PERIODIQUE", bool urgence = false,
         bool enLigne = false, IEnumerable<Guid>? associees = null, Guid? ressource = null)
     {
         var debut = Instant(jour ?? Lundi, heure);

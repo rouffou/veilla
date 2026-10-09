@@ -73,6 +73,89 @@ public class MessageTests
         Should.Throw<DomainException>(() => message.EnregistrerEnvoi(Maintenant, "x", "y"));
     }
 
+    private static Message Convocation(Guid convocationId) =>
+        Message.Creer(new NouveauMessage(Message.NouvelIdentifiant(), TypeMessage.ConvocationRendezVous, Canal.Email, false, TypeDestinataire.Personne,
+            Guid.CreateVersion7(), Language.Fr, "rendez-vous", Guid.CreateVersion7(), "rdv-1", Gabarits.Generique(Canal.Email, Language.Fr, "https://exemple.test/m/1"),
+            convocationId), Maintenant);
+
+    [Fact]
+    public void La_creation_et_un_echec_temporaire_ne_levent_aucun_evenement()
+    {
+        var message = Convocation(Guid.CreateVersion7());
+        message.DomainEvents.ShouldBeEmpty();
+
+        message.EnregistrerEchec(Maintenant, "smtp-indisponible", definitif: false, Politique);
+
+        message.Statut.ShouldBe(StatutMessage.EnEchec);
+        message.DomainEvents.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Un_envoi_reussi_leve_un_evenement_avec_la_reference_d_origine()
+    {
+        var convocationId = Guid.CreateVersion7();
+        var message = Convocation(convocationId);
+        message.ReferenceOrigineId.ShouldBe(convocationId);
+
+        message.EnregistrerEnvoi(Maintenant.AddSeconds(2), "accuse-depot-smtp", "250 OK");
+
+        var evenement = message.DomainEvents.ShouldHaveSingleItem().ShouldBeOfType<MessageEnvoyeDomaine>();
+        evenement.MessageId.ShouldBe(message.Id);
+        evenement.ReferenceOrigineId.ShouldBe(convocationId);
+        evenement.Type.ShouldBe(TypeMessage.ConvocationRendezVous);
+        evenement.Canal.ShouldBe(Canal.Email);
+        evenement.OccurredAt.ShouldBe(Maintenant.AddSeconds(2));
+    }
+
+    [Fact]
+    public void L_abandon_definitif_leve_un_evenement_une_seule_fois()
+    {
+        var convocationId = Guid.CreateVersion7();
+        var message = Convocation(convocationId);
+
+        for (var i = 0; i < Politique.TentativesMaximales; i++)
+        {
+            message.EnregistrerEchec(Maintenant, "smtp-indisponible", definitif: false, Politique);
+        }
+
+        var evenement = message.DomainEvents.ShouldHaveSingleItem().ShouldBeOfType<MessageAbandonneDomaine>();
+        evenement.ReferenceOrigineId.ShouldBe(convocationId);
+        evenement.CodeErreur.ShouldBe("smtp-indisponible");
+        Should.Throw<DomainException>(() => message.EnregistrerEchec(Maintenant, "x", definitif: true, Politique));
+        message.DomainEvents.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Une_erreur_definitive_leve_l_evenement_d_abandon_des_la_premiere_tentative()
+    {
+        var message = Convocation(Guid.CreateVersion7());
+
+        message.EnregistrerEchec(Maintenant, "adresse-email-invalide", definitif: true, Politique);
+
+        message.DomainEvents.ShouldHaveSingleItem().ShouldBeOfType<MessageAbandonneDomaine>().CodeErreur.ShouldBe("adresse-email-invalide");
+    }
+
+    [Fact]
+    public void Un_message_sans_reference_d_origine_leve_quand_meme_ses_evenements()
+    {
+        var message = Nouveau();
+
+        message.EnregistrerEnvoi(Maintenant, "t", "r");
+
+        message.ReferenceOrigineId.ShouldBeNull();
+        message.DomainEvents.ShouldHaveSingleItem().ShouldBeOfType<MessageEnvoyeDomaine>().ReferenceOrigineId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void L_annulation_ne_leve_aucun_evenement()
+    {
+        var message = Convocation(Guid.CreateVersion7());
+
+        message.Annuler("rendez-vous-annule");
+
+        message.DomainEvents.ShouldBeEmpty();
+    }
+
     [Fact]
     public void Un_echec_programme_une_reprise_aux_delais_croissants()
     {

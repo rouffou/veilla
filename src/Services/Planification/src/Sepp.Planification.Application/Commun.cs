@@ -2,6 +2,7 @@ using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.BuildingBlocks.Domain.Calendar;
+using Sepp.Contracts.Examens;
 using Sepp.Planification.Domain;
 
 namespace Sepp.Planification.Application;
@@ -24,9 +25,9 @@ public sealed class OptionsPlanification
     /// </summary>
     public Dictionary<string, string> TypesUrgence { get; } = new(StringComparer.Ordinal)
     {
-        ["EXAMEN_REPRISE"] = "SANTE.REPRISE.DELAI",
-        ["CONSULTATION_SPONTANEE"] = "SANTE.CONSULTATION_SPONTANEE.DELAI",
-        ["VISITE_PRE_REPRISE"] = "SANTE.PRE_REPRISE.DELAI",
+        [TypesExamen.ExamenReprise] = "SANTE.REPRISE.DELAI",
+        [TypesExamen.ConsultationSpontanee] = "SANTE.CONSULTATION_SPONTANEE.DELAI",
+        [TypesExamen.VisitePreReprise] = "SANTE.PRE_REPRISE.DELAI",
     };
 
     /// <summary>SAN-11 : types d'acte dont la convocation doit partir en recommandé (par ex. invitations de réintégration).</summary>
@@ -46,7 +47,8 @@ public sealed class OptionsPlanification
 
     /// <summary>
     /// Jours fériés supplémentaires (fêtes des Communautés, jours de remplacement) ajoutés aux dix jours fériés légaux
-    /// belges pour les délais et la génération des créneaux (DAT-08).
+    /// belges pour les délais et la génération des créneaux (DAT-08). Valeur initiale seulement : pour une année dont le
+    /// calendrier a été reçu (<c>referentiels.jours-feries-modifies</c>), le calendrier local remplace cette liste.
     /// </summary>
     public List<DateOnly> JoursFeriesSupplementaires { get; } = [];
 }
@@ -55,7 +57,7 @@ public sealed class OptionsPlanification
 /// Paramètres légaux applicables (ARC-21) : copie locale reçue de Référentiels, sinon valeur de configuration.
 /// Calendrier ouvrable belge (DAT-08) : dix jours fériés légaux et jours supplémentaires configurés.
 /// </summary>
-public sealed class ParametresPlanification(IParametreLocalRepository parametres, OptionsPlanification options)
+public sealed class ParametresPlanification(IParametreLocalRepository parametres, ICalendrierLocalRepository calendriers, OptionsPlanification options)
 {
     public const string Rappel1 = "CONVOCATION.RAPPEL_1";
     public const string Rappel2 = "CONVOCATION.RAPPEL_2";
@@ -76,10 +78,18 @@ public sealed class ParametresPlanification(IParametreLocalRepository parametres
 
     public bool ExigeRecommande(string typeActe) => options.TypesRecommandes.Contains(typeActe, StringComparer.OrdinalIgnoreCase);
 
-    public BusinessCalendar Calendrier(DateOnly du, DateOnly au)
+    /// <summary>
+    /// Calendrier ouvrable belge de la période. Pour chaque année, les jours supplémentaires viennent du calendrier local
+    /// reçu de Référentiels s'il existe, sinon de la configuration (valeur initiale).
+    /// </summary>
+    public async Task<BusinessCalendar> CalendrierAsync(DateOnly du, DateOnly au, CancellationToken cancellationToken)
     {
         var annees = Enumerable.Range(du.Year, Math.Max(1, au.Year - du.Year + 2)).ToArray();
-        return new BusinessCalendar(annees.SelectMany(BelgianPublicHolidays.For).Select(h => h.Date).Concat(options.JoursFeriesSupplementaires));
+        var locaux = (await calendriers.ListAsync(annees[0], annees[^1], cancellationToken)).ToDictionary(c => c.Annee);
+        var supplementaires = annees.SelectMany(a => locaux.TryGetValue(a, out var local)
+            ? local.JoursSupplementaires
+            : options.JoursFeriesSupplementaires.Where(j => j.Year == a));
+        return new BusinessCalendar(annees.SelectMany(BelgianPublicHolidays.For).Select(h => h.Date).Concat(supplementaires));
     }
 
     private async Task<int> JoursAsync(string code, DateOnly date, int defaut, CancellationToken cancellationToken)

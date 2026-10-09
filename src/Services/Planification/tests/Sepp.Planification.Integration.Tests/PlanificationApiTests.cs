@@ -180,8 +180,8 @@ public sealed class PlanificationApiTests : IAsyncLifetime
     public async Task Parcours_du_planificateur_du_modele_d_agenda_au_rendez_vous_convoque()
     {
         var lieu = await NouveauLieu();
-        var conseiller = await NouvelleRessource("Dr Parcours", "kc-parcours", "VISITE_PERIODIQUE");
-        await ModeleEtCreneaux(conseiller, lieu, "monday", "visite-periodique", "2027-01-11", "2027-01-18");
+        var conseiller = await NouvelleRessource("Dr Parcours", "kc-parcours", "EVALUATION_PERIODIQUE");
+        await ModeleEtCreneaux(conseiller, lieu, "monday", "evaluation-periodique", "2027-01-11", "2027-01-18");
 
         var libres = await Creneaux(conseiller, "2027-01-11", "2027-01-19", "Libre");
         libres.GetArrayLength().ShouldBe(4);
@@ -195,7 +195,7 @@ public sealed class PlanificationApiTests : IAsyncLifetime
         second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         var detail = await Planificateur.GetFromJsonAsync<JsonElement>($"/api/v1/rendez-vous/{rdv}", Ct);
         detail.GetProperty("statut").GetString().ShouldBe("Planifie");
-        detail.GetProperty("typeActe").GetString().ShouldBe("VISITE_PERIODIQUE");
+        detail.GetProperty("typeActe").GetString().ShouldBe("EVALUATION_PERIODIQUE");
         var convocations = await Planificateur.GetFromJsonAsync<JsonElement>($"/api/v1/convocations?rendezVousId={rdv}", Ct);
         convocations.GetArrayLength().ShouldBe(1);
         convocations[0].GetProperty("recommande").GetBoolean().ShouldBeTrue();
@@ -215,8 +215,8 @@ public sealed class PlanificationApiTests : IAsyncLifetime
     public async Task Huit_reservations_simultanees_du_meme_creneau_donnent_un_seul_rendez_vous()
     {
         var lieu = await NouveauLieu();
-        var conseiller = await NouvelleRessource("Dr Concurrence", "kc-concurrence", "VISITE_PERIODIQUE");
-        await ModeleEtCreneaux(conseiller, lieu, "tuesday", "VISITE_PERIODIQUE", "2027-01-12", "2027-01-12");
+        var conseiller = await NouvelleRessource("Dr Concurrence", "kc-concurrence", "EVALUATION_PERIODIQUE");
+        await ModeleEtCreneaux(conseiller, lieu, "tuesday", "EVALUATION_PERIODIQUE", "2027-01-12", "2027-01-12");
         var creneau = (await Creneaux(conseiller, "2027-01-12", "2027-01-13"))[0].GetProperty("id").GetGuid();
         var affilie = Guid.CreateVersion7();
         var client = Planificateur;
@@ -235,7 +235,7 @@ public sealed class PlanificationApiTests : IAsyncLifetime
     public async Task Six_tournees_simultanees_du_meme_conseiller_donnent_une_seule_session_et_pas_d_erreur_serveur()
     {
         var lieu = await NouveauLieu("Cabinet X");
-        var conseiller = await NouvelleRessource("Dr Tournée", "kc-tournee", "VISITE_PERIODIQUE");
+        var conseiller = await NouvelleRessource("Dr Tournée", "kc-tournee", "EVALUATION_PERIODIQUE");
         var client = Planificateur;
 
         var reponses = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => client.PostAsJsonAsync("/api/v1/sessions", new
@@ -244,7 +244,7 @@ public sealed class PlanificationApiTests : IAsyncLifetime
             date = "2027-01-13",
             conseillerId = conseiller,
             capaciteJournaliere = 4,
-            typeActe = "VISITE_PERIODIQUE",
+            typeActe = "EVALUATION_PERIODIQUE",
             heureDebut = "08:00",
             dureeMinutes = 30,
         }, Ct)));
@@ -268,22 +268,22 @@ public sealed class PlanificationApiTests : IAsyncLifetime
         var db = scope.ServiceProvider.GetRequiredService<PlanificationDbContext>();
 
         // Créneaux contigus : [9 h, 9 h 30[ et [9 h 30, 10 h[ ne se chevauchent pas.
-        db.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut, debut.AddMinutes(30), "VISITE_PERIODIQUE", false, false, null));
-        db.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut.AddMinutes(30), debut.AddMinutes(60), "VISITE_PERIODIQUE", false, false, null));
+        db.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut, debut.AddMinutes(30), "EVALUATION_PERIODIQUE", false, false, null));
+        db.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut.AddMinutes(30), debut.AddMinutes(60), "EVALUATION_PERIODIQUE", false, false, null));
         await db.SaveChangesAsync(Ct);
 
         // Un autre conseiller dans la même salle au même moment : la salle est déjà occupée.
         var autre = await NouvelleRessource("Dr Exclusion 2", "kc-exclusion-2");
-        db.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut.AddMinutes(60), debut.AddMinutes(90), "VISITE_PERIODIQUE", false, false, [salle]));
+        db.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut.AddMinutes(60), debut.AddMinutes(90), "EVALUATION_PERIODIQUE", false, false, [salle]));
         await db.SaveChangesAsync(Ct);
-        db.Creneaux.Add(Creneau.Creer(autre, lieu, debut.AddMinutes(75), debut.AddMinutes(105), "VISITE_PERIODIQUE", false, false, [salle]));
+        db.Creneaux.Add(Creneau.Creer(autre, lieu, debut.AddMinutes(75), debut.AddMinutes(105), "EVALUATION_PERIODIQUE", false, false, [salle]));
         var salleOccupee = await Should.ThrowAsync<DbUpdateException>(() => db.SaveChangesAsync(Ct));
         ((PostgresException)salleOccupee.InnerException!).SqlState.ShouldBe("23P01");
 
         // Chevauchement du même conseiller.
         await using var scope2 = _factory.Services.CreateAsyncScope();
         var db2 = scope2.ServiceProvider.GetRequiredService<PlanificationDbContext>();
-        db2.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut.AddMinutes(15), debut.AddMinutes(45), "VISITE_PERIODIQUE", false, false, null));
+        db2.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut.AddMinutes(15), debut.AddMinutes(45), "EVALUATION_PERIODIQUE", false, false, null));
         var chevauchement = await Should.ThrowAsync<DbUpdateException>(() => db2.SaveChangesAsync(Ct));
         ((PostgresException)chevauchement.InnerException!).SqlState.ShouldBe("23P01");
     }
@@ -298,7 +298,7 @@ public sealed class PlanificationApiTests : IAsyncLifetime
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PlanificationDbContext>();
-            var nouveau = Creneau.Creer(conseiller, lieu, debut, debut.AddMinutes(30), "VISITE_PERIODIQUE", false, false, null);
+            var nouveau = Creneau.Creer(conseiller, lieu, debut, debut.AddMinutes(30), "EVALUATION_PERIODIQUE", false, false, null);
             db.Creneaux.Add(nouveau);
             await db.SaveChangesAsync(Ct);
             creneau = nouveau.Id;
@@ -308,7 +308,7 @@ public sealed class PlanificationApiTests : IAsyncLifetime
 
         await using var scope2 = _factory.Services.CreateAsyncScope();
         var db2 = scope2.ServiceProvider.GetRequiredService<PlanificationDbContext>();
-        db2.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut, debut.AddMinutes(30), "VISITE_PERIODIQUE", false, false, null));
+        db2.Creneaux.Add(Creneau.Creer(conseiller, lieu, debut, debut.AddMinutes(30), "EVALUATION_PERIODIQUE", false, false, null));
         await db2.SaveChangesAsync(Ct);
     }
 
@@ -347,19 +347,19 @@ public sealed class PlanificationApiTests : IAsyncLifetime
     public async Task Un_employeur_reserve_dans_son_perimetre_et_pas_ailleurs()
     {
         var lieu = await NouveauLieu();
-        var conseiller = await NouvelleRessource("Dr En ligne", "kc-en-ligne", "VISITE_PERIODIQUE");
-        await ModeleEtCreneaux(conseiller, lieu, "wednesday", "VISITE_PERIODIQUE", "2027-01-20", "2027-01-20", enLigne: true);
+        var conseiller = await NouvelleRessource("Dr En ligne", "kc-en-ligne", "EVALUATION_PERIODIQUE");
+        await ModeleEtCreneaux(conseiller, lieu, "wednesday", "EVALUATION_PERIODIQUE", "2027-01-20", "2027-01-20", enLigne: true);
         var affilie = Guid.CreateVersion7();
         var personne = Guid.CreateVersion7();
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
             await scope.ServiceProvider.GetRequiredService<ObligationCreeeHandler>().HandleAsync(
-                new ObligationCreee(Guid.CreateVersion7(), personne, affilie, "VISITE_PERIODIQUE", new DateOnly(2027, 1, 20), null), Ct);
+                new ObligationCreee(Guid.CreateVersion7(), personne, affilie, "EVALUATION_PERIODIQUE", new DateOnly(2027, 1, 20), null), Ct);
         }
 
         var employeur = Client(Roles.Employeur, affilies: [affilie, Guid.CreateVersion7()]);
         var intrus = Client(Roles.Employeur, affilies: [Guid.CreateVersion7()]);
-        var url = $"/api/v1/reservations/creneaux?affilieId={affilie}&typeActe=VISITE_PERIODIQUE&du=2027-01-20T00:00:00Z&au=2027-01-21T00:00:00Z";
+        var url = $"/api/v1/reservations/creneaux?affilieId={affilie}&typeActe=EVALUATION_PERIODIQUE&du=2027-01-20T00:00:00Z&au=2027-01-21T00:00:00Z";
 
         (await intrus.GetAsync(url, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         var ouverts = await employeur.GetFromJsonAsync<JsonElement>(url, Ct);
@@ -384,8 +384,8 @@ public sealed class PlanificationApiTests : IAsyncLifetime
     public async Task Les_rappels_a_sept_jours_sont_publies_une_seule_fois()
     {
         var lieu = await NouveauLieu();
-        var conseiller = await NouvelleRessource("Dr Rappels", "kc-rappels", "VISITE_PERIODIQUE");
-        await ModeleEtCreneaux(conseiller, lieu, "thursday", "VISITE_PERIODIQUE", "2027-01-21", "2027-01-21");
+        var conseiller = await NouvelleRessource("Dr Rappels", "kc-rappels", "EVALUATION_PERIODIQUE");
+        await ModeleEtCreneaux(conseiller, lieu, "thursday", "EVALUATION_PERIODIQUE", "2027-01-21", "2027-01-21");
         var creneau = (await Creneaux(conseiller, "2027-01-21", "2027-01-22"))[0].GetProperty("id").GetGuid();
         var rdv = await Creer(Planificateur, "/api/v1/rendez-vous", new { creneauId = creneau, personneId = Guid.CreateVersion7(), affilieId = Guid.CreateVersion7() });
 
@@ -401,10 +401,10 @@ public sealed class PlanificationApiTests : IAsyncLifetime
     public async Task L_absence_d_un_conseiller_replanifie_ses_rendez_vous_et_notifie_les_personnes()
     {
         var lieu = await NouveauLieu();
-        var absent = await NouvelleRessource("Dr Absent", "kc-absent", "VISITE_PERIODIQUE");
-        var remplacant = await NouvelleRessource("Dr Remplaçant", "kc-remplacant", "VISITE_PERIODIQUE");
-        await ModeleEtCreneaux(absent, lieu, "monday", "VISITE_PERIODIQUE", "2027-01-25", "2027-01-25");
-        await ModeleEtCreneaux(remplacant, lieu, "tuesday", "VISITE_PERIODIQUE", "2027-01-26", "2027-01-26");
+        var absent = await NouvelleRessource("Dr Absent", "kc-absent", "EVALUATION_PERIODIQUE");
+        var remplacant = await NouvelleRessource("Dr Remplaçant", "kc-remplacant", "EVALUATION_PERIODIQUE");
+        await ModeleEtCreneaux(absent, lieu, "monday", "EVALUATION_PERIODIQUE", "2027-01-25", "2027-01-25");
+        await ModeleEtCreneaux(remplacant, lieu, "tuesday", "EVALUATION_PERIODIQUE", "2027-01-26", "2027-01-26");
         var creneau = (await Creneaux(absent, "2027-01-25", "2027-01-26"))[0].GetProperty("id").GetGuid();
         var rdv = await Creer(Planificateur, "/api/v1/rendez-vous", new { creneauId = creneau, personneId = Guid.CreateVersion7(), affilieId = Guid.CreateVersion7() });
 
@@ -423,8 +423,8 @@ public sealed class PlanificationApiTests : IAsyncLifetime
     public async Task L_import_des_conges_de_l_outil_rh_simule_bloque_les_creneaux_et_est_idempotent()
     {
         var lieu = await NouveauLieu();
-        var enConge = await NouvelleRessource("Dr En congé", "kc-en-conge", "VISITE_PERIODIQUE");
-        await ModeleEtCreneaux(enConge, lieu, "tuesday", "VISITE_PERIODIQUE", "2027-02-02", "2027-02-09");
+        var enConge = await NouvelleRessource("Dr En congé", "kc-en-conge", "EVALUATION_PERIODIQUE");
+        await ModeleEtCreneaux(enConge, lieu, "tuesday", "EVALUATION_PERIODIQUE", "2027-02-02", "2027-02-09");
 
         var import = async () => await (await Responsable.PostAsJsonAsync("/api/v1/conges/imports", new { du = "2027-01-25", au = "2027-02-28" }, Ct)).Content.ReadFromJsonAsync<JsonElement>(Ct);
         var premier = await import();
