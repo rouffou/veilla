@@ -13,10 +13,19 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.80"
     }
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.13"
+    }
   }
 
   # Backend distant : aucune valeur en dur, tout est passé par -backend-config.
   backend "azurerm" {}
+}
+
+# Ressources ARM sans équivalent azurerm (règle $Default des subscriptions Service Bus, ADR 0007).
+provider "azapi" {
+  subscription_id = var.subscription_id
 }
 
 provider "azurerm" {

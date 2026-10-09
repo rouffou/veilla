@@ -4,6 +4,7 @@ using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Auditing;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Contracts;
+using Sepp.Contracts.Decisions;
 using Sepp.Contracts.Examens;
 using Sepp.Contracts.Obligations;
 using Sepp.Contracts.Prevention;
@@ -259,7 +260,7 @@ public sealed class DecisionsEtExamensTests
         _monde.Signature.Demandes.Single().EmpreinteFormulaire.Length.ShouldBe(64);
 
         var emise = _monde.Store.Published.OfType<DecisionEmise>().Single();
-        emise.Categorie.ShouldBe("APTE_AVEC_MESURES");
+        emise.Categorie.ShouldBe(CategoriesDecision.ApteAvecMesures);
         emise.CodesMesures.ShouldBe(["PAS_PORT_CHARGES_LOURDES"]);
         emise.ValideJusquAu.ShouldBe(new DateOnly(2027, 3, 1));
         emise.ExamenId.ShouldBe(examenId);
@@ -290,7 +291,7 @@ public sealed class DecisionsEtExamensTests
             .HandleAsync(new SignerDecision(decisionId), _ct);
 
         _monde.Agir("employeur-1", Roles.Employeur, affilie: _affilie);
-        (await lire()).Value.Categorie.ShouldBe("INAPTITUDE_DEFINITIVE");
+        (await lire()).Value.Categorie.ShouldBe(CategoriesDecision.InaptitudeDefinitive);
         var formulaire = (await new ObtenirFormulaireHandler(_monde.AccesDecisions, _monde.Parametres)
             .HandleAsync(new ObtenirFormulaire(decisionId, ExemplaireFormulaire.Employeur), _ct)).Value;
         formulaire.ShouldSatisfyAllConditions(f => f.Justification.ShouldBeNull(), f => f.Recommandations.ShouldBeNull(), f => f.VoiesDeRecours.Count.ShouldBe(2));
@@ -457,6 +458,24 @@ public sealed class PurgeEtProjectionsTests
 
         _monde.Store.Calendriers.Single().JoursSupplementaires.ShouldBe([new DateOnly(2026, 3, 5)]);
         (await _monde.Parametres.PolitiqueRecoursAsync(remise, _ct)).DateLimiteIntroduction(TypeRecours.RecoursMedecinInspecteur, remise).ShouldBe(new DateOnly(2026, 3, 13));
+    }
+
+    /// <summary>
+    /// #293 : toute catégorie émise par le domaine (<c>DecisionEmise.Categorie</c>) est un code partagé de
+    /// <see cref="CategoriesDecision"/>, et tout code partagé est effectivement émis (aucun code mort ni divergent).
+    /// Le domaine ne référence pas Sepp.Contracts (règles d'architecture) : la conformité est vérifiée ici.
+    /// </summary>
+    [Fact]
+    public void Les_categories_de_decision_emises_par_le_domaine_sont_les_codes_partages()
+    {
+        var emis = Enum.GetValues<CategorieDecision>().Select(CodesDecision.Code).ToList();
+
+        foreach (var code in emis)
+        {
+            CategoriesDecision.Connus.ShouldContain(code, $"{code} n'est pas dans Sepp.Contracts.Decisions.CategoriesDecision.");
+        }
+
+        emis.Order(StringComparer.Ordinal).ShouldBe(CategoriesDecision.Connus.Order(StringComparer.Ordinal));
     }
 
     private async Task<IReadOnlyList<ExamenDuDto>> ExamensDusAsync(Guid dossierId) =>
