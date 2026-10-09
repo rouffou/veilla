@@ -68,7 +68,7 @@ public sealed class ObtenirVueConsultationHandler(
                 decision is null ? null : Domain.Decisions.CodesDecision.Code(decision.Categorie), decision?.ValideJusquAu);
         }).ToList();
 
-        var dus = obligations.Where(o => o.SatisfaiteParExamenId is null).OrderBy(o => o.DateDue)
+        var dus = obligations.Where(o => o.SatisfaiteParExamenId is null && !o.EstRetiree).OrderBy(o => o.DateDue)
             .Select(o => new ExamenDuDto(o.ObligationId, o.AffilieId, o.TypeExamen, o.DateDue, o.DateLimite, (o.DateLimite ?? o.DateDue) < date)).ToList();
 
         var resultats = listeExamens.SelectMany(e => e.Resultats).OrderByDescending(r => r.Date).Select(r => r.Dto()).ToList();

@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
@@ -69,6 +71,37 @@ public class EvaluationSanteTests
         publies.Single(p => p.TypeDestinataire == "affilie").Zone.ShouldBe("standard");
         publies.Single(p => p.TypeDestinataire == "personne").Zone.ShouldBe("medicale");
         _ctx.Store.Documents.Single(d => d.Exemplaire == "dossier").Statut.ShouldBe(StatutDocument.Archive);
+    }
+
+    [Fact]
+    public async Task Chaque_publication_porte_la_decision_d_origine_pour_la_saga_de_reprise()
+    {
+        PublierModelesParDefaut();
+        var decision = Decision() with { ExamenId = Guid.CreateVersion7() };
+
+        await Handler().HandleAsync(decision, _ct);
+
+        _ctx.Store.Published.OfType<DocumentPublie>().ShouldAllBe(p => p.ObjetType == "decision" && p.ObjetId == decision.DecisionId);
+    }
+
+    [Fact]
+    public async Task Une_decision_d_un_producteur_v1_sans_examen_reste_traitee()
+    {
+        PublierModelesParDefaut();
+        var decisionId = Guid.CreateVersion7();
+
+        // Charge utile v1 antérieure à l'ajout facultatif de ExamenId (ARC-34) : le champ est absent.
+        var charge = $$"""
+            {"decisionId":"{{decisionId}}","personneId":"{{Personne}}","affilieId":"{{Affilie}}","categorie":"APTE","codesMesures":[],"valideJusquAu":null}
+            """;
+        var ancienne = JsonSerializer.Deserialize<DecisionEmise>(charge, JsonSerializerOptions.Web)!;
+        ancienne.ExamenId.ShouldBeNull();
+
+        await Handler().HandleAsync(ancienne, _ct);
+
+        _ctx.Store.Documents.Count.ShouldBe(3);
+        _ctx.Store.Published.OfType<DocumentPublie>().Count().ShouldBe(2);
+        _ctx.Store.Published.OfType<DocumentPublie>().ShouldAllBe(p => p.ObjetType == "decision" && p.ObjetId == decisionId);
     }
 
     [Fact]

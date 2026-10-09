@@ -56,6 +56,8 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IDos
 
     public List<ParametreLegalLocal> Parametres { get; } = [];
 
+    public List<CalendrierLocal> Calendriers { get; } = [];
+
     public List<IntegrationEvent> Published { get; } = [];
 
     public int Saves { get; private set; }
@@ -220,6 +222,13 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IDos
         Task.FromResult(Parametres.Where(p => p.Code == code && p.EstApplicableAu(date)).MaxBy(p => p.ValideDu));
 
     public void Add(ParametreLegalLocal parametre) => Parametres.Add(parametre);
+
+    public Task<CalendrierLocal?> GetCalendrierAsync(int annee, CancellationToken cancellationToken) => Task.FromResult(Calendriers.SingleOrDefault(c => c.Annee == annee));
+
+    public Task<IReadOnlyList<CalendrierLocal>> ListerCalendriersAsync(int anneeDebut, int anneeFin, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<CalendrierLocal>>([.. Calendriers.Where(c => c.Annee >= anneeDebut && c.Annee <= anneeFin)]);
+
+    public void Add(CalendrierLocal calendrier) => Calendriers.Add(calendrier);
 }
 
 internal sealed record Trace(ActionAudit Action, string ObjetType, Guid ObjetId, string? Motif, bool BrisDeGlace, bool Immediate);

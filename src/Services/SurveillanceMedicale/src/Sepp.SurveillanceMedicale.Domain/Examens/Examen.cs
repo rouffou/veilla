@@ -87,7 +87,10 @@ public sealed class Examen : AggregateRoot
 
     public DateOnly? DateCloture { get; private set; }
 
-    /// <summary>Examen de reprise réalisé hors du délai légal (<see cref="PolitiqueDelaiReprise"/>) ; <c>null</c> si sans objet.</summary>
+    /// <summary>
+    /// Examen de reprise réalisé hors du délai légal (date hors de [date due, date limite] de l'obligation reçue du service
+    /// Obligations) ; <c>null</c> si sans objet ou si la date limite est inconnue.
+    /// </summary>
     public bool? HorsDelaiLegal { get; private set; }
 
     /// <summary>Anamnèse et examen clinique, chiffrés (ARC-45).</summary>

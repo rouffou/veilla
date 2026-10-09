@@ -221,7 +221,7 @@ public sealed class SignerDecisionHandler(
             return Error.Validation("decision.examen-non-cloture", "Clôturez l'examen avant de signer la décision.");
         }
 
-        var formulaire = Formulaires.Construire(decision, ExemplaireFormulaire.Dossier, parametres);
+        var formulaire = Formulaires.Construire(decision, ExemplaireFormulaire.Dossier, parametres.DelaisRecours, await parametres.PolitiqueRecoursAsync(decision.DateExamen, cancellationToken));
         var empreinte = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(formulaire))));
         var signee = await signature.SignerAsync(new DemandeSignature(decision.Id, user.UserId, empreinte), cancellationToken);
 
@@ -336,20 +336,25 @@ public sealed class ObtenirFormulaireHandler(AccesDecisions acces, ParametresMed
         var decision = query.Exemplaire == ExemplaireFormulaire.Employeur
             ? await acces.LireResumeAsync(query.DecisionId, cancellationToken)
             : await acces.LireCompleteAsync(query.DecisionId, cancellationToken);
-        return decision.IsSuccess ? Formulaires.Construire(decision.Value, query.Exemplaire, parametres) : decision.Error!;
+        if (!decision.IsSuccess)
+        {
+            return decision.Error!;
+        }
+
+        var politique = await parametres.PolitiqueRecoursAsync(decision.Value.DateExamen, cancellationToken);
+        return Formulaires.Construire(decision.Value, query.Exemplaire, parametres.DelaisRecours, politique);
     }
 }
 
 internal static class Formulaires
 {
-    public static FormulaireEvaluationSanteDto Construire(Decision d, ExemplaireFormulaire exemplaire, ParametresMedicaux parametres)
+    public static FormulaireEvaluationSanteDto Construire(Decision d, ExemplaireFormulaire exemplaire, DelaisRecours delais, PolitiqueRecours politique)
     {
-        var politique = parametres.PolitiqueRecours(d.DateExamen);
         var options = new[] { TypeRecours.Concertation, TypeRecours.RecoursMedecinInspecteur };
         var voies = options.Select(t =>
         {
             var limite = d.DateRemise is { } remise ? politique.DateLimiteIntroduction(t, remise) : (DateOnly?)null;
-            var delai = t == TypeRecours.Concertation ? parametres.DelaisRecours.IntroductionConcertation : parametres.DelaisRecours.IntroductionRecours;
+            var delai = t == TypeRecours.Concertation ? delais.IntroductionConcertation : delais.IntroductionRecours;
             return new VoieRecoursDto(t, delai, limite);
         }).ToList();
 
@@ -374,8 +379,8 @@ public sealed class IntroduireRecoursHandler(AccesDecisions acces, ParametresMed
             return decision.Error!;
         }
 
-        var resultat = Regles.Appliquer("recours.invalide",
-            () => decision.Value.IntroduireRecours(command.Type, command.DateIntroduction, parametres.PolitiqueRecours(command.DateIntroduction)));
+        var politique = await parametres.PolitiqueRecoursAsync(command.DateIntroduction, cancellationToken);
+        var resultat = Regles.Appliquer("recours.invalide", () => decision.Value.IntroduireRecours(command.Type, command.DateIntroduction, politique));
         if (!resultat.IsSuccess)
         {
             return resultat.Error!;

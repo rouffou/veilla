@@ -151,7 +151,7 @@ public sealed class Decision : AggregateRoot
         ReferenceSignature = Garde.Requis(referenceSignature, "référence de signature", 200);
         SigneeLe = signeeLe;
         Statut = StatutDecision.Emise;
-        Raise(new DecisionTransmise(Id, PersonneId, AffilieId, Categorie, [.. _mesures], ValideJusquAu, signeeLe));
+        Raise(new DecisionTransmise(Id, ExamenId, PersonneId, AffilieId, Categorie, [.. _mesures], ValideJusquAu, signeeLe));
     }
 
     public void AssocierDocument(Guid documentId) => DocumentId = Garde.Identifiant(documentId, "document");
@@ -203,7 +203,7 @@ public sealed class Decision : AggregateRoot
         if (reformation is not null)
         {
             Appliquer(reformation with { Justification = reformation.Justification ?? Justification, Recommandations = reformation.Recommandations ?? Recommandations });
-            Raise(new DecisionTransmise(Id, PersonneId, AffilieId, Categorie, [.. _mesures], ValideJusquAu, DateTimeOffset.UtcNow));
+            Raise(new DecisionTransmise(Id, ExamenId, PersonneId, AffilieId, Categorie, [.. _mesures], ValideJusquAu, DateTimeOffset.UtcNow));
         }
     }
 
@@ -322,7 +322,10 @@ public sealed class PolitiqueRecours(BusinessCalendar calendrier, DelaisRecours 
 
 public sealed record DelaisRecours(int IntroductionConcertation = 5, int IssueConcertation = 14, int IntroductionRecours = 7, int DecisionMedecinInspecteur = 31);
 
-/// <summary>Décision transmise (signée ou réformée) : traduite en <c>DecisionEmise</c> (catégorie, mesures, validité).</summary>
+/// <summary>
+/// Décision transmise (signée ou réformée) : traduite en <c>DecisionEmise</c> (catégorie, mesures, validité, examen
+/// d'origine). Une décision réformée retransmise garde le même <c>DecisionId</c> et le même <c>ExamenId</c>.
+/// </summary>
 public sealed record DecisionTransmise(
-    Guid DecisionId, Guid PersonneId, Guid AffilieId, CategorieDecision Categorie, IReadOnlyList<string> Mesures, DateOnly? ValideJusquAu, DateTimeOffset OccurredAt)
+    Guid DecisionId, Guid ExamenId, Guid PersonneId, Guid AffilieId, CategorieDecision Categorie, IReadOnlyList<string> Mesures, DateOnly? ValideJusquAu, DateTimeOffset OccurredAt)
     : IDomainEvent;

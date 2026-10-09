@@ -104,11 +104,18 @@ public sealed class GenerateurDocuments(
         return new DocumentGenere(document, false);
     }
 
-    /// <summary>Met le document à disposition de son destinataire et publie <see cref="DocumentPublie"/> (transmis à Communications).</summary>
+    /// <summary>
+    /// Met le document à disposition de son destinataire et publie <see cref="DocumentPublie"/> (transmis à Communications).
+    /// L'objet métier du document (<c>ObjetType</c>, <c>ObjetId</c> : par exemple <c>decision</c> et l'identifiant de la
+    /// décision pour le formulaire d'évaluation de santé) accompagne la publication, pour que le processus de reprise du
+    /// service Obligations corrèle le formulaire à sa décision (saga « examen de reprise », ARC-33). Ce sont des
+    /// identifiants et un code, jamais un contenu (ARC-06).
+    /// </summary>
     public void Publier(Document document, IIntegrationEventOutbox outbox)
     {
         document.Publier(horloge.GetUtcNow());
-        outbox.Add(new DocumentPublie(document.Id, document.Zone.Code(), document.TypeDestinataire.Code(), document.DestinataireId, document.CodeModele));
+        outbox.Add(new DocumentPublie(
+            document.Id, document.Zone.Code(), document.TypeDestinataire.Code(), document.DestinataireId, document.CodeModele, document.ObjetType, document.ObjetId));
     }
 
     public static string Empreinte(byte[] contenu) => Convert.ToHexStringLower(SHA256.HashData(contenu));

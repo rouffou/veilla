@@ -3,7 +3,12 @@ namespace Sepp.SurveillanceMedicale.Domain.Projections;
 // Modèles de lecture locaux alimentés par les événements des autres services (ARC-31, ARC-35) : identifiants, dates,
 // codes et statuts uniquement (ARC-06, DAT-06). Écriture par clé : rejouer un événement ne duplique rien.
 
-/// <summary>SAN-20 : examen dû, projeté depuis <c>obligations.obligation-creee</c> ; satisfait à la clôture d'un examen qui le couvre.</summary>
+/// <summary>
+/// SAN-20 : examen dû, projeté depuis <c>obligations.obligation-creee</c> ; satisfait à la clôture d'un examen qui le
+/// couvre ; retiré par <c>obligations.obligation-cloturee</c> (annulation, sortie de l'entreprise). Le retrait est
+/// logique : la ligne reste pour que l'ordre d'arrivée des messages soit sans effet (un <c>ObligationCreee</c> plus
+/// ancien que le retrait ne rouvre pas l'examen dû ; un plus récent, publié quand l'obligation redevient due, le rouvre).
+/// </summary>
 public sealed class ObligationDue
 {
     private ObligationDue()
@@ -26,21 +31,70 @@ public sealed class ObligationDue
 
     public DateOnly DateDue { get; private set; }
 
+    /// <summary>Date limite calculée par le service Obligations (délai légal, calendrier DAT-08) ; jamais recalculée ici.</summary>
     public DateOnly? DateLimite { get; private set; }
 
     /// <summary>Examen clôturé qui a satisfait l'obligation.</summary>
     public Guid? SatisfaiteParExamenId { get; private set; }
 
-    public void Appliquer(Guid personneId, Guid affilieId, string typeExamen, DateOnly dateDue, DateOnly? dateLimite)
+    /// <summary>Statut de clôture reçu d'Obligations (<c>Annule</c>, <c>SortiEntreprise</c>) ; <c>null</c> tant que l'examen est dû.</summary>
+    public string? StatutRetrait { get; private set; }
+
+    /// <summary>Horodatage (<c>OccurredAt</c>) de l'événement de clôture qui a retiré l'examen dû.</summary>
+    public DateTimeOffset? RetireeLe { get; private set; }
+
+    public bool EstRetiree => RetireeLe is not null;
+
+    /// <summary>Obligation connue seulement par sa clôture (reçue avant sa création) : déjà retirée.</summary>
+    public static ObligationDue Retiree(Guid obligationId, Guid personneId, Guid affilieId, string typeExamen, DateOnly date, string statut, DateTimeOffset evenementDu)
+    {
+        var obligation = new ObligationDue(obligationId, personneId, affilieId, typeExamen, date, null);
+        obligation.Retirer(statut, evenementDu);
+        return obligation;
+    }
+
+    /// <summary>
+    /// État courant de l'obligation (<c>ObligationCreee</c>). Si l'examen dû a été retiré par une clôture plus ancienne
+    /// que cet événement, l'obligation est redevenue due : le retrait est levé.
+    /// </summary>
+    public void Appliquer(Guid personneId, Guid affilieId, string typeExamen, DateOnly dateDue, DateOnly? dateLimite, DateTimeOffset? evenementDu = null)
     {
         PersonneId = personneId;
         AffilieId = affilieId;
         TypeExamen = typeExamen;
         DateDue = dateDue;
         DateLimite = dateLimite;
+        if (RetireeLe is { } retrait && evenementDu is { } du && du > retrait)
+        {
+            RetireeLe = null;
+            StatutRetrait = null;
+        }
+    }
+
+    /// <summary>
+    /// Retrait de l'examen dû (<c>ObligationCloturee</c> : annulation ou sortie de l'entreprise). Idempotent : une
+    /// clôture rejouée, ou plus ancienne que le retrait déjà connu, ne change rien (renvoie <c>false</c>).
+    /// </summary>
+    public bool Retirer(string statut, DateTimeOffset evenementDu)
+    {
+        if (RetireeLe is { } retrait && evenementDu <= retrait)
+        {
+            return false;
+        }
+
+        StatutRetrait = statut;
+        RetireeLe = evenementDu;
+        return true;
     }
 
     public void Satisfaire(Guid examenId) => SatisfaiteParExamenId ??= examenId;
+
+    /// <summary>
+    /// Respect du délai (§14.5, examen de reprise) : l'examen est hors délai si sa date sort de [<see cref="DateDue"/>,
+    /// <see cref="DateLimite"/>], bornes incluses. Sans date limite connue, le respect est indéterminé (<c>null</c>).
+    /// </summary>
+    public bool? EstHorsDelai(DateOnly dateExamen) =>
+        DateLimite is { } limite ? dateExamen < DateDue || dateExamen > limite : null;
 }
 
 /// <summary>Rendez-vous planifié (<c>planification.rendez-vous-planifie</c>) : convocation de la personne, base de la relation de soin.</summary>
@@ -221,5 +275,42 @@ public sealed class ParametreLegalLocal
         ValideJusquAu = valideJusquAu;
         Valeur = valeur;
         Unite = unite;
+    }
+}
+
+/// <summary>
+/// Jours fériés supplémentaires d'une année (<c>referentiels.jours-feries-modifies</c>, DAT-08), en plus des dix jours
+/// fériés légaux calculés : jours de remplacement, fêtes des Communautés. Ils entrent dans les délais de concertation et
+/// de recours en jours ouvrables (SAN-34). Clé : année ; l'état le plus récent l'emporte (un message plus ancien est ignoré).
+/// </summary>
+public sealed class CalendrierLocal
+{
+    private CalendrierLocal()
+    {
+    }
+
+    public CalendrierLocal(int annee, IEnumerable<DateOnly> joursSupplementaires, DateTimeOffset evenementDu)
+    {
+        Annee = annee;
+        JoursSupplementaires = [.. joursSupplementaires.Distinct().Order()];
+        EvenementDu = evenementDu;
+    }
+
+    public int Annee { get; private set; }
+
+    public IReadOnlyList<DateOnly> JoursSupplementaires { get; private set; } = [];
+
+    public DateTimeOffset EvenementDu { get; private set; }
+
+    public bool Appliquer(IEnumerable<DateOnly> joursSupplementaires, DateTimeOffset evenementDu)
+    {
+        if (evenementDu < EvenementDu)
+        {
+            return false;
+        }
+
+        JoursSupplementaires = [.. joursSupplementaires.Distinct().Order()];
+        EvenementDu = evenementDu;
+        return true;
     }
 }

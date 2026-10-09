@@ -5,6 +5,7 @@ using Sepp.SurveillanceMedicale.Domain.Conservation;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
 using Sepp.SurveillanceMedicale.Domain.Dossiers;
 using Sepp.SurveillanceMedicale.Domain.Examens;
+using Sepp.SurveillanceMedicale.Domain.Projections;
 using Sepp.SurveillanceMedicale.Domain.Protocoles;
 using Sepp.SurveillanceMedicale.Domain.Vaccinations;
 
@@ -80,9 +81,11 @@ public sealed class DossierSanteTests
 
 public sealed class ExamenTests
 {
+    private const string EvaluationPeriodique = "EVALUATION_PERIODIQUE";
+
     private static readonly DateOnly Jour = new(2026, 3, 2);
 
-    private static Examen Nouveau(string type = TypesExamen.EvaluationPeriodique) =>
+    private static Examen Nouveau(string type = EvaluationPeriodique) =>
         Examen.Ouvrir(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), type, Jour, "cpmt-1", null, []);
 
     private static readonly ValeurReference[] References =
@@ -117,30 +120,58 @@ public sealed class ExamenTests
         examen.Cloturer(Jour, null);
 
         var evenement = examen.DomainEvents.OfType<ExamenClotureLocal>().Single();
-        evenement.TypeExamen.ShouldBe(TypesExamen.EvaluationPeriodique);
+        evenement.TypeExamen.ShouldBe(EvaluationPeriodique);
         Should.Throw<DomainException>(() => examen.SaisirObservation("ajout", null, DateTimeOffset.UtcNow));
     }
+}
+
+public sealed class ObligationDueTests
+{
+    private const string CodeReprise = "EXAMEN_REPRISE";
+
+    private static readonly DateTimeOffset Instant = new(2026, 5, 1, 8, 0, 0, TimeSpan.Zero);
+
+    // Reprise le jeudi 30 avril 2026 ; date limite calculée par Obligations (10 jours ouvrables) : lundi 18 mai.
+    private static ObligationDue Reprise(DateOnly? limite) =>
+        new(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), CodeReprise, new DateOnly(2026, 4, 30), limite);
+
+    [Theory]
+    [InlineData("2026-04-29", true)]
+    [InlineData("2026-04-30", false)]
+    [InlineData("2026-05-18", false)]
+    [InlineData("2026-05-19", true)]
+    public void Le_hors_delai_se_lit_dans_l_intervalle_date_due_date_limite_bornes_incluses(string dateExamen, bool horsDelai) =>
+        Reprise(new DateOnly(2026, 5, 18)).EstHorsDelai(DateOnly.Parse(dateExamen, System.Globalization.CultureInfo.InvariantCulture)).ShouldBe(horsDelai);
 
     [Fact]
-    public void La_politique_de_reprise_compte_dix_jours_ouvrables_hors_feries()
-    {
-        var politique = new PolitiqueDelaiReprise(10, BusinessCalendar.Belgian(2026));
+    public void Sans_date_limite_le_respect_du_delai_est_indetermine() =>
+        Reprise(null).EstHorsDelai(new DateOnly(2026, 6, 1)).ShouldBeNull();
 
-        // Reprise le jeudi 30 avril 2026 : 1er mai et Ascension (14 mai) fériés, la limite tombe le lundi 18 mai.
-        var reprise = new DateOnly(2026, 4, 30);
-        politique.DateLimite(reprise).ShouldBe(new DateOnly(2026, 5, 18));
-        politique.EstRespecte(reprise, new DateOnly(2026, 5, 18)).ShouldBeTrue();
-        politique.EstRespecte(reprise, new DateOnly(2026, 5, 19)).ShouldBeFalse();
-        politique.EstRespecte(reprise, new DateOnly(2026, 4, 29)).ShouldBeFalse();
+    [Fact]
+    public void Le_retrait_est_idempotent_et_seule_une_creation_plus_recente_le_leve()
+    {
+        var obligation = Reprise(new DateOnly(2026, 5, 18));
+        obligation.Retirer("Annule", Instant).ShouldBeTrue();
+        obligation.Retirer("Annule", Instant).ShouldBeFalse();
+        obligation.Retirer("SortiEntreprise", Instant.AddMinutes(-1)).ShouldBeFalse();
+        obligation.StatutRetrait.ShouldBe("Annule");
+
+        obligation.Appliquer(obligation.PersonneId, obligation.AffilieId, CodeReprise, obligation.DateDue, obligation.DateLimite, Instant.AddMinutes(-5));
+        obligation.EstRetiree.ShouldBeTrue();
+
+        obligation.Appliquer(obligation.PersonneId, obligation.AffilieId, CodeReprise, obligation.DateDue, obligation.DateLimite, Instant.AddMinutes(5));
+        obligation.ShouldSatisfyAllConditions(o => o.EstRetiree.ShouldBeFalse(), o => o.StatutRetrait.ShouldBeNull());
     }
 }
 
 public sealed class DecisionTests
 {
+    private const string EvaluationPeriodique = "EVALUATION_PERIODIQUE";
+
     private static readonly DateOnly Jour = new(2026, 3, 2);
 
     private static Decision Rediger(ContenuDecision contenu) =>
-        Decision.Rediger(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), TypesExamen.EvaluationPeriodique, Jour, "cpmt-1", contenu);
+        Decision.Rediger(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), EvaluationPeriodique, Jour, "cpmt-1", contenu);
 
     private static PolitiqueRecours Politique => new(BusinessCalendar.Belgian(2026), new DelaisRecours());
 
@@ -166,6 +197,7 @@ public sealed class DecisionTests
         decision.Statut.ShouldBe(StatutDecision.Emise);
         var transmise = decision.DomainEvents.OfType<DecisionTransmise>().Single();
         transmise.Mesures.ShouldBe(["PAS_TRAVAIL_NUIT"]);
+        transmise.ExamenId.ShouldBe(decision.ExamenId);
         CodesDecision.Code(transmise.Categorie).ShouldBe("APTE_AVEC_MESURES");
         Should.Throw<DomainException>(() => decision.Modifier(new ContenuDecision(CategorieDecision.Apte, [], null, null, null)));
     }
@@ -191,7 +223,11 @@ public sealed class DecisionTests
 
         decision.Categorie.ShouldBe(CategorieDecision.Mutation);
         decision.Justification.ShouldBe("Justification");
-        decision.DomainEvents.OfType<DecisionTransmise>().Single().Categorie.ShouldBe(CategorieDecision.Mutation);
+        var retransmise = decision.DomainEvents.OfType<DecisionTransmise>().Single();
+        retransmise.ShouldSatisfyAllConditions(
+            t => t.Categorie.ShouldBe(CategorieDecision.Mutation),
+            t => t.DecisionId.ShouldBe(decision.Id),
+            t => t.ExamenId.ShouldBe(decision.ExamenId));
     }
 }
 

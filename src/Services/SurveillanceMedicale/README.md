@@ -47,7 +47,7 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
 
 | Exigence | Réalisation |
 |---|---|
-| SAN-20 | `GET /dossiers/{id}/consultation` : `personne_id` (aucun NISS), postes et risques (projections `AffectationModifiee` + `ProfilRisquePosteModifie`), historique des examens et décisions, examens dus (`ObligationCreee`, satisfaits à la clôture), questionnaires, résultats, alertes, rappels vaccinaux, expositions |
+| SAN-20 | `GET /dossiers/{id}/consultation` : `personne_id` (aucun NISS), postes et risques (projections `AffectationModifiee` + `ProfilRisquePosteModifie`), historique des examens et décisions, examens dus (`ObligationCreee`, satisfaits à la clôture, retirés par `ObligationCloturee` `Annule`/`SortiEntreprise`), questionnaires, résultats, alertes, rappels vaccinaux, expositions |
 | SAN-21 | Saisie structurée : observation clinique, actes `Biometrie`, `Vision`, `Audiometrie`, `Spirometrie`, `Ecg`, `Biologie`. Port `IImportAppareil` : adaptateurs `HL7` (v2 ORU^R01, segments OBX), `CSV` (`code;valeur;unité`) et `SIMULATEUR` ; le contenu importé n'est ni stocké ni journalisé |
 | SAN-22 | Modèles de questionnaire versionnés (`/protocoles/questionnaires`), réponses chiffrées ; pré-remplissage par le travailleur (portail, claim `personne_id`) ou sur tablette (assistant médical) via `POST /questionnaires/pre-remplissage` (écriture seule) ; reprise des dernières réponses (`…/pre-rempli`) |
 | SAN-23 | Valeurs de référence historisées (DAT-04) ; mesure hors intervalle → résultat inhabituel → proposition d'augmenter la fréquence (art. I.4-32), acceptée ou refusée par le CPMT. Acceptée, la nouvelle fréquence est saisie comme surcharge travailleur dans Postes et risques (AFF-13) |
@@ -55,8 +55,8 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
 | SAN-30 | `GET /decisions/{id}/formulaire?exemplaire=Employeur|Travailleur|Dossier` : données du formulaire (annexe I.4-2) — voir *Contrat avec Documents* |
 | SAN-31 | Décisions apte, apte avec mesures, inaptitude temporaire, inaptitude définitive, mutation, écartement (maternité), avec validité et règles de cohérence |
 | SAN-32 | Port `ISignatureQualifiee` + `SignatureSimulee` ; la demande ne porte que l'empreinte SHA-256 du formulaire. **eID / itsme réel hors périmètre** (prestataire de signature qualifiée à distance à choisir) |
-| SAN-33 | La signature émet `DecisionEmise` (catégorie, mesures codées, validité — jamais le motif médical) ; voies de concertation et de recours fournies au formulaire |
-| SAN-34 | Concertation et recours auprès du médecin-inspecteur social : délais d'introduction et d'issue en jours ouvrables (paramètres `SurveillanceMedicale:DelaisRecours`, à valider), signalement des introductions tardives, issue ; une décision réformée est retransmise (`DecisionEmise`, même `DecisionId`) |
+| SAN-33 | La signature émet `DecisionEmise` (catégorie, mesures codées, validité, `ExamenId` de l'examen d'origine — jamais le motif médical) ; voies de concertation et de recours fournies au formulaire |
+| SAN-34 | Concertation et recours auprès du médecin-inspecteur social : délais d'introduction et d'issue en jours ouvrables (paramètres `SurveillanceMedicale:DelaisRecours`, à valider ; jours fériés légaux et supplémentaires reçus par `JoursFeriesModifies`), signalement des introductions tardives, issue ; une décision réformée est retransmise (`DecisionEmise`, même `DecisionId` et même `ExamenId`) |
 | SAN-40 | Dossier unique par `personne_id` (index unique), transversal aux employeurs ; parties art. I.4-85 à I.4-87 ; **expositions** alimentées par `MesurageEnregistre` pour les personnes rattachées au groupe d'exposition (`POST /dossiers/{id}/groupes-exposition`), ou saisies |
 | SAN-41 | Pièces jointes (référence `document_id` du service Documents, métadonnées chiffrées) |
 | SAN-42 | Transferts sortants (demande → export chiffré + empreinte → transmission) et entrants (contrôle d'intégrité, intégration) ; port `ICanalTransfertDossier` + simulateur — **canal réel à confirmer** (eHealthBox ou équivalent) |
@@ -66,7 +66,7 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
 | SAN-51 | Lots par centre (numéro, péremption, quantité), décompte à l'administration, alertes de péremption ; publie `VaccinationAdministree` (l'enregistrement Vaccinnet / e-Vax, SAN-52, est fait par Intégrations) |
 | SAN-70 | Déclaration de maladie professionnelle préremplie (expositions, employeurs, dernière décision) ; port `IFedris` + simulateur |
 | SAN-71 | Suivi : statut Fedris, demandes d'information et réponses |
-| §14.5 | `Examen`, `Decision`, `PolitiqueDelaiReprise` (contrôle du délai de l'examen de reprise à la clôture), `CloturerExamen`, `IDossierSanteRepository` |
+| §14.5 | `Examen`, `Decision`, `CloturerExamen` (examen de reprise hors délai si sa date sort de [`DateDue`, `DateLimite`] de l'obligation projetée : la date limite est celle d'Obligations, jamais recalculée ici), `IDossierSanteRepository` |
 
 ## Événements
 
@@ -74,7 +74,12 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
   `surveillance-medicale.vaccination-administree.v1` (contrats existants, ARC-06), et les traces `audit.acces-donnee-sensible.v1`.
 - **Consommés** (projections idempotentes : inbox + écriture par clé) : `obligations.obligation-creee`,
   `planification.rendez-vous-planifie`, `personnes.affectation-modifiee`, `postes-risques.profil-risque-poste-modifie`,
-  `prevention.mesurage-enregistre`, `referentiels.parametre-legal-modifie` (`SANTE.DOSSIER.CONSERVATION_MINIMUM`, `SANTE.REPRISE.DELAI`).
+  `prevention.mesurage-enregistre`, `referentiels.parametre-legal-modifie` (`SANTE.DOSSIER.CONSERVATION_MINIMUM`),
+  `obligations.obligation-cloturee` (retrait des examens dus annulés ou sans objet ; idempotent, ordre d'arrivée sans effet),
+  `referentiels.jours-feries-modifies` (jours fériés supplémentaires des délais de recours, DAT-08).
+- **Codes de type d'examen** : constantes partagées `Sepp.Contracts.Examens.TypesExamen` (le domaine ne déclare plus ses
+  propres codes) ; l'ancien code `ACTES_SUPPLEMENTAIRES` est remplacé par `ACTES_MEDICAUX_SUPPLEMENTAIRES` (migration de
+  données `CodeActesMedicauxSupplementaires` : examens, décisions, examens dus, messages non publiés de l'outbox).
 
 ## Contrat avec le service Documents (SAN-30, SAN-33)
 

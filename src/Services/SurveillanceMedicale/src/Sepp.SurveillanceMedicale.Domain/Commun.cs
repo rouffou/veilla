@@ -47,26 +47,6 @@ public static partial class Garde
     private static partial Regex FormatCode();
 }
 
-/// <summary>
-/// Types d'examen (§5.1). Les codes sont partagés avec les services Obligations et Planification
-/// (<c>ObligationCreee.TypeExamen</c>) ; un code inconnu reste accepté tel quel pour ne pas bloquer un nouveau type.
-/// </summary>
-public static class TypesExamen
-{
-    public const string EvaluationPrealable = "EVALUATION_PREALABLE";
-    public const string EvaluationPeriodique = "EVALUATION_PERIODIQUE";
-    public const string ActesSupplementaires = "ACTES_SUPPLEMENTAIRES";
-    public const string ExamenReprise = "EXAMEN_REPRISE";
-    public const string VisitePreReprise = "VISITE_PRE_REPRISE";
-    public const string ConsultationSpontanee = "CONSULTATION_SPONTANEE";
-    public const string ProtectionMaternite = "PROTECTION_MATERNITE";
-    public const string SurveillanceProlongee = "SURVEILLANCE_PROLONGEE";
-    public const string EvaluationReintegration = "EVALUATION_REINTEGRATION";
-    public const string AutreLegislation = "AUTRE_LEGISLATION";
-
-    public static IReadOnlyList<string> Connus { get; } =
-    [
-        EvaluationPrealable, EvaluationPeriodique, ActesSupplementaires, ExamenReprise, VisitePreReprise,
-        ConsultationSpontanee, ProtectionMaternite, SurveillanceProlongee, EvaluationReintegration, AutreLegislation,
-    ];
-}
+// Les codes de type d'examen (§5.1) ne sont plus déclarés ici : la source de vérité est Sepp.Contracts.Examens.TypesExamen
+// (saga « examen de reprise », lot 6). Le domaine ne dépend pas des contrats ; il reçoit le code tel quel et le contrôle
+// par Garde.Code (un code inconnu reste accepté pour ne pas bloquer un nouveau type).

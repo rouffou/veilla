@@ -1,8 +1,10 @@
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Auditing;
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.Contracts.Examens;
 using Sepp.SurveillanceMedicale.Domain;
 using Sepp.SurveillanceMedicale.Domain.Examens;
+using Sepp.SurveillanceMedicale.Domain.Projections;
 
 namespace Sepp.SurveillanceMedicale.Application.Examens;
 
@@ -289,12 +291,14 @@ public sealed class DeciderPropositionFrequenceHandler(AccesExamens acces, ICurr
 /// <summary>
 /// §14.5 <c>CloturerExamen</c> : clôture de l'examen ; les obligations couvertes sont satisfaites et
 /// <c>ExamenCloture</c> est publié (type et date uniquement, ARC-06). Pour un examen de reprise, le respect du délai
-/// légal (<see cref="PolitiqueDelaiReprise"/>) est vérifié à partir de la date de reprise portée par l'obligation.
+/// légal est lu dans la projection de l'obligation (<see cref="ObligationDue.EstHorsDelai"/> : date de l'examen hors de
+/// [<c>DateDue</c>, <c>DateLimite</c>]). La date limite est celle calculée par le service Obligations, propriétaire du
+/// délai et du calendrier (saga « examen de reprise », ARC-33) : elle n'est jamais recalculée ici.
 /// </summary>
 public sealed record CloturerExamen(Guid ExamenId, DateOnly? Date);
 
 public sealed class CloturerExamenHandler(
-    AccesExamens acces, IProjectionRepository projections, ParametresMedicaux parametres, IIntegrationEventOutbox outbox, IUnitOfWork unitOfWork, TimeProvider horloge)
+    AccesExamens acces, IProjectionRepository projections, IIntegrationEventOutbox outbox, IUnitOfWork unitOfWork, TimeProvider horloge)
     : ICommandHandler<CloturerExamen, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(CloturerExamen command, CancellationToken cancellationToken)
@@ -309,12 +313,9 @@ public sealed class CloturerExamenHandler(
         var date = command.Date ?? horloge.Aujourdhui();
         var obligations = await projections.ListerObligationsParIdsAsync([.. examen.ObligationIds], cancellationToken);
 
-        bool? horsDelai = null;
-        if (examen.TypeExamen == TypesExamen.ExamenReprise && obligations.FirstOrDefault(o => o.TypeExamen == TypesExamen.ExamenReprise) is { } reprise)
-        {
-            var politique = await parametres.PolitiqueRepriseAsync(examen.Date, cancellationToken);
-            horsDelai = !politique.EstRespecte(reprise.DateDue, examen.Date);
-        }
+        var horsDelai = examen.TypeExamen == TypesExamen.ExamenReprise
+            ? obligations.FirstOrDefault(o => o.TypeExamen == TypesExamen.ExamenReprise)?.EstHorsDelai(examen.Date)
+            : null;
 
         var resultat = Regles.Appliquer("examen.invalide", () => examen.Cloturer(date, horsDelai));
         if (!resultat.IsSuccess)

@@ -155,16 +155,18 @@ public sealed class ParametresMedicaux(IProjectionRepository projections, Option
         return Math.Max(annees, PolitiqueConservationDossier.PlancherAnnees);
     }
 
-    public async Task<PolitiqueDelaiReprise> PolitiqueRepriseAsync(DateOnly date, CancellationToken cancellationToken)
-    {
-        var parametre = await projections.ParametreApplicableAsync(PolitiqueDelaiReprise.CodeParametreDelai, date, cancellationToken);
-        var delai = parametre is { Unite: "JoursOuvrables" } ? (int)parametre.Valeur : PolitiqueDelaiReprise.DelaiParDefaut;
-        return new PolitiqueDelaiReprise(delai, Calendrier.Belge(date));
-    }
-
     public DelaisRecours DelaisRecours => options.DelaisRecours;
 
-    public PolitiqueRecours PolitiqueRecours(DateOnly date) => new(Calendrier.Belge(date), options.DelaisRecours);
+    /// <summary>
+    /// SAN-34 : délais de concertation et de recours en jours ouvrables, avec les jours fériés légaux belges et les jours
+    /// supplémentaires reçus du service Référentiels (<c>referentiels.jours-feries-modifies</c>, DAT-08).
+    /// </summary>
+    public async Task<PolitiqueRecours> PolitiqueRecoursAsync(DateOnly date, CancellationToken cancellationToken)
+    {
+        var (debut, fin) = Calendrier.Annees(date);
+        var supplementaires = await projections.ListerCalendriersAsync(debut, fin, cancellationToken);
+        return new PolitiqueRecours(Calendrier.Belge(date, supplementaires.SelectMany(c => c.JoursSupplementaires)), options.DelaisRecours);
+    }
 }
 
 public static class Calendrier
@@ -175,8 +177,19 @@ public static class Calendrier
     public static DateOnly Aujourdhui(this TimeProvider horloge) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(horloge.GetUtcNow(), Bruxelles).DateTime);
 
-    /// <summary>Calendrier des jours fériés légaux belges autour d'une date (DAT-08).</summary>
-    public static BusinessCalendar Belge(DateOnly autour) => BusinessCalendar.Belgian(autour.Year - 1, autour.Year, autour.Year + 1, autour.Year + 2);
+    /// <summary>Années couvertes par le calendrier construit autour d'une date (les délais débordent sur l'année suivante).</summary>
+    public static (int Debut, int Fin) Annees(DateOnly autour) => (autour.Year - 1, autour.Year + 2);
+
+    /// <summary>
+    /// Calendrier des jours ouvrables autour d'une date (DAT-08) : les dix jours fériés légaux belges calculés, plus les
+    /// jours fériés supplémentaires (jours de remplacement, fêtes des Communautés) reçus du service Référentiels.
+    /// </summary>
+    public static BusinessCalendar Belge(DateOnly autour, IEnumerable<DateOnly>? joursSupplementaires = null)
+    {
+        var (debut, fin) = Annees(autour);
+        var legaux = Enumerable.Range(debut, fin - debut + 1).SelectMany(BelgianPublicHolidays.For).Select(h => h.Date);
+        return new BusinessCalendar(legaux.Concat(joursSupplementaires ?? []));
+    }
 }
 
 /// <summary>Traduction des événements de domaine en événements d'intégration : identifiants, dates, codes (ARC-06).</summary>
@@ -189,7 +202,7 @@ public static class EvenementsIntegration
             IntegrationEvent? integration = evenement switch
             {
                 ExamenClotureLocal e => new ExamenCloture(e.ExamenId, e.PersonneId, e.AffilieId, e.TypeExamen, e.Date),
-                DecisionTransmise e => new DecisionEmise(e.DecisionId, e.PersonneId, e.AffilieId, CodesDecision.Code(e.Categorie), [.. e.Mesures], e.ValideJusquAu),
+                DecisionTransmise e => new DecisionEmise(e.DecisionId, e.PersonneId, e.AffilieId, CodesDecision.Code(e.Categorie), [.. e.Mesures], e.ValideJusquAu, e.ExamenId),
                 VaccinationEnregistree e => new VaccinationAdministree(e.VaccinationId, e.PersonneId, e.VaccinCode, e.Dose, e.Date),
                 _ => null,
             };
