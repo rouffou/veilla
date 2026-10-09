@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Sepp.Affilies.Application;
 using Sepp.Affilies.Application.Affilies;
 using Sepp.Affilies.Domain.Affilies;
+using Sepp.Affilies.Domain.Ecarts;
 using Sepp.Affilies.Domain.Groupes;
 using Sepp.Affilies.Domain.Historique;
 
@@ -80,4 +81,22 @@ internal sealed class HistoriqueAffilieRepository(AffiliesDbContext db) : IHisto
 
     public async Task<IReadOnlyList<ModificationAffilie>> ListAsync(Guid affilieId, CancellationToken cancellationToken) =>
         await db.Historique.AsNoTracking().Where(m => m.AffilieId == affilieId).OrderBy(m => m.NumeroVersion).ToListAsync(cancellationToken);
+}
+
+internal sealed class EcartSynchronisationRepository(AffiliesDbContext db) : IEcartSynchronisationRepository
+{
+    public Task<EcartSynchronisation?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        db.EcartsSynchronisation.SingleOrDefaultAsync(e => e.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<EcartSynchronisation>> OuvertsParBceAsync(string numeroBce, CancellationToken cancellationToken) =>
+        await db.EcartsSynchronisation.Where(e => e.NumeroBce == numeroBce && e.Statut == StatutEcart.Ouvert).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<EcartSynchronisation>> ListAsync(bool ouvertsSeulement, CancellationToken cancellationToken) =>
+        await db.EcartsSynchronisation.AsNoTracking()
+            .Where(e => !ouvertsSeulement || e.Statut == StatutEcart.Ouvert)
+            .OrderByDescending(e => e.DerniereDetectionLe)
+            .Take(500)
+            .ToListAsync(cancellationToken);
+
+    public void Add(EcartSynchronisation ecart) => db.EcartsSynchronisation.Add(ecart);
 }

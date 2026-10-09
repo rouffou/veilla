@@ -117,6 +117,12 @@ services:
       Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
       Authentication__ValidIssuer: http://localhost:8180/realms/veilla
       Authentication__RequireHttpsMetadata: "false"
+      # Lecture des données BCE chez Intégrations (AFF-01, AFF-02, INT-04) avec le compte technique du realm local (secret
+      # de développement uniquement ; hors poste de développement, le secret vient de Key Vault).
+      Affilies__ServicesInternes__Integrations: http://integrations:8080/
+      Affilies__CompteTechnique__TokenEndpoint: http://keycloak:8080/realms/veilla/protocol/openid-connect/token
+      Affilies__CompteTechnique__ClientId: veilla-affilies
+      Affilies__CompteTechnique__ClientSecret: affilies-local-dev
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
     ports:
       - "5111:8080"

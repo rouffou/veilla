@@ -139,8 +139,10 @@ public sealed class ObtenirEntrepriseBceHandler(IEntrepriseBceRepository entrepr
 {
     public async Task<Result<EntrepriseBceDto>> HandleAsync(ObtenirEntrepriseBce query, CancellationToken cancellationToken)
     {
-        // Données d'entreprise publiques : lisibles par les profils qui consultent les affiliés (et le futur consommateur Affiliés).
-        if (!utilisateur.HasPermission(Permissions.AffilieLire) && !utilisateur.HasPermission(Permissions.IntegrationsAdministrer))
+        // Données d'entreprise publiques : lisibles par les profils qui consultent les affiliés et par le compte technique
+        // du service Affiliés (consommateur de donnees-bce-recues, permission dédiée sans accès aux fiches).
+        if (!utilisateur.HasPermission(Permissions.AffilieLire) && !utilisateur.HasPermission(Permissions.IntegrationsAdministrer)
+            && !utilisateur.HasPermission(Permissions.IntegrationsBceLire))
         {
             return Error.Forbidden("integrations.interdit", "Droits insuffisants.");
         }
