@@ -1,5 +1,6 @@
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.BuildingBlocks.Domain;
 using Sepp.Contracts.Affilies;
 using Sepp.Contracts.Integrations;
 using Sepp.Integrations.Application.Correspondances;
@@ -247,16 +248,80 @@ public sealed class FluxDimonaTests
     }
 
     [Fact]
-    public async Task Une_mutation_du_registre_national_met_a_jour_l_identite_dans_personnes()
+    public async Task Une_mutation_du_registre_national_est_transmise_a_personnes_et_journalisee()
     {
         var ctx = new Contexte();
-        ctx.RegistreNational.Mutations.Add(new MutationRegistreNational("RN-1", Contexte.Niss, new DateOnly(2026, 9, 1), Identites.Dupont with { Nom = "Martin" }));
+        ctx.RegistreNational.Mutations.Add(new MutationRegistreNational("RN-1", Contexte.Niss, TypeMutationRegistreNational.ChangementNom, new DateOnly(2026, 9, 1), Nom: "Martin"));
 
         var rapport = await ctx.Execution.ExecuterAsync(TypeFlux.RegistreNational, _ct);
 
         rapport.Traites.ShouldBe(1);
-        ctx.Personnes.Mutations.ShouldHaveSingleItem().ShouldBe(Contexte.Niss);
-        ctx.Store.Journal.Single().CleIdempotence.ShouldBe("mutation:RN-1");
+        var transmise = ctx.Personnes.MutationsRecues.ShouldHaveSingleItem();
+        (transmise.Niss, transmise.Nom, transmise.Type).ShouldBe((Contexte.Niss, "Martin", TypeMutationRegistreNational.ChangementNom));
+        var echange = ctx.Store.Journal.Single();
+        echange.CleIdempotence.ShouldBe("mutation:RN-1");
+        echange.ReferenceExterne.ShouldBe("RN-1");
+        echange.TypeMessage.ShouldBe(TypesMessage.MutationIdentite);
+    }
+
+    [Fact]
+    public async Task Une_mutation_deja_recue_n_est_ni_rejournalisee_ni_retransmise()
+    {
+        var ctx = new Contexte();
+        ctx.RegistreNational.Mutations.Add(new MutationRegistreNational("RN-1", Contexte.Niss, TypeMutationRegistreNational.Deces, new DateOnly(2026, 9, 1)));
+        await ctx.Execution.ExecuterAsync(TypeFlux.RegistreNational, _ct);
+
+        var rapport = await ctx.Execution.ExecuterAsync(TypeFlux.RegistreNational, _ct);
+
+        rapport.DejaRecus.ShouldBe(1);
+        rapport.Recus.ShouldBe(0);
+        ctx.Personnes.MutationsRecues.ShouldHaveSingleItem();
+        ctx.Store.Journal.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task Une_mutation_en_erreur_technique_se_relance_sans_doublon_et_une_mutation_refusee_est_rejetee()
+    {
+        var ctx = new Contexte();
+        ctx.RegistreNational.Mutations.Add(new MutationRegistreNational("RN-1", Contexte.Niss, TypeMutationRegistreNational.ChangementLangue, new DateOnly(2026, 9, 1), Langue: Language.Nl));
+        ctx.RegistreNational.Mutations.Add(new MutationRegistreNational("RN-2", Contexte.Niss, TypeMutationRegistreNational.ChangementNom, new DateOnly(2026, 9, 1)));
+        ctx.Personnes.ReponseMutation = () => ResultatAppel<MutationPersonnes>.Erreur("integrations.personnes-indisponible", "Service Personnes injoignable.");
+
+        var rapport = await ctx.Execution.ExecuterAsync(TypeFlux.RegistreNational, _ct);
+
+        rapport.EnErreur.ShouldBe(2);
+        var echange = ctx.Store.Journal.Single(e => e.ReferenceExterne == "RN-1");
+        echange.Statut.ShouldBe(StatutEchange.EnErreur);
+
+        // Relance manuelle après rétablissement : l'appel est rejoué, Personnes étant idempotent sur la référence.
+        ctx.Personnes.ReponseMutation = null;
+        await ctx.Traitement.TraiterAsync(echange, _ct);
+        echange.Statut.ShouldBe(StatutEchange.Traite);
+        ctx.Personnes.Mutations.ShouldBe(["RN-1"]);
+
+        // Refus métier de Personnes : rejet (pas de nouvelle tentative automatique).
+        var refuse = ctx.Store.Journal.Single(e => e.ReferenceExterne == "RN-2");
+        ctx.Personnes.ReponseMutation = () => ResultatAppel<MutationPersonnes>.Rejet("mutation.invalide", "Le nom est obligatoire.");
+        await ctx.Traitement.TraiterAsync(refuse, _ct);
+        refuse.Statut.ShouldBe(StatutEchange.Rejete);
+        refuse.CodeErreur.ShouldBe("mutation.invalide");
+    }
+
+    [Fact]
+    public async Task Le_niss_et_l_identite_d_une_mutation_ne_sont_jamais_dans_le_journal_en_clair()
+    {
+        var ctx = new Contexte();
+        ctx.RegistreNational.Mutations.Add(new MutationRegistreNational("RN-1", Contexte.Niss, TypeMutationRegistreNational.ChangementAdresse, new DateOnly(2026, 9, 1),
+            new AdresseRegistreNational("Rue Secrète", "1", null, "1000", "Bruxelles")));
+
+        await ctx.Execution.ExecuterAsync(TypeFlux.RegistreNational, _ct);
+
+        var echange = ctx.Store.Journal.Single();
+        $"{echange.CleIdempotence} {echange.ReferenceExterne} {echange.CodeErreur} {echange.MessageErreur}".ShouldNotContain(Contexte.Niss);
+        ctx.RegistreNational.Mutations.Single().ToString().ShouldNotContain(Contexte.Niss);
+        ctx.RegistreNational.Mutations.Single().ToString().ShouldNotContain("Secrète");
+        ctx.RegistreNational.Mutations.Single().Adresse!.ToString().ShouldNotContain("Secrète");
+        ctx.Store.Published.ShouldBeEmpty();
     }
 }
 

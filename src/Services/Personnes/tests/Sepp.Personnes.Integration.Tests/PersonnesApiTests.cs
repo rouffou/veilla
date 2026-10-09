@@ -12,8 +12,10 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.Personnes.Application;
 using Sepp.Personnes.Application.Imports;
+using Sepp.Personnes.Application.Mutations;
 using Sepp.Personnes.Application.Occupations;
 using Sepp.Personnes.Application.Personnes;
+using Sepp.Personnes.Domain.Personnes;
 
 using Shouldly;
 
@@ -252,6 +254,133 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
         (await integrations.PostAsJsonAsync("/api/v1/personnes/recherche", new { niss = entree.niss }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
+    private static object Mutation(string niss, string reference, string type, string effet, object? adresse = null, string? nom = null, string? prenom = null, string? langue = null) =>
+        new { referenceMutation = reference, niss, type, dateEffet = effet, adresse, nom, prenom, langue };
+
+    [Fact]
+    public async Task Les_mutations_du_registre_national_sont_appliquees_historisees_chiffrees_et_idempotentes()
+    {
+        var niss = NouveauNiss();
+        var creee = await Creer(niss);
+        var integrations = fixture.Client(Roles.Integrations);
+        var prefixe = $"RN{Guid.CreateVersion7():N}"[..16];
+
+        async Task<MutationEnregistreeDto> Envoyer(object mutation)
+        {
+            var reponse = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", mutation, _ct);
+            reponse.StatusCode.ShouldBe(HttpStatusCode.OK, await reponse.Content.ReadAsStringAsync(_ct));
+            return (await reponse.Content.ReadFromJsonAsync<MutationEnregistreeDto>(Json, _ct))!;
+        }
+
+        var adresse = new { rue = "Avenue Louise", numero = "1", boite = "B", codePostal = "1050", localite = "Ixelles" };
+        (await Envoyer(Mutation(niss, $"{prefixe}-1", "ChangementAdresse", "2026-09-01", adresse: adresse))).Statut.ShouldBe(StatutMutation.Appliquee);
+        (await Envoyer(Mutation(niss, $"{prefixe}-2", "ChangementNom", "2026-09-01", nom: "Zwanenburg"))).Statut.ShouldBe(StatutMutation.Appliquee);
+        (await Envoyer(Mutation(niss, $"{prefixe}-3", "ChangementPrenom", "2026-09-01", prenom: "Annelies"))).Statut.ShouldBe(StatutMutation.Appliquee);
+        (await Envoyer(Mutation(niss, $"{prefixe}-4", "ChangementLangue", "2026-09-01", langue: "Nl"))).Statut.ShouldBe(StatutMutation.Appliquee);
+
+        // Idempotence : le rejeu, même après d'autres mutations, ne change rien.
+        var rejeu = await Envoyer(Mutation(niss, $"{prefixe}-2", "ChangementNom", "2026-09-01", nom: "Zwanenburg"));
+        rejeu.ShouldBe(new MutationEnregistreeDto(creee.PersonneId, StatutMutation.DejaAppliquee));
+
+        var fiche = (await fixture.Client(Roles.Cpmt).GetFromJsonAsync<PersonneDto>($"/api/v1/personnes/{creee.PersonneId}", Json, _ct))!;
+        (fiche.Nom, fiche.Prenom, fiche.Langue.ToString(), fiche.Adresse!.Rue).ShouldBe(("Zwanenburg", "Annelies", "Nl", "Avenue Louise"));
+
+        // Même référence pour une autre mutation, ou pour une autre personne : refus (409 / 400), rien ne change.
+        var autreType = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss, $"{prefixe}-2", "ChangementPrenom", "2026-09-01", prenom: "Eva"), _ct);
+        autreType.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var autre = await Creer(NouveauNiss());
+        var nissAutre = (await fixture.Client(Roles.Cpmt).GetFromJsonAsync<PersonneDto>($"/api/v1/personnes/{autre.PersonneId}", Json, _ct))!;
+        nissAutre.Nom.ShouldBe("Dupont");
+
+        // SQL brut : l'historique (DAT-04) existe, ses valeurs avant / après sont chiffrées, aucun NISS ni valeur d'identité en clair.
+        await using var connexion = new NpgsqlConnection(fixture.ConnectionString);
+        await connexion.OpenAsync(_ct);
+        await using (var commande = new NpgsqlCommand(
+                         "SELECT reference, type, avant_chiffre, apres_chiffre, created_by FROM mutation_registre_national WHERE personne_id = @id ORDER BY reference", connexion))
+        {
+            commande.Parameters.AddWithValue("id", creee.PersonneId);
+            await using var lecteur = await commande.ExecuteReaderAsync(_ct);
+            var lignes = 0;
+            while (await lecteur.ReadAsync(_ct))
+            {
+                lignes++;
+                lecteur.GetString(2).ShouldStartWith("v1:test:");
+                lecteur.GetString(3).ShouldStartWith("v1:test:");
+                lecteur.GetString(4).ShouldBe("test-user");
+            }
+
+            lignes.ShouldBe(4);
+        }
+
+        (await OccurrencesEnBase(connexion, niss)).ShouldBe(0);
+        foreach (var valeur in new[] { "Zwanenburg", "Annelies", "Avenue Louise", "Ixelles" })
+        {
+            await using var presence = new NpgsqlCommand("SELECT count(*) FROM mutation_registre_national t WHERE t::text LIKE @motif", connexion);
+            presence.Parameters.AddWithValue("motif", $"%{valeur}%");
+            ((long)(await presence.ExecuteScalarAsync(_ct))!).ShouldBe(0, valeur);
+        }
+
+        // ARC-06 : aucun événement ne naît d'un changement d'identité ; aucun NISS ni nom dans les journaux.
+        var publisher = (InMemoryMessagePublisher)fixture.Factory.Services.GetRequiredService<IMessagePublisher>();
+        publisher.Published.ShouldAllBe(m => !m.Payload.Contains(niss) && !m.Payload.Contains("Zwanenburg") && !m.Payload.Contains("Ixelles"));
+        fixture.Journal.Entrees.Where(e => e.Contains(niss)).ShouldBeEmpty();
+        fixture.Journal.Entrees.Where(e => e.Contains("Zwanenburg") || e.Contains("Annelies")).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Un_deces_cloture_les_occupations_et_publie_occupation_terminee_sans_donnee_d_identite()
+    {
+        var niss = NouveauNiss();
+        var creee = await Creer(niss);
+        var integrations = fixture.Client(Roles.Integrations);
+        var reference = $"RN{Guid.CreateVersion7():N}"[..16];
+        var mutation = Mutation(niss, reference, "Deces", "2026-09-15");
+
+        var reponse = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", mutation, _ct);
+        reponse.StatusCode.ShouldBe(HttpStatusCode.OK, await reponse.Content.ReadAsStringAsync(_ct));
+        (await reponse.Content.ReadFromJsonAsync<MutationEnregistreeDto>(Json, _ct))!.Statut.ShouldBe(StatutMutation.Appliquee);
+        var rejeu = await (await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", mutation, _ct)).Content.ReadFromJsonAsync<MutationEnregistreeDto>(Json, _ct);
+        rejeu!.Statut.ShouldBe(StatutMutation.DejaAppliquee);
+
+        var occupations = (await fixture.Client(Roles.Cpmt).GetFromJsonAsync<List<OccupationDto>>($"/api/v1/personnes/{creee.PersonneId}/occupations", Json, _ct))!;
+        var occupation = occupations.ShouldHaveSingleItem();
+        occupation.DateFin.ShouldBe(new DateOnly(2026, 9, 15));
+
+        var publisher = (InMemoryMessagePublisher)fixture.Factory.Services.GetRequiredService<IMessagePublisher>();
+        await Eventually(() => publisher.Published.Any(m => m.EventType == "personnes.occupation-terminee.v1" && m.Payload.Contains(occupation.Id.ToString())));
+        var evenements = publisher.Published.Where(m => m.EventType == "personnes.occupation-terminee.v1" && m.Payload.Contains(occupation.Id.ToString())).ToList();
+        evenements.ShouldHaveSingleItem().Payload.ShouldContain("2026-09-15");
+        evenements.ShouldAllBe(m => !m.Payload.Contains(niss) && !m.Payload.Contains("Dupont") && !m.Payload.Contains("Marie"));
+
+        await using var connexion = new NpgsqlConnection(fixture.ConnectionString);
+        await connexion.OpenAsync(_ct);
+        (await OccurrencesEnBase(connexion, niss)).ShouldBe(0);
+        fixture.Journal.Entrees.Where(e => e.Contains(niss)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task L_api_des_mutations_est_reservee_au_compte_technique_et_tolere_une_personne_inconnue()
+    {
+        var niss = NouveauNiss();
+        await Creer(niss);
+        var mutation = Mutation(niss, $"RN{Guid.CreateVersion7():N}"[..16], "ChangementNom", "2026-09-01", nom: "Martin");
+
+        (await fixture.Factory.CreateClient().PostAsJsonAsync("/api/v1/registre-national/mutations", mutation, _ct)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await fixture.Client(Roles.Employeur, _affilie).PostAsJsonAsync("/api/v1/registre-national/mutations", mutation, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await fixture.Client(Roles.Cpmt).PostAsJsonAsync("/api/v1/registre-national/mutations", mutation, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var integrations = fixture.Client(Roles.Integrations);
+        var invalide = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss[..10] + "0", "RN-X", "Deces", "2026-09-01"), _ct);
+        invalide.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await invalide.Content.ReadAsStringAsync(_ct)).ShouldNotContain(niss[..10]);
+        (await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss, "RN-Y", "ChangementNom", "2026-09-01"), _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var inconnue = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(NouveauNiss(), $"RN{Guid.CreateVersion7():N}"[..16], "Deces", "2026-09-01"), _ct);
+        inconnue.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await inconnue.Content.ReadFromJsonAsync<MutationEnregistreeDto>(Json, _ct))!.ShouldBe(new MutationEnregistreeDto(null, StatutMutation.PersonneInconnue));
+    }
+
     [Fact]
     public async Task L_import_csv_produit_un_rapport_ligne_par_ligne()
     {
@@ -297,7 +426,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
                          "SELECT string_agg(table_name, ',' ORDER BY table_name) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'",
                          connexion))
         {
-            ((string)(await tables.ExecuteScalarAsync())!).ShouldBe("__EFMigrationsHistory,affectation,etat_particulier,inbox_message,occupation,outbox_message,personne");
+            ((string)(await tables.ExecuteScalarAsync())!).ShouldBe("__EFMigrationsHistory,affectation,etat_particulier,inbox_message,mutation_registre_national,occupation,outbox_message,personne");
         }
 
         await using var commande = new NpgsqlCommand(
@@ -306,6 +435,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
                  + (SELECT count(*) FROM occupation t WHERE t::text LIKE @motif)
                  + (SELECT count(*) FROM affectation t WHERE t::text LIKE @motif)
                  + (SELECT count(*) FROM etat_particulier t WHERE t::text LIKE @motif)
+                 + (SELECT count(*) FROM mutation_registre_national t WHERE t::text LIKE @motif)
                  + (SELECT count(*) FROM outbox_message t WHERE t::text LIKE @motif)
                  + (SELECT count(*) FROM inbox_message t WHERE t::text LIKE @motif)
             """,

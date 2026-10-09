@@ -17,6 +17,9 @@ internal sealed class PersonneRepository(PersonnesDbContext db) : IPersonneRepos
     public Task<Personne?> GetParReferenceDimonaAsync(string referenceDimona, CancellationToken cancellationToken) =>
         db.Personnes.AsSplitQuery().SingleOrDefaultAsync(p => p.Occupations.Any(o => o.ReferenceDimona == referenceDimona), cancellationToken);
 
+    public Task<Personne?> GetParReferenceMutationAsync(string referenceMutation, CancellationToken cancellationToken) =>
+        db.Personnes.AsSplitQuery().SingleOrDefaultAsync(p => p.Mutations.Any(m => m.Reference == referenceMutation), cancellationToken);
+
     public async Task<IReadOnlyList<Personne>> ListerParAffilieAsync(Guid affilieId, DateOnly date, CancellationToken cancellationToken) =>
         await db.Personnes.AsNoTracking().IgnoreAutoIncludes()
             .Where(p => p.Occupations.Any(o => (o.AffilieId == affilieId || o.AffilieUtilisateurId == affilieId)

@@ -38,6 +38,9 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IPer
     public Task<Personne?> GetParReferenceDimonaAsync(string referenceDimona, CancellationToken cancellationToken) =>
         Task.FromResult(Personnes.SingleOrDefault(p => p.Occupations.Any(o => o.ReferenceDimona == referenceDimona)));
 
+    public Task<Personne?> GetParReferenceMutationAsync(string referenceMutation, CancellationToken cancellationToken) =>
+        Task.FromResult(Personnes.SingleOrDefault(p => p.Mutations.Any(m => m.Reference == referenceMutation)));
+
     public Task<IReadOnlyList<Personne>> ListerParAffilieAsync(Guid affilieId, DateOnly date, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Personne>>(Personnes
             .Where(p => p.Occupations.Any(o => (o.AffilieId == affilieId || o.AffilieUtilisateurId == affilieId) && o.EstActiveAu(date)))

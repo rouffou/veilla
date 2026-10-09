@@ -14,7 +14,7 @@ Base `integrations`, port local 5115, espace de noms `Sepp.Integrations`.
 |---|---|
 | §12 couche d'intégration découplée, journalisée, rejouable | Un port par flux dans `Application/Externe/Ports.cs` (`IRegistreBce`, `IFluxDimona`, `IRegistreNational`) et un adaptateur par organisme dans `Adapters/External` ; chaque message reçu est journalisé avant traitement et rejouable |
 | AFF-20 DIMONA / DmfA via la BCSS | Entrées et sorties → identité au registre national → `POST /api/v1/dimona/entrees` et `POST /api/v1/dimona/{reference}/sortie` du service Personnes (HTTP interne, idempotent sur la référence DIMONA) |
-| BCSS identification et mutations | Port `IRegistreNational` + simulateur ; mutation → `IPersonnesClient.AppliquerMutationIdentiteAsync` (voir *Lacunes*) |
+| BCSS identification et mutations | Port `IRegistreNational` + simulateur ; mutation (adresse, nom, prénom, langue, décès) → `IPersonnesClient.AppliquerMutationAsync` → `POST /api/v1/registre-national/mutations` du service Personnes, idempotent sur la référence de mutation |
 | BCE | Données d'entreprise et unités d'établissement → table `entreprise_bce` et événement `integrations.donnees-bce-recues.v1` vers Affiliés |
 | INT-02 tableau de suivi | Table `journal_flux` ; API volumes par flux et par jour, erreurs et rejets, détail, relance manuelle |
 | INT-03 / INT-04 autorisations et certificats | Ci-dessous ; adaptateurs réels en squelette documenté |
@@ -29,7 +29,7 @@ organisme ──▶ adaptateur (Simulateur… | …AdaptateurReel) ──▶ for
                      TraitementEchanges (premier passage ou relance manuelle) ◀──────┘
                          ├── BCE      : entreprise_bce + outbox DonneesBceRecues ──▶ Affiliés (événement)
                          ├── DIMONA   : correspondance BCE → affilié, identité RN ──▶ Personnes (HTTP interne)
-                         └── mutation : ──▶ Personnes (HTTP interne, à créer côté Personnes)
+                         └── mutation : ──▶ Personnes (HTTP interne, idempotent sur la référence de mutation)
 ```
 
 - **Réception idempotente** : chaque message a une clé unique par flux (`entree:<référence DIMONA>`,
@@ -51,7 +51,8 @@ organisme ──▶ adaptateur (Simulateur… | …AdaptateurReel) ──▶ for
   (NF-14). BCE : toute entreprise au numéro valide existe (une ou deux unités d'établissement), sauf les numéros dont la
   base se termine par `999`. DIMONA : un lot unique pour les trois premiers affiliés connus (entrée d'un salarié, entrée
   d'un étudiant, sortie du salarié) et une entrée pour un employeur non affilié (rejet). Registre national : identité
-  fictive cohérente avec tout NISS valide (numéro d'ordre 998 : inconnu) et une mutation fictive.
+  fictive cohérente avec tout NISS valide (numéro d'ordre 998 : inconnu) et des mutations fictives (voir *Mutations du
+  registre national*).
 
 ## Déclenchement
 
@@ -109,6 +110,29 @@ Le NISS ne transite entre Intégrations et Personnes que dans le corps d'appels 
 - Côté Personnes, le groupe `/api/v1/dimona` n'exige plus `personne:lire` (seulement `personne:ecrire`) : le compte
   technique y accède sans pouvoir lire les fiches (test `Le_compte_technique_integrations_alimente_dimona_sans_lire_les_fiches`).
 
+## Mutations du registre national (AFF-20, AFF-22)
+
+Le flux `registre-national` récupère les mutations par `IRegistreNational.RecupererMutationsAsync`, les journalise
+(clé `mutation:<référence>`, charge utile chiffrée) puis les transmet à `POST /api/v1/registre-national/mutations` du
+service Personnes (même compte technique `integrations` que DIMONA, permission `personne:ecrire` seule).
+
+- **Format canonique** `MutationRegistreNational` : référence de mutation, NISS, type (`ChangementAdresse`,
+  `ChangementNom`, `ChangementPrenom`, `ChangementLangue`, `Deces`), date d'effet (pour un décès : la date du décès) et la
+  seule valeur propre au type (adresse, nom, prénom ou langue). Le NISS ne voyage que dans le corps de l'appel.
+- **Idempotence** : la référence de mutation est la clé, côté journal comme côté Personnes (table
+  `mutation_registre_national`, index unique). Une relance ou un rejeu renvoie `DejaAppliquee` sans rien changer.
+- **Issues de Personnes** : `Appliquee`, `DejaAppliquee`, ou `PersonneInconnue` (le NISS n'est pas suivi : échange traité,
+  rien à mettre à jour ; une entrée DIMONA ultérieure reprend l'identité courante du registre). Un refus 400/409 (valeur
+  absente, référence réutilisée pour une autre mutation, décès incohérent avec la naissance ou une occupation) rejette
+  l'échange ; une indisponibilité ou un refus d'accès le met en erreur, relançable.
+- **Décès** : Personnes clôt à la date du décès les occupations actives (et leurs affectations) et publie les événements
+  existants `personnes.occupation-terminee.v1` / `personnes.affectation-modifiee.v1`, qui déclenchent les recalculs
+  d'Obligations. Aucun événement de changement d'identité n'est publié (aucun consommateur n'en a besoin, ARC-06).
+- **Simulateur** : pour les trois premiers affiliés connus, cinq mutations déterministes sur les travailleurs fictifs du
+  simulateur DIMONA (adresse, nom, prénom et langue du salarié, décès de l'étudiant le 15 juillet 2026), plus un changement
+  de nom pour une personne que Personnes ne suit pas. Lancer le flux DIMONA avant le flux registre national.
+- **Adaptateur réel** : `RegistreNationalAdaptateurReel` reste un squelette (`NotImplementedException` documentée, INT-04).
+
 ## INT-03 — Autorisations et certificats à obtenir
 
 Le contenu des délibérations, des formulaires et des certificats n'est pas reproduit ici : il est fourni par les
@@ -139,12 +163,11 @@ documentation des services obtenue.
 
 ## Lacunes et suites
 
-- **Mutations d'identité** : le service Personnes n'expose pas de point d'entrée interne de mise à jour d'identité par
-  NISS accessible au compte technique (la correction existante se fait par identifiant de personne, et la recherche par
-  NISS exige `personne:lire`). `PersonnesHttpClient.AppliquerMutationIdentiteAsync` renvoie donc une erreur technique
-  `integrations.personnes-api-mutation-absente` : les mutations restent `EnErreur`, relançables (charge utile chiffrée
-  conservée 30 jours) jusqu'à l'ajout, dans Personnes, d'un point d'entrée du type
-  `POST /api/v1/registre-national/mutations` (NISS dans le corps, idempotent, réservé au rôle `integrations`).
+- **Mutations du registre national** : traitées (AFF-20, AFF-22) par `POST /api/v1/registre-national/mutations` de
+  Personnes, voir la section dédiée. Restent à confirmer auprès de la BCSS (INT-04) : les types de mutation réellement
+  communiqués (seuls l'adresse, le nom, le prénom, la langue et le décès sont traités), la stabilité de la référence de
+  mutation d'un envoi à l'autre (elle sert de clé d'idempotence) et l'ordre d'arrivée (les mutations sont appliquées dans
+  l'ordre de réception ; une mutation plus ancienne arrivant après une plus récente du même type l'écraserait).
 - **Consommateur Affiliés de `integrations.donnees-bce-recues.v1`** : à écrire dans le service Affiliés — gestionnaire
   idempotent qui met à jour la fiche (dénomination, forme juridique, NACE) et les unités d'établissement de l'affilié
   (lecture des adresses par l'API ci-dessus), en passant par l'historique AFF-05 sous l'identité technique du service.

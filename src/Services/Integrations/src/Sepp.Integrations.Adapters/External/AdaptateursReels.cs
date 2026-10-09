@@ -26,7 +26,9 @@ public static class DocumentationAObtenir
         "Adaptateur BCSS identification réel non implémenté (INT-04) : obtenir auprès de la BCSS la documentation des services de " +
         "consultation du registre national (ou des registres BCSS) et de communication des mutations (service, version, schéma), " +
         "la délibération du Comité de sécurité de l'information (INT-03), les modalités d'intégration du SEPP communiquées par la BCSS " +
-        "et le certificat d'accès, puis traduire vers IdentiteRegistreNational et MutationRegistreNational.";
+        "et le certificat d'accès, puis traduire vers IdentiteRegistreNational et MutationRegistreNational (types de mutation à confirmer " +
+        "auprès de la BCSS : changement d'adresse, de nom, de prénom, de langue et décès sont les seuls traités par Personnes ; " +
+        "la référence de mutation doit être stable d'un envoi à l'autre, elle sert de clé d'idempotence).";
 }
 
 /// <summary>Accès aux services de la BCSS : point d'accès et certificat (configuration <c>Integrations:Bcss</c>, voir README).</summary>

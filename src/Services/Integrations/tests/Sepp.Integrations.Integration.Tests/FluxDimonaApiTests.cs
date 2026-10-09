@@ -15,6 +15,7 @@ using Sepp.Integrations.Adapters.External;
 using Sepp.Integrations.Adapters.Persistence;
 using Sepp.Integrations.Adapters.Planification;
 using Sepp.Integrations.Application.Correspondances;
+using Sepp.Integrations.Application.Externe;
 using Sepp.Integrations.Application.Flux;
 using Sepp.Integrations.Domain;
 using Sepp.Integrations.Domain.Flux;
@@ -162,21 +163,100 @@ public sealed class FluxDimonaApiTests(IntegrationsApiFixture fixture) : IClassF
     }
 
     [Fact]
-    public async Task Une_mutation_du_registre_national_reste_en_erreur_tant_que_personnes_n_expose_pas_l_api()
+    public async Task Le_flux_des_mutations_du_registre_national_alimente_personnes_journalise_se_relance_et_ne_stocke_aucun_niss_en_clair()
     {
+        var affilie = Guid.CreateVersion7();
+        (await Dispatcher(Guid.CreateVersion7(), new AffilieCree(affilie, Employeur, "A"))).ShouldBe(1);
+        var attendues = SimulateurRegistreNational.Mutations(Employeur);
+        var declarations = SimulateurDimona.Declarations(Employeur);
+        fixture.Personnes.ConnaitPersonne(declarations[0].Niss);
+        fixture.Personnes.ConnaitPersonne(declarations[1].Niss);
+        var nissInconnu = SimulateurRegistreNational.NissMutation;
+
+        // 1. Personnes refuse l'accès : toutes les mutations restent en erreur, relançables.
+        fixture.Personnes.Panne = HttpStatusCode.Forbidden;
         var rapport = await Lancer("registre-national");
+        rapport.ShouldBe(new RapportExecutionDto(TypeFlux.RegistreNational, attendues.Count + 1, 0, 0, 0, attendues.Count + 1, 0, null));
+        var journal = await Journal("?flux=registre-national&taille=200");
+        journal.Elements.ShouldAllBe(e => e.Statut == StatutEchange.EnErreur && e.CodeErreur == "integrations.personnes-acces-refuse" && e.Relancable);
+        journal.Elements.Select(e => e.ReferenceExterne).ShouldBe(
+            attendues.Select(m => m.ReferenceMutation).Append(SimulateurRegistreNational.ReferenceMutationInconnue), ignoreOrder: true);
 
-        rapport.Recus.ShouldBe(1);
-        rapport.EnErreur.ShouldBe(1);
-        var echange = (await Journal("?flux=registre-national")).Elements.ShouldHaveSingleItem();
-        echange.CodeErreur.ShouldBe("integrations.personnes-api-mutation-absente");
-        echange.ReferenceExterne.ShouldBe("SIM-RN-0001");
-        echange.ChargeUtileDisponible.ShouldBeTrue();
+        // 2. Relance manuelle après rétablissement : chaque mutation aboutit ; une seconde relance est sans effet.
+        fixture.Personnes.Panne = null;
+        foreach (var echange in journal.Elements)
+        {
+            var relance = await Gestionnaire.PostAsync($"/api/v1/flux/journal/{echange.Id}/relance", null, _ct);
+            relance.StatusCode.ShouldBe(HttpStatusCode.OK, await relance.Content.ReadAsStringAsync(_ct));
+            (await relance.Content.ReadFromJsonAsync<EchangeFluxDto>(Json, _ct))!.Statut.ShouldBe(StatutEchange.Traite);
+        }
 
+        var appelsAvantRejeu = fixture.Personnes.AppelsPersonnes.Count;
+        (await (await Gestionnaire.PostAsync($"/api/v1/flux/journal/{journal.Elements[0].Id}/relance", null, _ct)).Content
+            .ReadFromJsonAsync<EchangeFluxDto>(Json, _ct))!.Statut.ShouldBe(StatutEchange.Traite);
+        fixture.Personnes.AppelsPersonnes.Count.ShouldBe(appelsAvantRejeu);
+
+        // 3. Une nouvelle exécution ne rejournalise rien (position du flux et clé d'idempotence).
+        (await Lancer("registre-national")).Recus.ShouldBe(0);
+
+        // 4. Appels HTTP internes : jeton du compte technique, NISS dans le corps uniquement, valeur propre au type de mutation.
+        var appels = fixture.Personnes.AppelsPersonnes.Where(a => a.Chemin == "/api/v1/registre-national/mutations" && a.Corps.Length > 0).ToList();
+        appels.ShouldAllBe(a => a.Autorisation == "Bearer jeton-test" && a.Methode == HttpMethod.Post);
+        appels.ShouldAllBe(a => !a.Chemin.Contains(declarations[0].Niss) && !a.Chemin.Contains(declarations[1].Niss) && !a.Chemin.Contains(nissInconnu));
+        var corpsParReference = appels.Select(a => JsonDocument.Parse(a.Corps).RootElement)
+            .GroupBy(c => c.GetProperty("referenceMutation").GetString()!).ToDictionary(g => g.Key, g => g.Last());
+        var deces = corpsParReference[$"SIMRN{Employeur}05"];
+        deces.GetProperty("type").GetString().ShouldBe("Deces");
+        deces.GetProperty("dateEffet").GetString().ShouldBe("2026-07-15");
+        deces.GetProperty("niss").GetString().ShouldBe(declarations[1].Niss);
+        corpsParReference[$"SIMRN{Employeur}01"].GetProperty("adresse").GetProperty("localite").GetString().ShouldBe("Namur");
+        corpsParReference[$"SIMRN{Employeur}04"].GetProperty("langue").GetString().ShouldBe("De");
+
+        // 5. SQL brut : la charge utile n'existe que chiffrée ; aucune ligne d'aucune table ne contient un NISS ni une donnée d'identité.
         await using var connexion = new NpgsqlConnection(fixture.ConnectionString);
         await connexion.OpenAsync(_ct);
-        (await OccurrencesEnBase(connexion, SimulateurRegistreNational.NissMutation)).ShouldBe(0);
-        fixture.Journal.Entrees.Where(e => e.Contains(SimulateurRegistreNational.NissMutation)).ShouldBeEmpty();
+        await using (var commande = new NpgsqlCommand("SELECT charge_utile_chiffree FROM journal_flux WHERE flux = 'RegistreNational' AND charge_utile_chiffree IS NOT NULL", connexion))
+        {
+            await using var lecteur = await commande.ExecuteReaderAsync(_ct);
+            var chiffrees = 0;
+            while (await lecteur.ReadAsync(_ct))
+            {
+                lecteur.GetString(0).ShouldStartWith("v1:test:");
+                chiffrees++;
+            }
+
+            chiffrees.ShouldBe(attendues.Count + 1);
+        }
+
+        foreach (var valeur in new[] { declarations[0].Niss, declarations[1].Niss, nissInconnu, "Simule-Nouveau-Nom", "Rue de la Mutation", "Simule-Nouveau-Prenom" })
+        {
+            (await OccurrencesEnBase(connexion, valeur)).ShouldBe(0);
+            fixture.Journal.Entrees.Where(e => e.Contains(valeur)).ShouldBeEmpty();
+        }
+
+        var publisher = (InMemoryMessagePublisher)fixture.Factory.Services.GetRequiredService<IMessagePublisher>();
+        publisher.Published.ShouldAllBe(m => !m.Payload.Contains(declarations[0].Niss) && !m.Payload.Contains("Simule-Nouveau-Nom"));
+    }
+
+    [Fact]
+    public void Le_simulateur_produit_des_mutations_deterministes_pour_les_travailleurs_du_simulateur_dimona()
+    {
+        var premieres = SimulateurRegistreNational.Mutations(Employeur);
+        var secondes = SimulateurRegistreNational.Mutations(Employeur);
+
+        premieres.ShouldBe(secondes);
+        premieres.Select(m => m.Type).ShouldBe(
+        [
+            TypeMutationRegistreNational.ChangementAdresse,
+            TypeMutationRegistreNational.ChangementNom,
+            TypeMutationRegistreNational.ChangementPrenom,
+            TypeMutationRegistreNational.ChangementLangue,
+            TypeMutationRegistreNational.Deces,
+        ]);
+        var declarations = SimulateurDimona.Declarations(Employeur);
+        premieres.Take(4).ShouldAllBe(m => m.Niss == declarations[0].Niss);
+        premieres[4].Niss.ShouldBe(declarations[1].Niss);
+        premieres.Select(m => m.ReferenceMutation).Distinct().Count().ShouldBe(premieres.Count);
     }
 
     private async Task<RapportExecutionDto> Lancer(string flux)

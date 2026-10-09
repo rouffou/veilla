@@ -126,11 +126,17 @@ public sealed partial class FauxPersonnes : HttpMessageHandler
 {
     private readonly ConcurrentDictionary<string, (Guid PersonneId, Guid OccupationId)> _occupations = new(StringComparer.Ordinal);
 
+    private readonly ConcurrentDictionary<string, Guid> _nissConnus = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Guid> _mutations = new(StringComparer.Ordinal);
+
     public ConcurrentQueue<(HttpMethod Methode, string Chemin, string? Autorisation, string Corps)> Requetes { get; } = new();
 
     private int _jetonsDelivres;
 
     public int JetonsDelivres => _jetonsDelivres;
+
+    /// <summary>Déclare une personne connue de Personnes (sans quoi une mutation est signalée « personne inconnue »).</summary>
+    public void ConnaitPersonne(string niss) => _nissConnus.TryAdd(niss, Guid.CreateVersion7());
 
     /// <summary>Si renseigné, toute requête vers Personnes reçoit ce statut (panne simulée).</summary>
     public HttpStatusCode? Panne { get; set; }
@@ -163,9 +169,24 @@ public sealed partial class FauxPersonnes : HttpMessageHandler
         {
             using var document = JsonDocument.Parse(corps);
             var reference = document.RootElement.GetProperty("referenceDimona").GetString()!;
+            _nissConnus.TryAdd(document.RootElement.GetProperty("niss").GetString()!, Guid.CreateVersion7());
             var deja = _occupations.ContainsKey(reference);
             var (personne, occupation) = _occupations.GetOrAdd(reference, _ => (Guid.CreateVersion7(), Guid.CreateVersion7()));
             return Json(HttpStatusCode.OK, JsonSerializer.Serialize(new { personneId = personne, occupationId = occupation, dejaEnregistree = deja }));
+        }
+
+        if (chemin == "/api/v1/registre-national/mutations")
+        {
+            // Comme le vrai service : idempotent sur la référence, personne inconnue tolérée.
+            using var document = JsonDocument.Parse(corps);
+            var reference = document.RootElement.GetProperty("referenceMutation").GetString()!;
+            if (!_nissConnus.TryGetValue(document.RootElement.GetProperty("niss").GetString()!, out var personne))
+            {
+                return Json(HttpStatusCode.OK, """{"personneId":null,"statut":"PersonneInconnue"}""");
+            }
+
+            var nouvelle = _mutations.TryAdd(reference, personne);
+            return Json(HttpStatusCode.OK, JsonSerializer.Serialize(new { personneId = personne, statut = nouvelle ? "Appliquee" : "DejaAppliquee" }));
         }
 
         if (Sortie().Match(chemin) is { Success: true } sortie)

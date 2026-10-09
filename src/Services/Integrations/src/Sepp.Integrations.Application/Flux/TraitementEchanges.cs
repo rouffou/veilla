@@ -195,7 +195,7 @@ public sealed class TraitementEchanges(
     private async Task<Issue> TraiterMutationAsync(string chargeUtile, CancellationToken cancellationToken)
     {
         var mutation = ChargesUtiles.Lire<MutationRegistreNational>(chargeUtile);
-        var resultat = await personnes.AppliquerMutationIdentiteAsync(mutation.Niss, mutation.Identite, cancellationToken);
+        var resultat = await personnes.AppliquerMutationAsync(mutation, cancellationToken);
         return resultat.Issue == IssueAppel.Succes ? Issue.Traite(1) : Issue.Depuis(resultat);
     }
 
