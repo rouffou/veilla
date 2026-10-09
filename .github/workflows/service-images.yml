@@ -314,13 +314,13 @@ jobs:
           # correctifs de sécurité publiés depuis la dernière construction soient toujours appliqués (CTR-04).
           no-cache-filters: ${{ matrix.no_cache_filters }}
 
-      # SARIF envoyé au code scanning : vulnérabilités uniquement (#294). Les licences des paquets
+      # SARIF envoyé au code scanning : vulnérabilités et secrets (#294, #306). Les licences des paquets
       # système ne sont pas des failles : elles restent dans le rapport complet archivé ci-dessous.
       - name: Analyse Trivy (rapport SARIF)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE_LOCALE }}
-          scanners: vuln
+          scanners: vuln,secret
           format: sarif
           output: trivy-${{ matrix.name }}.sarif
           severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
