@@ -73,6 +73,12 @@
       },
       {
         "name": "integrations"
+      },
+      {
+        "name": "documents"
+      },
+      {
+        "name": "communications"
       }
     ]
   },
@@ -115,6 +121,20 @@
             "user.attribute": "affilie_id",
             "claim.name": "affilie_id",
             "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "true",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "personne_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "personne_id",
+            "claim.name": "personne_id",
+            "multivalued": "false",
             "access.token.claim": "true",
             "id.token.claim": "false",
             "userinfo.token.claim": "true",
@@ -328,6 +348,34 @@
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "integrations-local-dev",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "defaultClientScopes": [
+        "sepp-api"
+      ]
+    },
+    {
+      "clientId": "veilla-documents",
+      "name": "Service Documents (compte technique, développement local)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "documents-local-dev",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "defaultClientScopes": [
+        "sepp-api"
+      ]
+    },
+    {
+      "clientId": "veilla-communications",
+      "name": "Service Communications (compte technique, développement local)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "communications-local-dev",
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
@@ -550,7 +598,12 @@
       "realmRoles": [
         "travailleur",
         "offline_access"
-      ]
+      ],
+      "attributes": {
+        "personne_id": [
+          "0192a5c8-0000-7000-8000-0000000000a1"
+        ]
+      }
     },
     {
       "username": "service-account-veilla-integrations",
@@ -558,6 +611,22 @@
       "serviceAccountClientId": "veilla-integrations",
       "realmRoles": [
         "integrations"
+      ]
+    },
+    {
+      "username": "service-account-veilla-documents",
+      "enabled": true,
+      "serviceAccountClientId": "veilla-documents",
+      "realmRoles": [
+        "documents"
+      ]
+    },
+    {
+      "username": "service-account-veilla-communications",
+      "enabled": true,
+      "serviceAccountClientId": "veilla-communications",
+      "realmRoles": [
+        "communications"
       ]
     }
   ],
@@ -568,7 +637,7 @@
         "subComponents": {},
         "config": {
           "kc.user.profile.config": [
-            "{\"unmanagedAttributePolicy\": \"ADMIN_VIEW\", \"attributes\": [{\"name\": \"username\", \"displayName\": \"${username}\", \"validations\": {\"length\": {\"min\": 3, \"max\": 255}, \"username-prohibited-characters\": {}, \"up-username-not-idn-homograph\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"email\", \"displayName\": \"${email}\", \"validations\": {\"email\": {}, \"length\": {\"max\": 255}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"firstName\", \"displayName\": \"${firstName}\", \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"lastName\", \"displayName\": \"${lastName}\", \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"affilie_id\", \"displayName\": \"Affiliés autorisés (employeur / SIPP)\", \"permissions\": {\"view\": [\"admin\"], \"edit\": [\"admin\"]}, \"multivalued\": true, \"annotations\": {\"description\": \"Identifiants des affiliés dont l'utilisateur externe peut voir et modifier les données (ADR 0005)\"}}], \"groups\": [{\"name\": \"user-metadata\", \"displayHeader\": \"User metadata\", \"displayDescription\": \"Attributes, which refer to user metadata\"}]}"
+            "{\"unmanagedAttributePolicy\": \"ADMIN_VIEW\", \"attributes\": [{\"name\": \"username\", \"displayName\": \"${username}\", \"validations\": {\"length\": {\"min\": 3, \"max\": 255}, \"username-prohibited-characters\": {}, \"up-username-not-idn-homograph\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"email\", \"displayName\": \"${email}\", \"validations\": {\"email\": {}, \"length\": {\"max\": 255}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"firstName\", \"displayName\": \"${firstName}\", \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"lastName\", \"displayName\": \"${lastName}\", \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"multivalued\": false}, {\"name\": \"affilie_id\", \"displayName\": \"Affiliés autorisés (employeur / SIPP)\", \"permissions\": {\"view\": [\"admin\"], \"edit\": [\"admin\"]}, \"multivalued\": true, \"annotations\": {\"description\": \"Identifiants des affiliés dont l'utilisateur externe peut voir et modifier les données (ADR 0005)\"}}, {\"name\": \"personne_id\", \"displayName\": \"Personne (travailleur)\", \"permissions\": {\"view\": [\"admin\"], \"edit\": [\"admin\"]}, \"multivalued\": false, \"annotations\": {\"description\": \"Identifiant de la personne dont le travailleur consulte les données (ADR 0005)\"}}], \"groups\": [{\"name\": \"user-metadata\", \"displayHeader\": \"User metadata\", \"displayDescription\": \"Attributes, which refer to user metadata\"}]}"
           ]
         }
       }

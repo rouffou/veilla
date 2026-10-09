@@ -58,6 +58,21 @@ resource "azurerm_servicebus_subscription" "this" {
   dead_lettering_on_message_expiration = true
 }
 
+# Filtre par sujet (ADR 0004) : le sujet (label) du message est le nom versionné du contrat, par ex.
+# « audit.bris-de-glace-signale.v1 » (ServiceBusMessagePublisher : Subject = OutboxMessage.EventType).
+# LIMITE : Azure crée la règle « $Default » (TrueFilter) avec chaque subscription et le fournisseur azurerm 4.x ne
+# permet ni de la supprimer ni de la remplacer (aucun argument sur azurerm_servicebus_subscription, et créer une règle
+# nommée « $Default » se heurte à la règle existante). Tant qu'elle n'est pas supprimée (infra/README.md), elle accepte
+# tous les messages et le filtre est sans effet ; les consommateurs ignorent de toute façon les contrats non souscrits.
+resource "azurerm_servicebus_subscription_rule" "subject_filter" {
+  for_each = { for k, s in var.subscriptions : k => s if length(s.subjects) > 0 }
+
+  name            = "filtre-sujets"
+  subscription_id = azurerm_servicebus_subscription.this[each.key].id
+  filter_type     = "SqlFilter"
+  sql_filter      = "sys.Label IN (${join(", ", [for x in each.value.subjects : "'${x}'"])})"
+}
+
 # --- RBAC (CTR-16) ---------------------------------------------------------------
 resource "azurerm_role_assignment" "sender" {
   for_each = toset(var.topics)

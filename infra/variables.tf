@@ -74,7 +74,14 @@ variable "tags" {
 # - min_replicas / max_replicas : bornes de mise à l'échelle (minimum forcé à 2 en prod, CTR-14) ;
 # - database : base PostgreSQL dédiée sur le serveur de la zone (ARC-02) ;
 # - publishes_events : crée le topic Service Bus du service (ARC-05) ;
-# - subscribes_to : topics auxquels le service s'abonne (une subscription par service abonné) ;
+# - subscribes_to : topics auxquels le service s'abonne (une subscription par service abonné). Doit être aligné sur les
+#   AddIntegrationEventHandler du service : les tests d'architecture (Sepp.<Service>.Architecture.Tests) vérifient que les
+#   topics souscrits par le code sont inclus dans cette liste. Un abonnement sans gestionnaire n'est conservé que si le
+#   service producteur ou consommateur n'est pas encore écrit (commentaire en regard) ;
+# - subject_filters : topic -> sujets (nom versionné du contrat, ex. audit.bris-de-glace-signale.v1) acceptés par la
+#   subscription ; crée une règle SQL `sys.Label IN (...)` (ADR 0004 : le sujet du message est le nom versionné du
+#   contrat). Absent = tous les messages du topic. Limite : la règle `$Default` créée par Azure doit être supprimée
+#   (voir infra/README.md) ;
 # - http_concurrency : seuil de la règle KEDA HTTP ; queue_scaling / message_count : règles KEDA Service Bus (CTR-13) ;
 # - image : image complète (sinon <acr>/sepp/<service>:<image_tag>) ;
 # - key_vault_secrets : variables alimentées par des secrets du Key Vault de la zone, nom -> nom du secret (CTR-16).
@@ -89,6 +96,7 @@ variable "services" {
     database          = optional(bool, false)
     publishes_events  = optional(bool, true)
     subscribes_to     = optional(list(string), [])
+    subject_filters   = optional(map(list(string)), {})
     http_concurrency  = optional(number, 50)
     queue_scaling     = optional(bool, true)
     message_count     = optional(number, 20)
@@ -103,26 +111,63 @@ variable "services" {
     "identite"        = { zone = "platform", database = true }
 
     # --- Zone standard / transverse ---
-    "affilies"       = { zone = "standard", database = true, subscribes_to = ["integrations"] }
-    "personnes"      = { zone = "standard", database = true, subscribes_to = ["integrations", "affilies"] }
-    "postes-risques" = { zone = "standard", database = true, subscribes_to = ["referentiels", "personnes", "surveillance-medicale"] }
-    "obligations" = {
+    # Les abonnements suivent les gestionnaires d'événements réellement enregistrés dans chaque service (saga de
+    # reprise, ARC-33). Affilies, personnes et referentiels n'ont pas encore de consommateur : leurs abonnements sont
+    # ceux prévus pour leur écriture.
+    "affilies"  = { zone = "standard", database = true, subscribes_to = ["integrations"] }
+    "personnes" = { zone = "standard", database = true, subscribes_to = ["integrations", "affilies"] }
+    "postes-risques" = {
       zone          = "standard"
       database      = true
-      subscribes_to = ["affilies", "personnes", "postes-risques", "planification", "surveillance-medicale", "bff-employeur", "referentiels"]
+      subscribes_to = ["referentiels", "personnes", "surveillance-medicale"]
+      # personnes.etat-particulier-declare.v1 est réservé à Obligations (catalogue des événements).
+      subject_filters = { personnes = ["personnes.affectation-modifiee.v1"] }
     }
-    "planification"  = { zone = "standard", database = true, subscribes_to = ["obligations", "affilies"] }
-    "prevention"     = { zone = "standard", database = true, subscribes_to = ["affilies", "postes-risques", "bff-employeur"] }
-    "prestations"    = { zone = "standard", database = true, subscribes_to = ["planification", "prevention", "surveillance-medicale", "reintegration", "psychosocial"] }
-    "documents"      = { zone = "standard", database = true, subscribes_to = ["surveillance-medicale", "reintegration", "psychosocial", "prevention"] }
-    "communications" = { zone = "standard", database = true, subscribes_to = ["planification", "documents", "obligations"] }
-    "integrations"   = { zone = "standard", database = true, subscribes_to = ["affilies", "personnes", "prestations", "surveillance-medicale"] }
-    "referentiels"   = { zone = "standard", database = true }
+    "obligations" = {
+      zone     = "standard"
+      database = true
+      subscribes_to = [
+        "personnes", "postes-risques", "planification", "surveillance-medicale", "referentiels", "documents",
+        "integrations",  # incapacite-notifiee
+        "bff-employeur", # reprise-annoncee (rétrocompatibilité : la saga démarre par l'API /reprises)
+        "reintegration", # trajet-demarre, trajet-termine : service pas encore écrit
+      ]
+    }
+    "planification" = {
+      zone          = "standard"
+      database      = true
+      subscribes_to = ["obligations", "referentiels", "communications"]
+    }
+    "prevention"  = { zone = "standard", database = true, subscribes_to = ["affilies", "postes-risques", "bff-employeur"] }
+    "prestations" = { zone = "standard", database = true, subscribes_to = ["planification", "prevention", "surveillance-medicale", "reintegration", "psychosocial"] }
+    "documents" = {
+      zone     = "standard"
+      database = true
+      # surveillance-medicale : seul abonnement avec gestionnaire (DecisionEmise) ; les autres producteurs
+      # (reintegration, psychosocial, prevention) ne sont pas encore écrits.
+      subscribes_to = ["surveillance-medicale", "reintegration", "psychosocial", "prevention"]
+    }
+    "communications" = {
+      zone          = "standard"
+      database      = true
+      subscribes_to = ["planification", "documents", "audit"]
+      # Seul le bris de glace intéresse Communications sur le topic partagé « audit » (NF-04).
+      subject_filters = { audit = ["audit.bris-de-glace-signale.v1"] }
+    }
+    "integrations" = {
+      zone     = "standard"
+      database = true
+      # affilies : seul abonnement avec gestionnaire (AffilieCree, AffilieModifie) ; prestations n'est pas encore écrit.
+      subscribes_to = ["affilies", "prestations"]
+    }
+    "referentiels" = { zone = "standard", database = true }
     "reporting" = {
       zone             = "standard"
       database         = true
       publishes_events = false
       subscribes_to    = ["affilies", "personnes", "obligations", "planification", "prestations", "prevention", "surveillance-medicale", "psychosocial", "reintegration"]
+      # Service pas encore écrit : liste prévue, à confirmer avec ses gestionnaires (état particulier réservé à Obligations).
+      subject_filters = { personnes = ["personnes.affectation-modifiee.v1", "personnes.occupation-debutee.v1", "personnes.occupation-terminee.v1"] }
     }
     # Topic partagé « audit » : tous les services y publient leurs traces d'accès (NF-04, voir docs/architecture/evenements.md).
     "audit" = {
@@ -133,11 +178,31 @@ variable "services" {
     }
 
     # --- Zone médicale (ARC-04) ---
-    "surveillance-medicale" = { zone = "medicale", database = true, cpu = 1, memory = "2Gi", subscribes_to = ["planification", "personnes", "postes-risques", "obligations"] }
-    "reintegration"         = { zone = "medicale", database = true, subscribes_to = ["personnes", "surveillance-medicale", "bff-employeur"] }
+    "surveillance-medicale" = {
+      zone          = "medicale"
+      database      = true
+      cpu           = 1
+      memory        = "2Gi"
+      subscribes_to = ["planification", "personnes", "postes-risques", "obligations", "referentiels", "prevention"]
+      # personnes.etat-particulier-declare.v1 est réservé à Obligations (catalogue des événements).
+      subject_filters = { personnes = ["personnes.affectation-modifiee.v1"] }
+    }
+    "reintegration" = {
+      zone          = "medicale"
+      database      = true
+      subscribes_to = ["personnes", "surveillance-medicale", "bff-employeur"]
+      # Service pas encore écrit : liste prévue, à confirmer avec ses gestionnaires (état particulier réservé à Obligations).
+      subject_filters = { personnes = ["personnes.affectation-modifiee.v1", "personnes.occupation-debutee.v1", "personnes.occupation-terminee.v1"] }
+    }
 
     # --- Zone psychosociale (ARC-04) ---
-    "psychosocial" = { zone = "psychosociale", database = true, subscribes_to = ["personnes", "affilies", "bff-travailleur"] }
+    "psychosocial" = {
+      zone          = "psychosociale"
+      database      = true
+      subscribes_to = ["personnes", "affilies", "bff-travailleur"]
+      # Service pas encore écrit : liste prévue, à confirmer avec ses gestionnaires (état particulier réservé à Obligations).
+      subject_filters = { personnes = ["personnes.affectation-modifiee.v1", "personnes.occupation-debutee.v1", "personnes.occupation-terminee.v1"] }
+    }
   }
 
   validation {
@@ -150,6 +215,33 @@ variable "services" {
       for s in values(var.services) : [for t in s.subscribes_to : try(var.services[t].publishes_events, false)]
     ]))
     error_message = "Chaque entrée de subscribes_to doit désigner un service existant qui publie des événements."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for s in values(var.services) : [for t in keys(s.subject_filters) : contains(s.subscribes_to, t)]
+    ]))
+    error_message = "Chaque clé de subject_filters doit être un topic présent dans subscribes_to du même service."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for s in values(var.services) : [
+        for sujets in values(s.subject_filters) : length(sujets) > 0 && alltrue([for x in sujets : can(regex("^[a-z0-9-]+\\.[a-z0-9-]+\\.v[0-9]+$", x))])
+      ]
+    ]))
+    error_message = "Les sujets d'un filtre doivent être des noms de contrat versionnés (ex. audit.bris-de-glace-signale.v1)."
+  }
+
+  # L'état particulier (personnes.etat-particulier-declare.v1) est réservé à Obligations : tout autre abonné au topic
+  # personnes doit déclarer ses sujets, et la liste ne peut pas le contenir.
+  validation {
+    condition = alltrue([
+      for n, s in var.services : n == "obligations" || !contains(s.subscribes_to, "personnes") || (
+        contains(keys(s.subject_filters), "personnes") && !contains(lookup(s.subject_filters, "personnes", []), "personnes.etat-particulier-declare.v1")
+      )
+    ])
+    error_message = "Seul obligations peut recevoir personnes.etat-particulier-declare.v1 : les autres abonnés au topic personnes doivent déclarer subject_filters.personnes sans ce sujet."
   }
 
   validation {

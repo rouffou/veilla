@@ -44,7 +44,7 @@ locals {
   # --- Événements (ARC-05) : un topic par publieur, une subscription par abonné ---
   topics = sort([for n, s in var.services : n if s.publishes_events])
   subscriptions = merge([
-    for n, s in var.services : { for t in s.subscribes_to : "${t}.${n}" => { topic = t, subscriber = n } }
+    for n, s in var.services : { for t in s.subscribes_to : "${t}.${n}" => { topic = t, subscriber = n, subjects = lookup(s.subject_filters, t, []) } }
   ]...)
   queue_scaled_services = [for n, s in var.services : n if s.queue_scaling && length(s.subscribes_to) > 0]
 

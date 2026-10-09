@@ -77,7 +77,41 @@ Internet ──► Application Gateway WAF_v2 (IP publique, TLS, OWASP/DRS 2.1, 
   `/health/startup`, `/health/live`, `/health/ready`.
 - **Événements** : un topic par service publieur (nom du topic = nom du service), une
   subscription par service abonné (nom = service abonné). La matrice d'abonnements par
-  défaut suit la saga de reprise du travail (§14.6) et est à affiner par les équipes.
+  défaut suit les gestionnaires d'événements réellement enregistrés dans le code
+  (saga de reprise du travail, ARC-33) ; les abonnements prévus pour des services pas
+  encore écrits sont conservés avec un commentaire dans `variables.tf`. Un test
+  d'architecture par service (`Sepp.<Service>.Architecture.Tests`) échoue si le service
+  s'abonne par `AddIntegrationEventHandler` à un topic absent de son `subscribes_to`.
+- **Filtres par sujet** : `subject_filters` (topic -> sujets) crée une règle SQL
+  `sys.Label IN (...)` par subscription filtrée. Le sujet du message est le nom versionné
+  du contrat (`audit.bris-de-glace-signale.v1`, ADR 0004). Utilisé pour limiter
+  Communications au bris de glace du topic `audit` et pour réserver
+  `personnes.etat-particulier-declare.v1` à Obligations (une validation Terraform impose
+  aux autres abonnés du topic `personnes` de déclarer leurs sujets).
+
+### Limite connue : règle `$Default` des subscriptions
+
+Azure crée avec chaque subscription une règle `$Default` (filtre vrai) qui accepte tous
+les messages. Le fournisseur `azurerm` 4.x (`~> 4.80`, 4.81.0 vérifié) ne propose aucun
+moyen propre de la supprimer ou de la remplacer : `azurerm_servicebus_subscription` n'a
+pas d'argument de règle par défaut et `azurerm_servicebus_subscription_rule` n'importe
+pas une règle qui existe déjà (un bloc `import` échouerait au premier déploiement, la
+subscription n'existant pas encore au moment du plan). Les règles `filtre-sujets` sont
+donc créées mais **restent sans effet tant que `$Default` existe** (les règles
+s'additionnent en OU). Après le premier déploiement, supprimer la règle hors Terraform :
+
+```bash
+az servicebus topic subscription rule delete --resource-group <rg> --namespace-name <ns> \
+  --topic-name audit --subscription-name communications --name '$Default'
+```
+
+(idem pour chaque subscription filtrée : `terraform output`/`variables.tf`, clés
+`subject_filters`). Le filtre n'est qu'une défense en profondeur : le répartiteur des
+consommateurs ignore les contrats qu'il n'a pas souscrits, et le contenu des événements
+est conforme à ARC-06. À revoir si `azurerm` ajoute la gestion de la règle par défaut
+(ou en adoptant le fournisseur `azapi`, décision d'architecture). Le comportement réel
+n'a pu être vérifié que par `terraform validate` (pas d'accès Azure) : à contrôler par
+un `terraform plan` / une recette.
 
 ## Correspondance avec les exigences
 
