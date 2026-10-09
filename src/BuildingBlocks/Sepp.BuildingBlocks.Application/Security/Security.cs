@@ -145,6 +145,20 @@ public static class Permissions
     public const string RepriseAnnoncer = "reprise:annoncer";
     public const string RepriseLire = "reprise:lire";
     public const string RepriseGerer = "reprise:gerer";
+
+    // Réintégration (§5.8 SAN-60 à SAN-65, zone médicale) : dossier de réintégration (incapacités, estimations du potentiel
+    // de travail, trajets, absences, échanges eHealth) réservé au CPMT et à l'infirmier comme le dossier de santé (§3.3) ;
+    // évaluation de réintégration et formulaire par le CPMT ; suivi sans donnée médicale (statuts, échéances, décision du
+    // formulaire) pour l'employeur, le SIPP et le gestionnaire ; dépôt du plan ou du rapport motivé par l'employeur ;
+    // réponse du travailleur au plan. Identification d'une personne par NISS (sans lecture de la fiche) par le compte
+    // technique d'Intégrations, pour publier integrations.incapacite-notifiee (SAN-60).
+    public const string ReintegrationLire = "reintegration:lire";
+    public const string ReintegrationEcrire = "reintegration:ecrire";
+    public const string ReintegrationEvaluer = "reintegration:evaluer";
+    public const string ReintegrationSuiviLire = "reintegration-suivi:lire";
+    public const string ReintegrationPlanDeposer = "reintegration-plan:deposer";
+    public const string ReintegrationReponseEnregistrer = "reintegration-reponse:enregistrer";
+    public const string PersonneIdentifier = "personne:identifier";
 }
 
 public static class RolePermissions
@@ -405,6 +419,25 @@ public static class RolePermissions
         {
             Grant(role, Permissions.RepriseGerer);
         }
+
+        // Réintégration (§3.3, zone médicale). Répartition proposée, à valider : contenu du dossier de réintégration en
+        // lecture et écriture pour le CPMT, le CPMT dirigeant et l'infirmier (estimation du potentiel de travail par CPMT ou
+        // infirmier, SAN-61) ; évaluation de réintégration et formulaire réservés au CPMT (SAN-62). Employeur et SIPP limités
+        // à leur affilié (claim affilie_id), travailleur limité à lui-même (claim personne_id), vérifiés par le service.
+        foreach (var role in new[] { Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier })
+        {
+            Grant(role, Permissions.ReintegrationLire, Permissions.ReintegrationEcrire);
+        }
+
+        Grant(Roles.Cpmt, Permissions.ReintegrationEvaluer);
+        Grant(Roles.CpmtDirigeant, Permissions.ReintegrationEvaluer);
+        foreach (var role in new[] { Roles.Employeur, Roles.Sipp, Roles.GestionnaireDossiers })
+        {
+            Grant(role, Permissions.ReintegrationSuiviLire, Permissions.ReintegrationPlanDeposer);
+        }
+
+        Grant(Roles.Travailleur, Permissions.ReintegrationReponseEnregistrer);
+        Grant(Roles.Integrations, Permissions.PersonneIdentifier);
 
         return map;
     }
