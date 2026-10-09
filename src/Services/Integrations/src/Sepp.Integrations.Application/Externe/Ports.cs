@@ -167,7 +167,7 @@ public sealed record EntreeDimonaPersonnes(
 
 public sealed record OccupationDimona(Guid PersonneId, Guid OccupationId, bool DejaEnregistree);
 
-/// <summary>Issue d'une mutation côté Personnes : <c>Appliquee</c>, <c>DejaAppliquee</c> ou <c>PersonneInconnue</c>.</summary>
+/// <summary>Issue d'une mutation côté Personnes : <c>Appliquee</c>, <c>Historisee</c> (date d'effet dépassée par une mutation plus récente), <c>DejaAppliquee</c> ou <c>PersonneInconnue</c>.</summary>
 public sealed record MutationPersonnes(Guid? PersonneId, string Statut);
 
 /// <summary>API interne du service Personnes (appel HTTP authentifié par le compte technique du service).</summary>

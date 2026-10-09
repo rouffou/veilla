@@ -359,6 +359,103 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task Deux_mutations_d_adresse_arrivees_dans_le_desordre_gardent_l_adresse_de_la_date_d_effet_la_plus_recente()
+    {
+        var niss = NouveauNiss();
+        var creee = await Creer(niss);
+        var integrations = fixture.Client(Roles.Integrations);
+        var prefixe = $"RN{Guid.CreateVersion7():N}"[..16];
+        var recente = new { rue = "Rue Récente", numero = "2", codePostal = "4000", localite = "Liège" };
+        var ancienne = new { rue = "Rue Ancienne", numero = "1", codePostal = "5000", localite = "Namur" };
+
+        async Task<MutationEnregistreeDto> Envoyer(string reference, string effet, object adresse)
+        {
+            var reponse = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss, reference, "ChangementAdresse", effet, adresse: adresse), _ct);
+            reponse.StatusCode.ShouldBe(HttpStatusCode.OK, await reponse.Content.ReadAsStringAsync(_ct));
+            return (await reponse.Content.ReadFromJsonAsync<MutationEnregistreeDto>(Json, _ct))!;
+        }
+
+        // La mutation la plus récente (septembre) arrive avant la plus ancienne (mars).
+        (await Envoyer($"{prefixe}-2", "2026-09-01", recente)).Statut.ShouldBe(StatutMutation.Appliquee);
+        (await Envoyer($"{prefixe}-1", "2026-03-01", ancienne)).Statut.ShouldBe(StatutMutation.Historisee);
+
+        var fiche = (await fixture.Client(Roles.Cpmt).GetFromJsonAsync<PersonneDto>($"/api/v1/personnes/{creee.PersonneId}", Json, _ct))!;
+        fiche.Adresse!.Rue.ShouldBe("Rue Récente");
+
+        // Rejeu de la mutation tardive : idempotent, l'adresse courante ne bouge pas.
+        (await Envoyer($"{prefixe}-1", "2026-03-01", ancienne)).Statut.ShouldBe(StatutMutation.DejaAppliquee);
+
+        // Dates d'effet égales : la dernière reçue l'emporte (ordre de réception).
+        (await Envoyer($"{prefixe}-3", "2026-09-01", ancienne)).Statut.ShouldBe(StatutMutation.Appliquee);
+        (await fixture.Client(Roles.Cpmt).GetFromJsonAsync<PersonneDto>($"/api/v1/personnes/{creee.PersonneId}", Json, _ct))!.Adresse!.Rue.ShouldBe("Rue Ancienne");
+
+        // DAT-04 : les trois mutations sont historisées, dans l'ordre de réception, valeurs chiffrées.
+        await using var connexion = new NpgsqlConnection(fixture.ConnectionString);
+        await connexion.OpenAsync(_ct);
+        await using var commande = new NpgsqlCommand(
+            "SELECT reference, rang, avant_chiffre, apres_chiffre FROM mutation_registre_national WHERE personne_id = @id ORDER BY rang", connexion);
+        commande.Parameters.AddWithValue("id", creee.PersonneId);
+        await using var lecteur = await commande.ExecuteReaderAsync(_ct);
+        var lignes = new List<(string Reference, int Rang)>();
+        while (await lecteur.ReadAsync(_ct))
+        {
+            lignes.Add((lecteur.GetString(0), lecteur.GetInt32(1)));
+            lecteur.GetString(2).ShouldStartWith("v1:test:");
+            lecteur.GetString(3).ShouldStartWith("v1:test:");
+        }
+
+        lignes.ShouldBe([($"{prefixe}-2", 1), ($"{prefixe}-1", 2), ($"{prefixe}-3", 3)]);
+    }
+
+    [Fact]
+    public async Task Une_occupation_apres_le_deces_est_refusee_par_la_saisie_et_par_dimona_avec_un_code_explicite()
+    {
+        var niss = NouveauNiss();
+        var creee = await Creer(niss);
+        var integrations = fixture.Client(Roles.Integrations);
+        var deces = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations",
+            Mutation(niss, $"RN{Guid.CreateVersion7():N}"[..16], "Deces", "2026-09-15"), _ct);
+        deces.StatusCode.ShouldBe(HttpStatusCode.OK, await deces.Content.ReadAsStringAsync(_ct));
+
+        async Task AssertRefus(HttpResponseMessage reponse)
+        {
+            reponse.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+            using var probleme = JsonDocument.Parse(await reponse.Content.ReadAsStringAsync(_ct));
+            probleme.RootElement.GetProperty("code").GetString().ShouldBe("occupation.apres-deces");
+        }
+
+        // Saisie manuelle : refusée.
+        var autreAffilie = Guid.CreateVersion7();
+        var gestionnaire = fixture.Client(Roles.GestionnaireDossiers);
+        await AssertRefus(await gestionnaire.PostAsJsonAsync($"/api/v1/personnes/{creee.PersonneId}/occupations",
+            new { affilieId = autreAffilie, typeTravailleur = "Salarie", typeContrat = "DureeIndeterminee", dateDebut = "2026-09-16" }, _ct));
+
+        // DIMONA : refusée, rien n'est enregistré (la référence reste libre).
+        var reference = $"DIM{Guid.CreateVersion7():N}"[..20];
+        var entree = new
+        {
+            referenceDimona = reference,
+            niss,
+            identite = Identite(),
+            affilieId = autreAffilie,
+            typeTravailleur = "Salarie",
+            typeContrat = "DureeIndeterminee",
+            dateDebut = "2026-10-01",
+        };
+        await AssertRefus(await integrations.PostAsJsonAsync("/api/v1/dimona/entrees", entree, _ct));
+
+        // Une occupation commencée avant le décès est acceptée et clôturée à la date du décès.
+        var avant = await gestionnaire.PostAsJsonAsync($"/api/v1/personnes/{creee.PersonneId}/occupations",
+            new { affilieId = autreAffilie, typeTravailleur = "Salarie", typeContrat = "DureeIndeterminee", dateDebut = "2026-09-10" }, _ct);
+        avant.StatusCode.ShouldBe(HttpStatusCode.Created, await avant.Content.ReadAsStringAsync(_ct));
+
+        var occupations = (await fixture.Client(Roles.Cpmt).GetFromJsonAsync<List<OccupationDto>>($"/api/v1/personnes/{creee.PersonneId}/occupations", Json, _ct))!;
+        occupations.Count.ShouldBe(2);
+        occupations.ShouldAllBe(o => o.DateFin == new DateOnly(2026, 9, 15));
+        occupations.ShouldNotContain(o => string.Equals(o.ReferenceDimona, reference, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task L_api_des_mutations_est_reservee_au_compte_technique_et_tolere_une_personne_inconnue()
     {
         var niss = NouveauNiss();

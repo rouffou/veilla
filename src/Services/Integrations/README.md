@@ -121,13 +121,15 @@ service Personnes (même compte technique `integrations` que DIMONA, permission 
   seule valeur propre au type (adresse, nom, prénom ou langue). Le NISS ne voyage que dans le corps de l'appel.
 - **Idempotence** : la référence de mutation est la clé, côté journal comme côté Personnes (table
   `mutation_registre_national`, index unique). Une relance ou un rejeu renvoie `DejaAppliquee` sans rien changer.
-- **Issues de Personnes** : `Appliquee`, `DejaAppliquee`, ou `PersonneInconnue` (le NISS n'est pas suivi : échange traité,
+- **Ordre des dates d'effet** (AFF-22, DAT-04) : la valeur courante d'un attribut est celle de la mutation à la date d'effet la plus récente ; à dates égales, la dernière reçue l'emporte. Une mutation plus ancienne reçue tardivement est historisée (issue `Historisee`) sans remplacer la valeur courante ; le décès n'est pas concerné (correction manuelle).
+- **Issues de Personnes** : `Appliquee`, `Historisee`, `DejaAppliquee`, ou `PersonneInconnue` (le NISS n'est pas suivi : échange traité,
   rien à mettre à jour ; une entrée DIMONA ultérieure reprend l'identité courante du registre). Un refus 400/409 (valeur
   absente, référence réutilisée pour une autre mutation, décès incohérent avec la naissance ou une occupation) rejette
   l'échange ; une indisponibilité ou un refus d'accès le met en erreur, relançable.
 - **Décès** : Personnes clôt à la date du décès les occupations actives (et leurs affectations) et publie les événements
   existants `personnes.occupation-terminee.v1` / `personnes.affectation-modifiee.v1`, qui déclenchent les recalculs
   d'Obligations. Aucun événement de changement d'identité n'est publié (aucun consommateur n'en a besoin, ARC-06).
+- **Occupation après un décès** (AFF-20) : Personnes refuse (400, code `occupation.apres-deces`) toute occupation qui débute après la date de décès, par DIMONA comme par saisie ; côté DIMONA l'échange est rejeté et tracé dans le journal avec ce code, comme tout refus métier. Une occupation commencée avant le décès est clôturée à la date du décès.
 - **Simulateur** : pour les trois premiers affiliés connus, cinq mutations déterministes sur les travailleurs fictifs du
   simulateur DIMONA (adresse, nom, prénom et langue du salarié, décès de l'étudiant le 15 juillet 2026), plus un changement
   de nom pour une personne que Personnes ne suit pas. Lancer le flux DIMONA avant le flux registre national.

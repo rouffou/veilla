@@ -71,6 +71,9 @@ public sealed class PersonnesDbContext(
             b.Property(m => m.Id).ValueGeneratedNever();
             b.Property(m => m.Type).HasConversion<string>().HasMaxLength(30);
 
+            // AFF-22 : ordre de réception, qui départage deux mutations de même type et de même date d'effet.
+            b.Property(m => m.Rang);
+
             // Idempotence : la référence de la mutation est unique pour tout le service.
             b.Property(m => m.Reference).HasMaxLength(100).IsRequired();
             b.HasIndex(m => m.Reference).IsUnique();
