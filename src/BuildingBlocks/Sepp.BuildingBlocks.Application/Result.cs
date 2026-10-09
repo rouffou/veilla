@@ -6,6 +6,7 @@ public enum ErrorKind
     NotFound,
     Conflict,
     Forbidden,
+    Unprocessable,
 }
 
 /// <summary>Erreur fonctionnelle attendue, traduite en ProblemDetails par l'adaptateur HTTP.</summary>
@@ -18,6 +19,9 @@ public sealed record Error(ErrorKind Kind, string Code, string Message)
     public static Error Conflict(string code, string message) => new(ErrorKind.Conflict, code, message);
 
     public static Error Forbidden(string code, string message) => new(ErrorKind.Forbidden, code, message);
+
+    /// <summary>Demande bien formée mais contraire à l'état métier connu (HTTP 422).</summary>
+    public static Error Unprocessable(string code, string message) => new(ErrorKind.Unprocessable, code, message);
 }
 
 public readonly record struct Unit

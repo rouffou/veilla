@@ -28,7 +28,8 @@
     "introuvable": "L'élément demandé est introuvable.",
     "invalide": "La demande n'a pas pu être acceptée. Vérifiez les informations saisies.",
     "reseau": "Connexion au serveur impossible. Vérifiez votre connexion Internet.",
-    "inattendue": "Une erreur inattendue est survenue. Veuillez réessayer plus tard."
+    "inattendue": "Une erreur inattendue est survenue. Veuillez réessayer plus tard.",
+    "repriseOccupationInactive": "Cette reprise ne peut pas être annoncée : le travailleur n'a pas d'occupation active chez cet affilié à la date de reprise. Vérifiez le travailleur et la date de reprise."
   },
   "form": {
     "summary": "Le formulaire contient des erreurs :",

@@ -27,6 +27,7 @@ Les réactions chorégraphiées existantes (Planification, Surveillance médical
    Idempotent : même travailleur, affilié et date de reprise = même processus (200) ; seul `DebutAbsence` différent = modification. Le processus, la reprise locale
    et le recalcul sont validés dans la même transaction. Absence d'au moins 4 semaines : `ObligationCreee(EXAMEN_REPRISE)` ; sinon branche `ExamenNonRequis`.
    Publie `obligations.reprise-enregistree.v1`.
+   **Occupation requise** : la personne doit avoir une occupation active chez l'affilié à la date de reprise (projections `OccupationDebutee` / `OccupationTerminee`, fin incluse) ; sinon 422 `reprise.occupation-inactive`, à la création comme à la modification du début d'absence. L'annonce par événement est ignorée sans exception (comme les autres rejets métier, pas de rejeu infini).
 2. **Rendez-vous.** Planification réserve un créneau (`RendezVousPlanifie`) ou signale `UrgenceNonCouverte` (jalon `NonCouverte`, alerte).
 3. **Convocation.** `ConvocationEnvoyee` passe l'obligation à « convoqué » ; `ConvocationNonRemise` lève une alerte.
 4. **Absence / annulation / replanification.** `AbsenceRendezVousConstatee` passe l'obligation à « absent » (`nombre_absences`), `RendezVousAnnule` (hors `ObligationLevee`)
@@ -92,6 +93,7 @@ Architecture : déclencheur par API plutôt que par le BFF (écart au §14.6), e
 
 ## Limites connues
 
+- Occupation : si `personnes.occupation-debutee` n'est pas encore reçu (événements en désordre), l'annonce est refusée comme s'il n'y avait pas d'occupation (**à valider**) ; l'API peut être rappelée une fois l'occupation reçue, mais une annonce par événement refusée n'est pas rejouée.
 - Aucun événement « examen ouvert » n'existe : l'annulation n'est refusée qu'une fois l'examen **clôturé** (`ExamenCloture`), pas pendant sa réalisation.
 - Un `DocumentPublie` reçu avant la `DecisionEmise` correspondante n'est pas parqué (information seule).
 - Un changement manuel de statut (`ChangerStatutObligation`) ne resynchronise le processus qu'au prochain recalcul.
