@@ -183,7 +183,10 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<Correl
     public async Task InvokeAsync(HttpContext context)
     {
         var correlationId = context.Request.Headers[Header].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(correlationId) || correlationId.Length > 100)
+        // Valeur fournie par l'appelant puis écrite dans les journaux : seuls les caractères d'un identifiant
+        // (lettres, chiffres, « - », « _ », « . », « : ») sont acceptés, sinon un nouvel identifiant est généré
+        // (pas d'injection de lignes dans les journaux, CodeQL cs/log-forging).
+        if (string.IsNullOrWhiteSpace(correlationId) || correlationId.Length > 100 || !EstIdentifiantValide(correlationId))
         {
             correlationId = System.Diagnostics.Activity.Current?.TraceId.ToString() ?? Guid.CreateVersion7().ToString();
         }
@@ -195,4 +198,7 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<Correl
             await next(context);
         }
     }
+
+    private static bool EstIdentifiantValide(string valeur) =>
+        valeur.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or ':');
 }

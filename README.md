@@ -4,6 +4,7 @@ Logiciel métier pour un Service Externe de Prévention et de Protection au trav
 
 - Cahier des charges : [docs/cahier-des-charges-sepp.pdf](docs/cahier-des-charges-sepp.pdf) (v1.1)
 - Architecture cible : microservices DDD en clean architecture, trois zones de sensibilité (standard, médicale, psychosociale), conteneurs sur Azure (§14).
+- Contribuer : [CONTRIBUTING.md](CONTRIBUTING.md) (branches, commits, PR, protection de `main`) ; sécurité : [SECURITY.md](SECURITY.md).
 
 ## Organisation du suivi
 

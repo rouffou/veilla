@@ -21,16 +21,6 @@ on:
       - "global.json"
       - ".github/workflows/service-images.yml"
   pull_request:
-    paths:
-      - "src/Services/**"
-      - "src/Bff/**"
-      - "src/BuildingBlocks/**"
-      - "src/Contracts/**"
-      - "src/Frontends/veilla-web/**"
-      - "Directory.Build.props"
-      - "Directory.Packages.props"
-      - "global.json"
-      - ".github/workflows/service-images.yml"
   workflow_dispatch:
     inputs:
       tous:
@@ -47,8 +37,48 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Porte de fusion (protection de main) : le workflow se déclenche sur toutes les PR ; ce job
+  # détermine si la PR touche les chemins concernés, sinon les jobs sont ignorés et « Statut images » reste vert.
+  changements:
+    name: Détection des changements
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      concerne: ${{ steps.filtre.outputs.concerne }}
+    steps:
+      - name: Récupération des sources
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Chemins modifiés par la PR
+        id: filtre
+        env:
+          EVENEMENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          MOTIF: '^src/Services/|^src/Bff/|^src/BuildingBlocks/|^src/Contracts/|^src/Frontends/veilla-web/|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^\.github/workflows/service-images\.yml$'
+        run: |
+          if [ "$EVENEMENT" != "pull_request" ]; then
+            echo "concerne=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$BASE" HEAD | grep -qE "$MOTIF"; then
+            echo "concerne=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "concerne=false" >> "$GITHUB_OUTPUT"
+            echo "Aucun chemin concerné : jobs ignorés."
+          fi
+
   preparation:
     name: Détection des images à construire
+    needs: changements
+    if: ${{ needs.changements.outputs.concerne == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -381,3 +411,25 @@ jobs:
           cosign sign --yes "$REF"
           cosign attest --yes --type spdxjson --predicate "$SBOM" "$REF"
           echo "Image signée et SBOM attesté : \`$REF\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # Seul contrôle exigé par la règle de protection de main (noms stables, quel que soit le nombre de jobs de matrice).
+  statut:
+    name: Statut images
+    if: ${{ always() }}
+    needs: [changements, preparation, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Résultat des jobs
+        env:
+          RESULTATS: ${{ toJson(needs.*.result) }}
+        run: |
+          echo "$RESULTATS"
+          if echo "$RESULTATS" | grep -qE '"(failure|cancelled)"'; then
+            echo "::error::Au moins un job a échoué ou a été annulé."
+            exit 1
+          fi
