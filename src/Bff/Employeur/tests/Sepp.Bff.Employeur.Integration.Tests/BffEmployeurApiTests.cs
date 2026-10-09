@@ -45,6 +45,7 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
             b.UseSetting("ServicesAval:Affilies", $"http://{ServicesAvalSimules.Affilies}");
             b.UseSetting("ServicesAval:Personnes", $"http://{ServicesAvalSimules.Personnes}");
             b.UseSetting("ServicesAval:PostesRisques", $"http://{ServicesAvalSimules.PostesRisques}");
+            b.UseSetting("ServicesAval:Obligations", $"http://{ServicesAvalSimules.Obligations}");
             b.UseSetting("Cors:Origines:0", "http://localhost:4201");
             b.ConfigureTestServices(s =>
             {
@@ -357,6 +358,147 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
         probleme.GetProperty("code").GetString().ShouldBe("poste.inconnu");
         _aval.Requetes.ShouldNotContain(r => r.Methode == "POST");
     }
+
+    [Fact]
+    public async Task Une_annonce_de_reprise_est_relayee_a_Obligations_avec_l_affilie_de_la_route_et_le_jeton()
+    {
+        var repriseId = Guid.CreateVersion7();
+        var personne = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Obligations, "/api/v1/reprises",
+            new { repriseId, cree = true, modifie = false, statut = "ObligationOuverte" }, HttpStatusCode.Created, "POST");
+        var jeton = Jeton("employeur", [_affilie]);
+
+        using var response = await Client(jeton).PostAsJsonAsync($"/api/v1/affilies/{_affilie}/reprises",
+            new { personneId = personne, dateReprise = "2026-10-12", debutAbsence = "2026-08-01", affilieId = _autreAffilieDuJeton }, Ct);
+        var json = await Json(response, HttpStatusCode.Created);
+
+        response.Headers.Location!.OriginalString.ShouldBe($"/api/v1/affilies/{_affilie}/reprises/{repriseId}");
+        json.GetProperty("repriseId").GetGuid().ShouldBe(repriseId);
+        json.GetProperty("statut").GetString().ShouldBe("ObligationOuverte");
+        var post = _aval.Requetes.Single(r => r.Hote == ServicesAvalSimules.Obligations);
+        post.Authorization.ShouldBe($"Bearer {jeton}");
+        var corps = JsonDocument.Parse(post.Corps!).RootElement;
+        corps.GetProperty("affilieId").GetGuid().ShouldBe(_affilie, "L'affilié vient de la route, pas du corps.");
+        corps.GetProperty("personneId").GetGuid().ShouldBe(personne);
+        corps.GetProperty("dateReprise").GetString().ShouldBe("2026-10-12");
+        corps.GetProperty("debutAbsence").GetString().ShouldBe("2026-08-01");
+    }
+
+    [Fact]
+    public async Task Une_annonce_deja_connue_renvoie_200()
+    {
+        _aval.Repondre(ServicesAvalSimules.Obligations, "/api/v1/reprises",
+            new { repriseId = Guid.CreateVersion7(), cree = false, modifie = false, statut = "Planifiee" }, HttpStatusCode.OK, "POST");
+
+        var json = await Json(await Client().PostAsJsonAsync($"/api/v1/affilies/{_affilie}/reprises",
+            new { personneId = Guid.CreateVersion7(), dateReprise = "2026-10-12", debutAbsence = "2026-08-01" }, Ct));
+
+        json.GetProperty("cree").GetBoolean().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Une_annonce_hors_perimetre_est_refusee_sans_appel_aval()
+    {
+        var autre = Guid.CreateVersion7();
+
+        var probleme = await Json(await Client(Jeton("employeur", [_affilie])).PostAsJsonAsync($"/api/v1/affilies/{autre}/reprises",
+            new { personneId = Guid.CreateVersion7(), dateReprise = "2026-10-12", debutAbsence = "2026-08-01" }, Ct), HttpStatusCode.Forbidden);
+
+        probleme.GetProperty("code").GetString().ShouldBe("perimetre.interdit");
+        _aval.Requetes.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Conflict, "reprise.conflit")]
+    [InlineData(HttpStatusCode.UnprocessableEntity, "reprise.date-invalide")]
+    public async Task Les_refus_409_et_422_d_Obligations_sont_traduits_en_ProblemDetails_sans_rejeu(HttpStatusCode status, string code)
+    {
+        _aval.Probleme(ServicesAvalSimules.Obligations, "/api/v1/reprises", status, code, "POST");
+
+        var response = await Client().PostAsJsonAsync($"/api/v1/affilies/{_affilie}/reprises",
+            new { personneId = Guid.CreateVersion7(), dateReprise = "2026-10-12", debutAbsence = "2026-08-01" }, Ct);
+
+        var probleme = await Json(response, status);
+        probleme.GetProperty("code").GetString().ShouldBe(code);
+        probleme.GetProperty("service").GetString().ShouldBe("obligations");
+        _aval.Requetes.Count(r => r.Methode == "POST").ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Une_annonce_n_est_jamais_rejouee_quand_Obligations_est_indisponible()
+    {
+        _aval.Probleme(ServicesAvalSimules.Obligations, "/api/v1/reprises", HttpStatusCode.ServiceUnavailable, "indisponible", "POST");
+
+        var response = await Client().PostAsJsonAsync($"/api/v1/affilies/{_affilie}/reprises",
+            new { personneId = Guid.CreateVersion7(), dateReprise = "2026-10-12", debutAbsence = "2026-08-01" }, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        _aval.Requetes.Count(r => r.Methode == "POST").ShouldBe(1, "Une écriture n'est jamais rejouée automatiquement.");
+    }
+
+    [Fact]
+    public async Task Le_suivi_des_reprises_est_filtre_sur_l_affilie_et_n_expose_ni_examen_ni_decision()
+    {
+        var mienne = Guid.CreateVersion7();
+        var etrangere = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Obligations, "/api/v1/reprises", new object[]
+        {
+            RepriseAval(mienne, _affilie, "2026-10-12"),
+            RepriseAval(etrangere, _autreAffilieDuJeton, "2026-10-20"),
+        });
+        var jeton = Jeton("employeur", [_affilie]);
+
+        var json = await Json(await Client(jeton).GetAsync($"/api/v1/affilies/{_affilie}/reprises", Ct));
+
+        json.GetArrayLength().ShouldBe(1);
+        json[0].GetProperty("id").GetGuid().ShouldBe(mienne);
+        json[0].GetProperty("statut").GetString().ShouldBe("Convoquee");
+        json[0].GetProperty("dateLimite").GetString().ShouldBe("2026-10-26");
+        json[0].TryGetProperty("examenId", out _).ShouldBeFalse();
+        json[0].TryGetProperty("decisionId", out _).ShouldBeFalse();
+        var requete = _aval.Requetes.Single();
+        requete.Chemin.ShouldBe($"/api/v1/reprises?affilieId={_affilie}");
+        requete.Authorization.ShouldBe($"Bearer {jeton}");
+    }
+
+    [Fact]
+    public async Task Une_reprise_d_un_autre_affilie_est_inconnue()
+    {
+        var repriseId = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Obligations, $"/api/v1/reprises/{repriseId}", RepriseAval(repriseId, _autreAffilieDuJeton, "2026-10-12"));
+
+        var probleme = await Json(await Client().GetAsync($"/api/v1/affilies/{_affilie}/reprises/{repriseId}", Ct), HttpStatusCode.NotFound);
+
+        probleme.GetProperty("code").GetString().ShouldBe("reprise.inconnue");
+    }
+
+    [Fact]
+    public async Task Le_suivi_d_une_reprise_est_relaye()
+    {
+        var repriseId = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Obligations, $"/api/v1/reprises/{repriseId}", RepriseAval(repriseId, _affilie, "2026-10-12"));
+
+        var json = await Json(await Client().GetAsync($"/api/v1/affilies/{_affilie}/reprises/{repriseId}", Ct));
+
+        json.GetProperty("id").GetGuid().ShouldBe(repriseId);
+        json.GetProperty("enRetard").GetBoolean().ShouldBeFalse();
+    }
+
+    private static object RepriseAval(Guid id, Guid affilieId, string dateReprise) => new
+    {
+        id,
+        personneId = Guid.CreateVersion7(),
+        affilieId,
+        dateReprise,
+        debutAbsence = "2026-08-01",
+        origine = "PortailEmployeur",
+        statut = "Convoquee",
+        dateLimite = "2026-10-26",
+        enRetard = false,
+        horsDelai = false,
+        examenId = Guid.CreateVersion7(),
+        decisionId = Guid.CreateVersion7(),
+    };
 
     [Fact]
     public async Task Le_portail_est_autorise_par_CORS()

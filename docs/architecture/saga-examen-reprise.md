@@ -180,3 +180,28 @@ reportée ; sortie de l'entreprise pendant le processus ; seuils d'alerte et exp
 Architecture : écart au §14.6 (déclencheur par API) ; suppression de la convocation sur `RendezVousPlanifie` ;
 filtres Terraform et règle `$Default` (vérifier par `terraform plan`) ; migration tracée des codes en zone médicale ;
 coût du test multi-hôtes en CI ; répartition des permissions de reprise.
+
+## 7. État (lot 7)
+
+**Livré.** Contrats, codes et ADR 0008 (lot 1) ; socle (lot 2) ; orchestrateur `ProcessusReprise` dans Obligations, API `/reprises`,
+minuteries et compensations (lot 3) ; envoi effectif des convocations et compensation dans Planification et Communications (lot 5) ;
+codes d'examen, `ExamenId` et hors délai dans Surveillance médicale et Documents (lot 6). Lot 7 : Terraform aligné sur les gestionnaires
+réellement enregistrés, attribut `subject_filters` (règles `sys.Label IN (...)`) pour `audit.bris-de-glace-signale.v1` vers Communications et pour
+réserver `personnes.etat-particulier-declare.v1` à Obligations (une validation Terraform impose aux autres abonnés de `personnes` de déclarer leurs
+sujets) ; garde-fou `Sepp.<Service>.Architecture.Tests` (rubriques souscrites par DI ⊆ `subscribes_to`) pour les huit services qui consomment des
+événements ; realm Keycloak local (clients `veilla-documents` et `veilla-communications`, mapper et attribut `personne_id`) et `compose.yaml`
+(secrets de développement, `Obligations__Reprise__*`) ; projet `tests/Sepp.Sagas.Tests` (cinq hôtes dans le même processus via `extern alias`, un
+PostgreSQL et cinq bases, bus de test routé d'après `infra/variables.tf`, pompe déterministe, mode chaos, `FakeTimeProvider`) avec les sept scénarios du
+plan, exécuté par la solution `src/Sagas/Sagas.slnx` (job de CI dédié).
+
+**À valider.**
+
+- Le BFF et le portail employeur (lot 4, POR-04) ne font pas partie de ce lot : le test de bout en bout annonce la reprise par l'API d'Obligations (rôle gestionnaire).
+- Terraform : `terraform fmt` et `terraform validate` passent (racine, module `servicebus`, `environments/dev`), mais le comportement réel des règles n'a pas été
+  vérifié par un `terraform plan` ni un déploiement. La règle `$Default` de chaque subscription accepte tous les messages tant qu'elle n'est pas supprimée
+  hors Terraform (`azurerm` 4.x ne le permet pas proprement, voir `infra/README.md`) : les filtres sont donc sans effet avant cette étape. Décision d'architecture :
+  fournisseur `azapi` ou étape de déploiement dédiée.
+- Les listes de sujets prévues pour les services pas encore écrits (Réintégration, Psychosocial, Reporting) sont provisoires.
+- Le test multi-hôtes démarre cinq applications ASP.NET Core et cinq migrations (environ 13 s en local, hors téléchargement de l'image PostgreSQL) : coût à confirmer en CI.
+- Les valeurs de configuration de `Obligations__Reprise__*` du poste local sont celles par défaut de l'application, jamais des valeurs légales ; les seuils restent à valider (§6).
+- Hors lot : service Prestations (§14.6 étape 5), validation PDF/A par veraPDF, adaptateurs réels (signature, canaux d'envoi).

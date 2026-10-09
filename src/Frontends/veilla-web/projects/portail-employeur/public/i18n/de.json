@@ -9,6 +9,7 @@
     "positions": "Arbeitsplätze und Risiken",
     "lists": "Namenslisten",
     "proposals": "Vorschläge",
+    "resumptions": "Arbeitswiederaufnahmen",
     "requests": "Anfragen",
     "decisions": "Entscheidungen und Berichte"
   },
@@ -166,6 +167,28 @@
     "status": "Stand",
     "refusal": "Ablehnungsgrund: {{ motif }}"
   },
+  "resumptions": {
+    "title": "Arbeitswiederaufnahmen",
+    "intro": "Melden Sie die Wiederaufnahme der Arbeit eines Arbeitnehmers nach einer Abwesenheit und verfolgen Sie den Stand der Wiederaufnahmeuntersuchung. Hier werden keine medizinischen Daten angezeigt.",
+    "announceTitle": "Eine Wiederaufnahme melden",
+    "followTitle": "Verfolgung der Wiederaufnahmen",
+    "worker": "Arbeitnehmer",
+    "workersLimit": "Es werden nur die ersten {{ n }} Arbeitnehmer (alphabetische Reihenfolge) angeboten.",
+    "resumptionDate": "Datum der Wiederaufnahme",
+    "absenceStart": "Beginn der Abwesenheit",
+    "submit": "Wiederaufnahme melden",
+    "submitting": "Wird gesendet…",
+    "success": "Die Wiederaufnahme wurde gemeldet.",
+    "alreadyKnown": "Diese Wiederaufnahme wurde bereits gemeldet.",
+    "workerMissing": "Der Arbeitnehmer ist erforderlich.",
+    "resumptionDateMissing": "Das Datum der Wiederaufnahme ist erforderlich.",
+    "absenceStartMissing": "Der Beginn der Abwesenheit ist erforderlich.",
+    "empty": "Bisher wurde keine Wiederaufnahme gemeldet.",
+    "caption": "Gemeldete Arbeitswiederaufnahmen",
+    "status": "Stand",
+    "deadline": "Frist",
+    "overdue": "Frist überschritten"
+  },
   "enums": {
     "statutAffilie": {
       "Actif": "Aktiv",
@@ -210,6 +233,20 @@
     "natureProposition": {
       "poste-risque": "Risiken eines Arbeitsplatzes",
       "liste-nominative": "Namensliste"
+    },
+    "statutReprise": {
+      "Annoncee": "Gemeldet",
+      "ObligationOuverte": "Untersuchung zu planen",
+      "Planifiee": "Termin geplant",
+      "NonCouverte": "Wartet auf Verfügbarkeit",
+      "Convoquee": "Arbeitnehmer eingeladen",
+      "ExamenRealise": "Untersuchung durchgeführt",
+      "DecisionEmise": "Akte in Bearbeitung",
+      "Terminee": "Abgeschlossen",
+      "ExamenNonRequis": "Keine Untersuchung erforderlich",
+      "Annulee": "Storniert",
+      "SansObjet": "Gegenstandslos",
+      "Inconnu": "In Bearbeitung"
     }
   }
 }

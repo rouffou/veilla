@@ -188,6 +188,13 @@ services:
       Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
       Authentication__ValidIssuer: http://localhost:8180/realms/veilla
       Authentication__RequireHttpsMetadata: "false"
+      # Saga de reprise du travail (ARC-33) : seuils et minuteries, valeurs de développement à valider par le métier
+      # (jamais des valeurs légales). Les minuteries sont lues en base à intervalle régulier (pas de bus en local).
+      Obligations__Reprise__Actif: "true"
+      Obligations__Reprise__IntervalleMinuteries: "00:01:00"
+      Obligations__Reprise__ReplanificationAutomatique: "false"
+      Obligations__Reprise__AlerteAvantEcheanceJoursOuvrables: "2"
+      Obligations__Reprise__RendezVousSansClotureJoursOuvrables: "1"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
     ports:
       - "5116:8080"
@@ -213,6 +220,7 @@ services:
       ServicesAval__Affilies: http://affilies:8080
       ServicesAval__Personnes: http://personnes:8080
       ServicesAval__PostesRisques: http://postes-risques:8080
+      ServicesAval__Obligations: http://obligations:8080
       Cors__Origines__0: http://localhost:8082
       Cors__Origines__1: http://localhost:4201
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
@@ -226,6 +234,8 @@ services:
       personnes:
         condition: service_started
       postes-risques:
+        condition: service_started
+      obligations:
         condition: service_started
 
   integrations:
@@ -326,6 +336,13 @@ services:
       Authentication__ValidIssuer: http://localhost:8180/realms/veilla
       Authentication__RequireHttpsMetadata: "false"
       Documents__Stockage__Racine: /tmp/sepp-documents
+      # Lecture de l'affilié et de la personne avec le compte technique du realm local (secret de développement uniquement ;
+      # hors poste de développement, le secret vient de Key Vault).
+      Documents__ServicesInternes__Affilies: http://affilies:8080/
+      Documents__ServicesInternes__Personnes: http://personnes:8080/
+      Documents__CompteTechnique__TokenEndpoint: http://keycloak:8080/realms/veilla/protocol/openid-connect/token
+      Documents__CompteTechnique__ClientId: veilla-documents
+      Documents__CompteTechnique__ClientSecret: documents-local-dev
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
     ports:
       - "5119:8080"
@@ -351,6 +368,13 @@ services:
       Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
       Authentication__ValidIssuer: http://localhost:8180/realms/veilla
       Authentication__RequireHttpsMetadata: "false"
+      # Lecture de l'affilié et de la personne avec le compte technique du realm local (secret de développement uniquement ;
+      # hors poste de développement, le secret vient de Key Vault).
+      Communications__ServicesInternes__Affilies: http://affilies:8080/
+      Communications__ServicesInternes__Personnes: http://personnes:8080/
+      Communications__CompteTechnique__TokenEndpoint: http://keycloak:8080/realms/veilla/protocol/openid-connect/token
+      Communications__CompteTechnique__ClientId: veilla-communications
+      Communications__CompteTechnique__ClientSecret: communications-local-dev
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
     ports:
       - "5120:8080"

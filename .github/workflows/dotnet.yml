@@ -10,6 +10,7 @@ on:
       - "src/Contracts/**"
       - "src/Services/**"
       - "src/Bff/**"
+      - "src/Sagas/**"
       - "tests/**"
       - "**/*.slnx"
       - "src/Bff/**"
@@ -62,7 +63,7 @@ jobs:
         env:
           EVENEMENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^tests/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
+          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^src/Sagas/|^tests/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
         run: |
           if [ "$EVENEMENT" != "pull_request" ]; then
             echo "concerne=true" >> "$GITHUB_OUTPUT"

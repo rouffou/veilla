@@ -9,6 +9,7 @@
     "positions": "Functies en risico's",
     "lists": "Nominatieve lijsten",
     "proposals": "Voorstellen",
+    "resumptions": "Werkhervattingen",
     "requests": "Aanvragen",
     "decisions": "Beslissingen en verslagen"
   },
@@ -166,6 +167,28 @@
     "status": "Stand",
     "refusal": "Reden van weigering: {{ motif }}"
   },
+  "resumptions": {
+    "title": "Werkhervattingen",
+    "intro": "Meld de werkhervatting van een werknemer na een afwezigheid en volg de voortgang van het onderzoek bij werkhervatting. Hier worden geen medische gegevens getoond.",
+    "announceTitle": "Een werkhervatting melden",
+    "followTitle": "Opvolging van de hervattingen",
+    "worker": "Werknemer",
+    "workersLimit": "Alleen de eerste {{ n }} werknemers (alfabetische volgorde) worden voorgesteld.",
+    "resumptionDate": "Datum van hervatting",
+    "absenceStart": "Begin van de afwezigheid",
+    "submit": "Hervatting melden",
+    "submitting": "Bezig met verzenden…",
+    "success": "De hervatting is gemeld.",
+    "alreadyKnown": "Deze hervatting was al gemeld.",
+    "workerMissing": "De werknemer is verplicht.",
+    "resumptionDateMissing": "De datum van hervatting is verplicht.",
+    "absenceStartMissing": "Het begin van de afwezigheid is verplicht.",
+    "empty": "Er is nog geen hervatting gemeld.",
+    "caption": "Gemelde werkhervattingen",
+    "status": "Voortgang",
+    "deadline": "Uiterste datum",
+    "overdue": "Termijn overschreden"
+  },
   "enums": {
     "statutAffilie": {
       "Actif": "Actief",
@@ -210,6 +233,20 @@
     "natureProposition": {
       "poste-risque": "Risico's van een functie",
       "liste-nominative": "Nominatieve lijst"
+    },
+    "statutReprise": {
+      "Annoncee": "Gemeld",
+      "ObligationOuverte": "Onderzoek in te plannen",
+      "Planifiee": "Afspraak gepland",
+      "NonCouverte": "Wachten op beschikbaarheid",
+      "Convoquee": "Werknemer opgeroepen",
+      "ExamenRealise": "Onderzoek uitgevoerd",
+      "DecisionEmise": "Dossier in behandeling",
+      "Terminee": "Afgerond",
+      "ExamenNonRequis": "Geen onderzoek vereist",
+      "Annulee": "Geannuleerd",
+      "SansObjet": "Zonder voorwerp",
+      "Inconnu": "In behandeling"
     }
   }
 }

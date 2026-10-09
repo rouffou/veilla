@@ -121,3 +121,25 @@ public sealed record PropositionListeCorpsAval(string Motif, IReadOnlyList<Ligne
 public sealed record LigneListeSaisie(string Type, Guid PersonneId, Guid PosteId);
 
 public sealed record IdentifiantAval(Guid Id);
+
+// --- Service Obligations (port 5116) ---
+
+/// <summary>Corps de <c>POST /api/v1/reprises</c> (ARC-33) : identifiants et dates seulement, aucune donnée médicale.</summary>
+public sealed record RepriseCorpsAval(Guid PersonneId, Guid AffilieId, DateOnly DateReprise, DateOnly DebutAbsence);
+
+public sealed record ResultatEnregistrementRepriseAval(Guid RepriseId, bool Cree, bool Modifie, string Statut);
+
+/// <summary>
+/// Reprise telle que le service la renvoie à un profil externe. Seuls les champs utiles au suivi employeur sont déclarés :
+/// les identifiants d'examen et de décision, la convocation et le rendez-vous ne sont jamais relayés (POR-04, à valider).
+/// </summary>
+public sealed record RepriseAval(
+    Guid Id,
+    Guid PersonneId,
+    Guid AffilieId,
+    DateOnly DateReprise,
+    DateOnly DebutAbsence,
+    string Statut,
+    DateOnly? DateLimite,
+    bool EnRetard,
+    bool HorsDelai);

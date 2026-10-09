@@ -52,6 +52,9 @@ Backend for frontend du **portail employeur** (§10.1, Lot 1 « portail employeu
 | `GET /affilies/{id}/listes-nominatives/{listeId}` | lignes avec noms des travailleurs et intitulés des postes | Postes et risques, Personnes |
 | `GET /affilies/{id}/listes-nominatives/{listeId}/csv?langue=` | POR-06 : téléchargement CSV | idem |
 | `POST /affilies/{id}/listes-nominatives/{listeId}/propositions` | POR-03 → AFF-31 | Postes et risques |
+| `POST /affilies/{id}/reprises` | POR-04 : annonce d'une reprise du travail (travailleur, date de reprise, début de l'absence) ; 201 à la création, 200 si déjà connue | Obligations (`POST /api/v1/reprises`) |
+| `GET /affilies/{id}/reprises` | POR-04 : suivi (statut, date limite, retard) | Obligations (`GET /api/v1/reprises?affilieId=`) |
+| `GET /affilies/{id}/reprises/{repriseId}` | POR-04 : une reprise ; celle d'un autre affilié est inconnue (404) | Obligations |
 
 OpenAPI : `/openapi/v1.json` ; Scalar : `/scalar` (Development).
 
@@ -70,6 +73,22 @@ UTF-8 avec BOM, séparateur `;`, en-têtes dans la langue demandée (FR, NL, DE,
 l'injection de formules (`=`, `+`, `-`, `@`), nom `liste-nominative-<type>-v<version>-<date>.csv`. Le **PDF/A**
 relèvera du service Documents (DOC-02) ; le BFF n'en produit pas.
 
+### Reprises du travail (POR-04, saga « examen de reprise »)
+
+Le BFF **relaie en synchrone** (ARC-30) l'annonce vers `POST /api/v1/reprises` du service Obligations, comme les propositions de
+poste : il ajoute l'`affilieId` de la route (jamais celui du corps), propage le jeton (permission `reprise:annoncer` /
+`reprise:lire`, périmètre `affilie_id` revérifié par le service) et **ne publie pas `RepriseAnnoncee`** : l'annonce passe par
+l'API d'Obligations, qui persiste le processus et publie `obligations.reprise-enregistree.v1` par son outbox (ADR 0008, plan
+`docs/architecture/saga-examen-reprise.md`, écart au §14.6 à valider par l'architecte). L'employeur peut annoncer et lire, pas
+modifier ni annuler (`reprise:gerer`).
+
+- Le POST n'est jamais rejoué (l'idempotence est celle du service : même travailleur, affilié et date = même processus) ; les
+  GET bénéficient de la résilience standard.
+- Les refus 409 et 422 d'Obligations sont traduits en ProblemDetails (même statut, `code`, `detail`, `service: obligations`).
+- Le modèle d'écran (`RepriseEcran`) ne porte que le statut du processus, les dates et le retard : ni identifiant d'examen ni de
+  décision, ni rendez-vous, ni donnée médicale. **Ce que voit l'employeur reste à valider** (plan, §6).
+- Le BFF ne vérifie pas que le travailleur est occupé chez l'affilié : cette règle relève des services propriétaires.
+
 ### Erreurs (RFC 9457)
 
 | Situation | Réponse du BFF |
@@ -84,7 +103,7 @@ relèvera du service Documents (DOC-02) ; le BFF n'en produit pas.
 | Clé | Rôle |
 |---|---|
 | `Authentication:Authority`, `MetadataAddress`, `ValidIssuer`, `Audience` (`sepp-api`) | validation du jeton (socle) |
-| `ServicesAval:Affilies`, `:Personnes`, `:PostesRisques` | URL des services (obligatoires, vérifiées au démarrage) ; à défaut `SEPP__SERVICES__AFFILIES`, `…__PERSONNES`, `…__POSTES_RISQUES` injectées par Terraform |
+| `ServicesAval:Affilies`, `:Personnes`, `:PostesRisques`, `:Obligations` | URL des services (obligatoires, vérifiées au démarrage ; Obligations en local : `http://localhost:5116`) ; à défaut `SEPP__SERVICES__AFFILIES`, `…__PERSONNES`, `…__POSTES_RISQUES`, `…__OBLIGATIONS` injectées par Terraform |
 | `Cors:Origines` | origines du portail |
 
 En compose (`deploy/local/compose.yaml`, service `bff-employeur`), les services sont joints par leur nom de conteneur

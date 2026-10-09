@@ -29,6 +29,7 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
 
 builder.Services.AddServicesAval(builder.Configuration);
 builder.Services.AddScoped<EcransEmployeur>();
+builder.Services.AddScoped<EcransReprises>();
 
 var app = builder.Build();
 
