@@ -8,4 +8,8 @@
     <PackageReference Include="NetArchTest.Rules" />
     <PackageReference Include="Shouldly" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Registre des abonnements (AbonnementsTerraformRules). -->
+    <ProjectReference Include="..\..\src\BuildingBlocks\Sepp.BuildingBlocks.Infrastructure\Sepp.BuildingBlocks.Infrastructure.csproj" />
+  </ItemGroup>
 </Project>

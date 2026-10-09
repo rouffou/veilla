@@ -30,10 +30,11 @@ variable "topics" {
 }
 
 variable "subscriptions" {
-  description = "Subscriptions à créer, clé = <topic>.<abonné>."
+  description = "Subscriptions à créer, clé = <topic>.<abonné>. subjects : sujets (noms versionnés de contrats) acceptés ; vide = tous les messages du topic."
   type = map(object({
     topic      = string
     subscriber = string
+    subjects   = optional(list(string), [])
   }))
   default = {}
 }

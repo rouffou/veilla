@@ -32,7 +32,7 @@ Bibliothèque : **PDFsharp 6.2 (licence MIT)** ; polices Lato incorporées (SIL 
 
 Configuration : `Documents:Adaptateurs:{Horodatage|Signature|SourceLinguistique}` (`Simulateur` ou `Reel`, sans défaut), `Documents:Stockage:Type`, `Documents:Chiffrement:<zone>:Encryption:{CurrentKeyId,Keys:<id>}` (clés Key Vault, HSM pour les zones médicale et psychosociale en production), `Documents:ServicesInternes`, `Documents:CompteTechnique`.
 
-Hors périmètre ou à compléter : le client OIDC `veilla-documents` (rôle `documents`) n'existe pas dans le realm local ; le claim `personne_id` doit être fourni par la fédération du portail travailleur ; les API d'Affiliés et de Personnes doivent exposer `regimeLinguistique` et `langue`.
+Hors périmètre ou à compléter : le client OIDC `veilla-documents` (rôle `documents`) et le claim `personne_id` existent dans le realm local (`deploy/local/keycloak`) ; en production, `personne_id` doit être fourni par la fédération du portail travailleur ; les API d'Affiliés et de Personnes doivent exposer `regimeLinguistique` et `langue`.
 
 ## API (`/api/v1`)
 

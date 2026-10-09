@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Test de bout en bout de la saga « examen de reprise du travail » (ARC-33, ADR 0008) : les hôtes Obligations,
+    Planification, Surveillance médicale, Communications et Documents tournent dans le même processus contre un seul
+    PostgreSQL (une base par service), reliés par un bus de test routé comme Terraform (infra/variables.tf).
+    Chaque hôte déclare « public partial class Program » dans l'espace global : les références de projet portent un alias.
+  -->
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\Obligations\src\Sepp.Obligations.Infrastructure\Sepp.Obligations.Infrastructure.csproj" Aliases="ObligationsHote" />
+    <ProjectReference Include="..\..\src\Services\Planification\src\Sepp.Planification.Infrastructure\Sepp.Planification.Infrastructure.csproj" Aliases="PlanificationHote" />
+    <ProjectReference Include="..\..\src\Services\SurveillanceMedicale\src\Sepp.SurveillanceMedicale.Infrastructure\Sepp.SurveillanceMedicale.Infrastructure.csproj" Aliases="SurveillanceMedicaleHote" />
+    <ProjectReference Include="..\..\src\Services\Communications\src\Sepp.Communications.Infrastructure\Sepp.Communications.Infrastructure.csproj" Aliases="CommunicationsHote" />
+    <ProjectReference Include="..\..\src\Services\Documents\src\Sepp.Documents.Infrastructure\Sepp.Documents.Infrastructure.csproj" Aliases="DocumentsHote" />
+    <!-- Lecture de infra/variables.tf (table de routage du bus de test). -->
+    <ProjectReference Include="..\Sepp.Testing.Architecture\Sepp.Testing.Architecture.csproj" />
+  </ItemGroup>
+</Project>

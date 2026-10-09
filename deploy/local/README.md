@@ -31,6 +31,8 @@ Les rôles de la matrice §3.3 sont émis dans le claim `roles` et l'audience `s
 
 Les utilisateurs externes portent le claim multivalué `affilie_id` : identifiants des affiliés auxquels ils ont accès (attribut utilisateur Keycloak, déclaré dans le profil utilisateur du realm). L'utilisateur `employeur` est rattaché à l'affilié fictif `0192a5c8-0000-7000-8000-000000000001` . Pour tester le portail employeur, créez un affilié puis remplacez cette valeur par son identifiant dans la console Keycloak (Utilisateurs → employeur → Attributs).
 
+L'utilisateur `travailleur` porte le claim `personne_id` (valeur unique, fictive : `0192a5c8-0000-7000-8000-0000000000a1`), lu par Documents et Planification pour limiter le travailleur à ses propres données (ADR 0005). Pour tester le portail travailleur, remplacez cette valeur par l'identifiant d'une personne créée.
+
 ## Appeler l'API
 
 Le client `veilla-dev-cli` (flux mot de passe) n'existe que dans ce realm local :
@@ -56,6 +58,8 @@ dotnet run --project src/Services/Referentiels/src/Sepp.Referentiels.Infrastruct
 ## Comptes techniques
 
 Le client confidentiel `veilla-integrations` (identifiants client, rôle `integrations`, audience `sepp-api`) permet au service Intégrations d'appeler l'API DIMONA de Personnes. Son secret de développement est défini dans le realm local et repris dans `compose.yaml` ; hors poste de développement, il vient de Key Vault.
+
+Les clients confidentiels `veilla-documents` (rôle `documents`) et `veilla-communications` (rôle `communications`) fournissent de même le compte technique des services Documents et Communications, qui lisent l'affilié et la personne (`affilie:lire`, `personne:lire`) pour la langue des documents et les coordonnées des destinataires. Leurs secrets de développement (`documents-local-dev`, `communications-local-dev`) sont repris dans `compose.yaml` (`Documents__CompteTechnique__*`, `Communications__CompteTechnique__*`).
 
 Pour tester le flux DIMONA en local : associer un numéro BCE à un affilié (`PUT /api/v1/correspondances`, utilisateur `gestionnaire`), puis lancer `POST /api/v1/flux/dimona/executions`. Le simulateur produit deux entrées et une sortie pour cet employeur, et une entrée rejetée pour un employeur non affilié.
 
