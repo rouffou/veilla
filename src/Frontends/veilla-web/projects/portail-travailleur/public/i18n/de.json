@@ -6,15 +6,125 @@
     "dashboard": "Startseite",
     "appointments": "Meine Termine",
     "questionnaires": "Gesundheitsfragebögen",
-    "documents": "Meine Dokumente"
+    "documents": "Meine Dokumente",
+    "request": "Eine Konsultation beantragen"
+  },
+  "ui": {
+    "loading": "Wird geladen…",
+    "retry": "Erneut versuchen"
+  },
+  "errors": {
+    "indisponible": "Dieser Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es in einigen Augenblicken erneut.",
+    "interdit": "Sie haben keinen Zugriff auf diese Informationen.",
+    "introuvable": "Das angeforderte Element wurde nicht gefunden.",
+    "invalide": "Die Anfrage konnte nicht angenommen werden. Prüfen Sie die eingegebenen Angaben.",
+    "reseau": "Keine Verbindung zum Server. Prüfen Sie Ihre Internetverbindung.",
+    "inattendue": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.",
+    "annulationTardive": "Weniger als 24 Stunden vor dem Termin ist die Online-Absage nicht mehr möglich: wenden Sie sich an den überbetrieblichen Dienst.",
+    "creneauIndisponible": "Dieser Zeitraum ist nicht mehr verfügbar. Wählen Sie einen anderen.",
+    "aucuneObligation": "Für diese Terminart ist bei diesem Arbeitgeber keine Untersuchung zu planen.",
+    "perimetre": "Ihr Konto ist keiner Person oder keinem betroffenen Arbeitgeber zugeordnet: wenden Sie sich an den überbetrieblichen Dienst."
+  },
+  "form": {
+    "summary": "Das Formular enthält Fehler:",
+    "choose": "— Auswählen —"
+  },
+  "actes": {
+    "EVALUATION_PREALABLE": "Vorherige Gesundheitsbeurteilung",
+    "EVALUATION_PERIODIQUE": "Regelmäßige Gesundheitsbeurteilung",
+    "ACTES_MEDICAUX_SUPPLEMENTAIRES": "Zusätzliche medizinische Leistungen",
+    "EXAMEN_REPRISE": "Untersuchung bei Wiederaufnahme der Arbeit",
+    "VISITE_PRE_REPRISE": "Besuch vor der Wiederaufnahme der Arbeit",
+    "CONSULTATION_SPONTANEE": "Spontane Konsultation",
+    "PROTECTION_MATERNITE": "Mutterschutz",
+    "SURVEILLANCE_PROLONGEE": "Nachgehende Gesundheitsüberwachung",
+    "ESTIMATION_POTENTIEL_TRAVAIL": "Einschätzung des Arbeitspotenzials",
+    "EVALUATION_REINTEGRATION": "Wiedereingliederungsbeurteilung",
+    "AUTRE_LEGISLATION": "Andere Gesetzgebung"
   },
   "dashboard": {
     "title": "Mein Bereich",
-    "intro": "Hier finden Sie Ihre Termine, Fragebögen und Dokumente, sobald der Dienst angebunden ist.",
+    "intro": "Hier finden Sie Ihre Termine, Fragebögen und Dokumente.",
     "appointments": "Nächste Termine",
     "questionnaires": "Auszufüllende Fragebögen",
     "documents": "Neueste Dokumente",
     "consultation": "Eine Konsultation beantragen",
-    "consultationText": "Spontane Konsultation oder Besuch vor der Wiederaufnahme der Arbeit, ohne Ihren Arbeitgeber einzuschalten."
+    "consultationText": "Spontane Konsultation oder Besuch vor der Wiederaufnahme der Arbeit, ohne Umweg über Ihren Arbeitgeber.",
+    "unavailable": "Vorübergehend nicht verfügbar.",
+    "noAppointments": "Keine anstehenden Termine.",
+    "noDocuments": "Keine Dokumente verfügbar.",
+    "questionnairesCount": "{{ n }} Fragebogen/Fragebögen verfügbar."
+  },
+  "appointments": {
+    "title": "Meine Termine",
+    "intro": "Sehen Sie Ihre Termine ein, sagen Sie sie ab oder buchen Sie einen freien Zeitraum.",
+    "mine": "Meine Termine",
+    "empty": "Sie haben keine Termine.",
+    "caption": "Liste Ihrer Termine",
+    "date": "Datum und Uhrzeit",
+    "type": "Terminart",
+    "status": "Status",
+    "actions": "Aktionen",
+    "statuses": {
+      "Planifie": "Geplant",
+      "Arrive": "Eingetroffen",
+      "EnSalle": "Im Raum",
+      "Termine": "Beendet",
+      "Absent": "Abwesend",
+      "Annule": "Abgesagt",
+      "Inconnu": "Anderer Status"
+    },
+    "cancel": "Absagen",
+    "cancelled": "Ihr Termin wurde abgesagt.",
+    "booked": "Ihr Termin ist gebucht.",
+    "moveHint": "Um ihn zu verschieben, buchen Sie unten einen anderen Zeitraum.",
+    "bookTitle": "Einen Zeitraum buchen",
+    "noEmployer": "Zum Buchen öffnen Sie den Link Ihrer Einladung oder wenden Sie sich an den Dienst: in Ihrem Bereich ist noch kein Arbeitgeber bekannt.",
+    "employer": "Arbeitgeber",
+    "employerN": "Arbeitgeber {{ n }}",
+    "search": "Zeiträume suchen",
+    "noSlots": "Kein freier Zeitraum in den nächsten 60 Tagen.",
+    "slots": "Freie Zeiträume",
+    "book": "Buchen"
+  },
+  "questionnaires": {
+    "title": "Gesundheitsfragebögen",
+    "intro": "Füllen Sie den vor Ihrer Untersuchung verlangten Gesundheitsfragebogen vorab aus.",
+    "writeOnly": "Ihre Antworten werden an den medizinischen Dienst übermittelt. Sie werden in diesem Portal nicht erneut angezeigt.",
+    "success": "Danke, Ihr Fragebogen wurde übermittelt.",
+    "empty": "Es ist kein Fragebogen verfügbar.",
+    "fill": "Ausfüllen",
+    "submit": "Senden",
+    "submitting": "Wird gesendet…",
+    "back": "Zurück zur Liste",
+    "yes": "Ja",
+    "no": "Nein"
+  },
+  "request": {
+    "title": "Eine Konsultation beantragen",
+    "intro": "Beantragen Sie eine spontane Konsultation oder einen Besuch vor der Wiederaufnahme der Arbeit, ohne Umweg über Ihren Arbeitgeber.",
+    "noReason": "Hier wird kein Grund verlangt: Sie nennen ihn dem Arzt während der Konsultation.",
+    "success": "Ihr Antrag wurde erfasst. Der Dienst wird Ihnen einen Termin vorschlagen.",
+    "noEmployer": "In Ihrem Bereich ist noch kein Arbeitgeber bekannt: wenden Sie sich an den Dienst, um Ihren Antrag zu stellen.",
+    "type": "Art des Antrags",
+    "submit": "Antrag senden",
+    "submitting": "Wird gesendet…"
+  },
+  "documents": {
+    "title": "Meine Dokumente",
+    "intro": "Dokumente, die der Dienst Ihnen zur Verfügung stellt.",
+    "empty": "Es ist kein Dokument verfügbar.",
+    "caption": "Liste Ihrer Dokumente",
+    "name": "Dokument",
+    "date": "Datum",
+    "language": "Sprache",
+    "actions": "Aktionen",
+    "download": "Herunterladen",
+    "categories": {
+      "evaluation-sante": "Formular zur Gesundheitsbeurteilung",
+      "autre": "Anderes Dokument"
+    },
+    "notYetTitle": "Impfpass und Kopie der Akte",
+    "notYet": "Der Impfpass und der Antrag auf eine Kopie Ihrer Gesundheitsakte sind in diesem Portal noch nicht verfügbar: richten Sie Ihren Antrag an den Arbeitsarzt."
   }
 }

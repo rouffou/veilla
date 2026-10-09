@@ -17,6 +17,7 @@ export class App {
     { path: '/', labelKey: 'nav.dashboard', exact: true },
     { path: '/rendez-vous', labelKey: 'nav.appointments' },
     { path: '/questionnaires', labelKey: 'nav.questionnaires' },
+    { path: '/demande', labelKey: 'nav.request' },
     { path: '/documents', labelKey: 'nav.documents' },
   ];
 }
