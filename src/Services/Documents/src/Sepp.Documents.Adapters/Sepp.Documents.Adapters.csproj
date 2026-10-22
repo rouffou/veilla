@@ -5,6 +5,8 @@
   <ItemGroup>
     <!-- PDFsharp (MIT) : rendu PDF/A ; Azure.Storage.Blobs (MIT) : stockage WORM. -->
     <PackageReference Include="PDFsharp" />
+    <!-- #337 : version corrigée de la dépendance transitive de PDFsharp. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
     <PackageReference Include="Azure.Storage.Blobs" />
   </ItemGroup>
   <ItemGroup>

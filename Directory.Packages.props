@@ -31,6 +31,10 @@
     <!-- PDFsharp (MIT) : rendu PDF/A des documents (service Documents, NF-21). MailKit (MIT) : SMTP (service Communications). -->
     <PackageVersion Include="PDFsharp" Version="6.2.4" />
     <PackageVersion Include="MailKit" Version="4.18.1" />
+    <!-- #337 : correctif de sécurité de la dépendance transitive de MailKit (MimeKit) et de PDFsharp
+         (CVE-2026-84008, CVE-2026-70162). Référencé directement par les projets concernés ; à retirer quand
+         MailKit et PDFsharp dépendront eux-mêmes d'une version corrigée. -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
   <ItemGroup Label="Observabilité">
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />

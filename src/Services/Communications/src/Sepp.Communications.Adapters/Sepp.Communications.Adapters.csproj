@@ -5,6 +5,8 @@
   <ItemGroup>
     <!-- MailKit (MIT) : envoi SMTP réel. -->
     <PackageReference Include="MailKit" />
+    <!-- #337 : version corrigée de la dépendance transitive de MailKit. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sepp.Communications.Application\Sepp.Communications.Application.csproj" />
