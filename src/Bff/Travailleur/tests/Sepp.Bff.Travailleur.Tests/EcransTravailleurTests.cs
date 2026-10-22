@@ -21,6 +21,7 @@ public sealed class EcransTravailleurTests
     private readonly Guid _affilie = Guid.CreateVersion7();
     private readonly IPlanificationApi _planification = Substitute.For<IPlanificationApi>();
     private readonly ISurveillanceMedicaleApi _surveillance = Substitute.For<ISurveillanceMedicaleApi>();
+    private readonly IPersonnesApi _personnes = Substitute.For<IPersonnesApi>();
     private readonly IObligationsApi _obligations = Substitute.For<IObligationsApi>();
     private readonly IDocumentsApi _documents = Substitute.For<IDocumentsApi>();
 
@@ -136,15 +137,15 @@ public sealed class EcransTravailleurTests
     [Theory]
     [InlineData("CONSULTATION_SPONTANEE")]
     [InlineData(" visite_pre_reprise ")]
-    public async Task Une_demande_offerte_au_travailleur_est_relayee_avec_la_personne_du_jeton(string type)
+    public async Task Une_demande_offerte_au_travailleur_est_relayee_sans_personne_dans_le_corps(string type)
     {
         var id = Guid.CreateVersion7();
-        _obligations.EnregistrerDemandeAsync(Arg.Any<DemandeCorpsAval>(), Ct).Returns(id);
+        _obligations.EnregistrerDemandeAsync(Arg.Any<MaDemandeCorpsAval>(), Ct).Returns(id);
 
         var demande = await Questionnaires.DemanderAsync(_personne, new DemandeCorps(_affilie, type), Ct);
 
         demande.Id.ShouldBe(id);
-        await _obligations.Received(1).EnregistrerDemandeAsync(new DemandeCorpsAval(_personne, _affilie, type.Trim().ToUpperInvariant()), Ct);
+        await _obligations.Received(1).EnregistrerDemandeAsync(new MaDemandeCorpsAval(_affilie, type.Trim().ToUpperInvariant()), Ct);
     }
 
     [Theory]
@@ -158,6 +159,41 @@ public sealed class EcransTravailleurTests
         erreur.Status.ShouldBe(HttpStatusCode.BadRequest);
         erreur.Code.ShouldBe("demande.type-invalide");
         await _obligations.DidNotReceiveWithAnyArgs().EnregistrerDemandeAsync(default!, Ct);
+    }
+
+    // --- POR-11 : employeurs et examens à planifier ---
+
+    private EcransEmployeursEtExamens EmployeursEtExamens => new(_personnes, _obligations);
+
+    [Fact]
+    public async Task Un_employeur_n_apparait_qu_une_fois_meme_avec_plusieurs_occupations_et_le_plus_ancien_d_abord()
+    {
+        var autre = Guid.CreateVersion7();
+        _personnes.ListerMesOccupationsAsync(Ct).Returns(
+        [
+            new OccupationAval(Guid.CreateVersion7(), autre, "Salarie", new DateOnly(2026, 3, 1), null),
+            new OccupationAval(Guid.CreateVersion7(), _affilie, "Salarie", new DateOnly(2025, 1, 1), null),
+            new OccupationAval(Guid.CreateVersion7(), _affilie, "Salarie", new DateOnly(2026, 6, 1), null),
+        ]);
+
+        var employeurs = await EmployeursEtExamens.MesEmployeursAsync(Ct);
+
+        employeurs.Select(e => e.AffilieId).ShouldBe([_affilie, autre]);
+        employeurs[0].DateDebut.ShouldBe(new DateOnly(2025, 1, 1));
+    }
+
+    [Fact]
+    public async Task Les_examens_a_planifier_d_une_autre_personne_sont_ecartes_et_tries_par_echeance()
+    {
+        ExamenAPlanifierAval Examen(Guid personne, string limite) =>
+            new(Guid.CreateVersion7(), personne, _affilie, "EVALUATION_PERIODIQUE", "Évaluation", DateOnly.Parse(limite), DateOnly.Parse(limite), "APlanifier", false);
+        var tard = Examen(_personne, "2026-12-01");
+        var tot = Examen(_personne, "2026-11-01");
+        _obligations.ListerMesExamensAPlanifierAsync("fr", Ct).Returns([tard, Examen(_autre, "2026-10-01"), tot]);
+
+        var examens = await EmployeursEtExamens.MesExamensAPlanifierAsync(_personne, "fr", Ct);
+
+        examens.Select(e => e.ObligationId).ShouldBe([tot.Id, tard.Id]);
     }
 
     // --- POR-13 ---

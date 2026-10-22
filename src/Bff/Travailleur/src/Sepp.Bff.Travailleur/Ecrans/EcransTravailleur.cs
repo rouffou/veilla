@@ -78,8 +78,35 @@ public sealed class EcransQuestionnaires(ISurveillanceMedicaleApi surveillance, 
                 "Le portail n'accepte que la consultation spontanée et la visite de pré-reprise.");
         }
 
-        return new(await obligations.EnregistrerDemandeAsync(new DemandeCorpsAval(personneId, corps.AffilieId, type), ct));
+        // La personne n'est pas transmise : Obligations la lit dans le jeton propagé (claim personne_id).
+        return new(await obligations.EnregistrerDemandeAsync(new MaDemandeCorpsAval(corps.AffilieId, type), ct));
     }
+}
+
+/// <summary>
+/// POR-11 : employeurs du travailleur (ses occupations actives) et examens à planifier. Ces deux listes permettent une première
+/// réservation sans lien de convocation. Les services bornent déjà leurs réponses à la personne du jeton ; le BFF écarte en
+/// plus tout examen dont la personne n'est pas celle du jeton (défense en profondeur).
+/// </summary>
+public sealed class EcransEmployeursEtExamens(IPersonnesApi personnes, IObligationsApi obligations)
+{
+    /// <summary>Employeurs distincts (un par affilié), le plus ancien d'abord ; la dénomination n'est connue d'aucun service accessible au travailleur.</summary>
+    public async Task<IReadOnlyList<EmployeurEcran>> MesEmployeursAsync(CancellationToken ct) =>
+        (await personnes.ListerMesOccupationsAsync(ct))
+        .GroupBy(o => o.AffilieId)
+        .Select(g => g.OrderBy(o => o.DateDebut).First())
+        .OrderBy(o => o.DateDebut)
+        .ThenBy(o => o.AffilieId)
+        .Select(o => new EmployeurEcran(o.AffilieId, o.TypeTravailleur, o.DateDebut, o.DateFin))
+        .ToList();
+
+    public async Task<IReadOnlyList<ExamenAPlanifierEcran>> MesExamensAPlanifierAsync(Guid personneId, string langue, CancellationToken ct) =>
+        (await obligations.ListerMesExamensAPlanifierAsync(langue, ct))
+        .Where(e => e.PersonneId == personneId)
+        .OrderBy(e => e.DateLimite ?? e.DateDue)
+        .ThenBy(e => e.Id)
+        .Select(e => new ExamenAPlanifierEcran(e.Id, e.AffilieId, e.Type, e.TypeLibelle, e.DateDue, e.DateLimite, e.Statut, e.EnRetard))
+        .ToList();
 }
 
 /// <summary>

@@ -186,6 +186,8 @@ export class RendezVousPage {
   protected readonly langue = inject(LanguageService).current;
   protected readonly types = TYPES_ACTE;
   protected readonly rendezVous = chargeable(() => this.api.rendezVous());
+  protected readonly employeurs = chargeable(() => this.api.employeurs());
+  protected readonly examensAPlanifier = chargeable(() => this.api.examensAPlanifier());
 
   protected readonly affilieChoisi = signal<string | null>(null);
   protected readonly typeChoisi = signal<string | null>(null);
@@ -197,15 +199,31 @@ export class RendezVousPage {
   private readonly succes = viewChild<ElementRef<HTMLElement>>('succes');
 
   protected readonly affilies = computed(() => {
-    const etat = this.rendezVous.etat();
-    return affiliesConnus(etat.statut === 'ok' ? etat.valeur : [], this.affilieId());
+    const rdv = this.rendezVous.etat();
+    const employeurs = this.employeurs.etat();
+    return affiliesConnus(
+      employeurs.statut === 'ok' ? employeurs.valeur : [],
+      rdv.statut === 'ok' ? rdv.valeur : [],
+      this.affilieId(),
+      this.examens(),
+    );
+  });
+  /** Examens à planifier de la personne connectée : permettent une première réservation sans lien de convocation. */
+  private readonly examens = computed(() => {
+    const etat = this.examensAPlanifier.etat();
+    return etat.statut === 'ok' ? etat.valeur : [];
   });
   protected readonly affilieCourant = computed(() => {
     const choisi = this.affilieChoisi();
     const liste = this.affilies();
-    return choisi && liste.includes(choisi) ? choisi : (liste[0] ?? null);
+    if (choisi && liste.includes(choisi)) return choisi;
+    const propose = this.affilieId() ?? this.examens()[0]?.affilieId;
+    return propose && liste.includes(propose) ? propose : (liste[0] ?? null);
   });
-  protected readonly typeCourant = computed(() => this.typeChoisi() ?? this.typeActe() ?? TYPES_ACTE[1]);
+  protected readonly typeCourant = computed(() => {
+    const premier = this.examens().find((e) => (TYPES_ACTE as readonly string[]).includes(e.type));
+    return this.typeChoisi() ?? this.typeActe() ?? premier?.type ?? TYPES_ACTE[1];
+  });
 
   protected readonly creneaux = toSignal(
     toObservable(this.recherche).pipe(

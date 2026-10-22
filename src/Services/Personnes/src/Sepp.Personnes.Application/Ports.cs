@@ -32,3 +32,10 @@ public interface IContexteAffilie
 {
     Guid? AffilieId { get; }
 }
+
+/// <summary>Personne du jeton d'un travailleur (claim <c>personne_id</c>, ADR 0005) : seule source de son identité pour « mes occupations ».</summary>
+public interface IContextePersonne
+{
+    /// <summary>Personne du jeton ; <c>null</c> si le claim est absent, invalide ou porte plusieurs personnes.</summary>
+    Guid? PersonneId { get; }
+}

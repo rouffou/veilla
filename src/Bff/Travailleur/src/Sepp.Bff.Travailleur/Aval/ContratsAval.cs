@@ -42,8 +42,31 @@ public sealed record PreRemplissageCorpsAval(Guid PersonneId, string ModeleCode,
 
 // --- Service Obligations (port 5116) ---
 
-/// <summary>Corps de <c>POST /api/v1/demandes-travailleur</c> : type et affilié seulement, jamais le motif (§5.1).</summary>
-public sealed record DemandeCorpsAval(Guid PersonneId, Guid AffilieId, string Type);
+/// <summary>
+/// Corps de <c>POST /api/v1/mes-demandes</c> : type et affilié seulement, jamais le motif (§5.1). Aucune personne : le service
+/// la lit dans le claim <c>personne_id</c> du jeton propagé.
+/// </summary>
+public sealed record MaDemandeCorpsAval(Guid AffilieId, string Type);
+
+/// <summary>Examen à planifier de la personne du jeton (<c>GET /api/v1/mes-examens-a-planifier</c>) ; seuls les champs utiles au portail.</summary>
+public sealed record ExamenAPlanifierAval(
+    Guid Id,
+    Guid PersonneId,
+    Guid AffilieId,
+    string Type,
+    string TypeLibelle,
+    DateOnly DateDue,
+    DateOnly? DateLimite,
+    string Statut,
+    bool EnRetard);
+
+// --- Service Personnes (port 5112) ---
+
+/// <summary>
+/// Occupation active de la personne du jeton (<c>GET /api/v1/mes-occupations</c>) : l'affilié, le type de travailleur et les
+/// dates. Personnes ne connaît pas la dénomination de l'employeur ; ni NISS ni identité ne sont déclarés.
+/// </summary>
+public sealed record OccupationAval(Guid OccupationId, Guid AffilieId, string TypeTravailleur, DateOnly DateDebut, DateOnly? DateFin);
 
 // --- Service Documents (port 5119) ---
 

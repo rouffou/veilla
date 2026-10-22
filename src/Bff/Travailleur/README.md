@@ -45,7 +45,9 @@ portail en local). Projet `Sepp.Bff.Travailleur`, sans base de données ni domai
 | `POST /rendez-vous/{id}/annulation` | POR-11 : annulation jusqu'à 24 h avant (204) | Planification `POST /reservations/rendez-vous/{id}/annulation` |
 | `GET /questionnaires?langue=` | POR-12 : modèles à remplir | Surveillance médicale `GET /protocoles/questionnaires` |
 | `POST /questionnaires/{code}/reponses` `{reponses[]}` | POR-12 : remplissage à l'avance, écriture seule (201 `{id}`) | Surveillance médicale `POST /questionnaires/pre-remplissage` |
-| `POST /demandes` `{affilieId, type}` | POR-12 : consultation spontanée ou visite de pré-reprise (`CONSULTATION_SPONTANEE`, `VISITE_PRE_REPRISE`), sans motif | Obligations `POST /demandes-travailleur` |
+| `POST /demandes` `{affilieId, type}` | POR-12 : consultation spontanée ou visite de pré-reprise (`CONSULTATION_SPONTANEE`, `VISITE_PRE_REPRISE`), sans motif | Obligations `POST /mes-demandes` (personne = jeton) |
+| `GET /employeurs` | POR-11 : mes employeurs (occupations actives : affilié, type de travailleur, dates ; sans dénomination) | Personnes `GET /mes-occupations` |
+| `GET /examens-a-planifier?langue=` | POR-11 : mes examens à planifier (type, échéances, statut), ceux d'une autre personne écartés | Obligations `GET /mes-examens-a-planifier` |
 | `GET /documents` | POR-13 : documents publiés pour la personne | Documents `GET /documents?typeDestinataire=Personne&destinataireId=` |
 | `GET /documents/{id}/contenu` | POR-13 : PDF, lecture journalisée par Documents (NF-04) | Documents `GET /documents/{id}` puis `/contenu` |
 
@@ -94,7 +96,7 @@ claim dans le courtier ou un service Identité.
 | Clé | Rôle |
 |---|---|
 | `Authentication:Authority`, `MetadataAddress`, `ValidIssuer`, `Audience` (`sepp-api`) | validation du jeton (socle) |
-| `ServicesAval:Planification`, `:SurveillanceMedicale`, `:Obligations`, `:Documents` | URL des services (obligatoires, vérifiées au démarrage) ; en local `http://localhost:5117`, `5118`, `5116`, `5119` ; à défaut `SEPP__SERVICES__PLANIFICATION`, `…__SURVEILLANCE_MEDICALE`, `…__OBLIGATIONS`, `…__DOCUMENTS` injectées par Terraform |
+| `ServicesAval:Planification`, `:SurveillanceMedicale`, `:Personnes`, `:Obligations`, `:Documents` | URL des services (obligatoires, vérifiées au démarrage) ; en local `http://localhost:5117`, `5118`, `5112`, `5116`, `5119` ; à défaut `SEPP__SERVICES__PLANIFICATION`, `…__SURVEILLANCE_MEDICALE`, `…__PERSONNES`, `…__OBLIGATIONS`, `…__DOCUMENTS` injectées par Terraform |
 | `Cors:Origines` | origines du portail |
 
 En compose (`deploy/local/compose.yaml`, service `bff-travailleur`, port **5201**), les services sont joints par leur nom de
@@ -104,16 +106,14 @@ conteneur (`http://planification:8080`…). Image publiée par la matrice de `.g
 
 Rien n'a été implémenté dans un autre service. Ce qui manque :
 
-1. **Demandes du travailleur (POR-12)** : `POST /api/v1/demandes-travailleur` d'Obligations exige `obligation:gerer` (profils
-   internes) et le groupe de routes `obligation:lire` ; le rôle `travailleur` n'a ni l'une ni l'autre dans `Security.cs`, et
-   Obligations n'a **aucun périmètre `personne_id`** (le service accepte n'importe quelle `personneId` du corps). Accorder
-   `obligation:gerer` au travailleur serait dangereux (changement de statut, recalcul). Il faut une permission dédiée (par exemple
-   `demande-travailleur:creer`) et la vérification que la personne du corps est celle du jeton. **Tant que ce n'est pas fait, la
-   route `POST /demandes` du BFF est relayée mais Obligations répond 403** (testé avec le service simulé).
-2. **Employeurs du travailleur** : aucune route accessible au rôle `travailleur` (Personnes : `personne:lire` ; Obligations :
-   `obligation:lire` et pas de périmètre personne) ne donne ses employeurs ni ses obligations à planifier. Le portail déduit les
-   employeurs de ses rendez-vous existants ou d'un lien de convocation (`?affilieId=`) : une première réservation sans lien
-   n'est pas possible. Souhaitable : route « mes obligations à planifier » dans Obligations ou Planification.
+1. **Demandes du travailleur (POR-12) : résolu (#323).** Obligations expose `POST /api/v1/mes-demandes` (permission dédiée
+   `obligation:demander`, accordée au seul rôle travailleur) : la personne est celle du claim `personne_id`, le corps n'en porte
+   pas, et la personne doit être occupée chez l'affilié. Le travailleur n'a toujours ni `obligation:gerer` ni `obligation:lire`.
+2. **Employeurs et examens à planifier (POR-11) : résolu (#324).** Personnes expose `GET /api/v1/mes-occupations`
+   (`personne:lire-propres`) et Obligations `GET /api/v1/mes-examens-a-planifier` (`obligation:lire-propres`), toutes deux bornées au
+   claim `personne_id` ; le BFF les relaie en `GET /employeurs` et `GET /examens-a-planifier`, et le portail permet une première
+   réservation sans lien de convocation. **Reste ouvert** : la dénomination de l'employeur n'est connue que du service Affiliés
+   (`affilie:lire`, que le travailleur n'a pas) : le portail désigne les employeurs par leur rang.
 3. **Déplacer et confirmer un rendez-vous (POR-11)** : Planification n'a ni route de déplacement ni de confirmation côté
    externe. Le portail propose « annuler puis réserver un autre créneau » ; la réservation exige une obligation encore à
    planifier, donc l'ordre est imposé (annuler d'abord, délai de 24 h).

@@ -84,6 +84,7 @@ export class DemandePage {
   private readonly api = inject(BffTravailleurService);
   protected readonly types = TYPES_DEMANDE;
   protected readonly rendezVous = chargeable(() => this.api.rendezVous());
+  protected readonly employeurs = chargeable(() => this.api.employeurs());
   protected readonly affilieChoisi = signal<string | null>(null);
   protected readonly typeChoisi = signal<TypeDemande>(TYPES_DEMANDE[0]);
   protected readonly envoi = signal(false);
@@ -92,8 +93,13 @@ export class DemandePage {
   private readonly succes = viewChild<ElementRef<HTMLElement>>('succes');
 
   protected readonly affilies = computed(() => {
-    const etat = this.rendezVous.etat();
-    return affiliesConnus(etat.statut === 'ok' ? etat.valeur : [], this.affilieId());
+    const rdv = this.rendezVous.etat();
+    const employeurs = this.employeurs.etat();
+    return affiliesConnus(
+      employeurs.statut === 'ok' ? employeurs.valeur : [],
+      rdv.statut === 'ok' ? rdv.valeur : [],
+      this.affilieId(),
+    );
   });
   protected readonly affilieCourant = computed(() => {
     const choisi = this.affilieChoisi();

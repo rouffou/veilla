@@ -169,6 +169,62 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
     }
 
     [Fact]
+    public async Task Le_travailleur_lit_ses_seules_occupations_actives_par_son_claim_personne_id()
+    {
+        var niss = NouveauNiss();
+        var moi = await Creer(niss);
+        var autreAffilie = Guid.CreateVersion7();
+        var autre = await Creer(NouveauNiss());
+        var gestionnaire = fixture.Client(Roles.GestionnaireDossiers);
+        (await gestionnaire.PostAsJsonAsync($"/api/v1/personnes/{moi.PersonneId}/occupations",
+            new { affilieId = autreAffilie, typeTravailleur = "Salarie", typeContrat = "DureeIndeterminee", dateDebut = "2026-03-01" }, _ct)).EnsureSuccessStatusCode();
+        (await gestionnaire.PostAsJsonAsync($"/api/v1/personnes/{moi.PersonneId}/occupations",
+            new { affilieId = Guid.CreateVersion7(), typeTravailleur = "Salarie", typeContrat = "DureeDeterminee", dateDebut = "2020-01-01", dateFin = "2021-12-31" }, _ct))
+            .EnsureSuccessStatusCode();
+
+        var texte = await fixture.Client(Roles.Travailleur, null, moi.PersonneId).GetStringAsync("/api/v1/mes-occupations?date=2026-06-01", _ct);
+        var miennes = JsonSerializer.Deserialize<List<MonOccupationDto>>(texte, Json)!;
+        var siennes = await fixture.Client(Roles.Travailleur, null, autre.PersonneId)
+            .GetFromJsonAsync<List<MonOccupationDto>>("/api/v1/mes-occupations?date=2026-06-01", Json, _ct);
+
+        miennes.Select(o => o.AffilieId).ShouldBe([_affilie, autreAffilie], ignoreOrder: true);
+        siennes!.ShouldHaveSingleItem().AffilieId.ShouldBe(_affilie);
+        miennes.ShouldNotContain(o => o.DateFin != null);
+
+        // Ni NISS, ni identité, ni référence DIMONA, ni affectation dans la réponse (minimisation).
+        texte.ShouldNotContain(niss);
+        texte.ShouldNotContain("Dupont", Case.Insensitive);
+        texte.ShouldNotContain("nissMasque", Case.Insensitive);
+        texte.ShouldNotContain("referenceDimona", Case.Insensitive);
+        texte.ShouldNotContain("affectations", Case.Insensitive);
+    }
+
+    [Fact]
+    public async Task Le_travailleur_ne_lit_les_occupations_ni_sans_personne_dans_le_jeton_ni_comme_un_autre_profil_ni_les_fiches()
+    {
+        var creee = await Creer(NouveauNiss());
+
+        // Pas de personne, deux personnes ambiguës ou un claim invalide : aucune lecture.
+        (await fixture.Client(Roles.Travailleur).GetAsync("/api/v1/mes-occupations", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await fixture.Client(Roles.Travailleur, null, creee.PersonneId, Guid.CreateVersion7()).GetAsync("/api/v1/mes-occupations", _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Personne inconnue du service : 404, sans révéler d'autre fiche.
+        (await fixture.Client(Roles.Travailleur, null, Guid.CreateVersion7()).GetAsync("/api/v1/mes-occupations", _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        // La route est propre au travailleur ; l'employeur et les internes gardent leurs routes d'affilié.
+        (await fixture.Client(Roles.Employeur, _affilie, creee.PersonneId).GetAsync("/api/v1/mes-occupations", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await fixture.Client(Roles.GestionnaireDossiers, null, creee.PersonneId).GetAsync("/api/v1/mes-occupations", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await fixture.Factory.CreateClient().GetAsync("/api/v1/mes-occupations", _ct)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+
+        // Le travailleur n'obtient pas pour autant la fiche de la personne, ni la sienne, ni celle d'une autre.
+        var travailleur = fixture.Client(Roles.Travailleur, null, creee.PersonneId);
+        (await travailleur.GetAsync($"/api/v1/personnes/{creee.PersonneId}", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await travailleur.GetAsync($"/api/v1/personnes/{creee.PersonneId}/occupations", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await travailleur.GetAsync($"/api/v1/affilies/{_affilie}/travailleurs", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Les_affectations_sont_historisees_et_cloturees_a_la_sortie()
     {
         var creee = await Creer(NouveauNiss());
@@ -467,7 +523,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
         (await fixture.Client(Roles.Cpmt).PostAsJsonAsync("/api/v1/registre-national/mutations", mutation, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var integrations = fixture.Client(Roles.Integrations);
-        var invalide = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss[..10] + "0", "RN-X", "Deces", "2026-09-01"), _ct);
+        var invalide = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss[..10] + (niss[10] == '0' ? '1' : '0'), "RN-X", "Deces", "2026-09-01"), _ct);
         invalide.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await invalide.Content.ReadAsStringAsync(_ct)).ShouldNotContain(niss[..10]);
         (await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss, "RN-Y", "ChangementNom", "2026-09-01"), _ct))

@@ -66,13 +66,18 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
         await _postgres.DisposeAsync();
     }
 
-    public HttpClient Client(string role, Guid? affilieId = null)
+    public HttpClient Client(string role, Guid? affilieId = null, params Guid[] personnes)
     {
         var client = Factory.CreateClient();
         client.DefaultRequestHeaders.Add(TestAuth.RolesHeader, role);
         if (affilieId is { } affilie)
         {
             client.DefaultRequestHeaders.Add(TestAuth.AffilieHeader, affilie.ToString());
+        }
+
+        foreach (var personne in personnes)
+        {
+            client.DefaultRequestHeaders.Add(TestAuth.PersonneHeader, personne.ToString());
         }
 
         return client;
@@ -85,6 +90,7 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
         public const string Name = "Test";
         public const string RolesHeader = "X-Test-Roles";
         public const string AffilieHeader = "X-Test-Affilie";
+        public const string PersonneHeader = "X-Test-Personne";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
@@ -99,6 +105,11 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
             if (Request.Headers.TryGetValue(AffilieHeader, out var affilie))
             {
                 claims = claims.Append(new Claim("affilie_id", affilie.ToString()));
+            }
+
+            if (Request.Headers.TryGetValue(PersonneHeader, out var personnes))
+            {
+                claims = claims.Concat(personnes.Select(p => new Claim("personne_id", p!)));
             }
 
             var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Name, "sub", "roles"));

@@ -7,12 +7,16 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Web;
 using Sepp.Obligations.Application.Consultation;
 using Sepp.Obligations.Application.Gestion;
+using Sepp.Obligations.Application.Travailleur;
 using Sepp.Obligations.Domain.Obligations;
 
 namespace Sepp.Obligations.Adapters.Api;
 
 /// <summary>Corps des demandes de pré-reprise ou de consultation spontanée : le type et la date, jamais le motif (ARC-06).</summary>
 public sealed record DemandeSaisie(Guid PersonneId, Guid AffilieId, string Type, DateOnly? DateDemande);
+
+/// <summary>Demande du travailleur connecté : pas de personne (elle vient du jeton), type et date seulement, jamais le motif (ARC-06).</summary>
+public sealed record MaDemandeSaisie(Guid AffilieId, string Type, DateOnly? DateDemande);
 
 public sealed record ReportSaisie(DateOnly Date);
 
@@ -33,7 +37,39 @@ public static class ObligationsEndpoints
         MapConsultation(api);
         MapGestion(api);
         app.MapRepriseEndpoints();
+        MapTravailleur(app);
         return app;
+    }
+
+    /// <summary>
+    /// Portail travailleur (POR-11, POR-12) : permissions dédiées, hors du groupe <c>obligation:lire</c> que le travailleur
+    /// n'a pas. La personne vient du claim <c>personne_id</c> ; les corps et URL ne la contiennent jamais (un
+    /// <c>personneId</c> envoyé quand même est ignoré).
+    /// </summary>
+    private static void MapTravailleur(IEndpointRouteBuilder app)
+    {
+        app.MapPost("/api/v1/mes-demandes", async (MaDemandeSaisie body, ICommandHandler<EnregistrerMaDemande, Guid> handler, CancellationToken ct) =>
+            {
+                if (!TypesObligation.TryParse(body.Type, out var type))
+                {
+                    return ResultExtensions.ToProblem(Error.Validation("demande.type-invalide", $"Type de demande inconnu : {body.Type}."));
+                }
+
+                return (await handler.HandleAsync(new EnregistrerMaDemande(body.AffilieId, type, body.DateDemande), ct))
+                    .ToHttpResult(id => Results.Created("/api/v1/mes-examens-a-planifier", new { id }));
+            })
+            .RequirePermission(Permissions.ObligationDemander)
+            .WithTags("Portail travailleur")
+            .WithName("EnregistrerMaDemande")
+            .WithSummary("POR-12 : demande du travailleur connecté (pré-reprise, consultation spontanée) chez un employeur qui l'occupe ; personne = claim personne_id.");
+
+        app.MapGet("/api/v1/mes-examens-a-planifier", async (
+                string? langue, HttpContext http, IQueryHandler<ListerMesExamensAPlanifier, IReadOnlyList<ObligationDto>> handler, CancellationToken ct) =>
+            (await handler.HandleAsync(new ListerMesExamensAPlanifier(http.ResolveLanguage(langue)), ct)).ToHttpResult())
+            .RequirePermission(Permissions.ObligationLirePropres)
+            .WithTags("Portail travailleur")
+            .WithName("ListerMesExamensAPlanifier")
+            .WithSummary("POR-11, SAN-12 : examens à planifier de la personne du jeton (claim personne_id).");
     }
 
     private static void MapConsultation(RouteGroupBuilder api)

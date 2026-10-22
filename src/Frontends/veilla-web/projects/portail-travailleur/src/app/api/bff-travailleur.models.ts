@@ -14,6 +14,26 @@ export interface RendezVous {
   readonly motifAnnulation: string | null;
 }
 
+/** POR-11 : employeur du travailleur (occupation active). Aucun service n'expose sa dénomination au rôle travailleur. */
+export interface Employeur {
+  readonly affilieId: string;
+  readonly typeTravailleur: string;
+  readonly dateDebut: string;
+  readonly dateFin: string | null;
+}
+
+/** POR-11 : examen à planifier de la personne connectée (type, échéances, statut ; jamais de contenu médical). */
+export interface ExamenAPlanifier {
+  readonly obligationId: string;
+  readonly affilieId: string;
+  readonly type: string;
+  readonly libelle: string;
+  readonly dateDue: string;
+  readonly dateLimite: string | null;
+  readonly statut: string;
+  readonly enRetard: boolean;
+}
+
 export interface Creneau {
   readonly id: string;
   readonly lieuId: string;

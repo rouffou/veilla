@@ -34,6 +34,15 @@ public static class PersonnesEndpoints
         MapPersonnes(api.MapGroup("/personnes").WithTags("Personnes"));
         MapAffilies(api.MapGroup("/affilies/{affilieId:guid}").WithTags("Travailleurs d'un affilié"));
 
+        // POR-11 : le travailleur ne lit que ses propres occupations actives (claim personne_id) ; hors du groupe personne:lire.
+        app.MapGet("/api/v1/mes-occupations", async (DateOnly? date, TimeProvider clock,
+                IQueryHandler<ListerMesOccupations, IReadOnlyList<MonOccupationDto>> handler, CancellationToken ct) =>
+                (await handler.HandleAsync(new ListerMesOccupations(date ?? clock.TodayInBelgium()), ct)).ToHttpResult())
+            .RequirePermission(Permissions.PersonneLirePropres)
+            .WithTags("Portail travailleur")
+            .WithName("ListerMesOccupations")
+            .WithSummary("POR-11 : occupations actives de la personne du jeton (claim personne_id) ; l'affilié sans sa dénomination, aucune donnée d'identité.");
+
         // AFF-20 : points d'entrée internes appelés par le compte technique du service Intégrations (rôle « integrations »),
         // qui n'a que personne:ecrire. Hors du groupe en lecture : la permission personne:lire n'y est pas exigée.
         MapDimona(app.MapGroup("/api/v1/dimona").WithTags("Interne : alimentation DIMONA (service Intégrations)").RequirePermission(Permissions.PersonneEcrire));

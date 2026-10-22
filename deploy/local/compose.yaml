@@ -259,6 +259,7 @@ services:
       Authentication__RequireHttpsMetadata: "false"
       ServicesAval__Planification: http://planification:8080
       ServicesAval__SurveillanceMedicale: http://surveillance-medicale:8080
+      ServicesAval__Personnes: http://personnes:8080
       ServicesAval__Obligations: http://obligations:8080
       ServicesAval__Documents: http://documents:8080
       Cors__Origines__0: http://localhost:8083
@@ -272,6 +273,8 @@ services:
       planification:
         condition: service_started
       surveillance-medicale:
+        condition: service_started
+      personnes:
         condition: service_started
       obligations:
         condition: service_started

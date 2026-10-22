@@ -19,6 +19,46 @@ public sealed class ListerOccupationsHandler(AccesPersonnes acces, PerimetreUtil
     }
 }
 
+/// <summary>
+/// POR-11 : occupation active d'un travailleur, vue par lui-même. Seulement l'affilié (employeur, pour un intérimaire
+/// l'agence), le type de travailleur et les dates : ni référence DIMONA, ni contrat, ni affectation. Personnes ne connaît
+/// pas la dénomination de l'affilié (service Affiliés) : le BFF la compose s'il la connaît.
+/// </summary>
+public sealed record MonOccupationDto(Guid OccupationId, Guid AffilieId, TypeTravailleur TypeTravailleur, DateOnly DateDebut, DateOnly? DateFin);
+
+/// <summary>POR-11 : mes occupations actives à une date, pour la personne du jeton (claim <c>personne_id</c>), jamais une autre.</summary>
+public sealed record ListerMesOccupations(DateOnly Date);
+
+public sealed class ListerMesOccupationsHandler(IPersonneRepository repository, ICurrentUser currentUser, IContextePersonne contexte)
+    : IQueryHandler<ListerMesOccupations, IReadOnlyList<MonOccupationDto>>
+{
+    public async Task<Result<IReadOnlyList<MonOccupationDto>>> HandleAsync(ListerMesOccupations query, CancellationToken cancellationToken)
+    {
+        if (!currentUser.HasPermission(Permissions.PersonneLirePropres))
+        {
+            return Error.Forbidden("personnes.interdit", "Droits insuffisants sur les données des travailleurs.");
+        }
+
+        if (contexte.PersonneId is not { } personneId)
+        {
+            return Error.Forbidden("perimetre.interdit", "Le jeton ne désigne aucune personne : accès refusé.");
+        }
+
+        var personne = await repository.GetAsync(personneId, cancellationToken);
+        if (personne is null)
+        {
+            return Error.NotFound("personne.inconnue", "Personne inconnue.");
+        }
+
+        return personne.Occupations
+            .Where(o => o.EstActiveAu(query.Date))
+            .OrderBy(o => o.DateDebut)
+            .ThenBy(o => o.Id)
+            .Select(o => new MonOccupationDto(o.Id, o.AffilieId, o.TypeTravailleur, o.DateDebut, o.DateFin))
+            .ToList();
+    }
+}
+
 /// <summary>AFF-20, AFF-21, AFF-23 : ajoute une occupation (entrée) à une personne connue.</summary>
 public sealed record DebuterOccupation(Guid PersonneId, NouvelleOccupationDto Occupation);
 

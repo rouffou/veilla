@@ -83,6 +83,20 @@ Stockées en base (`prochaine_echeance`, `type_minuterie`), traitées par `Minut
 Les délais légaux (10 jours ouvrables, 4 semaines) viennent des paramètres légaux du service Référentiels (`SANTE.REPRISE.DELAI`, `SANTE.REPRISE.ABSENCE_MINIMUM`), pas de cette configuration.
 Les valeurs par défaut ci-dessus sont des valeurs provisoires d'organisation, jamais présentées comme légales.
 
+## Portail travailleur (POR-11, POR-12, SAN-02)
+
+Le rôle `travailleur` n'a ni `obligation:lire` ni `obligation:gerer`. Il dispose de permissions dédiées, et la personne est toujours
+celle du claim `personne_id` du jeton (une valeur unique et valide, sinon 403 `perimetre.interdit`), jamais celle d'un corps ou d'une URL :
+
+| Route | Permission | Effet |
+|---|---|---|
+| `POST /api/v1/mes-demandes` `{affilieId, type, dateDemande?}` | `obligation:demander` | consultation spontanée ou visite de pré-reprise pour soi-même (201) ; refusée (403) si la personne n'a pas d'occupation active chez l'affilié (projection de Personnes) ; un `personneId` ou un motif envoyé est ignoré |
+| `GET /api/v1/mes-examens-a-planifier?langue=` | `obligation:lire-propres` | obligations ouvertes sans rendez-vous à venir de la personne (À planifier, Absent, Reporté, Excusé) |
+
+Les profils internes gardent `POST /demandes-travailleur` (`obligation:gerer`, personne dans le corps). Les types confidentiels
+(protection de la maternité, consultation spontanée, pré-reprise) restent masqués à l'employeur et au SIPP ; le travailleur voit les siens.
+**À valider** : que le travailleur voie aussi ses propres obligations de protection de la maternité dans « à planifier ».
+
 ## Points à valider
 
 Métier (départements médical et juridique) : décompte du délai (jour de reprise, reprise un jour non ouvrable, borne des 4 semaines), nature de l'absence, champ d'application,

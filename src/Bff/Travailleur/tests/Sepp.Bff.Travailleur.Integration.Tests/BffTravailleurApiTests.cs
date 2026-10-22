@@ -44,6 +44,7 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
             b.UseEnvironment("Testing");
             b.UseSetting("ServicesAval:Planification", $"http://{ServicesAvalSimules.Planification}");
             b.UseSetting("ServicesAval:SurveillanceMedicale", $"http://{ServicesAvalSimules.SurveillanceMedicale}");
+            b.UseSetting("ServicesAval:Personnes", $"http://{ServicesAvalSimules.Personnes}");
             b.UseSetting("ServicesAval:Obligations", $"http://{ServicesAvalSimules.Obligations}");
             b.UseSetting("ServicesAval:Documents", $"http://{ServicesAvalSimules.Documents}");
             b.UseSetting("Cors:Origines:0", "http://localhost:4202");
@@ -402,19 +403,20 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
     [Theory]
     [InlineData("CONSULTATION_SPONTANEE")]
     [InlineData("visite_pre_reprise")]
-    public async Task Une_demande_est_relayee_a_Obligations_pour_la_personne_du_jeton_sans_motif(string type)
+    public async Task Une_demande_est_relayee_a_Obligations_sans_personne_ni_motif_dans_le_corps(string type)
     {
         var id = Guid.CreateVersion7();
-        _aval.Repondre(ServicesAvalSimules.Obligations, "/api/v1/demandes-travailleur", new { id }, HttpStatusCode.Created, "POST");
+        _aval.Repondre(ServicesAvalSimules.Obligations, "/api/v1/mes-demandes", new { id }, HttpStatusCode.Created, "POST");
 
         var json = await Json(await Client().PostAsJsonAsync("/api/v1/demandes",
             new { affilieId = _affilie, type, personneId = _autrePersonne, motif = "mal au dos" }, Ct), HttpStatusCode.Created);
 
         json.GetProperty("id").GetGuid().ShouldBe(id);
         var corps = JsonDocument.Parse(_aval.Requetes.Single().Corps!).RootElement;
-        corps.GetProperty("personneId").GetGuid().ShouldBe(_personne);
+        corps.TryGetProperty("personneId", out _).ShouldBeFalse("la personne vient du jeton propagé, jamais du corps");
         corps.GetProperty("type").GetString().ShouldBe(type.ToUpperInvariant());
-        corps.EnumerateObject().Select(p => p.Name).Order().ShouldBe(["affilieId", "personneId", "type"]);
+        corps.EnumerateObject().Select(p => p.Name).Order().ShouldBe(["affilieId", "type"]);
+        _aval.Requetes.Single().Authorization.ShouldNotBeNull();
     }
 
     [Fact]
@@ -430,8 +432,8 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
     [Fact]
     public async Task Le_refus_de_droits_d_Obligations_est_traduit_en_403()
     {
-        // Lacune connue : Obligations exige aujourd'hui obligation:gerer, que le rôle travailleur n'a pas (voir le README).
-        _aval.Probleme(ServicesAvalSimules.Obligations, "/api/v1/demandes-travailleur", HttpStatusCode.Forbidden, "obligation.interdit", "POST");
+        // Obligations revérifie le périmètre : par exemple, le travailleur n'est pas occupé chez cet employeur.
+        _aval.Probleme(ServicesAvalSimules.Obligations, "/api/v1/mes-demandes", HttpStatusCode.Forbidden, "obligation.interdit", "POST");
 
         var probleme = await Json(await Client().PostAsJsonAsync("/api/v1/demandes",
             new { affilieId = _affilie, type = "CONSULTATION_SPONTANEE" }, Ct), HttpStatusCode.Forbidden);
@@ -439,6 +441,73 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         probleme.GetProperty("code").GetString().ShouldBe("obligation.interdit");
         probleme.GetProperty("service").GetString().ShouldBe("obligations");
     }
+
+    // --- POR-11 : employeurs et examens à planifier de la personne du jeton ---
+
+    [Fact]
+    public async Task Mes_employeurs_viennent_des_occupations_actives_de_Personnes_sans_personne_dans_la_requete()
+    {
+        var recent = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Personnes, "/api/v1/mes-occupations", new[]
+        {
+            new { occupationId = Guid.CreateVersion7(), affilieId = recent, typeTravailleur = "Interimaire", dateDebut = "2026-05-01", dateFin = (string?)null, referenceDimona = "SECRET" },
+            new { occupationId = Guid.CreateVersion7(), affilieId = _affilie, typeTravailleur = "Salarie", dateDebut = "2025-01-01", dateFin = (string?)null, referenceDimona = "SECRET" },
+        });
+
+        var json = await Json(await Client().GetAsync("/api/v1/employeurs", Ct));
+
+        json.EnumerateArray().Select(e => e.GetProperty("affilieId").GetGuid()).ShouldBe([_affilie, recent]);
+        json[0].EnumerateObject().Select(p => p.Name).Order().ShouldBe(["affilieId", "dateDebut", "dateFin", "typeTravailleur"]);
+        var requete = _aval.Requetes.Single();
+        requete.Hote.ShouldBe(ServicesAvalSimules.Personnes);
+        requete.Chemin.ShouldBe("/api/v1/mes-occupations");
+        requete.Authorization.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Mes_examens_a_planifier_ecartent_ceux_d_une_autre_personne_et_transmettent_la_langue()
+    {
+        var mien = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Obligations, "/api/v1/mes-examens-a-planifier", new[]
+        {
+            Examen(Guid.CreateVersion7(), _autrePersonne, "2026-11-01"),
+            Examen(mien, _personne, "2026-12-01"),
+        });
+
+        var json = await Json(await Client().GetAsync("/api/v1/examens-a-planifier?langue=nl", Ct));
+
+        var examen = json.EnumerateArray().ShouldHaveSingleItem();
+        examen.GetProperty("obligationId").GetGuid().ShouldBe(mien);
+        examen.GetProperty("affilieId").GetGuid().ShouldBe(_affilie);
+        examen.TryGetProperty("personneId", out _).ShouldBeFalse();
+        _aval.Requetes.Single().Chemin.ShouldBe("/api/v1/mes-examens-a-planifier?langue=nl");
+    }
+
+    [Theory]
+    [InlineData("/api/v1/employeurs")]
+    [InlineData("/api/v1/examens-a-planifier")]
+    public async Task Employeurs_et_examens_sont_refuses_sans_appel_aval_pour_un_autre_role_ou_un_claim_invalide(string route)
+    {
+        (await Client(Jeton("employeur", _personne.ToString())).GetAsync(route, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Client(Jeton("travailleur", "pas-un-uuid")).GetAsync(route, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Client(Jeton("travailleur", _personne.ToString(), _autrePersonne.ToString())).GetAsync(route, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        _aval.Requetes.ShouldBeEmpty();
+    }
+
+    private object Examen(Guid id, Guid personne, string dateDue) => new
+    {
+        id,
+        personneId = personne,
+        affilieId = _affilie,
+        type = "EVALUATION_PERIODIQUE",
+        typeLibelle = "Évaluation de santé périodique",
+        origine = "Regle",
+        dateDue,
+        dateLimite = dateDue,
+        statut = "APlanifier",
+        enRetard = false,
+        statutsSuivants = new[] { "Planifie" },
+    };
 
     // --- POR-13 : documents ---
 

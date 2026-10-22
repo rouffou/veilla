@@ -67,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<IProcessusRepriseRepository, ProcessusRepriseRepository>();
         services.AddScoped<IDecisionRecueRepository, DecisionRecueRepository>();
         services.AddScoped<IPerimetreAffilies, HttpPerimetreAffilies>();
+        services.AddScoped<IContextePersonne, ContextePersonneJeton>();
 
         // Réglages de lecture et d'organisation (section « Obligations ») : pas des délais légaux, qui viennent des politiques légales (ARC-21).
         var options = new OptionsObligations();

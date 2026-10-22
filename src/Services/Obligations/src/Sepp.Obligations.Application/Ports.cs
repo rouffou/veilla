@@ -200,3 +200,13 @@ public interface IPerimetreAffilies
 
     bool PeutAcceder(Guid affilieId);
 }
+
+/// <summary>
+/// Personne du jeton d'un travailleur (claim <c>personne_id</c>, ADR 0005) : seule source de l'identité de la personne
+/// pour les routes du portail travailleur, jamais le corps ni l'URL de la requête.
+/// </summary>
+public interface IContextePersonne
+{
+    /// <summary>Personne du jeton ; <c>null</c> si le claim est absent, invalide ou porte plusieurs personnes.</summary>
+    Guid? PersonneId { get; }
+}

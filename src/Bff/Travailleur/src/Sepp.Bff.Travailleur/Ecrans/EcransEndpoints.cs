@@ -22,6 +22,16 @@ public static class EcransEndpoints
             .WithName("Accueil")
             .WithSummary("Accueil composite : prochains rendez-vous, documents récents, questionnaires disponibles (POR-11 à POR-13).");
 
+        api.MapGet("/employeurs", async (EcransEmployeursEtExamens ecrans, CancellationToken ct) =>
+                Results.Ok(await ecrans.MesEmployeursAsync(ct)))
+            .WithName("MesEmployeurs")
+            .WithSummary("POR-11 : employeurs du travailleur (occupations actives de la personne du jeton) ; permet une première réservation sans lien de convocation.");
+
+        api.MapGet("/examens-a-planifier", async (string? langue, HttpContext http, EcransEmployeursEtExamens ecrans, CancellationToken ct) =>
+                Results.Ok(await ecrans.MesExamensAPlanifierAsync(PerimetreTravailleur.PersonneObligatoire(http), Langue(http, langue), ct)))
+            .WithName("MesExamensAPlanifier")
+            .WithSummary("POR-11, SAN-12 : examens à planifier de la personne du jeton, avec leur employeur et leur échéance.");
+
         MapRendezVous(api);
         MapQuestionnaires(api);
         MapDocuments(api);

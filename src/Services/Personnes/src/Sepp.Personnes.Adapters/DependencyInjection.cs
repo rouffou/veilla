@@ -32,6 +32,7 @@ public static class DependencyInjection
 
         services.AddScoped<IPersonneRepository, PersonneRepository>();
         services.AddScoped<IContexteAffilie, ContexteAffilieJeton>();
+        services.AddScoped<IContextePersonne, ContextePersonneJeton>();
 
         // Énumérations lisibles dans l'API (« Interimaire », « Grossesse »…).
         services.Configure<JsonOptions>(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

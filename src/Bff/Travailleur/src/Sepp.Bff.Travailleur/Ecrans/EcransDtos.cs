@@ -38,6 +38,16 @@ public sealed record DemandeCorps(Guid AffilieId, string Type);
 
 public sealed record DemandeEnregistree(Guid Id);
 
+/// <summary>
+/// Employeur du travailleur (occupation active). Sans dénomination : aucun service accessible au rôle travailleur ne la
+/// fournit (Affiliés exige <c>affilie:lire</c>) ; le portail désigne l'employeur par son rang.
+/// </summary>
+public sealed record EmployeurEcran(Guid AffilieId, string TypeTravailleur, DateOnly DateDebut, DateOnly? DateFin);
+
+/// <summary>Examen à planifier du travailleur : type, échéances et statut, jamais de contenu médical (ARC-06).</summary>
+public sealed record ExamenAPlanifierEcran(
+    Guid ObligationId, Guid AffilieId, string Type, string Libelle, DateOnly DateDue, DateOnly? DateLimite, string Statut, bool EnRetard);
+
 /// <summary>Document publié pour le travailleur (POR-13) : ni zone, ni empreinte, ni emplacement de stockage.</summary>
 public sealed record DocumentEcran(Guid Id, string Categorie, string CodeModele, string Langue, DateTimeOffset Date, string Format, long Taille);
 

@@ -21,10 +21,18 @@ public interface ISurveillanceMedicaleApi
     Task<Guid> PreRemplirQuestionnaireAsync(PreRemplissageCorpsAval corps, CancellationToken ct);
 }
 
-/// <summary>Service Obligations : demandes du travailleur (consultation spontanée, pré-reprise) (§5.1, POR-12).</summary>
+/// <summary>Service Personnes : occupations actives de la personne du jeton, donc ses employeurs (POR-11).</summary>
+public interface IPersonnesApi
+{
+    Task<IReadOnlyList<OccupationAval>> ListerMesOccupationsAsync(CancellationToken ct);
+}
+
+/// <summary>Service Obligations : demandes et examens à planifier de la personne du jeton (§5.1, POR-11, POR-12).</summary>
 public interface IObligationsApi
 {
-    Task<Guid> EnregistrerDemandeAsync(DemandeCorpsAval corps, CancellationToken ct);
+    Task<Guid> EnregistrerDemandeAsync(MaDemandeCorpsAval corps, CancellationToken ct);
+
+    Task<IReadOnlyList<ExamenAPlanifierAval>> ListerMesExamensAPlanifierAsync(string langue, CancellationToken ct);
 }
 
 /// <summary>Service Documents : documents publiés pour le travailleur (POR-13).</summary>
@@ -41,6 +49,7 @@ public static class NomsServices
 {
     public const string Planification = "planification";
     public const string SurveillanceMedicale = "surveillance-medicale";
+    public const string Personnes = "personnes";
     public const string Obligations = "obligations";
     public const string Documents = "documents";
 }
@@ -75,10 +84,19 @@ internal sealed class SurveillanceMedicaleApi(HttpClient http) : ClientAval(http
         (await PostAsync<IdentifiantAval>("api/v1/questionnaires/pre-remplissage", corps, ct)).Id;
 }
 
+internal sealed class PersonnesApi(HttpClient http) : ClientAval(http, NomsServices.Personnes), IPersonnesApi
+{
+    public Task<IReadOnlyList<OccupationAval>> ListerMesOccupationsAsync(CancellationToken ct) =>
+        GetAsync<IReadOnlyList<OccupationAval>>("api/v1/mes-occupations", ct);
+}
+
 internal sealed class ObligationsApi(HttpClient http) : ClientAval(http, NomsServices.Obligations), IObligationsApi
 {
-    public async Task<Guid> EnregistrerDemandeAsync(DemandeCorpsAval corps, CancellationToken ct) =>
-        (await PostAsync<IdentifiantAval>("api/v1/demandes-travailleur", corps, ct)).Id;
+    public async Task<Guid> EnregistrerDemandeAsync(MaDemandeCorpsAval corps, CancellationToken ct) =>
+        (await PostAsync<IdentifiantAval>("api/v1/mes-demandes", corps, ct)).Id;
+
+    public Task<IReadOnlyList<ExamenAPlanifierAval>> ListerMesExamensAPlanifierAsync(string langue, CancellationToken ct) =>
+        GetAsync<IReadOnlyList<ExamenAPlanifierAval>>($"api/v1/mes-examens-a-planifier?langue={Uri.EscapeDataString(langue)}", ct);
 }
 
 internal sealed class DocumentsApi(HttpClient http) : ClientAval(http, NomsServices.Documents), IDocumentsApi

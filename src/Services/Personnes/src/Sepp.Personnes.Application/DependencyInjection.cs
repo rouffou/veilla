@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<ModifierCoordonnees, Unit>, ModifierCoordonneesHandler>();
 
         services.AddScoped<IQueryHandler<ListerOccupations, IReadOnlyList<OccupationDto>>, ListerOccupationsHandler>();
+        services.AddScoped<IQueryHandler<ListerMesOccupations, IReadOnlyList<MonOccupationDto>>, ListerMesOccupationsHandler>();
         services.AddScoped<ICommandHandler<DebuterOccupation, Guid>, DebuterOccupationHandler>();
         services.AddScoped<ICommandHandler<TerminerOccupation, Unit>, TerminerOccupationHandler>();
         services.AddScoped<ICommandHandler<EnregistrerEntreeDimona, DimonaEnregistreeDto>, EnregistrerEntreeDimonaHandler>();
