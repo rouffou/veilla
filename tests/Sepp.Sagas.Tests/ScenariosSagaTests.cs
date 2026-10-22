@@ -279,4 +279,40 @@ public sealed class ScenariosSagaTests(PlateformeSaga plateforme) : IClassFixtur
         (await _o.RendezVousDeAsync(t.Personne)).GetArrayLength().ShouldBe(0);
         _o.VerifierCharges();
     }
+
+    /// <summary>
+    /// Trajet de réintégration (SAN-62, ADR 0008) : la demande dans Réintégration publie <c>TrajetDemarre</c>, Obligations ouvre
+    /// l'évaluation de réintégration avec la date limite d'invitation (49 jours), Réintégration en garde la trace (compteur
+    /// d'absences) ; l'annulation compense : <c>TrajetTermine(ANNULE)</c>, Obligations annule l'évaluation due. La note médicale
+    /// de l'évaluation ne sort jamais de la zone médicale.
+    /// </summary>
+    [Fact]
+    public async Task Scenario_8_trajet_de_reintegration_demande_puis_annule_par_compensation()
+    {
+        const string noteSecrete = "Note-secrete-Bidulotruc";
+        var t = _o.Demarrer(10);
+        await _o.EtablirOccupationAsync(t);
+        var aujourdhui = _o.Aujourdhui();
+
+        var (trajet, incapacite) = await _o.DemanderTrajetAsync(t, aujourdhui.AddDays(-60), aujourdhui);
+        await _o.PomperAsync();
+
+        _o.PubliesPour("reintegration.trajet-demarre.v1", trajet).ShouldHaveSingleItem();
+        var evaluation = await _o.ObligationDeTypeAsync(t.Personne, TypesExamen.EvaluationReintegration);
+        evaluation.GetProperty("dateLimite").GetString().ShouldBe(OutilsScenario.Format(aujourdhui.AddDays(49)));
+        (await _o.ScalaireReintegrationAsync("SELECT count(*) FROM obligation_reintegration WHERE personne_id = @p", t.Personne)).ShouldBe(1L);
+        (await _o.TrajetAsync(trajet)).GetProperty("trajet").GetProperty("dateLimiteInvitation").GetString().ShouldBe(OutilsScenario.Format(aujourdhui.AddDays(49)));
+
+        await _o.EtapeTrajetAsync(trajet, "invitation", new { date = OutilsScenario.Format(aujourdhui), recommandee = true });
+        await _o.EtapeTrajetAsync(trajet, "evaluation", new { date = OutilsScenario.Format(aujourdhui), note = noteSecrete });
+        await _o.EtapeTrajetAsync(trajet, "annulation", new { date = OutilsScenario.Format(aujourdhui) });
+        await _o.PomperAsync();
+
+        _o.PubliesPour("reintegration.trajet-termine.v1", trajet).ShouldHaveSingleItem().Charge.ShouldContain("ANNULE");
+        (await _o.ObligationsDeTypeAsync(t.Personne, TypesExamen.EvaluationReintegration))
+            .ShouldAllBe(o => o.GetProperty("statut").GetString() == "Annule");
+        (await _o.TrajetAsync(trajet)).GetProperty("trajet").GetProperty("statut").GetString().ShouldBe("Annule");
+        incapacite.ShouldNotBe(Guid.Empty);
+        _o.VerifierCharges([.. Secrets, noteSecrete]);
+    }
 }

@@ -35,7 +35,7 @@ sagas_tests="tests/Sepp.Sagas.Tests/Sepp.Sagas.Tests.csproj"
 generate src/BuildingBlocks/Socle.slnx $shared $(find tests -name '*.csproj' -not -path 'tests/Sepp.Sagas.Tests/*' | LC_ALL=C sort)
 
 # shellcheck disable=SC2046
-generate src/Sagas/Sagas.slnx $sagas_tests $shared $shared_tests $(find src/Services/{Obligations,Planification,SurveillanceMedicale,Communications,Documents}/src -name '*.csproj' | LC_ALL=C sort)
+generate src/Sagas/Sagas.slnx $sagas_tests $shared $shared_tests $(find src/Services/{Obligations,Planification,SurveillanceMedicale,Communications,Documents,Reintegration}/src -name '*.csproj' | LC_ALL=C sort)
 
 # shellcheck disable=SC2046
 generate Sepp.slnx $(find src tests -name '*.csproj' -not -path '*/node_modules/*' | LC_ALL=C sort)
