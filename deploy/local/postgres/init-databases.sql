@@ -10,3 +10,4 @@ CREATE DATABASE planification;
 CREATE DATABASE obligations;
 CREATE DATABASE documents;
 CREATE DATABASE communications;
+CREATE DATABASE reintegration;

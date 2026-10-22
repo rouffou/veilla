@@ -136,7 +136,7 @@ variable "services" {
         "personnes", "postes-risques", "planification", "surveillance-medicale", "referentiels", "documents",
         "integrations",  # incapacite-notifiee
         "bff-employeur", # reprise-annoncee (rétrocompatibilité : la saga démarre par l'API /reprises)
-        "reintegration", # trajet-demarre, trajet-termine : service pas encore écrit
+        "reintegration", # trajet-demarre, trajet-termine (TrajetDemarreHandler, TrajetTermineHandler)
       ]
     }
     "planification" = {
@@ -196,9 +196,14 @@ variable "services" {
     "reintegration" = {
       zone          = "medicale"
       database      = true
-      subscribes_to = ["personnes", "surveillance-medicale", "bff-employeur"]
-      # Service pas encore écrit : liste prévue, à confirmer avec ses gestionnaires (état particulier réservé à Obligations).
-      subject_filters = { personnes = ["personnes.affectation-modifiee.v1", "personnes.occupation-debutee.v1", "personnes.occupation-terminee.v1"] }
+      subscribes_to = ["integrations", "obligations", "planification", "referentiels"]
+      # Gestionnaires enregistrés (SAN-60, SAN-63, ARC-21, DAT-08) : seuls ces sujets intéressent le service.
+      subject_filters = {
+        integrations  = ["integrations.incapacite-notifiee.v1"]
+        obligations   = ["obligations.obligation-creee.v1", "obligations.reprise-enregistree.v1"]
+        planification = ["planification.absence-rendez-vous-constatee.v1"]
+        referentiels  = ["referentiels.parametre-legal-modifie.v1", "referentiels.jours-feries-modifies.v1"]
+      }
     }
 
     # --- Zone psychosociale (ARC-04) ---

@@ -195,6 +195,13 @@ jobs:
                 "paths": "src/Services/Communications/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
               },
               {
+                "name": "reintegration",
+                "context": ".",
+                "dockerfile": "src/Services/Reintegration/Dockerfile",
+                "build_args": "",
+                "paths": "src/Services/Reintegration/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
+              },
+              {
                 "name": "app-interne",
                 "context": "src/Frontends/veilla-web",
                 "dockerfile": "src/Frontends/veilla-web/Dockerfile",
