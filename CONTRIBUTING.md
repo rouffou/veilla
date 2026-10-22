@@ -1,5 +1,8 @@
 # Contribuer à Veilla
 
+Veilla est un logiciel propriétaire (voir [LICENSE](LICENSE)). Toute contribution extérieure est soumise à un accord
+de contribution préalable avec le titulaire des droits (article 5 de la licence).
+
 ## Branches (trunk-based)
 
 `main` est la seule branche longue : elle est toujours livrable et **protégée** (voir plus bas). Tout changement

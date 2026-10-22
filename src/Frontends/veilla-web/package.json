@@ -15,6 +15,8 @@
     "lint": "ng lint"
   },
   "private": true,
+  "license": "UNLICENSED",
+  "author": "Nicolas Rouffart",
   "packageManager": "npm@11.6.1",
   "dependencies": {
     "@angular/common": "^22.2.3",

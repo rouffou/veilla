@@ -1,0 +1,101 @@
+LICENCE PROPRIÉTAIRE — VEILLA (logiciel métier SEPP)
+Version 1.0 — 22 octobre 2026
+
+Copyright (c) 2026 Nicolas Rouffart. Tous droits réservés.
+
+1. OBJET
+
+Le présent dépôt contient le logiciel « Veilla » : code source, code objet, schémas de base de données,
+configurations, scripts d'infrastructure, documentation, interfaces, maquettes et tout autre élément qui
+l'accompagne (ensemble, le « Logiciel »). Le Logiciel est protégé par le droit d'auteur, notamment par le
+livre XI du Code de droit économique belge, qui transpose la directive 2009/24/CE concernant la protection
+juridique des programmes d'ordinateur. Il appartient exclusivement à Nicolas Rouffart (le « Titulaire »).
+
+Le Logiciel n'est pas un logiciel libre ni un logiciel « open source ». La publication de son code source
+ne confère aucun droit d'utilisation.
+
+2. CE QUI EST PERMIS SANS LICENCE COMMERCIALE
+
+Toute personne peut, gratuitement et uniquement à des fins d'évaluation, d'étude ou de sécurité :
+
+  a) consulter le code source sur la plateforme où le Titulaire le publie ;
+  b) le cloner ou le télécharger pour le lire et l'évaluer, sans le mettre en production ;
+  c) signaler une vulnérabilité selon la procédure décrite dans SECURITY.md.
+
+Ces facultés ne permettent en aucun cas de traiter des données réelles, notamment des données à caractère
+personnel, des données de santé ou des données psychosociales.
+
+3. CE QUI EXIGE UNE LICENCE COMMERCIALE PAYANTE
+
+Toute autre utilisation du Logiciel, totale ou partielle, exige une licence commerciale écrite, conclue
+préalablement avec le Titulaire et soumise au paiement d'une redevance. Ces utilisations comprennent
+notamment :
+
+  a) l'exécution, l'installation ou le déploiement du Logiciel, en production, en recette, en formation ou
+     dans un environnement de démonstration destiné à des tiers ;
+  b) son utilisation au profit d'un service externe ou interne de prévention et de protection au travail,
+     d'un employeur, d'un organisme ou de toute autre personne ;
+  c) sa mise à disposition à des tiers, notamment en mode service (SaaS), en hébergement, par location,
+     prêt, vente, sous-licence ou distribution, à titre gratuit ou onéreux ;
+  d) sa modification, son adaptation, sa traduction ou la création d'œuvres dérivées en vue d'une
+     utilisation ;
+  e) l'intégration de tout ou partie du Logiciel, y compris des extraits de code, des schémas ou des
+     contrats d'interface, dans un autre logiciel ou un autre service ;
+  f) l'utilisation du Logiciel ou de son code pour entraîner, évaluer ou alimenter un système d'intelligence
+     artificielle ou un outil de génération de code.
+
+Le montant de la redevance, son mode de calcul, le périmètre, la durée et les conditions de la licence
+commerciale sont fixés dans un contrat distinct. Pour obtenir une licence, contactez le Titulaire par
+l'intermédiaire de la plateforme où le Logiciel est publié.
+
+4. RESTRICTIONS
+
+Sauf licence commerciale l'autorisant expressément, et sous réserve des exceptions d'ordre public prévues par
+la loi, il est interdit :
+
+  a) de supprimer ou de modifier les mentions de droit d'auteur, de licence ou de marque ;
+  b) de contourner une mesure technique de protection ou de contrôle des licences ;
+  c) de décompiler ou de désassembler le code objet, sauf dans les limites strictement autorisées par
+     l'article XI.299 du Code de droit économique.
+
+5. CONTRIBUTIONS
+
+Toute contribution proposée au Logiciel (pull request, correctif, suggestion) est soumise à un accord de
+contribution conclu avec le Titulaire avant son intégration. Sauf accord écrit contraire, la soumission d'une
+contribution vaut cession au Titulaire des droits patrimoniaux nécessaires à son intégration, à son
+exploitation et à sa concession en licence. Cette cession est non exclusive, mondiale, gratuite et vaut pour
+toute la durée des droits.
+
+6. COMPOSANTS DE TIERS
+
+Le Logiciel utilise des bibliothèques et des composants de tiers, régis par leurs propres licences (par
+exemple les licences MIT, Apache 2.0 ou SIL OFL indiquées dans leurs paquets). La présente licence ne
+s'applique pas à ces composants et ne modifie pas leurs conditions.
+
+7. ABSENCE DE GARANTIE ET RESPONSABILITÉ
+
+Les facultés gratuites de l'article 2 sont accordées « en l'état », sans aucune garantie, expresse ou
+implicite, notamment de conformité réglementaire, d'adéquation à un usage particulier ou d'absence de défaut.
+Dans les limites permises par la loi, le Titulaire ne peut être tenu responsable d'aucun dommage qui
+résulterait de la consultation ou de l'évaluation du Logiciel. Les garanties et la responsabilité applicables
+à une utilisation sous licence commerciale sont fixées exclusivement dans le contrat correspondant.
+
+8. VIOLATION
+
+Toute utilisation non autorisée constitue une contrefaçon, que le Titulaire peut poursuivre devant les
+juridictions compétentes. Sans préjudice de tous autres droits et recours, le Titulaire peut notamment exiger
+la cessation de l'utilisation, la destruction des copies et le paiement des redevances qui auraient été dues,
+ainsi que la réparation de son préjudice.
+
+9. DROIT APPLICABLE ET JURIDICTION
+
+La présente licence est régie par le droit belge. Tout litige relatif à son interprétation ou à son exécution
+relève de la compétence exclusive des tribunaux de l'arrondissement judiciaire du domicile du Titulaire, sous
+réserve des règles impératives de compétence.
+
+10. DISPOSITIONS FINALES
+
+Si une clause de la présente licence est jugée nulle ou inapplicable, les autres clauses restent en vigueur.
+Le Titulaire peut publier une nouvelle version de la présente licence. Celle-ci ne s'applique qu'aux versions
+du Logiciel publiées après sa date. Aucun droit n'est concédé implicitement : tout droit qui n'est pas
+expressément accordé par la présente licence ou par une licence commerciale est réservé au Titulaire.
