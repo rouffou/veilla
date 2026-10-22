@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Sepp.Reintegration</AssemblyName>
+    <RootNamespace>Sepp.Reintegration.Infrastructure</RootNamespace>
+    <UserSecretsId>sepp-reintegration</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.Reintegration.Adapters\Sepp.Reintegration.Adapters.csproj" />
+  </ItemGroup>
+</Project>
