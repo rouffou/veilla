@@ -30,6 +30,14 @@ est traité par `DonneesBceRecuesHandler`, idempotent (inbox ARC-31, et des donn
    date d'extraction** (`Validity`, DAT-04 : jamais supprimée) ; le tout dans l'historique AFF-05 sous l'identité `system` (action
    `affilie.donnees-bce-appliquees`). Le statut d'affiliation, la catégorie, la commission paritaire et les langues ne viennent pas de la
    BCE et ne sont pas touchés ; ni le contrat ni l'API ne portent d'adresse de siège (la fiche n'a d'adresse que par unité).
+4. **La BCE fait foi** (décision du responsable produit, #315) : ces valeurs remplacent les saisies manuelles, sans exception ni
+   verrou par champ. Quand une valeur diffère à la fois de la BCE et de la dernière valeur reçue de la BCE (colonnes
+   `denomination_bce`, `forme_juridique_bce`, `code_nace_bce` ; `null` tant que la BCE n'a rien appliqué), c'est une saisie manuelle : elle est
+   remplacée et le gestionnaire en est informé par un écart **informatif** `valeur-manuelle-remplacee` (référence `denomination`,
+   `forme-juridique` ou `code-nace`). L'écart ne porte aucune valeur (ni l'ancienne ni la nouvelle ; l'ancienne figure dans l'historique AFF-05) et
+   rien n'en est journalisé. Il ne bloque rien, reste ouvert aux réceptions suivantes et n'est clos que par le gestionnaire
+   (`informatif: true` dans l'API). Les statut et siège de l'entreprise (point 2 de #315) ne sont pas repris : la fiche n'a ni statut BCE ni
+   adresse de siège, et leur format dépend de la confirmation INT-04 (#155).
 
 Ce que le gestionnaire ne sait pas résoudre seul est consigné dans la table `ecart_synchronisation` (un seul écart ouvert par numéro BCE,
 code et référence) et **ne fait pas boucler le message** : affilié inconnu, affilié clôturé (absorbé, scindé, transféré), identification ou

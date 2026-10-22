@@ -85,6 +85,17 @@ public sealed partial class Affilie : AggregateRoot
 
     public string CodeNace { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// Dernières valeurs d'identification reçues de la BCE (#315 : la BCE fait foi). Elles permettent de reconnaître, à la
+    /// synchronisation suivante, une valeur saisie à la main depuis (différente de celle de la BCE) pour en informer le gestionnaire.
+    /// <c>null</c> tant que la BCE n'a rien appliqué.
+    /// </summary>
+    public string? DenominationBce { get; private set; }
+
+    public string? FormeJuridiqueBce { get; private set; }
+
+    public string? CodeNaceBce { get; private set; }
+
     public string CommissionParitaire { get; private set; } = string.Empty;
 
     public CategorieTarifaire CategorieTarifaire { get; private set; }

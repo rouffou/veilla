@@ -365,6 +365,19 @@ public sealed class AffiliesApiTests : IAsyncLifetime
         bce.ShouldAllBe(h => h.Auteur == "system");
         bce[0].Avant!.Value.GetProperty("fiche").GetProperty("denomination").GetString().ShouldBe("Boulangerie Dupont");
 
+        // La BCE fait foi (#315) : les saisies manuelles remplacées sont signalées par des écarts informatifs, qui survivent
+        // aux réceptions suivantes (même identiques) jusqu'à leur clôture par le gestionnaire, sans en révéler les valeurs.
+        var informatifs = (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce", Ct))!;
+        informatifs.ShouldNotBeEmpty();
+        informatifs.ShouldAllBe(e => e.GetProperty("code").GetString() == "valeur-manuelle-remplacee" && e.GetProperty("informatif").GetBoolean() && e.GetProperty("statut").GetString() == "Ouvert");
+        informatifs.Select(e => e.GetProperty("reference").GetString()).ShouldContain("denomination");
+        informatifs.ShouldAllBe(e => !e.GetProperty("detail").GetString()!.Contains("Boulangerie Dupont") && !e.GetProperty("detail").GetString()!.Contains("Dupont & Fils"));
+        foreach (var informatif in informatifs)
+        {
+            (await Gestionnaire.PostAsync($"/api/v1/ecarts-bce/{informatif.GetProperty("id").GetGuid()}/resolution", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        }
+
+        (await RecevoirBceAsync("0202239951")).ShouldBe(1);
         (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce", Ct))!.ShouldBeEmpty();
         var publisher = (InMemoryMessagePublisher)_factory.Services.GetRequiredService<IMessagePublisher>();
         await Eventually(() => publisher.Published.Any(m => m.EventType == "affilies.affilie-modifie.v1"), Ct);

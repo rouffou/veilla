@@ -47,6 +47,9 @@ public class SynchronisationBceTests
     private readonly HorlogeFixe _horloge = new(new DateTimeOffset(2026, 10, 9, 8, 0, 0, TimeSpan.Zero));
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
 
+    /// <summary>Écarts à corriger : les écarts informatifs (valeur manuelle remplacée) n'en font pas partie.</summary>
+    private IEnumerable<EcartSynchronisation> Anomalies => _store.Ecarts.Where(e => !CodesEcartBce.EstInformatif(e.Code));
+
     private static string NumeroUnite(string huitChiffres) =>
         huitChiffres + (97 - (long.Parse(huitChiffres, CultureInfo.InvariantCulture) % 97)).ToString("00", CultureInfo.InvariantCulture);
 
@@ -93,7 +96,7 @@ public class SynchronisationBceTests
         affilie.CodeNace.ShouldBe("47.110");
         affilie.UnitesEtablissement.Count.ShouldBe(2);
         affilie.UnitesEtablissement.Single(u => u.Numero.Value == NumeroUnite("21234567")).Nom.ShouldBe("Boulangerie centrale");
-        _store.Ecarts.ShouldBeEmpty();
+        Anomalies.ShouldBeEmpty();
         _bce.Appels.ShouldBe(1);
     }
 
@@ -131,7 +134,7 @@ public class SynchronisationBceTests
         _store.Affilies.Single().NumeroVersion.ShouldBe(version);
         _store.Historique.Count.ShouldBe(historique);
         _store.Published.Count.ShouldBe(publies);
-        _store.Ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.UniteInvalide);
+        Anomalies.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.UniteInvalide);
     }
 
     [Fact]
@@ -139,7 +142,7 @@ public class SynchronisationBceTests
     {
         await Handler().HandleAsync(Evenement(), _ct);
 
-        var ecart = _store.Ecarts.ShouldHaveSingleItem();
+        var ecart = Anomalies.ShouldHaveSingleItem();
         ecart.Code.ShouldBe(CodesEcartBce.AffilieInconnu);
         ecart.NumeroBce.ShouldBe(BceCanonique);
         ecart.AffilieId.ShouldBeNull();
@@ -153,7 +156,7 @@ public class SynchronisationBceTests
     {
         await Handler().HandleAsync(Evenement("0202239952"), _ct);
 
-        _store.Ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.NumeroInvalide);
+        Anomalies.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.NumeroInvalide);
     }
 
     [Fact]
@@ -165,7 +168,7 @@ public class SynchronisationBceTests
         await Handler().HandleAsync(Evenement(affilieId: Guid.CreateVersion7()), _ct);
 
         _store.Affilies.Single().Denomination.ShouldBe("Dupont & Fils SA");
-        _store.Ecarts.ShouldBeEmpty();
+        Anomalies.ShouldBeEmpty();
     }
 
     [Fact]
@@ -180,7 +183,7 @@ public class SynchronisationBceTests
 
         await Handler().HandleAsync(Evenement(), _ct);
 
-        var ecart = _store.Ecarts.ShouldHaveSingleItem();
+        var ecart = Anomalies.ShouldHaveSingleItem();
         ecart.Code.ShouldBe(CodesEcartBce.UniteAutreAffilie);
         ecart.Reference.ShouldBe(numeroPris);
         ecart.AffilieId.ShouldBe(id);
@@ -197,7 +200,7 @@ public class SynchronisationBceTests
 
         await Handler().HandleAsync(Evenement(), _ct);
 
-        _store.Ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.UniteInvalide);
+        Anomalies.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.UniteInvalide);
         _store.Published.ShouldBeEmpty();
     }
 
@@ -211,7 +214,7 @@ public class SynchronisationBceTests
         _horloge.Maintenant = _horloge.Maintenant.AddHours(2);
         await Handler().HandleAsync(Evenement(), _ct);
 
-        var ecart = _store.Ecarts.ShouldHaveSingleItem();
+        var ecart = Anomalies.ShouldHaveSingleItem();
         ecart.DerniereDetectionLe.ShouldBeGreaterThan(ecart.DetecteLe);
         ecart.Statut.ShouldBe(StatutEcart.Ouvert);
 
@@ -231,7 +234,7 @@ public class SynchronisationBceTests
         await Handler().HandleAsync(Evenement() with { Denomination = "Dupont & Fils SA" }, _ct);
 
         _store.Affilies.Single().Denomination.ShouldBe("Dupont & Fils SA");
-        _store.Ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.DetailIndisponible);
+        Anomalies.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.DetailIndisponible);
     }
 
     [Fact]
@@ -243,7 +246,7 @@ public class SynchronisationBceTests
         await Should.ThrowAsync<EntrepriseBceIndisponibleException>(() => Handler().HandleAsync(Evenement(), _ct));
 
         _store.Affilies.Single().Denomination.ShouldBe("Boulangerie Dupont");
-        _store.Ecarts.ShouldBeEmpty();
+        Anomalies.ShouldBeEmpty();
     }
 
     [Fact]
@@ -259,7 +262,7 @@ public class SynchronisationBceTests
         await Handler().HandleAsync(Evenement(), _ct);
 
         affilie.Denomination.ShouldBe("Boulangerie Dupont");
-        _store.Ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.AffilieCloture);
+        Anomalies.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.AffilieCloture);
     }
 
     [Fact]
@@ -288,5 +291,57 @@ public class SynchronisationBceTests
         (await new ListerEcartsBceHandler(_store, new ControleAcces(gestionnaire, gestionnaire)).HandleAsync(new ListerEcartsBce(), _ct)).Value.ShouldBeEmpty();
         (await new ResoudreEcartBceHandler(_store, _store, new ControleAcces(gestionnaire, gestionnaire), gestionnaire, _horloge)
             .HandleAsync(new ResoudreEcartBce(Guid.CreateVersion7()), _ct)).Error!.Kind.ShouldBe(ErrorKind.NotFound);
+    }
+
+    [Fact]
+    public async Task La_BCE_fait_foi_la_saisie_manuelle_est_remplacee_et_le_gestionnaire_en_est_informe_sans_la_valeur()
+    {
+        await CreerAsync();
+        _bce.Reponse = Entreprise("Dupont & Fils SA", "47.110");
+
+        await Handler().HandleAsync(Evenement(), _ct);
+
+        var affilie = _store.Affilies.Single();
+        affilie.Denomination.ShouldBe("Dupont & Fils SA");
+        affilie.CodeNace.ShouldBe("47.110");
+        var ecarts = _store.Ecarts.Where(e => e.Code == CodesEcartBce.ValeurManuelleRemplacee).ToList();
+        ecarts.Select(e => e.Reference).Order().ShouldBe(["code-nace", "denomination"]);
+        ecarts.ShouldAllBe(e => e.Statut == StatutEcart.Ouvert && e.AffilieId == affilie.Id);
+        ecarts.ShouldAllBe(e => !e.Detail.Contains("Boulangerie Dupont") && !e.Detail.Contains("Dupont & Fils") && !e.Detail.Contains("10.711"));
+        EcartBceDto.De(ecarts[0]).Informatif.ShouldBeTrue();
+        _store.Historique.Last().Auteur.ShouldBe("test-user"); // identité technique du consommateur
+    }
+
+    [Fact]
+    public async Task L_ecart_informatif_survit_aux_receptions_suivantes_jusqu_a_sa_cloture_par_le_gestionnaire()
+    {
+        await CreerAsync();
+        _bce.Reponse = Entreprise("Dupont & Fils SA");
+        await Handler().HandleAsync(Evenement(), _ct);
+        await Handler().HandleAsync(Evenement(), _ct);
+        var ecart = _store.Ecarts.ShouldHaveSingleItem(); // dénomination seule : même NACE (10.711)
+        ecart.Reference.ShouldBe("denomination");
+        ecart.Statut.ShouldBe(StatutEcart.Ouvert);
+
+        var gestionnaire = new FakeUser([Roles.GestionnaireDossiers]);
+        (await new ResoudreEcartBceHandler(_store, _store, new ControleAcces(gestionnaire, gestionnaire), gestionnaire, _horloge)
+            .HandleAsync(new ResoudreEcartBce(ecart.Id), _ct)).IsSuccess.ShouldBeTrue();
+        await Handler().HandleAsync(Evenement(), _ct);
+
+        _store.Ecarts.ShouldHaveSingleItem().Statut.ShouldBe(StatutEcart.Resolu);
+    }
+
+    [Fact]
+    public async Task Une_nouvelle_valeur_venue_de_la_BCE_n_est_pas_signalee()
+    {
+        await CreerAsync();
+        _bce.Reponse = Entreprise("Dupont & Fils SA");
+        await Handler().HandleAsync(Evenement(), _ct);
+        _bce.Reponse = Entreprise("Dupont Frères SA");
+
+        await Handler().HandleAsync(Evenement(), _ct);
+
+        _store.Affilies.Single().Denomination.ShouldBe("Dupont Frères SA");
+        _store.Ecarts.ShouldHaveSingleItem().Reference.ShouldBe("denomination"); // le seul, de la première réception
     }
 }
