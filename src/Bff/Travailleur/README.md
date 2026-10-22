@@ -114,11 +114,12 @@ Rien n'a été implémenté dans un autre service. Ce qui manque :
    claim `personne_id` ; le BFF les relaie en `GET /employeurs` et `GET /examens-a-planifier`, et le portail permet une première
    réservation sans lien de convocation. **Reste ouvert** : la dénomination de l'employeur n'est connue que du service Affiliés
    (`affilie:lire`, que le travailleur n'a pas) : le portail désigne les employeurs par leur rang.
-3. **Déplacer et confirmer un rendez-vous (POR-11)** : Planification n'a ni route de déplacement ni de confirmation côté
-   externe. Le portail propose « annuler puis réserver un autre créneau » ; la réservation exige une obligation encore à
-   planifier, donc l'ordre est imposé (annuler d'abord, délai de 24 h).
-4. **Motif d'annulation (POR-11)** : `POST …/annulation` ne reçoit aucun motif (il fixe `DemandeTravailleur`). Le portail n'en
-   collecte donc pas plutôt que de le jeter.
+3. **Déplacer et confirmer un rendez-vous (POR-11)** : résolu par #325. `POST /rendez-vous/{id}/deplacement` (atomique, 409
+   si le créneau est pris) et `POST /rendez-vous/{id}/confirmation` (présence enregistrée, visible du planificateur). Délai
+   minimal et nombre de déplacements sont ceux du service Planification (valeurs à valider).
+4. **Motif d'annulation (POR-11)** : `POST …/annulation` accepte `{ raison, commentaire }` : raison codée (`ConflitHoraire`,
+   `ObligationProfessionnelle`, `ProblemeTransport`, `ChangementSituation`, `ExamenDejaEffectue`, `Autre`) et texte libre court
+   (200 caractères) sans donnée de santé, consigne affichée dans le portail. Le texte libre n'est jamais publié ni renvoyé à l'employeur.
 5. **Carnet de vaccination et demande de copie du dossier (POR-13)** : Documents n'a pas de document « carnet de vaccination »
    et aucun service n'enregistre une demande de copie (SAN-43 : `GET /dossiers/{id}/export` exige `dossier-sante:lire`). Le
    portail l'indique et renvoie vers le médecin du travail.

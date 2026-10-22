@@ -49,6 +49,20 @@ public enum MotifAnnulation
 }
 
 /// <summary>
+/// POR-11, SAN-12 : raison codée d'une annulation demandée en ligne. Une liste fermée : jamais de motif médical ni de
+/// donnée de santé (ARC-06) ; la précision éventuelle passe par un texte libre court, réservé aux planificateurs.
+/// </summary>
+public enum RaisonAnnulation
+{
+    ConflitHoraire,
+    ObligationProfessionnelle,
+    ProblemeTransport,
+    ChangementSituation,
+    ExamenDejaEffectue,
+    Autre,
+}
+
+/// <summary>
 /// Rendez-vous (§15.3 : id, creneau_id, personne_id, affilie_id, statut, motif_annulation). Couvre une ou plusieurs
 /// obligations (SAN-03). Le créneau, la ressource, le lieu et les horaires sont recopiés pour la consultation.
 /// </summary>
@@ -83,6 +97,21 @@ public sealed class RendezVous : AggregateRoot
     public StatutRendezVous Statut { get; private set; }
 
     public MotifAnnulation? MotifAnnulation { get; private set; }
+
+    /// <summary>POR-11 : raison codée choisie par le travailleur ou l'employeur lors d'une annulation en ligne.</summary>
+    public RaisonAnnulation? RaisonAnnulation { get; private set; }
+
+    /// <summary>
+    /// POR-11 : précision libre et courte de l'annulation en ligne. Réservée à la consultation interne : jamais publiée
+    /// dans un événement ni renvoyée aux externes (le portail interdit toute donnée de santé, ARC-06).
+    /// </summary>
+    public string? CommentaireAnnulation { get; private set; }
+
+    /// <summary>POR-11 : le travailleur a confirmé qu'il sera présent (visible du planificateur) ; remis à zéro par un déplacement.</summary>
+    public DateTimeOffset? PresenceConfirmeeLe { get; private set; }
+
+    /// <summary>POR-11 : déplacements demandés en ligne (limités par la configuration) ; la replanification en masse (PLA-07) ne compte pas.</summary>
+    public int NombreDeplacements { get; private set; }
 
     public IReadOnlyList<Guid> ObligationIds { get; private set; } = [];
 
@@ -144,15 +173,25 @@ public sealed class RendezVous : AggregateRoot
         };
     }
 
-    public void Annuler(MotifAnnulation motif, Creneau creneau, DateTimeOffset maintenant)
+    public const int LongueurMaxCommentaire = 200;
+
+    public void Annuler(MotifAnnulation motif, Creneau creneau, DateTimeOffset maintenant, RaisonAnnulation? raison = null, string? commentaire = null)
     {
         if (Statut != StatutRendezVous.Planifie)
         {
             throw new DomainException($"Un rendez-vous {Statut} ne peut pas être annulé.");
         }
 
+        var precision = string.IsNullOrWhiteSpace(commentaire) ? null : commentaire.Trim();
+        if (precision is { Length: > LongueurMaxCommentaire })
+        {
+            throw new DomainException($"La précision de l'annulation compte au plus {LongueurMaxCommentaire} caractères.");
+        }
+
         Statut = StatutRendezVous.Annule;
         MotifAnnulation = motif;
+        RaisonAnnulation = raison;
+        CommentaireAnnulation = precision;
         if (creneau.Id == CreneauId && creneau.Debut > maintenant)
         {
             creneau.Liberer();
@@ -187,7 +226,40 @@ public sealed class RendezVous : AggregateRoot
         Fin = nouveau.Fin;
         Rappel1EmisLe = null;
         Rappel2EmisLe = null;
+        PresenceConfirmeeLe = null;
         return ancienDebut;
+    }
+
+    /// <summary>
+    /// POR-11 : déplacement demandé en ligne (travailleur ou employeur), au plus <paramref name="maximum"/> fois ; ensuite
+    /// seul le planificateur déplace. Même effet que <see cref="Deplacer"/>.
+    /// </summary>
+    public DateTimeOffset DeplacerEnLigne(Creneau ancien, Creneau nouveau, DateTimeOffset maintenant, int maximum)
+    {
+        if (NombreDeplacements >= maximum)
+        {
+            throw new DomainException($"Un rendez-vous ne peut être déplacé en ligne plus de {maximum} fois.");
+        }
+
+        var ancienDebut = Deplacer(ancien, nouveau, maintenant);
+        NombreDeplacements++;
+        return ancienDebut;
+    }
+
+    /// <summary>POR-11 : le travailleur confirme sa présence. Idempotent (la première confirmation est conservée).</summary>
+    public void ConfirmerPresence(DateTimeOffset maintenant)
+    {
+        if (Statut != StatutRendezVous.Planifie)
+        {
+            throw new DomainException($"Un rendez-vous {Statut} ne peut pas être confirmé.");
+        }
+
+        if (Debut <= maintenant)
+        {
+            throw new DomainException("Un rendez-vous passé ne peut plus être confirmé.");
+        }
+
+        PresenceConfirmeeLe ??= maintenant;
     }
 
     /// <summary>PLA-08 : enregistrement à l'arrivée (borne ou accueil), le jour du rendez-vous.</summary>

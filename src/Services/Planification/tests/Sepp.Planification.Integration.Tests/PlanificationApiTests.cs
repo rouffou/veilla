@@ -380,6 +380,130 @@ public sealed class PlanificationApiTests : IAsyncLifetime
         (await Client(Roles.Travailleur).GetAsync("/api/v1/reservations/rendez-vous", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
+    private async Task ObligationDue(Guid personne, Guid affilie)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ObligationCreeeHandler>().HandleAsync(
+            new ObligationCreee(Guid.CreateVersion7(), personne, affilie, "EVALUATION_PERIODIQUE", new DateOnly(2027, 1, 20), null), Ct);
+    }
+
+    /// <summary>Huit créneaux en ligne (quatre mercredis de deux créneaux), du plus ancien au plus récent.</summary>
+    private async Task<List<Guid>> CreneauxEnLigneDuMercredi(string reference)
+    {
+        var lieu = await NouveauLieu($"Centre {reference}");
+        var conseiller = await NouvelleRessource($"Dr {reference}", reference, "EVALUATION_PERIODIQUE");
+        await ModeleEtCreneaux(conseiller, lieu, "wednesday", "EVALUATION_PERIODIQUE", "2027-01-20", "2027-02-10", enLigne: true);
+        var creneaux = await Creneaux(conseiller, "2027-01-20", "2027-02-11", "Libre");
+        return creneaux.EnumerateArray().OrderBy(c => c.GetProperty("debut").GetDateTimeOffset()).Select(c => c.GetProperty("id").GetGuid()).ToList();
+    }
+
+    private static async Task<Guid> Reserver(HttpClient client, Guid creneau, Guid personne, Guid affilie)
+    {
+        var reponse = await client.PostAsJsonAsync("/api/v1/reservations", new { creneauId = creneau, personneId = personne, affilieId = affilie }, Ct);
+        reponse.StatusCode.ShouldBe(HttpStatusCode.Created, await reponse.Content.ReadAsStringAsync(Ct));
+        return (await reponse.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+    }
+
+    [Fact]
+    public async Task Le_travailleur_deplace_et_confirme_son_rendez_vous_et_le_planificateur_voit_la_confirmation()
+    {
+        var creneaux = await CreneauxEnLigneDuMercredi("kc-deplacement");
+        var affilie = Guid.CreateVersion7();
+        var personne = Guid.CreateVersion7();
+        await ObligationDue(personne, affilie);
+        var travailleur = Client(Roles.Travailleur, personne: personne);
+        var employeur = Client(Roles.Employeur, affilies: [affilie]);
+        var rdv = await Reserver(travailleur, creneaux[0], personne, affilie);
+
+        var deplacement = await travailleur.PostAsJsonAsync($"/api/v1/reservations/rendez-vous/{rdv}/deplacement", new { nouveauCreneauId = creneaux[3] }, Ct);
+
+        deplacement.StatusCode.ShouldBe(HttpStatusCode.OK, await deplacement.Content.ReadAsStringAsync(Ct));
+        var deplace = await deplacement.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        deplace.GetProperty("creneauId").GetGuid().ShouldBe(creneaux[3]);
+        deplace.GetProperty("nombreDeplacements").GetInt32().ShouldBe(1);
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PlanificationDbContext>();
+            (await db.Creneaux.FindAsync([creneaux[0]], Ct))!.Statut.ShouldBe(StatutCreneau.Libre);
+            (await db.Creneaux.FindAsync([creneaux[3]], Ct))!.Statut.ShouldBe(StatutCreneau.Reserve);
+            (await db.RendezVous.CountAsync(r => r.PersonneId == personne && r.Statut == StatutRendezVous.Planifie, Ct)).ShouldBe(1);
+        }
+
+        await Eventually(() => Publies("planification.rendez-vous-replanifie.v1").Any(m => m.Payload.Contains(rdv.ToString()) && m.Payload.Contains("DemandeTravailleur")));
+        (await Planificateur.GetFromJsonAsync<JsonElement>($"/api/v1/convocations?rendezVousId={rdv}", Ct)).GetArrayLength().ShouldBe(2);
+
+        // Confirmation : réservée au travailleur concerné, idempotente, visible du planificateur.
+        (await employeur.PostAsync($"/api/v1/reservations/rendez-vous/{rdv}/confirmation", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Client(Roles.Travailleur, personne: Guid.CreateVersion7()).PostAsync($"/api/v1/reservations/rendez-vous/{rdv}/confirmation", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await travailleur.PostAsync($"/api/v1/reservations/rendez-vous/{rdv}/confirmation", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await travailleur.PostAsync($"/api/v1/reservations/rendez-vous/{rdv}/confirmation", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        var vu = await Planificateur.GetFromJsonAsync<JsonElement>($"/api/v1/rendez-vous/{rdv}", Ct);
+        vu.GetProperty("presenceConfirmeeLe").ValueKind.ShouldBe(JsonValueKind.String);
+
+        // Un travailleur étranger ne déplace pas ce rendez-vous ; un interne n'utilise pas la route.
+        (await Client(Roles.Travailleur, personne: Guid.CreateVersion7()).PostAsJsonAsync($"/api/v1/reservations/rendez-vous/{rdv}/deplacement", new { nouveauCreneauId = creneaux[4] }, Ct))
+            .StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await Planificateur.PostAsJsonAsync($"/api/v1/reservations/rendez-vous/{rdv}/deplacement", new { nouveauCreneauId = creneaux[4] }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Trois_deplacements_simultanes_vers_le_meme_creneau_donnent_un_gagnant_et_deux_409()
+    {
+        var creneaux = await CreneauxEnLigneDuMercredi("kc-course-deplacement");
+        var affilie = Guid.CreateVersion7();
+        var personnes = Enumerable.Range(0, 3).Select(_ => Guid.CreateVersion7()).ToList();
+        var rendezVous = new List<Guid>();
+        for (var i = 0; i < personnes.Count; i++)
+        {
+            await ObligationDue(personnes[i], affilie);
+            rendezVous.Add(await Reserver(Client(Roles.Travailleur, personne: personnes[i]), creneaux[i], personnes[i], affilie));
+        }
+
+        var cible = creneaux[7];
+        var reponses = await Task.WhenAll(personnes.Select((p, i) =>
+            Client(Roles.Travailleur, personne: p).PostAsJsonAsync($"/api/v1/reservations/rendez-vous/{rendezVous[i]}/deplacement", new { nouveauCreneauId = cible }, Ct)));
+
+        reponses.Count(r => r.StatusCode == HttpStatusCode.OK).ShouldBe(1);
+        reponses.Where(r => r.StatusCode != HttpStatusCode.OK).ShouldAllBe(r => r.StatusCode == HttpStatusCode.Conflict);
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlanificationDbContext>();
+        (await db.RendezVous.CountAsync(r => r.CreneauId == cible && r.Statut == StatutRendezVous.Planifie, Ct)).ShouldBe(1);
+        for (var i = 0; i < personnes.Count; i++)
+        {
+            var rdv = await db.RendezVous.FindAsync([rendezVous[i]], Ct);
+            var creneau = await db.Creneaux.FindAsync([rdv!.CreneauId], Ct);
+            creneau!.Statut.ShouldBe(StatutCreneau.Reserve);
+        }
+
+        // Les perdants gardent leur créneau d'origine, qui reste réservé ; aucun créneau n'est orphelin.
+        (await db.Creneaux.CountAsync(c => c.Statut == StatutCreneau.Reserve && creneaux.Contains(c.Id), Ct)).ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task L_annulation_en_ligne_garde_la_raison_codee_et_ne_publie_pas_le_texte_libre()
+    {
+        var creneaux = await CreneauxEnLigneDuMercredi("kc-raison");
+        var affilie = Guid.CreateVersion7();
+        var personne = Guid.CreateVersion7();
+        await ObligationDue(personne, affilie);
+        var travailleur = Client(Roles.Travailleur, personne: personne);
+        var rdv = await Reserver(travailleur, creneaux[0], personne, affilie);
+
+        var invalide = await travailleur.PostAsJsonAsync($"/api/v1/reservations/rendez-vous/{rdv}/annulation", new { raison = "Inconnue" }, Ct);
+        var annulation = await travailleur.PostAsJsonAsync($"/api/v1/reservations/rendez-vous/{rdv}/annulation",
+            new { raison = "ProblemeTransport", commentaire = "Gare fermée ce jour-là" }, Ct);
+
+        invalide.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        annulation.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var interne = await Planificateur.GetFromJsonAsync<JsonElement>($"/api/v1/rendez-vous/{rdv}", Ct);
+        interne.GetProperty("raisonAnnulation").GetString().ShouldBe("ProblemeTransport");
+        interne.GetProperty("commentaireAnnulation").GetString().ShouldBe("Gare fermée ce jour-là");
+        var vuParEmployeur = await Client(Roles.Employeur, affilies: [affilie]).GetFromJsonAsync<JsonElement>($"/api/v1/rendez-vous/{rdv}", Ct);
+        vuParEmployeur.GetProperty("commentaireAnnulation").ValueKind.ShouldBe(JsonValueKind.Null);
+        await Eventually(() => Publies("planification.rendez-vous-annule.v1").Any(m => m.Payload.Contains(rdv.ToString()) && m.Payload.Contains("ProblemeTransport")));
+        Publies("planification.rendez-vous-annule.v1").Where(m => m.Payload.Contains(rdv.ToString())).ShouldAllBe(m => !m.Payload.Contains("Gare"));
+    }
+
     [Fact]
     public async Task Les_rappels_a_sept_jours_sont_publies_une_seule_fois()
     {

@@ -12,6 +12,9 @@ export interface RendezVous {
   readonly typeActe: string;
   readonly statut: string;
   readonly motifAnnulation: string | null;
+  /** POR-11 : date de confirmation de présence (absente tant que non confirmée). */
+  readonly presenceConfirmeeLe?: string | null;
+  readonly nombreDeplacements?: number;
 }
 
 /** POR-11 : employeur du travailleur (occupation active). Aucun service n'expose sa dénomination au rôle travailleur. */
@@ -33,6 +36,21 @@ export interface ExamenAPlanifier {
   readonly statut: string;
   readonly enRetard: boolean;
 }
+
+/** POR-11 : raisons codées d'annulation (liste fermée, jamais de motif médical). */
+export const RAISONS_ANNULATION = [
+  'ConflitHoraire',
+  'ObligationProfessionnelle',
+  'ProblemeTransport',
+  'ChangementSituation',
+  'ExamenDejaEffectue',
+  'Autre',
+] as const;
+
+export type RaisonAnnulation = (typeof RAISONS_ANNULATION)[number];
+
+/** Longueur maximale du texte libre d'annulation (alignée sur le service Planification). */
+export const LONGUEUR_MAX_COMMENTAIRE = 200;
 
 export interface Creneau {
   readonly id: string;

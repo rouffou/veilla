@@ -34,13 +34,34 @@ public sealed class EcransRendezVous(IPlanificationApi planification, TimeProvid
     public async Task<RendezVousReserve> ReserverAsync(Guid personneId, ReservationCorps corps, CancellationToken ct) =>
         new(await planification.ReserverAsync(new ReservationCorpsAval(corps.CreneauId, personneId, corps.AffilieId, corps.ObligationIds), ct));
 
-    public Task AnnulerAsync(Guid rendezVousId, CancellationToken ct) => planification.AnnulerAsync(rendezVousId, ct);
+    /// <summary>Annulation avec raison codée et précision libre courte, relayées telles quelles : le service les valide (jamais publiées).</summary>
+    public Task AnnulerAsync(Guid rendezVousId, AnnulationCorps? corps, CancellationToken ct) =>
+        planification.AnnulerAsync(rendezVousId, new AnnulationCorpsAval(corps?.Raison, corps?.Commentaire), ct);
+
+    /// <summary>
+    /// Déplacement atomique relayé à Planification (une seule requête : ancien créneau libéré et nouveau réservé, ou 409) ;
+    /// délai minimal, nombre de déplacements et périmètre sont ceux du service. Jamais rejoué automatiquement.
+    /// </summary>
+    public async Task<RendezVousEcran> DeplacerAsync(Guid personneId, Guid rendezVousId, DeplacementCorps corps, CancellationToken ct) =>
+        Projeter(await planification.DeplacerAsync(rendezVousId, corps.NouveauCreneauId, ct), personneId);
+
+    /// <summary>Le travailleur confirme sa présence (enregistrée par le service, visible du planificateur).</summary>
+    public async Task<RendezVousEcran> ConfirmerAsync(Guid personneId, Guid rendezVousId, CancellationToken ct) =>
+        Projeter(await planification.ConfirmerAsync(rendezVousId, ct), personneId);
+
+    private static RendezVousEcran Projeter(RendezVousAval r, Guid personneId) =>
+        r.PersonneId == personneId
+            ? Ecran(r)
+            : throw new ErreurAvalException(NomsServices.Planification, HttpStatusCode.NotFound, "rendez-vous.inconnu", "Rendez-vous inconnu.");
+
+    private static RendezVousEcran Ecran(RendezVousAval r) =>
+        new(r.Id, r.AffilieId, r.LieuId, r.Debut, r.Fin, r.TypeActe, r.Statut, r.MotifAnnulation, r.PresenceConfirmeeLe, r.NombreDeplacements);
 
     private static List<RendezVousEcran> Projeter(IReadOnlyList<RendezVousAval> rendezVous, Guid personneId) =>
         rendezVous
             .Where(r => r.PersonneId == personneId)
             .OrderBy(r => r.Debut)
-            .Select(r => new RendezVousEcran(r.Id, r.AffilieId, r.LieuId, r.Debut, r.Fin, r.TypeActe, r.Statut, r.MotifAnnulation))
+            .Select(Ecran)
             .ToList();
 }
 

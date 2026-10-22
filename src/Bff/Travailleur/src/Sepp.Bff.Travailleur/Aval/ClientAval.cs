@@ -49,6 +49,12 @@ public abstract class ClientAval(HttpClient http, string service)
     }
 
     /// <summary>POST dont la réponse de succès n'a pas de corps utile (204).</summary>
+    protected async Task PostSansReponseAsync(string uri, object corps, CancellationToken ct)
+    {
+        using var response = await EnvoyerAsync(() => http.PostAsJsonAsync(uri, corps, Json, ct));
+    }
+
+    /// <summary>POST sans corps dont la réponse de succès n'a pas de corps utile (204).</summary>
     protected async Task PostSansReponseAsync(string uri, CancellationToken ct)
     {
         using var response = await EnvoyerAsync(() => http.PostAsync(uri, null, ct));

@@ -57,10 +57,24 @@ describe('BffTravailleurService', () => {
     expect(reservation.request.body).toEqual({ creneauId: 'c-1', affilieId: AFFILIE });
     reservation.flush({ id: 'r-1' }, { status: 201, statusText: 'Created' });
 
-    api.annuler('r-1').subscribe();
+    api.annuler('r-1', 'ConflitHoraire', '  Réunion  ').subscribe();
     const annulation = bff().expectOne(`${BFF}/rendez-vous/r-1/annulation`);
     expect(annulation.request.method).toBe('POST');
+    expect(annulation.request.body).toEqual({ raison: 'ConflitHoraire', commentaire: 'Réunion' });
     annulation.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  it('déplace et confirme par POST, en un seul appel chacun', () => {
+    api.deplacer('r-1', 'c-2').subscribe();
+    const deplacement = bff().expectOne(`${BFF}/rendez-vous/r-1/deplacement`);
+    expect(deplacement.request.method).toBe('POST');
+    expect(deplacement.request.body).toEqual({ nouveauCreneauId: 'c-2' });
+    deplacement.flush({});
+
+    api.confirmer('r-1').subscribe();
+    const confirmation = bff().expectOne(`${BFF}/rendez-vous/r-1/confirmation`);
+    expect(confirmation.request.method).toBe('POST');
+    confirmation.flush({});
   });
 
   it('envoie les réponses du questionnaire sans identifiant de personne', () => {

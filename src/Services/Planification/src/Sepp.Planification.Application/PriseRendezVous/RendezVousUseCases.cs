@@ -26,13 +26,19 @@ public sealed record RendezVousDto(
     DateTimeOffset? ArriveeA,
     DateTimeOffset? AppeleA,
     Guid? SalleId,
-    Guid? ReconvocationDeId);
+    Guid? ReconvocationDeId,
+    RaisonAnnulation? RaisonAnnulation,
+    string? CommentaireAnnulation,
+    DateTimeOffset? PresenceConfirmeeLe,
+    int NombreDeplacements);
 
 internal static class RendezVousMapping
 {
-    public static RendezVousDto ToDto(this RendezVous r) => new(
+    /// <summary>Le texte libre d'une annulation est réservé aux utilisateurs internes (<paramref name="externe"/> le masque).</summary>
+    public static RendezVousDto ToDto(this RendezVous r, bool externe = false) => new(
         r.Id, r.CreneauId, r.PersonneId, r.AffilieId, r.RessourceId, r.LieuId, r.Debut, r.Fin, r.TypeActe, r.Statut, r.MotifAnnulation,
-        r.ObligationIds, r.Origine, r.Urgent, r.ArriveeA, r.AppeleA, r.SalleId, r.ReconvocationDeId);
+        r.ObligationIds, r.Origine, r.Urgent, r.ArriveeA, r.AppeleA, r.SalleId, r.ReconvocationDeId,
+        r.RaisonAnnulation, externe ? null : r.CommentaireAnnulation, r.PresenceConfirmeeLe, r.NombreDeplacements);
 
     public static Error Inconnu() => Error.NotFound("rendez-vous.inconnu", "Rendez-vous inconnu.");
 }
@@ -140,7 +146,7 @@ public sealed class ObtenirRendezVousHandler(IRendezVousRepository rendezVous, I
             return RendezVousMapping.Inconnu();
         }
 
-        return Perimetre.PeutVoir(perimetre, rdv) ? rdv.ToDto() : RendezVousMapping.Inconnu();
+        return Perimetre.PeutVoir(perimetre, rdv) ? rdv.ToDto(perimetre.EstExterne) : RendezVousMapping.Inconnu();
     }
 }
 
@@ -223,7 +229,12 @@ public sealed class AnnulerRendezVousHandler(Annulation annulation, IRendezVousR
 /// <summary>Annulation commune (planificateur, réservation en ligne, replanification sans solution).</summary>
 public sealed class Annulation(ICreneauRepository creneaux, IObligationRepository obligations, IIntegrationEventOutbox outbox, TimeProvider horloge)
 {
-    public async Task<Error?> AnnulerAsync(RendezVous rdv, MotifAnnulation motif, CancellationToken cancellationToken)
+    /// <summary>
+    /// <paramref name="raison"/> et <paramref name="commentaire"/> (annulation en ligne, POR-11) restent dans Planification :
+    /// seule la raison codée est publiée avec l'événement, jamais le texte libre (ARC-06).
+    /// </summary>
+    public async Task<Error?> AnnulerAsync(RendezVous rdv, MotifAnnulation motif, CancellationToken cancellationToken,
+        RaisonAnnulation? raison = null, string? commentaire = null)
     {
         var creneau = await creneaux.GetAsync(rdv.CreneauId, cancellationToken);
         if (creneau is null)
@@ -233,7 +244,7 @@ public sealed class Annulation(ICreneauRepository creneaux, IObligationRepositor
 
         try
         {
-            rdv.Annuler(motif, creneau, horloge.GetUtcNow());
+            rdv.Annuler(motif, creneau, horloge.GetUtcNow(), raison, commentaire);
         }
         catch (DomainException ex)
         {
@@ -245,7 +256,7 @@ public sealed class Annulation(ICreneauRepository creneaux, IObligationRepositor
             obligation.Decouvrir(rdv.Id);
         }
 
-        outbox.Add(new RendezVousAnnule(rdv.Id, rdv.PersonneId, motif.ToString()));
+        outbox.Add(new RendezVousAnnule(rdv.Id, rdv.PersonneId, motif.ToString(), raison?.ToString()));
         return null;
     }
 }

@@ -23,7 +23,10 @@
     "annulationTardive": "Minder dan 24 uur voor de afspraak kunt u niet meer online annuleren: neem contact op met de EDPB.",
     "creneauIndisponible": "Dit tijdslot is niet meer beschikbaar. Kies een ander tijdslot.",
     "aucuneObligation": "Voor dit type afspraak moet er bij deze werkgever geen onderzoek worden gepland.",
-    "perimetre": "Uw account is niet gekoppeld aan een persoon of aan een betrokken werkgever: neem contact op met de EDPB."
+    "perimetre": "Uw account is niet gekoppeld aan een persoon of aan een betrokken werkgever: neem contact op met de EDPB.",
+    "deplacementTardif": "Minder dan 24 uur voor de afspraak kunt u niet meer online verplaatsen: neem contact op met de EDPB.",
+    "deplacementsEpuises": "Deze afspraak is al het maximale aantal keren verplaatst: neem contact op met de EDPB.",
+    "creneauInvalide": "Kies een ander tijdslot van hetzelfde type afspraak."
   },
   "form": {
     "summary": "Het formulier bevat fouten:",
@@ -77,7 +80,6 @@
     "cancel": "Annuleren",
     "cancelled": "Uw afspraak is geannuleerd.",
     "booked": "Uw afspraak is gereserveerd.",
-    "moveHint": "Om ze te verplaatsen, reserveert u hieronder een ander tijdslot.",
     "bookTitle": "Een tijdslot reserveren",
     "noEmployer": "Om te reserveren opent u de link in uw oproeping of neemt u contact op met de EDPB: er is nog geen werkgever gekend in uw ruimte.",
     "employer": "Werkgever",
@@ -85,7 +87,30 @@
     "search": "Tijdsloten zoeken",
     "noSlots": "Geen open tijdslot in de komende 60 dagen.",
     "slots": "Open tijdsloten",
-    "book": "Reserveren"
+    "book": "Reserveren",
+    "confirm": "Mijn aanwezigheid bevestigen",
+    "confirmed": "Uw aanwezigheid is bevestigd.",
+    "presenceConfirmed": "Aanwezigheid bevestigd",
+    "move": "Verplaatsen",
+    "moved": "Uw afspraak is verplaatst.",
+    "moveTitle": "Een nieuw tijdslot kiezen",
+    "moveIntro": "De verplaatsing gebeurt onmiddellijk: het oude tijdslot komt vrij en het nieuwe wordt in één handeling voor u gereserveerd.",
+    "moveHere": "Hier naartoe verplaatsen",
+    "cancelTitle": "Deze afspraak annuleren",
+    "reason": "Reden van annulering",
+    "reasonChoose": "— Kies een reden —",
+    "reasons": {
+      "ConflitHoraire": "Conflict in de agenda",
+      "ObligationProfessionnelle": "Professionele verplichting",
+      "ProblemeTransport": "Vervoersprobleem",
+      "ChangementSituation": "Wijziging van situatie",
+      "ExamenDejaEffectue": "Onderzoek reeds uitgevoerd",
+      "Autre": "Andere reden"
+    },
+    "comment": "Toelichting (facultatief)",
+    "commentHelp": "Korte tekst (maximaal 200 tekens) die door de planningsdienst wordt gelezen. Vermeld hierin geen gezondheidsgegevens (ziekte, behandeling, symptoom, arbeidsongeschiktheid…).",
+    "confirmCancel": "Annulering bevestigen",
+    "close": "Sluiten"
   },
   "questionnaires": {
     "title": "Gezondheidsvragenlijsten",

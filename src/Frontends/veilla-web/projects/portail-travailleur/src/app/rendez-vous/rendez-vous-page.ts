@@ -12,7 +12,14 @@ import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { LanguageService } from '@veilla/shared';
 import { Observable, of, switchMap } from 'rxjs';
-import { Creneau, RendezVous, TYPES_ACTE } from '../api/bff-travailleur.models';
+import {
+  Creneau,
+  LONGUEUR_MAX_COMMENTAIRE,
+  RAISONS_ANNULATION,
+  RaisonAnnulation,
+  RendezVous,
+  TYPES_ACTE,
+} from '../api/bff-travailleur.models';
 import {
   BffTravailleurService,
   charger,
@@ -29,9 +36,10 @@ import { Chargement, ErreurApiMessage } from '../ui/etats';
 const JOURS_RECHERCHE = 60;
 
 /**
- * POR-11 : rendez-vous du travailleur. Consultation, réservation en ligne dans les créneaux ouverts (SAN-12) et annulation.
- * Les règles (créneaux autorisés, obligations couvertes, délai de 24 h) sont celles du service Planification : le portail
- * affiche son refus. Déplacer = annuler puis réserver un autre créneau (le service n'a pas de route de déplacement).
+ * POR-11 : rendez-vous du travailleur. Consultation, réservation en ligne dans les créneaux ouverts (SAN-12), confirmation
+ * de présence, déplacement atomique (un seul appel au service) et annulation avec raison codée et précision courte.
+ * Les règles (créneaux autorisés, obligations couvertes, délais, nombre de déplacements) sont celles du service
+ * Planification : le portail affiche son refus.
  */
 @Component({
   selector: 'app-rendez-vous-page',
@@ -44,9 +52,6 @@ const JOURS_RECHERCHE = 60;
       @if (message(); as m) {
         <div class="app-succes" role="status" tabindex="-1" #succes>
           <p>{{ t(m) }}</p>
-          @if (peutDeplacer()) {
-            <p>{{ t('appointments.moveHint') }}</p>
-          }
         </div>
       }
       @if (erreurAction(); as e) {
@@ -90,11 +95,40 @@ const JOURS_RECHERCHE = 60;
                       </td>
                       <td>
                         @if (r.statut === 'Planifie') {
+                          @if (r.presenceConfirmeeLe) {
+                            <span class="app-badge">{{ t('appointments.presenceConfirmed') }}</span>
+                          } @else {
+                            <button
+                              type="button"
+                              class="vl-button vl-button--secondary"
+                              data-action="confirmer"
+                              [disabled]="enCours()"
+                              (click)="confirmer(r)"
+                            >
+                              {{ t('appointments.confirm') }}
+                              <span class="vl-visually-hidden">
+                                {{ r.debut | dateLocale: langue() : true }}</span
+                              >
+                            </button>
+                          }
                           <button
                             type="button"
                             class="vl-button vl-button--secondary"
+                            data-action="deplacer"
                             [disabled]="enCours()"
-                            (click)="annuler(r)"
+                            (click)="ouvrirDeplacement(r)"
+                          >
+                            {{ t('appointments.move') }}
+                            <span class="vl-visually-hidden">
+                              {{ r.debut | dateLocale: langue() : true }}</span
+                            >
+                          </button>
+                          <button
+                            type="button"
+                            class="vl-button vl-button--secondary"
+                            data-action="annuler"
+                            [disabled]="enCours()"
+                            (click)="ouvrirAnnulation(r)"
                           >
                             {{ t('appointments.cancel') }}
                             <span class="vl-visually-hidden">
@@ -108,6 +142,91 @@ const JOURS_RECHERCHE = 60;
                 </tbody>
               </table>
             </div>
+          }
+
+          @if (annulation(); as a) {
+            <section class="app-form" aria-labelledby="rdv-annulation-titre">
+              <h2 id="rdv-annulation-titre">{{ t('appointments.cancelTitle') }}</h2>
+              <p>
+                <time [attr.datetime]="a.debut">{{ a.debut | dateLocale: langue() : true }}</time>
+              </p>
+              <div class="app-champ">
+                <label for="rdv-raison">{{ t('appointments.reason') }}</label>
+                <select id="rdv-raison" class="app-input" required (change)="raison.set(valeur($event))">
+                  <option value="">{{ t('appointments.reasonChoose') }}</option>
+                  @for (code of raisons; track code) {
+                    <option [value]="code">{{ t('appointments.reasons.' + code) }}</option>
+                  }
+                </select>
+              </div>
+              <div class="app-champ">
+                <label for="rdv-commentaire">{{ t('appointments.comment') }}</label>
+                <textarea
+                  id="rdv-commentaire"
+                  class="app-input"
+                  rows="3"
+                  [attr.maxlength]="longueurMax"
+                  aria-describedby="rdv-commentaire-aide"
+                  (input)="commentaire.set(texte($event))"
+                ></textarea>
+                <p id="rdv-commentaire-aide" class="vl-hint">{{ t('appointments.commentHelp') }}</p>
+              </div>
+              <button
+                type="button"
+                class="vl-button"
+                data-action="confirmer-annulation"
+                [disabled]="enCours() || !raison()"
+                (click)="annuler(a)"
+              >
+                {{ t('appointments.confirmCancel') }}
+              </button>
+              <button type="button" class="vl-button vl-button--secondary" (click)="fermer()">
+                {{ t('appointments.close') }}
+              </button>
+            </section>
+          }
+
+          @if (deplacement(); as d) {
+            <section aria-labelledby="rdv-deplacement-titre">
+              <h2 id="rdv-deplacement-titre">{{ t('appointments.moveTitle') }}</h2>
+              <p>{{ t('appointments.moveIntro') }}</p>
+              @if (creneauxDeplacement(); as c) {
+                @switch (c.statut) {
+                  @case ('chargement') {
+                    <app-chargement />
+                  }
+                  @case ('erreur') {
+                    <app-erreur-api [erreur]="c.erreur" />
+                  }
+                  @case ('ok') {
+                    @if (c.valeur.length === 0) {
+                      <p class="vl-empty" role="status">{{ t('appointments.noSlots') }}</p>
+                    } @else {
+                      <ul class="app-liste">
+                        @for (s of c.valeur; track s.id) {
+                          <li>
+                            <time [attr.datetime]="s.debut">{{ s.debut | dateLocale: langue() : true }}</time>
+                            <button
+                              type="button"
+                              class="vl-button vl-button--secondary"
+                              data-action="deplacer-ici"
+                              [disabled]="enCours()"
+                              (click)="deplacer(d, s)"
+                            >
+                              {{ t('appointments.moveHere') }}
+                              <span class="vl-visually-hidden"> {{ s.debut | dateLocale: langue() : true }}</span>
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  }
+                }
+              }
+              <button type="button" class="vl-button vl-button--secondary" (click)="fermer()">
+                {{ t('appointments.close') }}
+              </button>
+            </section>
           }
 
           <h2>{{ t('appointments.bookTitle') }}</h2>
@@ -194,7 +313,23 @@ export class RendezVousPage {
   protected readonly enCours = signal(false);
   protected readonly message = signal<string | null>(null);
   protected readonly erreurAction = signal<ErreurApi | null>(null);
-  protected readonly peutDeplacer = signal(false);
+  protected readonly raisons = RAISONS_ANNULATION;
+  protected readonly longueurMax = LONGUEUR_MAX_COMMENTAIRE;
+  protected readonly annulation = signal<RendezVous | null>(null);
+  protected readonly deplacement = signal<RendezVous | null>(null);
+  protected readonly raison = signal('');
+  protected readonly commentaire = signal('');
+  protected readonly creneauxDeplacement = toSignal(
+    toObservable(this.deplacement).pipe(
+      switchMap((r) => {
+        if (!r) return of<Etat<readonly Creneau[]> | null>(null);
+        const du = new Date();
+        const au = new Date(du.getTime() + JOURS_RECHERCHE * 24 * 3600 * 1000);
+        return charger(this.api.creneaux(r.affilieId, r.typeActe, du, au));
+      }),
+    ),
+    { initialValue: null },
+  );
   private readonly recherche = signal<{ affilieId: string; typeActe: string } | null>(null);
   private readonly succes = viewChild<ElementRef<HTMLElement>>('succes');
 
@@ -255,14 +390,50 @@ export class RendezVousPage {
   protected reserver(creneau: Creneau): void {
     const affilieId = this.recherche()?.affilieId;
     if (!affilieId) return;
-    this.agir(this.api.reserver(creneau.id, affilieId), 'appointments.booked', false);
+    this.agir(this.api.reserver(creneau.id, affilieId), 'appointments.booked');
   }
 
+  protected texte(evenement: Event): string {
+    return (evenement.target as HTMLTextAreaElement).value;
+  }
+
+  protected ouvrirAnnulation(rendezVous: RendezVous): void {
+    this.fermer();
+    this.annulation.set(rendezVous);
+  }
+
+  protected ouvrirDeplacement(rendezVous: RendezVous): void {
+    this.fermer();
+    this.deplacement.set(rendezVous);
+  }
+
+  protected fermer(): void {
+    this.annulation.set(null);
+    this.deplacement.set(null);
+    this.raison.set('');
+    this.commentaire.set('');
+  }
+
+  /** Annulation avec la raison codée choisie et la précision éventuelle (sans donnée de santé : voir l'aide du formulaire). */
   protected annuler(rendezVous: RendezVous): void {
-    this.agir(this.api.annuler(rendezVous.id), 'appointments.cancelled', true);
+    const raison = this.raison();
+    if (!raison) return;
+    this.agir(
+      this.api.annuler(rendezVous.id, raison as RaisonAnnulation, this.commentaire()),
+      'appointments.cancelled',
+    );
   }
 
-  private agir(appel: Observable<unknown>, cle: string, deplacer: boolean): void {
+  /** Déplacement atomique : un seul appel annule l'ancien créneau et réserve le nouveau (409 si le créneau est pris). */
+  protected deplacer(rendezVous: RendezVous, creneau: Creneau): void {
+    this.agir(this.api.deplacer(rendezVous.id, creneau.id), 'appointments.moved');
+  }
+
+  protected confirmer(rendezVous: RendezVous): void {
+    this.agir(this.api.confirmer(rendezVous.id), 'appointments.confirmed');
+  }
+
+  private agir(appel: Observable<unknown>, cle: string): void {
     this.enCours.set(true);
     this.erreurAction.set(null);
     this.message.set(null);
@@ -270,7 +441,7 @@ export class RendezVousPage {
       next: () => {
         this.enCours.set(false);
         this.message.set(cle);
-        this.peutDeplacer.set(deplacer);
+        this.fermer();
         this.recherche.set(null);
         this.rendezVous.recharger();
         queueMicrotask(() => this.succes()?.nativeElement.focus());

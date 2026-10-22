@@ -102,6 +102,62 @@ public sealed class EcransTravailleurTests
         erreur.Code.ShouldBe("creneau.indisponible");
     }
 
+    [Fact]
+    public async Task L_annulation_relaie_la_raison_codee_et_la_precision()
+    {
+        var id = Guid.CreateVersion7();
+        AnnulationCorpsAval? envoye = null;
+        await _planification.AnnulerAsync(id, Arg.Do<AnnulationCorpsAval>(c => envoye = c), Ct);
+
+        await RendezVous.AnnulerAsync(id, new AnnulationCorps("ProblemeTransport", "Gare fermée"), Ct);
+        await RendezVous.AnnulerAsync(id, null, Ct);
+
+        envoye.ShouldNotBeNull();
+        await _planification.Received(1).AnnulerAsync(id, Arg.Is<AnnulationCorpsAval>(c => c.Raison == "ProblemeTransport" && c.Commentaire == "Gare fermée"), Ct);
+        await _planification.Received(1).AnnulerAsync(id, Arg.Is<AnnulationCorpsAval>(c => c.Raison == null && c.Commentaire == null), Ct);
+    }
+
+    [Fact]
+    public async Task Le_deplacement_est_un_seul_appel_a_Planification_et_projette_le_rendez_vous()
+    {
+        var rdv = Rdv(_personne, "2026-11-03T09:00:00Z") with { NombreDeplacements = 1 };
+        var creneau = Guid.CreateVersion7();
+        _planification.DeplacerAsync(rdv.Id, creneau, Ct).Returns(rdv);
+
+        var ecran = await RendezVous.DeplacerAsync(_personne, rdv.Id, new DeplacementCorps(creneau), Ct);
+
+        ecran.Id.ShouldBe(rdv.Id);
+        ecran.NombreDeplacements.ShouldBe(1);
+        await _planification.Received(1).DeplacerAsync(rdv.Id, creneau, Ct);
+        await _planification.DidNotReceiveWithAnyArgs().ReserverAsync(default!, Ct);
+        await _planification.DidNotReceiveWithAnyArgs().AnnulerAsync(default, default!, Ct);
+    }
+
+    [Fact]
+    public async Task Un_rendez_vous_d_une_autre_personne_n_est_jamais_renvoye_au_portail()
+    {
+        var etranger = Rdv(_autre, "2026-11-03T09:00:00Z");
+        _planification.DeplacerAsync(etranger.Id, Arg.Any<Guid>(), Ct).Returns(etranger);
+        _planification.ConfirmerAsync(etranger.Id, Ct).Returns(etranger);
+
+        (await Should.ThrowAsync<ErreurAvalException>(() => RendezVous.DeplacerAsync(_personne, etranger.Id, new DeplacementCorps(Guid.CreateVersion7()), Ct)))
+            .Status.ShouldBe(HttpStatusCode.NotFound);
+        (await Should.ThrowAsync<ErreurAvalException>(() => RendezVous.ConfirmerAsync(_personne, etranger.Id, Ct)))
+            .Status.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task La_confirmation_projette_la_date_de_confirmation()
+    {
+        var confirme = DateTimeOffset.Parse("2026-10-05T10:00:00Z");
+        var rdv = Rdv(_personne, "2026-11-03T09:00:00Z") with { PresenceConfirmeeLe = confirme };
+        _planification.ConfirmerAsync(rdv.Id, Ct).Returns(rdv);
+
+        var ecran = await RendezVous.ConfirmerAsync(_personne, rdv.Id, Ct);
+
+        ecran.PresenceConfirmeeLe.ShouldBe(confirme);
+    }
+
     // --- POR-12 ---
 
     [Fact]

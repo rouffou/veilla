@@ -34,8 +34,9 @@ public sealed record RappelRendezVousDu(
     int NumeroRappel) : IntegrationEvent;
 
 /// <summary>
-/// PLA-07 : rendez-vous déplacé (replanification en masse après l'absence d'un conseiller). Même identifiant de
-/// rendez-vous ; <c>Motif</c> est un code (<c>AbsenceRessource</c>). Une convocation de type <c>Replanification</c>
+/// PLA-07 : rendez-vous déplacé (replanification en masse après l'absence d'un conseiller, ou déplacement demandé en
+/// ligne, POR-11). Même identifiant de rendez-vous ; <c>Motif</c> est un code (<c>AbsenceRessource</c>,
+/// <c>DemandeTravailleur</c> ou <c>DemandeEmployeur</c>). Une convocation de type <c>Replanification</c>
 /// est émise en parallèle pour notifier la personne.
 /// </summary>
 [EventContract("planification.rendez-vous-replanifie", 1)]

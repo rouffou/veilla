@@ -59,13 +59,24 @@ public static class EcransEndpoints
             .WithName("ReserverRendezVous")
             .WithSummary("POR-11 : réservation d'un créneau ouvert pour soi-même ; jamais rejouée automatiquement.");
 
-        api.MapPost("/rendez-vous/{rendezVousId:guid}/annulation", async (Guid rendezVousId, EcransRendezVous ecrans, CancellationToken ct) =>
+        api.MapPost("/rendez-vous/{rendezVousId:guid}/annulation", async (Guid rendezVousId, AnnulationCorps? corps, EcransRendezVous ecrans, CancellationToken ct) =>
             {
-                await ecrans.AnnulerAsync(rendezVousId, ct);
+                await ecrans.AnnulerAsync(rendezVousId, corps, ct);
                 return Results.NoContent();
             })
             .WithName("AnnulerRendezVous")
-            .WithSummary("POR-11 : annulation en ligne, au plus tard 24 heures avant le rendez-vous (règle du service Planification).");
+            .WithSummary("POR-11 : annulation en ligne, au plus tard 24 heures avant le rendez-vous (règle du service Planification), avec raison codée et précision courte sans donnée de santé.");
+
+        api.MapPost("/rendez-vous/{rendezVousId:guid}/deplacement", async (Guid rendezVousId, DeplacementCorps corps, HttpContext http,
+                EcransRendezVous ecrans, CancellationToken ct) =>
+                Results.Ok(await ecrans.DeplacerAsync(PerimetreTravailleur.PersonneObligatoire(http), rendezVousId, corps, ct)))
+            .WithName("DeplacerRendezVous")
+            .WithSummary("POR-11 : déplacement atomique vers un autre créneau ouvert (409 si le créneau est pris) ; jamais rejoué automatiquement.");
+
+        api.MapPost("/rendez-vous/{rendezVousId:guid}/confirmation", async (Guid rendezVousId, HttpContext http, EcransRendezVous ecrans, CancellationToken ct) =>
+                Results.Ok(await ecrans.ConfirmerAsync(PerimetreTravailleur.PersonneObligatoire(http), rendezVousId, ct)))
+            .WithName("ConfirmerRendezVous")
+            .WithSummary("POR-11 : le travailleur confirme sa présence au rendez-vous.");
     }
 
     private static void MapQuestionnaires(RouteGroupBuilder api)
