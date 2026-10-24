@@ -3,6 +3,7 @@
 Logiciel métier pour un Service Externe de Prévention et de Protection au travail (SEPP) agréé en Belgique : affiliés, surveillance de la santé, gestion des risques (sécurité, ergonomie, hygiène), aspects psychosociaux, planification, unités de prévention, portails employeur et travailleur, reporting.
 
 - Cahier des charges : [docs/cahier-des-charges-sepp.pdf](docs/cahier-des-charges-sepp.pdf) (v1.1)
+- Glossaire (langage omniprésent, §17) : [docs/glossaire.md](docs/glossaire.md)
 - Architecture cible : microservices DDD en clean architecture, trois zones de sensibilité (standard, médicale, psychosociale), conteneurs sur Azure (§14).
 - Contribuer : [CONTRIBUTING.md](CONTRIBUTING.md) (branches, commits, PR, protection de `main`) ; sécurité : [SECURITY.md](SECURITY.md).
 
