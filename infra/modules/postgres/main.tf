@@ -6,8 +6,9 @@
 #   CTR-15 : service managé, sauvegardé indépendamment des conteneurs.
 #   CTR-16 : authentification Entra ID uniquement (aucun mot de passe).
 #   NF-33  : sauvegardes quotidiennes, restauration à un instant donné.
-# Les rôles PostgreSQL des identités managées des services sont créés par la
-# chaîne de déploiement (pgaadauth_create_principal), pas par Terraform.
+# Les rôles PostgreSQL des identités managées des services (exécution : DML ;
+# migration : DDL, ADR 0010) sont amorcés hors Terraform, sans accès réseau au
+# serveur depuis la CI (pgaadauth_create_principal_with_oid, infra/README.md).
 # -----------------------------------------------------------------------------
 terraform {
   required_version = ">= 1.9.0, < 2.0.0"
@@ -60,6 +61,16 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "th
   object_id           = var.entra_admin.object_id
   principal_name      = var.entra_admin.principal_name
   principal_type      = var.entra_admin.principal_type
+}
+
+# Extensions que les migrations EF Core créent (paramètre serveur azure.extensions, liste d'autorisation Azure) :
+# btree_gist pour Planification. Extension de confiance, créée par l'identité de migration du service (ADR 0010).
+resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
+  count = length(var.allowed_extensions) > 0 ? 1 : 0
+
+  name      = "azure.extensions"
+  server_id = azurerm_postgresql_flexible_server.this.id
+  value     = join(",", var.allowed_extensions)
 }
 
 resource "azurerm_postgresql_flexible_server_database" "this" {

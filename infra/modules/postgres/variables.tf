@@ -88,6 +88,12 @@ variable "log_analytics_workspace_id" {
   type        = string
 }
 
+variable "allowed_extensions" {
+  description = "Extensions autorisées sur le serveur (paramètre azure.extensions), créées par les migrations des services."
+  type        = list(string)
+  default     = ["BTREE_GIST"]
+}
+
 variable "tags" {
   description = "Étiquettes appliquées aux ressources."
   type        = map(string)

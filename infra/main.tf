@@ -187,6 +187,18 @@ locals {
       local.encryption_environment[n],
     )
   }
+
+  # Job de migration (ADR 0010) : configuration non secrète du service, avec l'identité de migration (DDL) à la place de
+  # l'identité d'exécution, le mode « migrer puis quitter » et le rôle d'exécution qui reçoit les droits DML. Aucun secret.
+  migration_environment = {
+    for n, s in var.services : n => merge(local.app_environment[n], {
+      AZURE_CLIENT_ID          = module.identity.migration_identities[n].client_id
+      POSTGRES__USER           = module.identity.migration_identities[n].name
+      OTEL_SERVICE_NAME        = "${n}-migration"
+      DATABASE__MIGRATEANDEXIT = "true"
+      DATABASE__RUNTIMEROLE    = local.postgres_environment[n].POSTGRES__USER
+    }) if s.database
+  }
 }
 
 # Avertissement (non bloquant, pour permettre l'amorçage du Key Vault plateforme) :
@@ -321,7 +333,9 @@ module "identity" {
       key_name       = module.keyvault[s.zone].documents_kek_name
     }
   }
-  tags = local.tags
+  # Identité de migration distincte (droits DDL) pour chaque service doté d'une base (ADR 0010).
+  migration_services = [for n, s in var.services : n if s.database]
+  tags               = local.tags
 }
 
 module "servicebus" {
@@ -408,6 +422,24 @@ module "container_app" {
 
   # Les rôles Service Bus (émission, réception, scaler KEDA) doivent exister au démarrage.
   depends_on = [module.servicebus]
+}
+
+# Jobs de migration de schéma (ADR 0010, ARC-50) : un par service doté d'une base, dans l'environnement de sa zone, lancé
+# par la chaîne de déploiement avant la nouvelle révision. Même image que le service, identité de migration (DDL).
+module "migration_job" {
+  source   = "./modules/containerapp-migration-job"
+  for_each = var.deploy_container_apps ? { for n, s in var.services : n => s if s.database } : {}
+
+  name                         = "mig-${each.key}"
+  resource_group_name          = azurerm_resource_group.zone[each.value.zone].name
+  location                     = var.location
+  container_app_environment_id = module.container_apps_env[each.value.zone].id
+  workload_profile_name        = module.container_apps_env[each.value.zone].workload_profile_name
+  identity_id                  = module.identity.migration_identities[each.key].id
+  registry_server              = module.registry.login_server
+  image                        = coalesce(each.value.image, "${module.registry.login_server}/sepp/${coalesce(each.value.instance_de, each.key)}:${var.image_tag}")
+  environment_variables        = local.migration_environment[each.key]
+  tags                         = merge(local.tags, { zone = each.value.zone, service = each.key, usage = "migration" })
 }
 
 # -----------------------------------------------------------------------------

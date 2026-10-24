@@ -1,10 +1,9 @@
-using Microsoft.EntityFrameworkCore;
-
 using Sepp.Affilies.Adapters;
 using Sepp.Affilies.Adapters.Api;
 using Sepp.Affilies.Adapters.Persistence;
 using Sepp.Affilies.Application;
 using Sepp.BuildingBlocks.Infrastructure;
+using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.BuildingBlocks.Web;
 
 // Racine de composition du service Affiliés (couche Infrastructure, §14.5).
@@ -18,14 +17,16 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// Migrations (ADR 0010) : « migrer puis quitter » pour le job de migration Azure, migration au démarrage en local.
+// Avant toute vérification de clé : le job de migration ne reçoit aucun secret.
+if (await app.MigrerSchemaAsync<AffiliesDbContext>() is { } codeSortie)
+{
+    Environment.ExitCode = codeSortie;
+    return;
+}
+
 app.MapSeppServiceDefaults();
 app.MapAffiliesEndpoints();
-
-if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
-{
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<AffiliesDbContext>().Database.MigrateAsync();
-}
 
 await app.RunAsync();
 

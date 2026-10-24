@@ -48,7 +48,7 @@ Même code et même image, **une instance par zone qui produit des documents** (
 
 ## Modèles de départ à valider
 
-Au démarrage (`Database:MigrateOnStartup`), quinze modèles de départ sont créés **en brouillon** : neuf pour le formulaire d'évaluation de santé (3 exemplaires × FR, NL, DE), trois pour la copie du dossier et trois pour le carnet de vaccination (zone médicale, à valider par le CPMT dirigeant). Ils s'inspirent du formulaire d'évaluation de santé (annexe I.4-2 du code du bien-être au travail) mais ne le reproduisent pas à l'identique : ils doivent être relus, complétés et validés par le CPMT dirigeant (exemplaires de la zone médicale) et l'administrateur fonctionnel, puis publiés. Tant qu'ils ne le sont pas, le traitement de `DecisionEmise` échoue et le message est rejoué après publication.
+À la migration du schéma (job de migration en Azure, `Database:MigrateOnStartup` en local, ADR 0010), quinze modèles de départ sont créés **en brouillon** : neuf pour le formulaire d'évaluation de santé (3 exemplaires × FR, NL, DE), trois pour la copie du dossier et trois pour le carnet de vaccination (zone médicale, à valider par le CPMT dirigeant). Ils s'inspirent du formulaire d'évaluation de santé (annexe I.4-2 du code du bien-être au travail) mais ne le reproduisent pas à l'identique : ils doivent être relus, complétés et validés par le CPMT dirigeant (exemplaires de la zone médicale) et l'administrateur fonctionnel, puis publiés. Tant qu'ils ne le sont pas, le traitement de `DecisionEmise` échoue et le message est rejoué après publication.
 
 ## PDF/A
 

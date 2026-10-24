@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
-
 using Sepp.BuildingBlocks.Infrastructure;
+using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.BuildingBlocks.Web;
 using Sepp.Documents.Adapters;
 using Sepp.Documents.Adapters.Api;
@@ -19,20 +18,21 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// Migrations (ADR 0010) : « migrer puis quitter » pour le job de migration Azure, migration au démarrage en local.
+// Avant toute vérification de clé : le job de migration ne reçoit aucun secret.
+// DOC-01 : modèles de départ du formulaire d'évaluation de santé, en brouillon jusqu'à validation par le CPMT dirigeant.
+if (await app.MigrerSchemaAsync<DocumentsDbContext>((services, annulation) =>
+    services.GetRequiredService<InitialiserModelesParDefaut>().ExecuteAsync(annulation)) is { } codeSortie)
+{
+    Environment.ExitCode = codeSortie;
+    return;
+}
+
 // Échec au démarrage si la clé racine d'une zone servie est absente ou invalide, ou si une clé est partagée entre zones (ARC-44, ARC-45).
 _ = app.Services.GetRequiredService<IChiffrementDocuments>();
 
 app.MapSeppServiceDefaults();
 app.MapDocumentsEndpoints();
-
-if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
-{
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<DocumentsDbContext>().Database.MigrateAsync();
-
-    // DOC-01 : modèles de départ du formulaire d'évaluation de santé, en brouillon jusqu'à validation par le CPMT dirigeant.
-    await scope.ServiceProvider.GetRequiredService<InitialiserModelesParDefaut>().ExecuteAsync(CancellationToken.None);
-}
 
 await app.RunAsync();
 
