@@ -31,7 +31,7 @@
 - [ ] **ARC-06** : aucune donnée médicale ni psychosociale (ni donnée personnelle superflue) dans les journaux, traces, métriques, messages d'erreur ou événements d'intégration
 - [ ] Contrats d'événements : changement rétrocompatible ou nouvelle version (ARC-34)
 - [ ] Aucun secret, chaîne de connexion ou configuration d'environnement dans le code ou l'image
-- [ ] Migrations de base de données réversibles ou plan de retour arrière documenté
+- [ ] Migrations de base de données rétrocompatibles avec la révision précédente (expand/contract, ADR 0010) ou plan de retour arrière documenté
 - [ ] Infrastructure : changements décrits en Terraform, aucune modification manuelle (ARC-51)
 - [ ] Documentation / ADR mise à jour si une décision d'architecture change
 

@@ -13,5 +13,6 @@ Les termes employés dans ces décisions (BFF, Outbox, saga, CQRS…) sont défi
 | [0007](0007-infrastructure-terraform.md) | Infrastructure as Code en Terraform | Acceptée (amendée : règle `$Default` Service Bus via azapi, #295) | ARC-51, CTR-21 |
 | [0008](0008-sagas-processus-persistants.md) | Sagas : processus persistants, minuteries en base, déclencheur par API (amende la 0004) | Proposée (déclencheur à valider par l'architecte) | ARC-33, ARC-32, POR-04 |
 | [0009](0009-documents-instance-par-zone.md) | Documents : une instance par zone, clé racine HSM et chiffrement par enveloppe (écart au §14.3) | Acceptée (2026-10-24) | ARC-04, ARC-06, ARC-44, NF-03 |
+| [0010](0010-migrations-schema-azure.md) | Migrations de schéma sur Azure : job de migration par service, identité de migration dédiée (DDL), expand/contract | Proposée (à valider par l'architecte) | ARC-50, CTR-16, ARC-02, NF-33 |
 
 Format : contexte, décision, alternatives, conséquences.

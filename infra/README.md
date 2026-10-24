@@ -27,6 +27,7 @@ infra/
 │   ├── identity/           identités managées par service + RBAC ACR / Key Vault
 │   ├── containerapps-env/  environnement Container Apps par zone
 │   ├── containerapp/       un microservice (sondes, KEDA, identité, secrets)
+│   ├── containerapp-migration-job/  job de migration de schéma d'un service (ADR 0010)
 │   ├── apim/               Application Gateway WAF_v2 + API Management interne
 │   └── policy/             Azure Policy (registres, accès public, localisation)
 └── environments/
@@ -153,6 +154,7 @@ pas fournie par Terraform.
 | `DOCUMENTS__ZONES` (et `DOCUMENTS__ZONES__0`), `DOCUMENTS__ENVELOPPE__TYPE` (`KeyVault`), `DOCUMENTS__ENVELOPPE__CLEKEK` (URI de `documents-kek` sans version), `DOCUMENTS__BLOBENDPOINT` | zone de l'instance, module `keyvault` et module `storage` de la zone | documents, documents-medicale |
 | `BLINDINDEX__KEY` | `key_vault_secrets` du catalogue (secret `blindindex--key`) | personnes |
 | `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, documents-medicale, integrations, planification |
+| `DATABASE__MIGRATEANDEXIT` (`true`), `DATABASE__RUNTIMEROLE` ; `POSTGRES__USER` et `AZURE_CLIENT_ID` de l'identité de migration | `local.migration_environment` (job `mig-<service>` seulement, aucun secret) | services avec base |
 
 Un secret est exposé au conteneur sous le nom du secret en majuscules, `-` devenant `_` : le secret
 `personnes--encryption--keys--k1` devient `ENCRYPTION__KEYS__K1`, soit la clé `Encryption:Keys:K1` de la configuration .NET.
@@ -165,6 +167,104 @@ Le serveur n'accepte aucun mot de passe (`password_auth_enabled = false`). Au d�
 par `DefaultAzureCredential` (identité de `AZURE_CLIENT_ID`) et renouvelé toutes les 25 minutes. TLS est obligatoire
 (`SslMode=Require`). `POSTGRES__USER` est le nom de l'identité managée (`id-sepp-<env>-<service>`), qui doit exister comme rôle
 PostgreSQL (étape 3 de l'amorçage).
+
+### Migrations de schéma (ADR 0010)
+
+La révision d'un service ne migre jamais son schéma en Azure : son identité (`id-sepp-<env>-<service>`) n'a que les droits
+DML. Chaque service doté d'une base a un **job Container Apps de migration** `mig-<service>` (module
+`containerapp-migration-job`) dans l'environnement de sa zone :
+
+- même image que le service, avec la même configuration non secrète, et `Database__MigrateAndExit=true` : le service
+  applique ses migrations EF Core et ses données de départ, accorde les droits DML au rôle d'exécution
+  (`Database__RuntimeRole`), puis s'arrête avec le code 0, ou 1 en cas d'échec ;
+- identité de migration dédiée `id-sepp-<env>-<service>-migration` (sortie `migration_identities`). Son seul rôle Azure est
+  AcrPull, et elle ne reçoit aucun secret Key Vault ;
+- déclenchement manuel (`az containerapp job start`), une exécution à la fois, sans nouvelle tentative automatique, délai
+  maximal de 30 minutes ;
+- Terraform ignore l'image du job comme celle de la Container App : la chaîne de déploiement la met à jour.
+
+Le paramètre serveur `azure.extensions` autorise `BTREE_GIST` (variable `allowed_extensions` du module `postgres`). La
+migration de Planification crée cette extension de confiance avec l'identité de migration.
+
+#### Rôles PostgreSQL (amorçage, une fois par base)
+
+Terraform ne peut pas créer de rôle PostgreSQL : `azurerm` n'exécute pas de SQL, et la CI n'a aucun accès au réseau privé.
+
+- **Qui** : un membre du groupe administrateur Entra du serveur (`postgres_entra_admin`).
+- **Où** : un poste relié au VNet, connecté par jeton Entra
+  (`PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken -o tsv)`, `sslmode=require`).
+- **Valeurs** : `principal_id` des sorties `service_identities` et `migration_identities` ; `<base>` est le nom du service
+  avec `_` au lieu de `-`.
+
+```sql
+-- 1. Base « postgres » du serveur de la zone : rôles des deux identités du service.
+select * from pgaadauth_create_principal_with_oid('id-sepp-<env>-<service>', '<principal_id exécution>', 'service', false, false);
+select * from pgaadauth_create_principal_with_oid('id-sepp-<env>-<service>-migration', '<principal_id migration>', 'service', false, false);
+
+-- 2. Base « postgres » : accès à la seule base du service (ARC-02).
+REVOKE CONNECT ON DATABASE <base> FROM PUBLIC;
+GRANT CONNECT, TEMPORARY, CREATE ON DATABASE <base> TO "id-sepp-<env>-<service>-migration";
+GRANT CONNECT ON DATABASE <base> TO "id-sepp-<env>-<service>";
+
+-- 3. Dans la base du service (\c <base>) : schéma public.
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO "id-sepp-<env>-<service>-migration";
+GRANT USAGE ON SCHEMA public TO "id-sepp-<env>-<service>";
+```
+
+Effets de ces commandes :
+
+- **Identité de migration** : elle possède les objets qu'elle crée.
+- **Identité d'exécution** : elle reçoit `SELECT, INSERT, UPDATE, DELETE` sur les tables et `USAGE, SELECT` sur les
+  séquences, avec les droits par défaut des objets futurs. Le job lui accorde ces droits à chaque exécution : elle ne perd
+  donc pas son accès DML quand une migration ajoute une table. Elle n'a ni DDL, ni `TRUNCATE`, ni propriété.
+- **Test** : ces commandes, aux noms des rôles près, sont rejouées par `MigrationSchemaPostgresTests` (PostgreSQL 17).
+
+#### Déploiement d'une nouvelle version (ARC-50)
+
+Aucun workflow de déploiement applicatif n'existe encore (`service-images.yml` publie et signe les images, sans les
+déployer). La chaîne de déploiement, ou l'exploitant depuis un poste relié au VNet, enchaîne **migration → révision →
+trafic** pour chaque service touché :
+
+```bash
+rg=rg-sepp-<env>-<zone>; svc=<service>; suffixe=<suffixe-de-revision>   # minuscules, chiffres et tirets
+image=<acr>.azurecr.io/sepp/<image>:<version>   # <image> = service d'origine pour une instance (documents-medicale -> documents)
+courante=$(az containerapp revision list -g "$rg" -n "ca-$svc" --query "[?properties.trafficWeight>\`0\`].name | [0]" -o tsv)
+
+# 1. Figer le trafic sur la révision courante (la nouvelle révision démarre sans trafic).
+az containerapp ingress traffic set -g "$rg" -n "ca-$svc" --revision-weight "$courante=100"
+
+# 2. Migrer : même image que la future révision ; arrêt du déploiement si l'exécution échoue.
+az containerapp job update -g "$rg" -n "mig-$svc" --image "$image"
+execution=$(az containerapp job start -g "$rg" -n "mig-$svc" --query name -o tsv)
+until statut=$(az containerapp job execution show -g "$rg" -n "mig-$svc" --job-execution-name "$execution" --query properties.status -o tsv) \
+      && [ "$statut" != "Running" ] && [ "$statut" != "Processing" ]; do sleep 10; done
+[ "$statut" = "Succeeded" ] || { echo "Migration en échec ($statut) : déploiement arrêté"; exit 1; }
+
+# 3. Nouvelle révision, puis contrôle de /health/ready (état « Healthy » de la révision).
+az containerapp update -g "$rg" -n "ca-$svc" --image "$image" --revision-suffix "$suffixe"
+
+# 4. Bascule du trafic (progressive si besoin), puis désactivation de l'ancienne révision.
+az containerapp ingress traffic set -g "$rg" -n "ca-$svc" --revision-weight "ca-$svc--$suffixe=100"
+az containerapp revision deactivate -g "$rg" -n "ca-$svc" --revision "$courante"
+```
+
+Journaux d'une exécution : `az containerapp job logs show -g "$rg" -n "mig-$svc" --execution "$execution" --container migration`,
+ou table `ContainerAppConsoleLogs_CL` de Log Analytics.
+
+#### Retour arrière
+
+- **Expand/contract** : chaque migration est rétrocompatible avec la révision précédente. Elle ajoute une colonne nullable
+  ou une table, et ne renomme ni ne supprime rien dans la même livraison. Les suppressions viennent dans une livraison
+  ultérieure.
+- **Revenir en arrière** consiste à rebasculer le trafic sur l'ancienne révision, réactivée si besoin
+  (`az containerapp revision activate`). Le schéma reste en place.
+- **Aucune migration `Down` n'est exécutée automatiquement.**
+- **Schéma ou données corrompus** : restaurer la base à un instant donné avant la migration (PITR, rétention
+  `postgres_backup_retention_days` : 7 jours hors préproduction et production, 35 jours en préproduction et production) sur
+  un nouveau serveur (`az postgres flexible-server restore --restore-time …`). Ensuite, rediriger les services
+  (`POSTGRES__HOST`) ou recopier la base. Relever l'heure de début de chaque exécution du job pour pouvoir choisir l'instant
+  de restauration.
 
 ### Secrets applicatifs (créés hors du dépôt)
 
@@ -303,7 +403,13 @@ ressource) et les tests .NET : aucun `plan` ni `apply` réel n'a été exécuté
 - `Documents:Zones` est injecté sous forme scalaire (`DOCUMENTS__ZONES`) et indexée (`DOCUMENTS__ZONES__0`) pour la liaison de tableau .NET : à confirmer avec le code de l'instance ;
 - les sauvegardes des clés racines de chaque zone sont réalisées et leur restauration testée (voir « Clés racines de Documents ») ;
 - les adresses internes `https://ca-<service>.<domaine>` résolvent depuis les environnements appelants et les restrictions d'IP d'entrée les autorisent ;
-- la migration des schémas (`Database:MigrateOnStartup` vaut `false` par défaut) est assurée par la chaîne de déploiement ;
+- les jobs de migration `mig-<service>` (ADR 0010), à vérifier sur chaque environnement :
+  - leur création ;
+  - l'amorçage des rôles PostgreSQL (`pgaadauth_create_principal_with_oid` avec le `principal_id`), ainsi que les `GRANT`
+    sur une base créée par ARM, exécutés par l'administrateur Entra ;
+  - le paramètre `azure.extensions` (`BTREE_GIST`) et la création de l'extension par l'identité de migration ;
+  - une première exécution `Succeeded` ;
+  - l'accès DML de l'identité d'exécution qui s'ensuit (`/health/ready` vert) ;
 - les valeurs d'exemple des `terraform.tfvars` (`entra_tenant_id`, `technical_account_client_ids`, `authentication_audience`) sont remplacées ;
 - l'authentification des portails externes (fédération CSAM, ADR 0005) n'est pas encore injectée ;
 - les origines de `portal_origins` correspondent aux domaines réellement exposés (Application Gateway, APIM ou domaine du portail), et un préflight `OPTIONS` depuis chaque portail reçoit `Access-Control-Allow-Origin` à l'identique alors qu'une autre origine n'en reçoit pas.
@@ -334,7 +440,7 @@ ressource) et les tests .NET : aucun `plan` ni `apply` réel n'a été exécuté
 | ARC-45 | Rôle Key Vault Crypto User pour le chiffrement applicatif des seuls services qui déclarent `encryption` ; Documents : clé racine `documents-kek` par zone (RSA-HSM, rotation 12 mois), rôle *Crypto Service Encryption User* sur la clé. |
 | ARC-46 | mTLS Container Apps, segmentation NSG par zone, restrictions IP d'entrée. |
 | ARC-47 / NF-62 | Log Analytics, Application Insights (OpenTelemetry), paramètres de diagnostic sur toutes les ressources, groupe d'actions. |
-| ARC-50 | Révisions multiples ; image et répartition du trafic pilotées par la CI/CD (`ignore_changes`). |
+| ARC-50 | Révisions multiples ; image et répartition du trafic pilotées par la CI/CD (`ignore_changes`) ; job de migration par service, exécuté avant la nouvelle révision (ADR 0010). |
 | ARC-52 | `dr_location` (région UE) ; géo-réplication ACR activable (`enable_dr_replication`). |
 | ARC-53 | Voir « Vérifications de disponibilité » ci-dessous. |
 | NF-13 | Stratégie « localisations autorisées » limitée à la région principale et à la région de reprise UE. |
@@ -395,9 +501,10 @@ Les Container Apps référencent des images qui doivent déjà exister dans l'AC
 2. Publier les images `sepp/<service>:<image_tag>` dans l'ACR depuis la chaîne CI/CD
    (CTR-20) et verrouiller les étiquettes :
    `az acr repository update --name <acr> --image sepp/<service>:<tag> --write-enabled false`.
-3. Créer les rôles PostgreSQL des identités managées (une fois par base, avec le groupe
-   administrateur Entra) : `select * from pgaadauth_create_principal('id-sepp-<env>-<service>', false, false);`
-   puis accorder les droits sur la base du service uniquement (ARC-02).
+3. Créer les rôles PostgreSQL des identités managées, celle d'exécution et celle de migration, une fois par base, avec le
+   groupe administrateur Entra. Accorder ensuite les droits sur la base du service uniquement (ARC-02). Voir « Migrations
+   de schéma », section « Rôles PostgreSQL » ; les `principal_id` viennent des sorties `service_identities` et
+   `migration_identities` de l'étape 1.
 4. Créer les secrets applicatifs dans les Key Vault de zone (clés de chiffrement, clé de l'index aveugle, secrets des
    comptes techniques : voir « Secrets applicatifs ») et renseigner dans `terraform.tfvars` le tenant Entra,
    l'audience et les identifiants clients des comptes techniques.
@@ -405,10 +512,13 @@ Les Container Apps référencent des images qui doivent déjà exister dans l'AC
    `appgw_ssl_certificate_secret_id` (obligatoire en préproduction et production : un
    avertissement `check` le signale).
 6. `terraform apply` (avec `deploy_container_apps = true`).
+7. Exécuter le job de migration de chaque service (`az containerapp job start -n mig-<service>`, sortie `migration_jobs`).
+   À faire avant d'ouvrir le trafic : sans schéma, les révisions démarrent (`/health/ready` ne vérifie que la connexion),
+   mais leurs requêtes échouent.
 
 Les déploiements applicatifs suivants (nouvelle image, répartition du trafic entre
 révisions) sont faits par la CI/CD (`az containerapp update` / `revision`), Terraform
-ignorant ces attributs.
+ignorant ces attributs. Le job de migration passe toujours avant la nouvelle révision (voir « Migrations de schéma »).
 
 ### Managed HSM (ARC-44)
 

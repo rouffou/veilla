@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
-
 using Sepp.BuildingBlocks.Infrastructure;
+using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.BuildingBlocks.Web;
 using Sepp.Communications.Adapters;
 using Sepp.Communications.Adapters.Api;
@@ -18,14 +17,16 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// Migrations (ADR 0010) : « migrer puis quitter » pour le job de migration Azure, migration au démarrage en local.
+// Avant toute vérification de clé : le job de migration ne reçoit aucun secret.
+if (await app.MigrerSchemaAsync<CommunicationsDbContext>() is { } codeSortie)
+{
+    Environment.ExitCode = codeSortie;
+    return;
+}
+
 app.MapSeppServiceDefaults();
 app.MapCommunicationsEndpoints();
-
-if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
-{
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<CommunicationsDbContext>().Database.MigrateAsync();
-}
 
 await app.RunAsync();
 

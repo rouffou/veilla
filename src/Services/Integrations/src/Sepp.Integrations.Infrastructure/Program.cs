@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
-
 using Sepp.BuildingBlocks.Infrastructure;
+using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.BuildingBlocks.Web;
 using Sepp.Integrations.Adapters;
@@ -19,18 +18,20 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// Migrations (ADR 0010) : « migrer puis quitter » pour le job de migration Azure, migration au démarrage en local.
+// Avant toute vérification de clé : le job de migration ne reçoit aucun secret.
+if (await app.MigrerSchemaAsync<IntegrationsDbContext>() is { } codeSortie)
+{
+    Environment.ExitCode = codeSortie;
+    return;
+}
+
 // Échec au démarrage si les clés de chiffrement des charges utiles sont absentes ou invalides (ARC-45).
 _ = app.Services.GetRequiredService<FieldEncryptor>();
 _ = app.Services.GetRequiredService<IFieldKeyProvider>();
 
 app.MapSeppServiceDefaults();
 app.MapIntegrationsEndpoints();
-
-if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
-{
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<IntegrationsDbContext>().Database.MigrateAsync();
-}
 
 await app.RunAsync();
 

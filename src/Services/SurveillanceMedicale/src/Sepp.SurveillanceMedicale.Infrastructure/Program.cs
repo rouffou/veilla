@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
-
 using Sepp.BuildingBlocks.Infrastructure;
+using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.BuildingBlocks.Web;
 using Sepp.SurveillanceMedicale.Adapters;
 using Sepp.SurveillanceMedicale.Adapters.Api;
@@ -20,18 +19,20 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// Migrations (ADR 0010) : « migrer puis quitter » pour le job de migration Azure, migration au démarrage en local.
+// Avant toute vérification de clé : le job de migration ne reçoit aucun secret.
+if (await app.MigrerSchemaAsync<SurveillanceMedicaleDbContext>((services, annulation) =>
+    services.GetRequiredService<InitialiserProtocoles>().ExecuteAsync(annulation)) is { } codeSortie)
+{
+    Environment.ExitCode = codeSortie;
+    return;
+}
+
 // Échec au démarrage si les clés de chiffrement de la zone médicale sont absentes ou invalides (ARC-45).
 _ = app.Services.GetRequiredService<ChiffrementZoneMedicale>();
 
 app.MapSeppServiceDefaults();
 app.MapSurveillanceMedicaleEndpoints();
-
-if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
-{
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<SurveillanceMedicaleDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<InitialiserProtocoles>().ExecuteAsync(CancellationToken.None);
-}
 
 await app.RunAsync();
 

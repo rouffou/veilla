@@ -43,6 +43,17 @@ variable "documents_kek_assignments" {
   default = {}
 }
 
+variable "migration_services" {
+  description = "Services dotés d'une base qui reçoivent une identité de migration distincte (droits DDL, job de migration, ADR 0010)."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for n in var.migration_services : contains(keys(var.services), n)])
+    error_message = "Chaque service de migration_services doit figurer dans services."
+  }
+}
+
 variable "tags" {
   description = "Étiquettes appliquées aux ressources."
   type        = map(string)

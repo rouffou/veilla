@@ -125,3 +125,13 @@ output "service_identities" {
   description = "Identités managées des services."
   value       = module.sepp.service_identities
 }
+
+output "migration_identities" {
+  description = "Identités de migration des services (rôles PostgreSQL à amorcer, ADR 0010)."
+  value       = module.sepp.migration_identities
+}
+
+output "migration_jobs" {
+  description = "Jobs de migration des services (à lancer avant chaque nouvelle révision, ADR 0010)."
+  value       = module.sepp.migration_jobs
+}

@@ -58,6 +58,16 @@ output "service_identities" {
   value       = module.identity.identities
 }
 
+output "migration_identities" {
+  description = "Identités de migration des services dotés d'une base (ADR 0010) : name (rôle PostgreSQL), principal_id (amorçage pgaadauth), client_id."
+  value       = module.identity.migration_identities
+}
+
+output "migration_jobs" {
+  description = "Job de migration de chaque service doté d'une base : nom et groupe de ressources (az containerapp job start)."
+  value       = { for n, job in module.migration_job : n => { name = job.name, resource_group = azurerm_resource_group.zone[var.services[n].zone].name } }
+}
+
 output "action_group_id" {
   description = "Groupe d'actions d'exploitation (null si alert_email n'est pas renseigné)."
   value       = module.monitoring.action_group_id

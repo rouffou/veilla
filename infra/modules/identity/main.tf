@@ -9,6 +9,8 @@
 # wrapKey/unwrapKey porté sur la clé racine documents-kek des instances
 # Documents. Les rôles Service Bus et Blob sont attribués par les modules
 # servicebus et storage, au plus près des ressources.
+# Identité de migration distincte par service doté d'une base (ADR 0010) :
+# AcrPull seulement, droits DDL portés par son rôle PostgreSQL.
 # -----------------------------------------------------------------------------
 terraform {
   required_version = ">= 1.9.0, < 2.0.0"
@@ -91,4 +93,28 @@ resource "azurerm_key_vault_managed_hardware_security_module_role_assignment" "d
   scope              = "/keys/${each.value.key_name}"
   role_definition_id = data.azurerm_key_vault_managed_hardware_security_module_role_definition.crypto_service_encryption[each.key].resource_manager_id
   principal_id       = azurerm_user_assigned_identity.this[each.key].principal_id
+}
+
+# -----------------------------------------------------------------------------
+# Identités de migration (ADR 0010) : une par service doté d'une base, distincte de l'identité d'exécution. Elle porte les
+# droits DDL sur la base du service (rôle PostgreSQL du même nom, amorcé hors Terraform : infra/README.md) et ne sert
+# qu'au job de migration. Seul rôle Azure : AcrPull (même image que le service). Aucun accès Key Vault, Service Bus ni
+# stockage : le job ne lit aucun secret.
+# -----------------------------------------------------------------------------
+resource "azurerm_user_assigned_identity" "migration" {
+  for_each = toset(var.migration_services)
+
+  name                = "id-${var.name_prefix}-${each.key}-migration"
+  resource_group_name = var.services[each.key].resource_group_name
+  location            = var.location
+  tags                = merge(var.tags, { service = each.key, zone = var.services[each.key].zone, usage = "migration" })
+}
+
+resource "azurerm_role_assignment" "migration_acr_pull" {
+  for_each = toset(var.migration_services)
+
+  scope                = var.container_registry_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.migration[each.key].principal_id
+  principal_type       = "ServicePrincipal"
 }
