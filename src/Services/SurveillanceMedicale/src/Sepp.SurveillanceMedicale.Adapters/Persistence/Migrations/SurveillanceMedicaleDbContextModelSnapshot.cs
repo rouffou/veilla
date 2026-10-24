@@ -450,6 +450,100 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
                     b.ToTable("recours", (string)null);
                 });
 
+            modelBuilder.Entity("Sepp.SurveillanceMedicale.Domain.DemandesCopie.DemandeCopieDossier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("DateLimite")
+                        .HasColumnType("date")
+                        .HasColumnName("date_limite");
+
+                    b.Property<DateTimeOffset>("DeposeeLe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deposee_le");
+
+                    b.Property<Guid?>("DocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_id");
+
+                    b.Property<Guid?>("DossierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dossier_id");
+
+                    b.Property<string>("MotifRefus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("motif_refus");
+
+                    b.Property<Guid>("PersonneId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("personne_id");
+
+                    b.Property<DateTimeOffset?>("PublieeLe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("publiee_le");
+
+                    b.Property<string>("Statut")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("statut");
+
+                    b.Property<DateTimeOffset?>("TraiteeLe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("traitee_le");
+
+                    b.Property<string>("TraiteePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("traitee_par");
+
+                    b.Property<DateTimeOffset>("created_at")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("created_by")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("deleted_at")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTimeOffset>("updated_at")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("updated_by")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<int>("version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_demande_copie_dossier");
+
+                    b.HasIndex("DossierId")
+                        .HasDatabaseName("ix_demande_copie_dossier_dossier_id");
+
+                    b.HasIndex("PersonneId")
+                        .HasDatabaseName("ix_demande_copie_dossier_personne_id");
+
+                    b.HasIndex("Statut")
+                        .HasDatabaseName("ix_demande_copie_dossier_statut");
+
+                    b.ToTable("demande_copie_dossier", (string)null);
+                });
+
             modelBuilder.Entity("Sepp.SurveillanceMedicale.Domain.Dossiers.DossierSante", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2223,6 +2317,15 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_recours_decision_decision_id");
+                });
+
+            modelBuilder.Entity("Sepp.SurveillanceMedicale.Domain.DemandesCopie.DemandeCopieDossier", b =>
+                {
+                    b.HasOne("Sepp.SurveillanceMedicale.Domain.Dossiers.DossierSante", null)
+                        .WithMany()
+                        .HasForeignKey("DossierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_demande_copie_dossier_dossier_sante_dossier_id");
                 });
 
             modelBuilder.Entity("Sepp.SurveillanceMedicale.Domain.Dossiers.Exposition", b =>

@@ -50,6 +50,8 @@ public static class DependencyInjection
             .AddHttpMessageHandler<PropagationJetonHandler>();
         services.AddHttpClient<IPersonnesApi, PersonnesApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Personnes))
             .AddHttpMessageHandler<PropagationJetonHandler>();
+        services.AddHttpClient<IDemandesCopieApi, DemandesCopieApi>((sp, c) => c.BaseAddress = Base(sp, o => o.SurveillanceMedicale))
+            .AddHttpMessageHandler<PropagationJetonHandler>();
         services.AddHttpClient<IObligationsApi, ObligationsApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Obligations))
             .AddHttpMessageHandler<PropagationJetonHandler>();
         services.AddHttpClient<IDocumentsApi, DocumentsApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Documents))

@@ -35,6 +35,7 @@ public static class EcransEndpoints
         MapRendezVous(api);
         MapQuestionnaires(api);
         MapDocuments(api);
+        api.MapDossierSante();
         return app;
     }
 

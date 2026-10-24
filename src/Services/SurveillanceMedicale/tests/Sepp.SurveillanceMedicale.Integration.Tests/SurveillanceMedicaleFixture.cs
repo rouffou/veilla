@@ -77,11 +77,16 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
         await _postgres.DisposeAsync();
     }
 
-    public HttpClient Client(string role, string user, Guid? affilieId = null, string? motif = null, bool brisDeGlace = false)
+    public HttpClient Client(string role, string user, Guid? affilieId = null, string? motif = null, bool brisDeGlace = false, Guid? personneId = null)
     {
         var client = Factory.CreateClient();
         client.DefaultRequestHeaders.Add(TestAuth.RolesHeader, role);
         client.DefaultRequestHeaders.Add(TestAuth.UserHeader, user);
+        if (personneId is { } personne)
+        {
+            client.DefaultRequestHeaders.Add(TestAuth.PersonneHeader, personne.ToString());
+        }
+
         if (affilieId is { } affilie)
         {
             client.DefaultRequestHeaders.Add(TestAuth.AffilieHeader, affilie.ToString());
@@ -201,6 +206,7 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
         public const string RolesHeader = "X-Test-Roles";
         public const string UserHeader = "X-Test-User";
         public const string AffilieHeader = "X-Test-Affilie";
+        public const string PersonneHeader = "X-Test-Personne";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
@@ -215,6 +221,11 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
             if (Request.Headers.TryGetValue(AffilieHeader, out var affilie))
             {
                 claims = claims.Append(new Claim("affilie_id", affilie.ToString()));
+            }
+
+            if (Request.Headers.TryGetValue(PersonneHeader, out var personne))
+            {
+                claims = claims.Append(new Claim("personne_id", personne.ToString()));
             }
 
             var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Name, "sub", "roles"));

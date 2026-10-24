@@ -137,7 +137,7 @@
   },
   "documents": {
     "title": "My documents",
-    "intro": "Documents made available to you by the service.",
+    "intro": "Documents made available to you by the service: health assessment forms, vaccination record and copy of your health file.",
     "empty": "No document is available.",
     "caption": "List of your documents",
     "name": "Document",
@@ -147,9 +147,35 @@
     "download": "Download",
     "categories": {
       "evaluation-sante": "Health assessment form",
-      "autre": "Other document"
+      "autre": "Other document",
+      "carnet-vaccination": "Vaccination record",
+      "copie-dossier": "Copy of the health file"
     },
-    "notYetTitle": "Vaccination record and copy of the file",
-    "notYet": "The vaccination record and the request for a copy of your health file are not yet available in this portal: send your request to the occupational physician."
+    "vaccinationTitle": "Vaccination record",
+    "vaccination": "Your vaccination record is updated after each vaccination and appears in the list above.",
+    "copy": {
+      "title": "Copy of my health file",
+      "intro": "You can request a copy of your health file. The occupational physician handles your request; the copy then appears in your documents.",
+      "submit": "Request a copy",
+      "submitting": "Sending the request…",
+      "success": "Your request has been registered.",
+      "inProgress": "A request is already being processed.",
+      "caption": "Follow-up of your copy requests",
+      "requestedOn": "Requested on",
+      "deadline": "Handled at the latest on",
+      "status": "Status",
+      "late": "Deadline exceeded",
+      "empty": "You have not requested a copy yet.",
+      "statuses": {
+        "Deposee": "Awaiting the occupational physician",
+        "Validee": "Approved, copy being prepared",
+        "Publiee": "Copy available in your documents",
+        "Refusee": "Refused"
+      },
+      "refusals": {
+        "AucunDossier": "No health file exists in your name.",
+        "IdentiteNonConfirmee": "Your identity could not be confirmed: please contact the service."
+      }
+    }
   }
 }

@@ -106,6 +106,14 @@ public static class Permissions
     public const string StockVaccinsGerer = "stock-vaccins:gerer";
     public const string QuestionnaireSanteRemplir = "questionnaire-sante:remplir";
 
+    // Surveillance médicale — droit d'accès du travailleur (§3.3 « copie sur demande », SAN-43, POR-13) : le travailleur
+    // dépose et suit sa demande de copie (aucun contenu médical) ; le CPMT la traite (validation ou refus) ; le compte
+    // technique du service Documents lit le contenu d'une copie validée et le carnet de vaccination (SAN-50) pour les
+    // générer et les publier au travailleur en zone médicale. Aucune de ces permissions n'ouvre la lecture du dossier.
+    public const string CopieDossierDemander = "dossier-sante:copie-demander";
+    public const string CopieDossierTraiter = "dossier-sante:copie-traiter";
+    public const string DossierSanteTransmettreDocuments = "dossier-sante:transmettre-documents";
+
     // Planification (§8 PLA-01 à PLA-09, §5.3 SAN-10 à SAN-13) : agendas, rendez-vous, convocations, tournées.
     public const string PlanificationLire = "planification:lire";
     public const string PlanificationGerer = "planification:gerer";
@@ -303,6 +311,14 @@ public static class RolePermissions
 
         Grant(Roles.AssistantMedical, Permissions.QuestionnaireSanteRemplir);
         Grant(Roles.Travailleur, Permissions.QuestionnaireSanteRemplir);
+
+        // §3.3 « Dossier de santé — travailleur : copie sur demande » (SAN-43) : le travailleur demande, le CPMT (gardien du
+        // secret médical) valide l'export, et seul Documents (compte technique) en reçoit le contenu pour le publier au
+        // travailleur. Le carnet de vaccination (SAN-50, POR-13) suit le même canal.
+        Grant(Roles.Travailleur, Permissions.CopieDossierDemander);
+        Grant(Roles.Cpmt, Permissions.CopieDossierTraiter);
+        Grant(Roles.CpmtDirigeant, Permissions.CopieDossierTraiter);
+        Grant(Roles.Documents, Permissions.DossierSanteTransmettreDocuments);
 
         // Planification — §3.1 : le planificateur gère agendas, convocations et tournées ; le responsable de centre pilote
         // et affecte les ressources (ressources, lieux, congés) ; l'assistant médical tient l'accueil et la salle d'attente

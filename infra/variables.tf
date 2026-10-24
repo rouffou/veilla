@@ -149,9 +149,17 @@ variable "services" {
     "documents" = {
       zone     = "standard"
       database = true
-      # surveillance-medicale : seul abonnement avec gestionnaire (DecisionEmise) ; les autres producteurs
-      # (reintegration, psychosocial, prevention) ne sont pas encore écrits.
+      # surveillance-medicale : seul abonnement avec gestionnaires (formulaire d'évaluation de santé, copie du dossier,
+      # carnet de vaccination) ; les autres producteurs (reintegration, psychosocial, prevention) ne sont pas encore écrits.
       subscribes_to = ["surveillance-medicale", "reintegration", "psychosocial", "prevention"]
+      # Contrats de la Surveillance médicale qui ont un gestionnaire (SAN-30, SAN-43, SAN-50).
+      subject_filters = {
+        surveillance-medicale = [
+          "surveillance-medicale.decision-emise.v1",
+          "surveillance-medicale.copie-dossier-validee.v1",
+          "surveillance-medicale.vaccination-administree.v1",
+        ]
+      }
     }
     "communications" = {
       zone          = "standard"
@@ -189,9 +197,13 @@ variable "services" {
       database      = true
       cpu           = 1
       memory        = "2Gi"
-      subscribes_to = ["planification", "personnes", "postes-risques", "obligations", "referentiels", "prevention"]
-      # personnes.etat-particulier-declare.v1 est réservé à Obligations (catalogue des événements).
-      subject_filters = { personnes = ["personnes.affectation-modifiee.v1"] }
+      subscribes_to = ["planification", "personnes", "postes-risques", "obligations", "referentiels", "prevention", "documents"]
+      # personnes.etat-particulier-declare.v1 est réservé à Obligations (catalogue des événements) ; documents : seule la
+      # publication intéresse le service (copie du dossier publiée au travailleur, SAN-43).
+      subject_filters = {
+        personnes = ["personnes.affectation-modifiee.v1"]
+        documents = ["documents.document-publie.v1"]
+      }
     }
     "reintegration" = {
       zone          = "medicale"

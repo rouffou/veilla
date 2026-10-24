@@ -137,7 +137,7 @@
   },
   "documents": {
     "title": "Mijn documenten",
-    "intro": "Documenten die de EDPB voor u ter beschikking stelt.",
+    "intro": "Documenten die de EDPB voor u ter beschikking stelt: formulieren voor de gezondheidsbeoordeling, vaccinatieboekje en kopie van uw gezondheidsdossier.",
     "empty": "Er is geen document beschikbaar.",
     "caption": "Lijst van uw documenten",
     "name": "Document",
@@ -147,9 +147,35 @@
     "download": "Downloaden",
     "categories": {
       "evaluation-sante": "Formulier voor de gezondheidsbeoordeling",
-      "autre": "Ander document"
+      "autre": "Ander document",
+      "carnet-vaccination": "Vaccinatieboekje",
+      "copie-dossier": "Kopie van het gezondheidsdossier"
     },
-    "notYetTitle": "Vaccinatieboekje en kopie van het dossier",
-    "notYet": "Het vaccinatieboekje en de aanvraag van een kopie van uw gezondheidsdossier zijn nog niet beschikbaar in dit portaal: richt uw aanvraag tot de arbeidsarts."
+    "vaccinationTitle": "Vaccinatieboekje",
+    "vaccination": "Uw vaccinatieboekje wordt na elke vaccinatie bijgewerkt en verschijnt in de lijst hierboven.",
+    "copy": {
+      "title": "Kopie van mijn gezondheidsdossier",
+      "intro": "U kunt een kopie van uw gezondheidsdossier aanvragen. De arbeidsarts behandelt uw aanvraag; de kopie verschijnt daarna in uw documenten.",
+      "submit": "Een kopie aanvragen",
+      "submitting": "Aanvraag wordt verzonden…",
+      "success": "Uw aanvraag is geregistreerd.",
+      "inProgress": "Er wordt al een aanvraag behandeld.",
+      "caption": "Opvolging van uw aanvragen om een kopie",
+      "requestedOn": "Aangevraagd op",
+      "deadline": "Uiterlijk behandeld op",
+      "status": "Status",
+      "late": "Termijn overschreden",
+      "empty": "U hebt nog geen kopie aangevraagd.",
+      "statuses": {
+        "Deposee": "In afwachting van de arbeidsarts",
+        "Validee": "Gevalideerd, kopie in voorbereiding",
+        "Publiee": "Kopie beschikbaar in uw documenten",
+        "Refusee": "Geweigerd"
+      },
+      "refusals": {
+        "AucunDossier": "Er bestaat geen gezondheidsdossier op uw naam.",
+        "IdentiteNonConfirmee": "Uw identiteit kon niet worden bevestigd: neem contact op met de EDPB."
+      }
+    }
   }
 }

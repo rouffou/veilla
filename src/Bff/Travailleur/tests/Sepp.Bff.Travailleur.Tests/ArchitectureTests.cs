@@ -54,10 +54,24 @@ public sealed class ArchitectureTests
     [InlineData("/export")]
     [InlineData("/pre-rempli\"")]
     [InlineData("api/v1/decisions")]
+    [InlineData("/contenu\"")]
+    [InlineData("/carnet")]
+    [InlineData("/validation")]
     public void Les_clients_aval_n_appellent_aucune_route_de_dossier_medical(string fragment)
     {
-        var fichier = Path.Combine(RacineDepot(), "src", "Bff", "Travailleur", "src", "Sepp.Bff.Travailleur", "Aval", "ApisAval.cs");
+        // Tous les clients aval, y compris celui de la demande de copie (SAN-43) : le contenu de la copie et le carnet ne
+        // sont servis qu'au compte technique du service Documents, et la validation qu'au CPMT.
+        var dossier = Path.Combine(RacineDepot(), "src", "Bff", "Travailleur", "src", "Sepp.Bff.Travailleur", "Aval");
+        foreach (var fichier in Directory.EnumerateFiles(dossier, "*.cs").Where(f => !f.EndsWith("ClientAval.cs", StringComparison.Ordinal)))
+        {
+            var texte = File.ReadAllText(fichier);
+            if (fragment == "/contenu\"")
+            {
+                // Seul le PDF d'un document publié (service Documents) est lu.
+                texte = texte.Replace("api/v1/documents/{documentId}/contenu\"", string.Empty, StringComparison.Ordinal);
+            }
 
-        File.ReadAllText(fichier).ShouldNotContain(fragment, Case.Insensitive);
+            texte.ShouldNotContain(fragment, Case.Insensitive, Path.GetFileName(fichier));
+        }
     }
 }

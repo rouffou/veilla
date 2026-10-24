@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Sepp.BuildingBlocks.Application.Auditing;
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Infrastructure.Security;
+using Sepp.Contracts.Documents;
 using Sepp.Contracts.Obligations;
 using Sepp.Contracts.Personnes;
 using Sepp.Contracts.Planification;
@@ -16,6 +17,7 @@ using Sepp.SurveillanceMedicale.Adapters.External;
 using Sepp.SurveillanceMedicale.Adapters.Persistence;
 using Sepp.SurveillanceMedicale.Adapters.Securite;
 using Sepp.SurveillanceMedicale.Application;
+using Sepp.SurveillanceMedicale.Application.DemandesCopie;
 using Sepp.SurveillanceMedicale.Application.Projections;
 
 namespace Sepp.SurveillanceMedicale.Adapters;
@@ -50,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<ILotVaccinRepository, LotVaccinRepository>();
         services.AddScoped<IDeclarationMpRepository, DeclarationMpRepository>();
         services.AddScoped<ITransfertRepository, TransfertRepository>();
+        services.AddScoped<IDemandeCopieRepository, DemandeCopieRepository>();
         services.AddScoped<IPurgeDossiers, PurgeDossiers>();
         services.AddScoped<IProjectionRepository, ProjectionRepository>();
         services.AddScoped<IContexteAcces, ContexteAccesHttp>();
@@ -65,6 +68,9 @@ public static class DependencyInjection
         services.AddIntegrationEventHandler<ParametreLegalModifie, ParametreLegalModifieHandler>();
         services.AddIntegrationEventHandler<ObligationCloturee, ObligationClotureeHandler>();
         services.AddIntegrationEventHandler<JoursFeriesModifies, JoursFeriesModifiesHandler>();
+
+        // SAN-43 : la copie demandée par le travailleur est publiée par Documents (objet demande-copie-dossier).
+        services.AddIntegrationEventHandler<DocumentPublie, DocumentPublieHandler>();
         services.AddSeppConsumer<SurveillanceMedicaleDbContext>(configuration);
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

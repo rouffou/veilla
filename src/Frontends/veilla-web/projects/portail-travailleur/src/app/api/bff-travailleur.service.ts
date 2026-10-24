@@ -5,6 +5,7 @@ import { catchError, map, Observable, of, startWith } from 'rxjs';
 import {
   Accueil,
   Creneau,
+  DemandeCopie,
   DocumentPersonnel,
   Employeur,
   ExamenAPlanifier,
@@ -152,6 +153,16 @@ export class BffTravailleurService {
   /** POR-13 : mes documents publiés. */
   documents(): Observable<readonly DocumentPersonnel[]> {
     return this.http.get<readonly DocumentPersonnel[]>(`${this.base}/documents`);
+  }
+
+  /** POR-13, SAN-43 : suivi de mes demandes de copie du dossier de santé (aucun contenu médical). */
+  demandesCopie(): Observable<readonly DemandeCopie[]> {
+    return this.http.get<readonly DemandeCopie[]>(`${this.base}/demandes-copie-dossier`);
+  }
+
+  /** Demande de copie traitée par le médecin du travail ; la copie est ensuite publiée dans « Mes documents ». */
+  demanderCopie(): Observable<DemandeCopie> {
+    return this.http.post<DemandeCopie>(`${this.base}/demandes-copie-dossier`, null);
   }
 
   telechargerDocument(id: string): Observable<Fichier> {

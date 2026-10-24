@@ -125,7 +125,10 @@ public static class ModelesParDefaut
     }
 }
 
-/// <summary>Crée les modèles de départ absents (au démarrage, idempotent) ; ils restent en brouillon jusqu'à validation.</summary>
+/// <summary>
+/// Crée les modèles de départ absents (au démarrage, idempotent) : formulaire d'évaluation de santé, copie du dossier et
+/// carnet de vaccination ; ils restent en brouillon jusqu'à validation.
+/// </summary>
 public sealed class InitialiserModelesParDefaut(IModeleRepository repository, IUnitOfWork unitOfWork)
 {
     public async Task<int> ExecuteAsync(CancellationToken cancellationToken)
@@ -143,6 +146,9 @@ public sealed class InitialiserModelesParDefaut(IModeleRepository repository, IU
                 ModelesParDefaut.Avertissement, definition.Contenu, ModelesParDefaut.Champs));
             crees++;
         }
+
+        // POR-13 : copie du dossier (SAN-43) et carnet de vaccination (SAN-50), zone médicale, en brouillon.
+        crees += DossierSante.InitialisationModelesDossierSante.Ajouter(existants, repository);
 
         if (crees > 0)
         {

@@ -49,7 +49,9 @@ portail en local). Projet `Sepp.Bff.Travailleur`, sans base de données ni domai
 | `GET /employeurs` | POR-11 : mes employeurs (occupations actives : affilié, type de travailleur, dates ; sans dénomination) | Personnes `GET /mes-occupations` |
 | `GET /examens-a-planifier?langue=` | POR-11 : mes examens à planifier (type, échéances, statut), ceux d'une autre personne écartés | Obligations `GET /mes-examens-a-planifier` |
 | `GET /documents` | POR-13 : documents publiés pour la personne | Documents `GET /documents?typeDestinataire=Personne&destinataireId=` |
-| `GET /documents/{id}/contenu` | POR-13 : PDF, lecture journalisée par Documents (NF-04) | Documents `GET /documents/{id}` puis `/contenu` |
+| `GET /documents/{id}/contenu` | POR-13 : PDF, lecture journalisée par Documents (NF-04) ; aussi la copie du dossier et le carnet de vaccination (catégories `copie-dossier`, `carnet-vaccination`) | Documents `GET /documents/{id}` puis `/contenu` |
+| `POST /demandes-copie-dossier` | POR-13, SAN-43 : demande de copie de son dossier de santé, sans corps (201) ; jamais rejouée | Surveillance médicale `POST /demandes-copie` |
+| `GET /demandes-copie-dossier` | POR-13, SAN-43 : suivi (statut, date limite légale, retard, refus codé, document publié) | Surveillance médicale `GET /demandes-copie/miennes` |
 
 OpenAPI : `/openapi/v1.json` ; Scalar : `/scalar` (Development).
 
@@ -114,15 +116,10 @@ Rien n'a été implémenté dans un autre service. Ce qui manque :
    claim `personne_id` ; le BFF les relaie en `GET /employeurs` et `GET /examens-a-planifier`, et le portail permet une première
    réservation sans lien de convocation. **Reste ouvert** : la dénomination de l'employeur n'est connue que du service Affiliés
    (`affilie:lire`, que le travailleur n'a pas) : le portail désigne les employeurs par leur rang.
-3. **Déplacer et confirmer un rendez-vous (POR-11)** : résolu par #325. `POST /rendez-vous/{id}/deplacement` (atomique, 409
-   si le créneau est pris) et `POST /rendez-vous/{id}/confirmation` (présence enregistrée, visible du planificateur). Délai
-   minimal et nombre de déplacements sont ceux du service Planification (valeurs à valider).
-4. **Motif d'annulation (POR-11)** : `POST …/annulation` accepte `{ raison, commentaire }` : raison codée (`ConflitHoraire`,
-   `ObligationProfessionnelle`, `ProblemeTransport`, `ChangementSituation`, `ExamenDejaEffectue`, `Autre`) et texte libre court
-   (200 caractères) sans donnée de santé, consigne affichée dans le portail. Le texte libre n'est jamais publié ni renvoyé à l'employeur.
-5. **Carnet de vaccination et demande de copie du dossier (POR-13)** : Documents n'a pas de document « carnet de vaccination »
-   et aucun service n'enregistre une demande de copie (SAN-43 : `GET /dossiers/{id}/export` exige `dossier-sante:lire`). Le
-   portail l'indique et renvoie vers le médecin du travail.
+3. **Déplacer et confirmer un rendez-vous (POR-11)** : résolu par #325. ~~Carnet de vaccination et demande de copie du dossier (POR-13)~~ : traité (#326). La demande est déposée et suivie dans la
+   Surveillance médicale (aucun contenu médical), validée par le CPMT, puis la copie est publiée par Documents en zone médicale ;
+   le carnet est publié par Documents après chaque vaccination. Le BFF ne lit toujours aucun dossier : `ArchitectureTests`
+   vérifie tous les clients aval (ni `/contenu` d'une copie, ni `/carnet`, ni `/validation`).
 6. Les libellés de lieu et la dénomination des employeurs ne sont pas exposés au travailleur : le portail ne les affiche pas.
 
 ## Tests

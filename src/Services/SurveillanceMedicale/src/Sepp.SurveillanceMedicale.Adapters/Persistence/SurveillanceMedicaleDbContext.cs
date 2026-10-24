@@ -11,6 +11,7 @@ using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.SurveillanceMedicale.Domain.Conservation;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
+using Sepp.SurveillanceMedicale.Domain.DemandesCopie;
 using Sepp.SurveillanceMedicale.Domain.Dossiers;
 using Sepp.SurveillanceMedicale.Domain.Examens;
 using Sepp.SurveillanceMedicale.Domain.MaladiesProfessionnelles;
@@ -68,6 +69,8 @@ public sealed class SurveillanceMedicaleDbContext(
     public DbSet<TransfertDossier> Transferts => Set<TransfertDossier>();
 
     public DbSet<PreuveDestruction> PreuvesDestruction => Set<PreuveDestruction>();
+
+    public DbSet<DemandeCopieDossier> DemandesCopie => Set<DemandeCopieDossier>();
 
     public DbSet<ObligationDue> Obligations => Set<ObligationDue>();
 
@@ -362,6 +365,19 @@ public sealed class SurveillanceMedicaleDbContext(
             b.Property(p => p.ValideePar).HasMaxLength(UserLength);
             b.Property(p => p.MotifValidation).HasMaxLength(300);
             b.Property(p => p.Empreinte).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<DemandeCopieDossier>(b =>
+        {
+            // SAN-43 : aucune donnée médicale (personne, dates, statut, document publié) ; supprimée avec le dossier purgé.
+            b.ToTable("demande_copie_dossier");
+            Cle(b);
+            b.HasOne<DossierSante>().WithMany().HasForeignKey(d => d.DossierId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(d => d.PersonneId);
+            b.HasIndex(d => d.Statut);
+            b.Property(d => d.Statut).HasConversion<string>().HasMaxLength(EnumLength);
+            b.Property(d => d.MotifRefus).HasConversion<string>().HasMaxLength(EnumLength);
+            b.Property(d => d.TraiteePar).HasMaxLength(UserLength);
         });
     }
 

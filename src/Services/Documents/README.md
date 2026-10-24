@@ -11,11 +11,23 @@ Modèles de documents, génération, archivage à valeur probante et signature (
 - **Archivage probant** (DOC-02, NF-21) : PDF → empreinte SHA-256 → chiffrement AES-256-GCM avec la clé **de la zone** (standard, médicale, psychosociale : trois clés distinctes, refusées si identiques) → écriture unique dans le stockage objet → horodatage. Le contenu n'est jamais en base. L'objet chiffré est lié à son document et à sa zone (données associées authentifiées) : copié ailleurs, il ne se déchiffre pas. `GET /api/v1/documents/{id}/integrite` recalcule les empreintes et le déchiffrement authentifié.
 - **Droits** : un document médical (resp. psychosocial) n'est lisible qu'avec `dossier-sante:lire` (resp. `dossier-psy:lire`) ; le travailleur lit ses documents publiés, l'employeur ceux de la zone standard publiés pour son affilié ; toute lecture de contenu est journalisée (zone du document) avant d'être rendue.
 - **Formulaire d'évaluation de santé** : le service consomme `surveillance-medicale.decision-emise.v1` et produit **trois exemplaires** (employeur, travailleur, dossier de santé). L'exemplaire de l'employeur est en zone standard et ne contient que la décision (catégorie, mesures, validité, référence, date) ; les deux autres sont en zone médicale. Les exemplaires employeur et travailleur sont publiés (`documents.document-publie.v1`) pour envoi par Communications ; celui du dossier n'est jamais envoyé. Idempotent (inbox + clé `decision:<id>:<exemplaire>`). La catégorie est imprimée sous son libellé (`LibellesDecision`, FR, NL, DE et EN) pour chacun des codes partagés `Sepp.Contracts.Decisions.CategoriesDecision`, jamais sous son code brut : un code sans libellé fait échouer l'événement, qui est rejoué après correction. Libellés français repris des termes de SAN-31 cités par le cahier des charges ; libellés NL, DE et EN neutres — tous **à valider par le département médical** contre le texte officiel de l'annexe I.4-2.
+- **Copie du dossier de santé et carnet de vaccination** (SAN-43, SAN-50, POR-13) : le service consomme
+  `surveillance-medicale.copie-dossier-validee.v1` (copie validée par le CPMT) et `surveillance-medicale.vaccination-administree.v1`
+  (carnet mis à jour **après chaque vaccination** : l'événement existe, aucune demande ni route d'écriture supplémentaire, et le
+  travailleur a toujours la dernière version). Le contenu n'est jamais dans l'événement (ARC-06) : il est lu auprès de la
+  Surveillance médicale par le port `ISourceDossierSante` avec le compte technique (`dossier-sante:transmettre-documents`,
+  `Documents:ServicesInternes:SurveillanceMedicale`, à défaut `SEPP__SERVICES__SURVEILLANCE_MEDICALE`, sans simulateur : aucun
+  contenu médical fictif n'est publié), fusionné dans les modèles `SANTE.COPIE_DOSSIER` et `SANTE.CARNET_VACCINATION` (zone
+  médicale, FR, NL, DE), archivé avec la clé de la zone médicale et publié au travailleur (`DocumentPublie`, objets
+  `demande-copie-dossier` et `carnet-vaccination`). Génération et publication sont journalisées ; idempotent (inbox et clés
+  `copie-dossier:<demande>`, `carnet-vaccination:<vaccination>`). Limite du moteur de fusion : 100 lignes par partie et
+  2 000 caractères par ligne (les rubriques longues sont coupées) ; au-delà, la copie le signale (« copie partielle ») et le
+  médecin du travail remet le complément — **à lever** si les dossiers réels le dépassent.
 - **Signature qualifiée** : port `ISignatureQualifiee` (preuve détachée sur l'empreinte ; le PDF archivé n'est jamais réécrit) ; simulateur sans valeur juridique.
 
 ## Modèles de départ à valider
 
-Au démarrage (`Database:MigrateOnStartup`), neuf modèles de départ (3 exemplaires × FR, NL, DE) sont créés **en brouillon**. Ils s'inspirent du formulaire d'évaluation de santé (annexe I.4-2 du code du bien-être au travail) mais ne le reproduisent pas à l'identique : ils doivent être relus, complétés et validés par le CPMT dirigeant (exemplaires de la zone médicale) et l'administrateur fonctionnel, puis publiés. Tant qu'ils ne le sont pas, le traitement de `DecisionEmise` échoue et le message est rejoué après publication.
+Au démarrage (`Database:MigrateOnStartup`), quinze modèles de départ sont créés **en brouillon** : neuf pour le formulaire d'évaluation de santé (3 exemplaires × FR, NL, DE), trois pour la copie du dossier et trois pour le carnet de vaccination (zone médicale, à valider par le CPMT dirigeant). Ils s'inspirent du formulaire d'évaluation de santé (annexe I.4-2 du code du bien-être au travail) mais ne le reproduisent pas à l'identique : ils doivent être relus, complétés et validés par le CPMT dirigeant (exemplaires de la zone médicale) et l'administrateur fonctionnel, puis publiés. Tant qu'ils ne le sont pas, le traitement de `DecisionEmise` échoue et le message est rejoué après publication.
 
 ## PDF/A
 

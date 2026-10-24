@@ -9,6 +9,7 @@ public static class ClientsHttp
 {
     public const string Affilies = "documents-affilies";
     public const string Personnes = "documents-personnes";
+    public const string SurveillanceMedicale = "documents-surveillance-medicale";
     public const string JetonOidc = "documents-jeton-oidc";
 }
 
@@ -34,6 +35,9 @@ public sealed class OptionsServicesInternes
     public Uri? Affilies { get; set; }
 
     public Uri? Personnes { get; set; }
+
+    /// <summary>Copie du dossier et carnet de vaccination à publier au travailleur (SAN-43, SAN-50).</summary>
+    public Uri? SurveillanceMedicale { get; set; }
 }
 
 public sealed class JetonIndisponibleException : Exception

@@ -137,6 +137,8 @@ public sealed class EcransEmployeursEtExamens(IPersonnesApi personnes, IObligati
 public sealed class EcransDocuments(IDocumentsApi documents)
 {
     public const string CategorieEvaluationSante = "evaluation-sante";
+    public const string CategorieCarnetVaccination = "carnet-vaccination";
+    public const string CategorieCopieDossier = "copie-dossier";
     public const string CategorieAutre = "autre";
 
     public async Task<IReadOnlyList<DocumentEcran>> MesDocumentsAsync(Guid personneId, CancellationToken ct) =>
@@ -163,8 +165,16 @@ public sealed class EcransDocuments(IDocumentsApi documents)
         d.Statut == "Publie" && d.TypeDestinataire == "Personne" && d.DestinataireId == personneId;
 
     internal static DocumentEcran ToEcran(DocumentAval d) =>
-        new(d.Id, d.CodeModele.StartsWith("SANTE.EVALUATION", StringComparison.Ordinal) ? CategorieEvaluationSante : CategorieAutre,
-            d.CodeModele, d.Langue, d.PublieLe ?? d.Date, d.Format, d.Taille);
+        new(d.Id, Categorie(d.CodeModele), d.CodeModele, d.Langue, d.PublieLe ?? d.Date, d.Format, d.Taille);
+
+    /// <summary>Catégorie affichée (POR-13) : formulaire d'évaluation de santé, carnet de vaccination (SAN-50), copie du dossier (SAN-43).</summary>
+    internal static string Categorie(string codeModele) => codeModele switch
+    {
+        _ when codeModele.StartsWith("SANTE.EVALUATION", StringComparison.Ordinal) => CategorieEvaluationSante,
+        "SANTE.CARNET_VACCINATION" => CategorieCarnetVaccination,
+        "SANTE.COPIE_DOSSIER" => CategorieCopieDossier,
+        _ => CategorieAutre,
+    };
 }
 
 /// <summary>

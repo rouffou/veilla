@@ -72,6 +72,14 @@ namespace Sepp.Contracts.SurveillanceMedicale
 
     [EventContract("surveillance-medicale.vaccination-administree", 1)]
     public sealed record VaccinationAdministree(Guid VaccinationId, Guid PersonneId, string CodeVaccin, int Dose, DateOnly Date) : IntegrationEvent;
+
+    /// <summary>
+    /// SAN-43 (droit d'accès du travailleur, §3.3 « copie sur demande ») : le CPMT a validé la copie du dossier demandée par
+    /// le travailleur. Identifiants seulement (ARC-06) : le service Documents lit le contenu à publier auprès de la
+    /// Surveillance médicale avec son compte technique, puis le publie au travailleur en zone médicale.
+    /// </summary>
+    [EventContract("surveillance-medicale.copie-dossier-validee", 1)]
+    public sealed record CopieDossierValidee(Guid DemandeId, Guid PersonneId) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.Reintegration
