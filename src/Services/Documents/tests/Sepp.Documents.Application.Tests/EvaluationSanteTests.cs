@@ -24,7 +24,7 @@ public class EvaluationSanteTests
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
     private readonly Contexte _ctx = new(Roles.Cpmt);
 
-    private DecisionEmiseHandler Handler() => new(_ctx.Generateur, _ctx.Store, _ctx.Store);
+    private DecisionEmiseHandler Handler() => new(_ctx.Generateur, _ctx.Store, _ctx.Store, _ctx.ZonesServies);
 
     private static DecisionEmise Decision(string categorie = CategoriesDecision.ApteAvecMesures) =>
         new(Guid.CreateVersion7(), Personne, Affilie, categorie, ["AMENAGEMENT_POSTE", "PAS_DE_CHARGES"], new DateOnly(2027, 10, 5));
@@ -144,7 +144,7 @@ public class EvaluationSanteTests
     public async Task Sans_modele_publie_l_evenement_echoue_pour_etre_rejoue_apres_publication()
     {
         // Les modèles de départ sont en brouillon : tant qu'ils ne sont pas validés, la génération est refusée.
-        await new InitialiserModelesParDefaut(_ctx.Store, _ctx.Store).ExecuteAsync(_ct);
+        await new InitialiserModelesParDefaut(_ctx.Store, _ctx.Store, _ctx.ZonesServies).ExecuteAsync(_ct);
 
         await Should.ThrowAsync<InvalidOperationException>(() => Handler().HandleAsync(Decision(), _ct));
 
@@ -168,7 +168,7 @@ public class EvaluationSanteTests
     [Fact]
     public async Task L_initialisation_cree_les_quinze_modeles_de_depart_en_brouillon_une_seule_fois()
     {
-        var init = new InitialiserModelesParDefaut(_ctx.Store, _ctx.Store);
+        var init = new InitialiserModelesParDefaut(_ctx.Store, _ctx.Store, _ctx.ZonesServies);
 
         // 9 exemplaires du formulaire d'évaluation de santé + copie du dossier et carnet de vaccination (3 langues chacun).
         (await init.ExecuteAsync(_ct)).ShouldBe(15);

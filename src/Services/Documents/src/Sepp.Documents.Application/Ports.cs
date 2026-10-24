@@ -47,6 +47,19 @@ public interface IRenduPdf
     RenduPdf Rendre(DocumentFusionne document, MetadonneesPdf metadonnees);
 }
 
+/// <summary>
+/// Zones servies par cette instance du service Documents (décision #356 : une instance par zone). Hors développement et
+/// test, une instance sert exactement une zone, celle de son environnement (<c>SEPP__ZONE</c>) ; en local, une instance
+/// peut servir les trois. Une instance refuse de générer ou de gérer un modèle d'une zone qu'elle ne sert pas
+/// (<c>422 documents.zone-non-servie</c>) et ne trouve pas les documents d'une autre zone (404).
+/// </summary>
+public interface IZonesServies
+{
+    IReadOnlyCollection<ZoneDocument> Zones { get; }
+
+    bool Sert(ZoneDocument zone);
+}
+
 /// <summary>Contenu chiffré et identifiant de la clé de zone utilisée.</summary>
 public sealed record ContenuChiffre(byte[] Octets, string CleId);
 

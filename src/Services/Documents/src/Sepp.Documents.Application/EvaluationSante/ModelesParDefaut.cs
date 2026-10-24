@@ -129,13 +129,14 @@ public static class ModelesParDefaut
 /// Crée les modèles de départ absents (au démarrage, idempotent) : formulaire d'évaluation de santé, copie du dossier et
 /// carnet de vaccination ; ils restent en brouillon jusqu'à validation.
 /// </summary>
-public sealed class InitialiserModelesParDefaut(IModeleRepository repository, IUnitOfWork unitOfWork)
+public sealed class InitialiserModelesParDefaut(IModeleRepository repository, IUnitOfWork unitOfWork, IZonesServies zonesServies)
 {
     public async Task<int> ExecuteAsync(CancellationToken cancellationToken)
     {
         var existants = await repository.ListAsync(null, cancellationToken);
         var crees = 0;
-        foreach (var definition in ModelesParDefaut.Definitions)
+        // Amorçage filtré par zone : une instance ne crée que les modèles des zones qu'elle sert.
+        foreach (var definition in ModelesParDefaut.Definitions.Where(d => zonesServies.Sert(d.Zone)))
         {
             if (existants.Any(m => m.Code == definition.Code && m.Langue == definition.Langue))
             {
@@ -148,7 +149,7 @@ public sealed class InitialiserModelesParDefaut(IModeleRepository repository, IU
         }
 
         // POR-13 : copie du dossier (SAN-43) et carnet de vaccination (SAN-50), zone médicale, en brouillon.
-        crees += DossierSante.InitialisationModelesDossierSante.Ajouter(existants, repository);
+        crees += DossierSante.InitialisationModelesDossierSante.Ajouter(existants, repository, zonesServies);
 
         if (crees > 0)
         {

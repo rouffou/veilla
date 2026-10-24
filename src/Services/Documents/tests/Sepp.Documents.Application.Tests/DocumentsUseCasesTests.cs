@@ -311,7 +311,7 @@ public class DocumentsUseCasesTests
     public async Task Un_modele_medical_est_valide_par_le_cpmt_dirigeant_et_publie_par_l_administrateur()
     {
         var admin = new Contexte(Roles.AdministrateurFonctionnel);
-        var creer = new CreerModeleHandler(admin.Store, admin.Store, admin.Utilisateur);
+        var creer = new CreerModeleHandler(admin.Store, admin.Store, admin.Utilisateur, admin.Acces);
         var id = (await creer.HandleAsync(new CreerModele("SANTE.TEST", Language.Fr, TypeModele.Formulaire, "medicale", "Test", null, "{{nom}}", [new ChampDto("nom", TypeChamp.Texte, true, "Nom")]), _ct)).Value;
 
         // L'administrateur seul ne peut pas valider un modèle médical.
@@ -335,7 +335,7 @@ public class DocumentsUseCasesTests
     public async Task Un_modele_standard_est_valide_par_l_administrateur_pas_par_un_conseiller()
     {
         var admin = new Contexte(Roles.AdministrateurFonctionnel);
-        var id = (await new CreerModeleHandler(admin.Store, admin.Store, admin.Utilisateur)
+        var id = (await new CreerModeleHandler(admin.Store, admin.Store, admin.Utilisateur, admin.Acces)
             .HandleAsync(new CreerModele("COURRIER.TEST", Language.Fr, TypeModele.Courrier, "standard", "Test", null, "{{nom}}", [new ChampDto("nom", TypeChamp.Texte, true, "Nom")]), _ct)).Value;
         var conseiller = new Contexte(Roles.Cpmt);
         conseiller.Store.Modeles.AddRange(admin.Store.Modeles);
@@ -366,7 +366,7 @@ public class DocumentsUseCasesTests
     public async Task Un_modele_au_contenu_dangereux_est_refuse_a_la_creation()
     {
         var c = new Contexte(Roles.AdministrateurFonctionnel);
-        var creer = new CreerModeleHandler(c.Store, c.Store, c.Utilisateur);
+        var creer = new CreerModeleHandler(c.Store, c.Store, c.Utilisateur, c.Acces);
 
         var resultat = await creer.HandleAsync(new CreerModele("X", Language.Fr, TypeModele.Courrier, "standard", "X", null, "{{Environment.Exit(1)}}", []), _ct);
 
@@ -379,7 +379,7 @@ public class DocumentsUseCasesTests
     {
         var c = new Contexte(Roles.Cpmt);
 
-        var resultat = await new CreerModeleHandler(c.Store, c.Store, c.Utilisateur)
+        var resultat = await new CreerModeleHandler(c.Store, c.Store, c.Utilisateur, c.Acces)
             .HandleAsync(new CreerModele("X", Language.Fr, TypeModele.Courrier, "standard", "X", null, "x", []), _ct);
 
         resultat.Error!.Kind.ShouldBe(ErrorKind.Forbidden);

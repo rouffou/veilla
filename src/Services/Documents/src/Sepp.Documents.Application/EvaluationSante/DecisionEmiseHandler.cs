@@ -3,6 +3,7 @@ using Sepp.BuildingBlocks.Domain;
 using Sepp.Contracts.Decisions;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Documents.Application.Generation;
+using Sepp.Documents.Domain.Commun;
 using Sepp.Documents.Domain.Documents;
 using Sepp.Documents.Domain.Fusion;
 using Sepp.Documents.Domain.Langues;
@@ -61,11 +62,22 @@ public static class LibellesDecision
 /// Si un modèle n'est pas publié dans la langue requise, l'événement échoue (exception) et reste à traiter : le bus le
 /// représente, puis le place en file des messages morts, d'où il est rejoué après publication du modèle.
 /// </remarks>
-public sealed class DecisionEmiseHandler(GenerateurDocuments generateur, IUnitOfWork unitOfWork, IIntegrationEventOutbox outbox)
+public sealed class DecisionEmiseHandler(GenerateurDocuments generateur, IUnitOfWork unitOfWork, IIntegrationEventOutbox outbox, IZonesServies zonesServies)
     : IIntegrationEventHandler<DecisionEmise>
 {
     public const string ServiceProprietaire = "surveillance-medicale";
     public const string ObjetType = "decision";
+
+    /// <summary>
+    /// Zone de chaque exemplaire (décision #356) : l'exemplaire de l'employeur est généré par l'instance standard, ceux du
+    /// travailleur et du dossier de santé par l'instance médicale. Table statique : elle ne dépend pas de la configuration.
+    /// </summary>
+    public static IReadOnlyDictionary<string, ZoneDocument> ZonesDesExemplaires { get; } = new Dictionary<string, ZoneDocument>(StringComparer.Ordinal)
+    {
+        ["employeur"] = ZoneDocument.Standard,
+        ["travailleur"] = ZoneDocument.Medicale,
+        ["dossier"] = ZoneDocument.Medicale,
+    };
 
     public async Task HandleAsync(DecisionEmise integrationEvent, CancellationToken cancellationToken)
     {
@@ -80,6 +92,13 @@ public sealed class DecisionEmiseHandler(GenerateurDocuments generateur, IUnitOf
         var aPublier = new List<Document>();
         foreach (var (exemplaire, code, type, destinataire, publier) in exemplaires)
         {
+            // Chaque instance ne génère que les exemplaires de ses zones ; les autres relèvent de l'instance de leur zone.
+            // Clés d'idempotence par exemplaire : deux instances traitant le même événement ne produisent aucun doublon.
+            if (!zonesServies.Sert(ZonesDesExemplaires[exemplaire]))
+            {
+                continue;
+            }
+
             var resultat = await generateur.GenererAsync(new DemandeGeneration(
                 code, type, destinataire, ServiceProprietaire, ObjetType, integrationEvent.DecisionId,
                 langue => Valeurs(integrationEvent, dateDecision, langue),

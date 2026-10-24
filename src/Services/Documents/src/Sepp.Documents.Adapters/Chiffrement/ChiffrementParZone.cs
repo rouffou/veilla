@@ -30,11 +30,14 @@ public sealed class ChiffrementParZone : IChiffrementDocuments
 
     private readonly Dictionary<ZoneDocument, IFieldKeyProvider> _cles;
 
-    public ChiffrementParZone(IConfiguration configuration)
+    public ChiffrementParZone(IConfiguration configuration, IZonesServies zonesServies)
     {
-        _cles = Zones.Toutes.ToDictionary(z => z, z => (IFieldKeyProvider)new ConfigurationFieldKeyProvider(configuration.GetSection($"Documents:Chiffrement:{z.Code()}")));
+        // Seules les clés des zones servies par l'instance sont chargées (décision #356) : une instance ne détient jamais
+        // la clé d'une autre zone.
+        var servies = Zones.Toutes.Where(zonesServies.Sert).ToList();
+        _cles = servies.ToDictionary(z => z, z => (IFieldKeyProvider)new ConfigurationFieldKeyProvider(configuration.GetSection($"Documents:Chiffrement:{z.Code()}")));
         var empreintes = new Dictionary<string, ZoneDocument>(StringComparer.Ordinal);
-        foreach (var zone in Zones.Toutes)
+        foreach (var zone in servies)
         {
             foreach (var cle in configuration.GetSection($"Documents:Chiffrement:{zone.Code()}:Encryption:Keys").GetChildren())
             {
@@ -51,7 +54,7 @@ public sealed class ChiffrementParZone : IChiffrementDocuments
 
     public ContenuChiffre Chiffrer(ZoneDocument zone, Guid documentId, byte[] clair)
     {
-        var fournisseur = _cles[zone];
+        var fournisseur = Fournisseur(zone);
         var cleId = fournisseur.CurrentKeyId;
         var id = Encoding.UTF8.GetBytes(cleId);
         if (id.Length > byte.MaxValue)
@@ -90,7 +93,7 @@ public sealed class ChiffrementParZone : IChiffrementDocuments
         byte[] cle;
         try
         {
-            cle = _cles[zone].GetKey(cleId);
+            cle = Fournisseur(zone).GetKey(cleId);
         }
         catch (CryptographicException ex)
         {
@@ -111,6 +114,11 @@ public sealed class ChiffrementParZone : IChiffrementDocuments
 
         return clair;
     }
+
+    private IFieldKeyProvider Fournisseur(ZoneDocument zone) =>
+        _cles.TryGetValue(zone, out var fournisseur)
+            ? fournisseur
+            : throw new InvalidOperationException($"La zone {zone.Code()} n'est pas servie par cette instance : aucune clé chargée.");
 
     private static byte[] DonneesAssociees(ZoneDocument zone, Guid documentId, string cleId)
     {

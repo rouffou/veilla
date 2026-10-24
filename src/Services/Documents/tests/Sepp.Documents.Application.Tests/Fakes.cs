@@ -173,6 +173,14 @@ internal sealed class FakeSourceLinguistique : ISourceLinguistique
         Task.FromResult(Informations);
 }
 
+/// <summary>Zones servies par l'instance testée (par défaut les trois, comme en local).</summary>
+internal sealed class FakeZonesServies(params ZoneDocument[] zones) : IZonesServies
+{
+    public IReadOnlyCollection<ZoneDocument> Zones { get; } = zones.Length == 0 ? Sepp.Documents.Domain.Commun.Zones.Toutes : zones;
+
+    public bool Sert(ZoneDocument zone) => Zones.Contains(zone);
+}
+
 internal sealed class FakeHorloge(DateTimeOffset debut) : TimeProvider
 {
     public override DateTimeOffset GetUtcNow() => debut;
@@ -185,15 +193,18 @@ internal sealed class Contexte
     {
     }
 
-    public Contexte(string userId, string[] roles)
+    public Contexte(string userId, string[] roles, params ZoneDocument[] zonesServies)
     {
+        ZonesServies = new FakeZonesServies(zonesServies);
         Horloge = new FakeHorloge(new DateTimeOffset(2026, 10, 5, 8, 0, 0, TimeSpan.Zero));
         Utilisateur = new FakeUser(userId, roles);
-        Acces = new AccesDocuments(Utilisateur, Perimetre);
+        Acces = new AccesDocuments(Utilisateur, Perimetre, ZonesServies);
         Generateur = new GenerateurDocuments(Store, Store, new FakeRendu(), Chiffrement, Stockage, new FakeHorodatage(Horloge), Source, Store, Horloge);
     }
 
     public InMemoryStore Store { get; } = new();
+
+    public FakeZonesServies ZonesServies { get; }
 
     public FakeStockage Stockage { get; } = new();
 

@@ -59,6 +59,9 @@ public sealed class DocumentsApiTests : IAsyncLifetime
             b.UseSetting("Documents:Adaptateurs:Horodatage", "Simulateur");
             b.UseSetting("Documents:Adaptateurs:Signature", "Simulateur");
             b.UseSetting("Documents:Adaptateurs:SourceLinguistique", "Simulateur");
+            b.UseSetting("Documents:Zones:0", "standard");
+            b.UseSetting("Documents:Zones:1", "medicale");
+            b.UseSetting("Documents:Zones:2", "psychosociale");
             b.UseSetting("Documents:Stockage:Type", "Local");
             b.UseSetting("Documents:Stockage:Racine", _racine);
             foreach (var zone in new[] { "standard", "medicale", "psychosociale" })

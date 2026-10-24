@@ -459,9 +459,14 @@ internal static class PublicationTravailleur
 /// <summary>Crée en brouillon les modèles médicaux du portail travailleur absents (au démarrage, idempotent).</summary>
 public static class InitialisationModelesDossierSante
 {
-    public static int Ajouter(IReadOnlyList<Modele> existants, IModeleRepository repository)
+    public static int Ajouter(IReadOnlyList<Modele> existants, IModeleRepository repository, IZonesServies zonesServies)
     {
         var crees = 0;
+        if (!zonesServies.Sert(ZoneDocument.Medicale))
+        {
+            return crees;
+        }
+
         foreach (var d in ModelesDossierSante.Definitions.Where(d => !existants.Any(m => m.Code == d.Code && m.Langue == d.Langue)))
         {
             repository.Add(Modele.Creer(d.Code, d.Langue, TypeModele.Formulaire, ZoneDocument.Medicale, d.Libelle, ModelesDossierSante.Avertissement, d.Contenu, d.Champs));
