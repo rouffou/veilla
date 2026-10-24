@@ -4,6 +4,7 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Contracts;
 using Sepp.SurveillanceMedicale.Domain.Conservation;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
+using Sepp.SurveillanceMedicale.Domain.DemandesCopie;
 using Sepp.SurveillanceMedicale.Domain.Dossiers;
 using Sepp.SurveillanceMedicale.Domain.Examens;
 using Sepp.SurveillanceMedicale.Domain.MaladiesProfessionnelles;
@@ -16,8 +17,21 @@ namespace Sepp.SurveillanceMedicale.Application.Tests;
 
 /// <summary>Adaptateurs en mémoire : la couche application est testée sans infrastructure (ARC-23).</summary>
 internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IDossierSanteRepository, IExamenRepository, IDecisionRepository,
-    IProtocolesRepository, ILotVaccinRepository, IDeclarationMpRepository, ITransfertRepository, IPurgeDossiers, IProjectionRepository
+    IProtocolesRepository, ILotVaccinRepository, IDeclarationMpRepository, ITransfertRepository, IPurgeDossiers, IProjectionRepository,
+    IDemandeCopieRepository
 {
+    public List<DemandeCopieDossier> DemandesCopie { get; } = [];
+
+    Task<DemandeCopieDossier?> IDemandeCopieRepository.GetAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(DemandesCopie.SingleOrDefault(d => d.Id == id));
+
+    public Task<IReadOnlyList<DemandeCopieDossier>> ListerParPersonneAsync(Guid personneId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<DemandeCopieDossier>>([.. DemandesCopie.Where(d => d.PersonneId == personneId)]);
+
+    Task<IReadOnlyList<DemandeCopieDossier>> IDemandeCopieRepository.ListerParStatutAsync(StatutDemandeCopie statut, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<DemandeCopieDossier>>([.. DemandesCopie.Where(d => d.Statut == statut)]);
+
+    public void Add(DemandeCopieDossier demande) => DemandesCopie.Add(demande);
+
     private readonly List<IntegrationEvent> _pending = [];
 
     public List<DossierSante> Dossiers { get; } = [];
@@ -76,6 +90,9 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IDos
     Task<DossierSante?> IDossierSanteRepository.GetAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(Dossiers.SingleOrDefault(d => d.Id == id));
 
     public Task<DossierSante?> GetParPersonneAsync(Guid personneId, CancellationToken cancellationToken) => Task.FromResult(Dossiers.SingleOrDefault(d => d.PersonneId == personneId));
+
+    public Task<DossierSante?> GetParVaccinationAsync(Guid vaccinationId, CancellationToken cancellationToken) =>
+        Task.FromResult(Dossiers.SingleOrDefault(d => d.Vaccinations.Any(v => v.Id == vaccinationId)));
 
     public Task<IReadOnlyList<DossierSante>> ListerRattachesAuGroupeAsync(Guid groupeExpositionId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<DossierSante>>([.. Dossiers.Where(d => d.GroupesExposition.Any(g => g.GroupeExpositionId == groupeExpositionId))]);

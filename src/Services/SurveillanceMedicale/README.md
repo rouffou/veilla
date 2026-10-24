@@ -60,7 +60,7 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
 | SAN-40 | Dossier unique par `personne_id` (index unique), transversal aux employeurs ; parties art. I.4-85 à I.4-87 ; **expositions** alimentées par `MesurageEnregistre` pour les personnes rattachées au groupe d'exposition (`POST /dossiers/{id}/groupes-exposition`), ou saisies |
 | SAN-41 | Pièces jointes (référence `document_id` du service Documents, métadonnées chiffrées) |
 | SAN-42 | Transferts sortants (demande → export chiffré + empreinte → transmission) et entrants (contrôle d'intégrité, intégration) ; port `ICanalTransfertDossier` + simulateur — **canal réel à confirmer** (eHealthBox ou équivalent) |
-| SAN-43 | `GET /dossiers/{id}/export` : export JSON structuré par parties, journalisé comme export (PDF ultérieurement par Documents) |
+| SAN-43 | `GET /dossiers/{id}/export` : export JSON structuré par parties, journalisé comme export. **Droit d'accès du travailleur** (§3.3 « copie sur demande », POR-13) : voir *Copie du dossier et carnet de vaccination* |
 | SAN-44 | Archivage → date de purge = dernière activité + max(`SANTE.DOSSIER.CONSERVATION_MINIMUM` (≥ 15 ans), durées par type d'exposition) ; proposition, **validation humaine** par le CPMT dirigeant (`dossier-sante:purger`, motif), destruction physique (seule suppression physique du service) et **preuve de destruction** (empreinte SHA-256, volume, auteur) ; refus avec prolongation |
 | SAN-50 | Schémas vaccinaux par risque, tests tuberculiniques (pose, lecture), calcul des doses et rappels dus |
 | SAN-51 | Lots par centre (numéro, péremption, quantité), décompte à l'administration, alertes de péremption ; publie `VaccinationAdministree` (l'enregistrement Vaccinnet / e-Vax, SAN-52, est fait par Intégrations) |
@@ -71,7 +71,10 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
 ## Événements
 
 - **Publiés** : `surveillance-medicale.examen-cloture.v1`, `surveillance-medicale.decision-emise.v1`,
-  `surveillance-medicale.vaccination-administree.v1` (contrats existants, ARC-06), et les traces `audit.acces-donnee-sensible.v1`.
+  `surveillance-medicale.vaccination-administree.v1`, `surveillance-medicale.copie-dossier-validee.v1` (ARC-06 : identifiants,
+  dates, codes), et les traces `audit.acces-donnee-sensible.v1`.
+- **Consommé** aussi : `documents.document-publie` (copie publiée au travailleur, objet `demande-copie-dossier` ; filtre de
+  sujet Terraform).
 - **Consommés** (projections idempotentes : inbox + écriture par clé) : `obligations.obligation-creee`,
   `planification.rendez-vous-planifie`, `personnes.affectation-modifiee`, `postes-risques.profil-risque-poste-modifie`,
   `prevention.mesurage-enregistre`, `referentiels.parametre-legal-modifie` (`SANTE.DOSSIER.CONSERVATION_MINIMUM`),
@@ -96,6 +99,33 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
 3. Documents produit le PDF/A en trois exemplaires ; la signature qualifiée a déjà été apposée côté Surveillance
    médicale sur l'empreinte du formulaire (référence `referenceSignature`). Le rattachement du `document_id` produit à la
    décision (`Decision.AssocierDocument`) sera exposé quand le contrat de Documents sera figé.
+
+## Copie du dossier et carnet de vaccination (SAN-43, SAN-50, POR-13)
+
+Le portail travailleur ne lit jamais le dossier : tout contenu médical transmis au travailleur passe par un document
+publié par Documents en zone médicale.
+
+1. **Dépôt** : `POST /api/v1/demandes-copie` (permission `dossier-sante:copie-demander`, rôle `travailleur`, personne du
+   claim `personne_id`, aucun corps). Agrégat `DemandeCopieDossier` (table `demande_copie_dossier`, aucune donnée
+   médicale) ; une seule demande en cours par personne (409 `demande-copie.en-cours`). Date limite = dépôt + délai
+   `SurveillanceMedicale:CopieDossier:DelaiJours` (15 jours calendrier par défaut : le cahier ne fixe pas ce délai, valeur
+   reprise de la loi du 22 août 2002, **à valider**). Suivi : `GET /api/v1/demandes-copie/miennes` (statut `Deposee`,
+   `Validee`, `Publiee`, `Refusee`, retard, motif de refus codé, document publié).
+2. **Traitement par le CPMT** (`dossier-sante:copie-traiter`) : `GET /api/v1/demandes-copie?statut=` (file par date limite),
+   `POST /{id}/validation` (accès au dossier par `GardeDossier` : relation de soin, sinon motif), `POST /{id}/refus`
+   (`AucunDossier`, `IdentiteNonConfirmee`). La validation publie `surveillance-medicale.copie-dossier-validee.v1`
+   (identifiants seulement).
+3. **Transmission à Documents** : `GET /api/v1/demandes-copie/{id}/contenu` (copie validée et non publiée seulement) et
+   `GET /api/v1/vaccinations/{id}/carnet`, réservés au compte technique de Documents (`dossier-sante:transmettre-documents`).
+   La copie reprend les parties du dossier en éléments datés et rubriques codées (`RubriquesCopie`, libellés FR, NL, DE
+   dans Documents) ; les décisions en brouillon et le paquet brut des dossiers reçus en sont exclus. Le carnet ne contient
+   ni remarque ni vaccinateur.
+4. **Publication** : `documents.document-publie.v1` (objet `demande-copie-dossier`) fait passer la demande à `Publiee`.
+5. **Carnet de vaccination** : publié par Documents après chaque `VaccinationAdministree` (événement existant).
+
+Traces (`IAuditTrail`, zone médicale, identifiant du dossier, ou de la demande si la personne n'a pas de dossier) : dépôt
+(`creation`, `dossier-sante.copie`), validation ou refus (`modification`), transmission (`export`, motif SAN-43 ; carnet :
+`export`, `dossier-sante.vaccinations`), publication (`modification`).
 
 ## Lacunes et suites
 

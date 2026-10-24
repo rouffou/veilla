@@ -47,6 +47,7 @@ public static class SurveillanceMedicaleEndpoints
         MapPurges(api.MapGroup("/purges").WithTags("Conservation et purge").RequirePermission(Permissions.DossierSantePurger));
         MapDeclarationsMp(api.MapGroup("/declarations-mp").WithTags("Maladies professionnelles (Fedris)"));
         MapTransferts(api.MapGroup("/transferts").WithTags("Transferts de dossiers"));
+        api.MapDemandesCopie();
 
         api.MapPost("/questionnaires/pre-remplissage", async (PreRemplirQuestionnaire body, ICommandHandler<PreRemplirQuestionnaire, Guid> h, CancellationToken ct) =>
                 (await h.HandleAsync(body, ct)).ToHttpResult(id => Results.Created($"/api/v1/questionnaires/{id}", new { id })))

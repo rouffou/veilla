@@ -35,6 +35,7 @@ builder.Services.AddScoped<EcransQuestionnaires>();
 builder.Services.AddScoped<EcransDocuments>();
 builder.Services.AddScoped<EcransEmployeursEtExamens>();
 builder.Services.AddScoped<EcransAccueil>();
+builder.Services.AddScoped<EcransDossierSante>();
 
 var app = builder.Build();
 

@@ -26,11 +26,14 @@ public sealed class RoutageBusTests
     [Theory]
     [InlineData("obligations.obligation-cloturee.v1", "planification,surveillance-medicale")]
     [InlineData("surveillance-medicale.decision-emise.v1", "documents,obligations")]
-    [InlineData("surveillance-medicale.examen-cloture.v1", "documents,obligations")]
+    // Documents ne reçoit de la Surveillance médicale que les contrats qu'il traite (filtre de sujets, #326).
+    [InlineData("surveillance-medicale.examen-cloture.v1", "obligations")]
+    [InlineData("surveillance-medicale.copie-dossier-validee.v1", "documents,obligations")]
+    [InlineData("surveillance-medicale.vaccination-administree.v1", "documents,obligations")]
     [InlineData("planification.convocation-emise.v1", "communications,obligations,surveillance-medicale")]
     [InlineData("planification.convocation-envoyee.v1", "communications,obligations,surveillance-medicale")]
     [InlineData("communications.message-envoye.v1", "planification")]
-    [InlineData("documents.document-publie.v1", "communications,obligations")]
+    [InlineData("documents.document-publie.v1", "communications,obligations,surveillance-medicale")]
     public void Un_message_est_livre_aux_services_abonnes_a_sa_rubrique(string sujet, string attendus) =>
         BusAvecLesCinqHotes().Destinataires(Message(sujet)).ShouldBe(attendus.Split(','));
 

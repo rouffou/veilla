@@ -166,11 +166,12 @@ public class EvaluationSanteTests
     }
 
     [Fact]
-    public async Task L_initialisation_cree_les_neuf_modeles_de_depart_en_brouillon_une_seule_fois()
+    public async Task L_initialisation_cree_les_quinze_modeles_de_depart_en_brouillon_une_seule_fois()
     {
         var init = new InitialiserModelesParDefaut(_ctx.Store, _ctx.Store);
 
-        (await init.ExecuteAsync(_ct)).ShouldBe(9);
+        // 9 exemplaires du formulaire d'évaluation de santé + copie du dossier et carnet de vaccination (3 langues chacun).
+        (await init.ExecuteAsync(_ct)).ShouldBe(15);
         (await init.ExecuteAsync(_ct)).ShouldBe(0);
 
         _ctx.Store.Modeles.ShouldAllBe(m => m.Statut == StatutModele.Brouillon);

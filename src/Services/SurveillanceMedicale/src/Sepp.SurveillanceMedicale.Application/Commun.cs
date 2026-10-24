@@ -7,6 +7,7 @@ using Sepp.Contracts;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.SurveillanceMedicale.Domain.Conservation;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
+using Sepp.SurveillanceMedicale.Domain.DemandesCopie;
 using Sepp.SurveillanceMedicale.Domain.Dossiers;
 using Sepp.SurveillanceMedicale.Domain.Examens;
 
@@ -29,6 +30,7 @@ public static class PartiesDossier
     public const string Transfert = "transfert";
     public const string Conservation = "conservation";
     public const string Export = "export";
+    public const string Copie = "copie";
 
     public static string TypeObjet(string partie) => $"{Objet}.{partie}";
 }
@@ -138,6 +140,19 @@ public sealed class OptionsSurveillanceMedicale
 
     /// <summary>SAN-34 : délais de concertation et de recours en jours ouvrables (à valider par le département médical).</summary>
     public DelaisRecours DelaisRecours { get; set; } = new();
+
+    /// <summary>SAN-43 : droit d'accès du travailleur (demande de copie du dossier).</summary>
+    public OptionsCopieDossier CopieDossier { get; set; } = new();
+}
+
+/// <summary>
+/// SAN-43, §3.3 « copie sur demande » : délai dans lequel le CPMT traite une demande de copie, en jours calendrier à compter
+/// du dépôt. Le cahier des charges ne le fixe pas : 15 jours par défaut, repris de la loi du 22 août 2002 relative aux
+/// droits du patient (art. 9) — <b>à valider</b> par le service juridique et le département médical.
+/// </summary>
+public sealed class OptionsCopieDossier
+{
+    public int DelaiJours { get; set; } = 15;
 }
 
 /// <summary>Politiques légales alimentées par le service Référentiels (ARC-21, ARC-24) et le calendrier belge (DAT-08).</summary>
@@ -205,6 +220,8 @@ public static class EvenementsIntegration
                 // Catégorie : code partagé Sepp.Contracts.Decisions.CategoriesDecision (conformité testée, #293).
                 DecisionTransmise e => new DecisionEmise(e.DecisionId, e.PersonneId, e.AffilieId, CodesDecision.Code(e.Categorie), [.. e.Mesures], e.ValideJusquAu, e.ExamenId),
                 VaccinationEnregistree e => new VaccinationAdministree(e.VaccinationId, e.PersonneId, e.VaccinCode, e.Dose, e.Date),
+                // SAN-43 : identifiants seulement ; Documents lit le contenu avec son compte technique (ARC-06).
+                CopieDossierValideeLocal e => new CopieDossierValidee(e.DemandeId, e.PersonneId),
                 _ => null,
             };
 

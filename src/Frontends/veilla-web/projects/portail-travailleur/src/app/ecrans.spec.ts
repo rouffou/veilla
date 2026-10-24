@@ -356,7 +356,7 @@ describe('DocumentsPage (POR-13)', () => {
     expect(root.querySelector('table caption')).not.toBeNull();
     expect(root.querySelector('tbody th')?.textContent).toContain('documents.categories.evaluation-sante');
     expect(root.textContent).not.toContain('SANTE.EVALUATION');
-    expect(root.textContent).toContain('documents.notYet');
+    expect(root.textContent).toContain('documents.vaccination');
 
     const crees: Blob[] = [];
     vi.spyOn(URL, 'createObjectURL').mockImplementation((b) => {

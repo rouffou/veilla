@@ -6,15 +6,16 @@ import { BffTravailleurService, ErreurApi, versErreurApi } from '../api/bff-trav
 import { chargeable } from '../ui/chargeable';
 import { DateLocalePipe } from '../ui/date-locale.pipe';
 import { Chargement, ErreurApiMessage } from '../ui/etats';
+import { CopieDossier } from './copie-dossier';
 
 /**
- * POR-13 : documents personnels publiés pour le travailleur (formulaire d'évaluation de santé, exemplaire du travailleur).
- * Le téléchargement passe par le BFF, qui vérifie le destinataire ; le service Documents journalise la lecture (NF-04).
- * Le carnet de vaccination et la demande de copie du dossier (SAN-43) ne sont pas encore offerts : voir l'encart.
+ * POR-13 : documents personnels publiés pour le travailleur (formulaire d'évaluation de santé, carnet de vaccination mis à
+ * jour après chaque vaccination, copie du dossier de santé). Le téléchargement passe par le BFF, qui vérifie le
+ * destinataire ; le service Documents journalise la lecture (NF-04). La demande de copie (SAN-43) se fait plus bas.
  */
 @Component({
   selector: 'app-documents-page',
-  imports: [TranslocoDirective, DateLocalePipe, Chargement, ErreurApiMessage],
+  imports: [TranslocoDirective, DateLocalePipe, Chargement, ErreurApiMessage, CopieDossier],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ng-container *transloco="let t">
@@ -76,8 +77,9 @@ import { Chargement, ErreurApiMessage } from '../ui/etats';
           }
         }
       }
-      <h2>{{ t('documents.notYetTitle') }}</h2>
-      <p>{{ t('documents.notYet') }}</p>
+      <h2>{{ t('documents.vaccinationTitle') }}</h2>
+      <p>{{ t('documents.vaccination') }}</p>
+      <app-copie-dossier />
     </ng-container>
   `,
 })

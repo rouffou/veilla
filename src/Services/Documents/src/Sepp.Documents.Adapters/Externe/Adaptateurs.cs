@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Sepp.BuildingBlocks.Domain;
 using Sepp.Documents.Application;
+using Sepp.Documents.Application.DossierSante;
 using Sepp.Documents.Domain.Langues;
 
 namespace Sepp.Documents.Adapters.Externe;
@@ -133,12 +134,34 @@ internal static class AdaptateursExternes
 {
     public static void AjouterClientsInternes(IServiceCollection services, OptionsServicesInternes adresses, OptionsCompteTechnique compte)
     {
+        AjouterCompteTechnique(services, compte);
+        services.AddHttpClient(ClientsHttp.Affilies, c => c.BaseAddress = adresses.Affilies).AddHttpMessageHandler<JetonTechniqueHandler>();
+        services.AddHttpClient(ClientsHttp.Personnes, c => c.BaseAddress = adresses.Personnes).AddHttpMessageHandler<JetonTechniqueHandler>();
+        services.AddScoped<ISourceLinguistique, SourceLinguistiqueHttp>();
+    }
+
+    /// <summary>
+    /// SAN-43, SAN-50 : la copie du dossier et le carnet de vaccination ne sont lus qu'auprès de la Surveillance médicale
+    /// (aucun simulateur : un contenu médical fictif ne doit jamais être publié à un travailleur). Sans adresse ou sans
+    /// compte technique, la génération échoue et le message est rejoué.
+    /// </summary>
+    public static void AjouterSourceDossierSante(IServiceCollection services, OptionsServicesInternes adresses, OptionsCompteTechnique compte)
+    {
+        AjouterCompteTechnique(services, compte);
+        services.AddHttpClient(ClientsHttp.SurveillanceMedicale, c => c.BaseAddress = adresses.SurveillanceMedicale).AddHttpMessageHandler<JetonTechniqueHandler>();
+        services.AddScoped<ISourceDossierSante, SourceDossierSanteHttp>();
+    }
+
+    private static void AjouterCompteTechnique(IServiceCollection services, OptionsCompteTechnique compte)
+    {
+        if (services.Any(d => d.ServiceType == typeof(FournisseurJetonTechnique)))
+        {
+            return;
+        }
+
         services.AddSingleton(compte);
         services.AddSingleton<FournisseurJetonTechnique>();
         services.AddTransient<JetonTechniqueHandler>();
         services.AddHttpClient(ClientsHttp.JetonOidc);
-        services.AddHttpClient(ClientsHttp.Affilies, c => c.BaseAddress = adresses.Affilies).AddHttpMessageHandler<JetonTechniqueHandler>();
-        services.AddHttpClient(ClientsHttp.Personnes, c => c.BaseAddress = adresses.Personnes).AddHttpMessageHandler<JetonTechniqueHandler>();
-        services.AddScoped<ISourceLinguistique, SourceLinguistiqueHttp>();
     }
 }

@@ -137,7 +137,7 @@
   },
   "documents": {
     "title": "Meine Dokumente",
-    "intro": "Dokumente, die der Dienst Ihnen zur Verfügung stellt.",
+    "intro": "Dokumente, die der Dienst Ihnen zur Verfügung stellt: Formulare zur Gesundheitsbeurteilung, Impfpass und Kopie Ihrer Gesundheitsakte.",
     "empty": "Es ist kein Dokument verfügbar.",
     "caption": "Liste Ihrer Dokumente",
     "name": "Dokument",
@@ -147,9 +147,35 @@
     "download": "Herunterladen",
     "categories": {
       "evaluation-sante": "Formular zur Gesundheitsbeurteilung",
-      "autre": "Anderes Dokument"
+      "autre": "Anderes Dokument",
+      "carnet-vaccination": "Impfpass",
+      "copie-dossier": "Kopie der Gesundheitsakte"
     },
-    "notYetTitle": "Impfpass und Kopie der Akte",
-    "notYet": "Der Impfpass und der Antrag auf eine Kopie Ihrer Gesundheitsakte sind in diesem Portal noch nicht verfügbar: richten Sie Ihren Antrag an den Arbeitsarzt."
+    "vaccinationTitle": "Impfpass",
+    "vaccination": "Ihr Impfpass wird nach jeder Impfung aktualisiert und erscheint in der obigen Liste.",
+    "copy": {
+      "title": "Kopie meiner Gesundheitsakte",
+      "intro": "Sie können eine Kopie Ihrer Gesundheitsakte beantragen. Der Arbeitsarzt bearbeitet Ihren Antrag; die Kopie erscheint anschließend in Ihren Dokumenten.",
+      "submit": "Kopie beantragen",
+      "submitting": "Antrag wird gesendet…",
+      "success": "Ihr Antrag wurde registriert.",
+      "inProgress": "Ein Antrag wird bereits bearbeitet.",
+      "caption": "Verfolgung Ihrer Anträge auf eine Kopie",
+      "requestedOn": "Beantragt am",
+      "deadline": "Bearbeitet spätestens am",
+      "status": "Status",
+      "late": "Frist überschritten",
+      "empty": "Sie haben noch keine Kopie beantragt.",
+      "statuses": {
+        "Deposee": "Wartet auf den Arbeitsarzt",
+        "Validee": "Freigegeben, Kopie in Vorbereitung",
+        "Publiee": "Kopie in Ihren Dokumenten verfügbar",
+        "Refusee": "Abgelehnt"
+      },
+      "refusals": {
+        "AucunDossier": "Es gibt keine Gesundheitsakte auf Ihren Namen.",
+        "IdentiteNonConfirmee": "Ihre Identität konnte nicht bestätigt werden: wenden Sie sich an den Dienst."
+      }
+    }
   }
 }

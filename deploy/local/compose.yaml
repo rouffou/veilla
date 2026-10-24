@@ -383,6 +383,8 @@ services:
       # hors poste de développement, le secret vient de Key Vault).
       Documents__ServicesInternes__Affilies: http://affilies:8080/
       Documents__ServicesInternes__Personnes: http://personnes:8080/
+      # Copie du dossier et carnet de vaccination publiés au travailleur (SAN-43, SAN-50), lus avec le même compte technique.
+      Documents__ServicesInternes__SurveillanceMedicale: http://surveillance-medicale:8080/
       Documents__CompteTechnique__TokenEndpoint: http://keycloak:8080/realms/veilla/protocol/openid-connect/token
       Documents__CompteTechnique__ClientId: veilla-documents
       Documents__CompteTechnique__ClientSecret: documents-local-dev

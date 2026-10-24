@@ -82,7 +82,7 @@ export interface Reponse {
 
 export interface DocumentPersonnel {
   readonly id: string;
-  readonly categorie: 'evaluation-sante' | 'autre';
+  readonly categorie: 'evaluation-sante' | 'carnet-vaccination' | 'copie-dossier' | 'autre';
   readonly codeModele: string;
   readonly langue: string;
   readonly date: string;
@@ -110,6 +110,21 @@ export const TYPES_ACTE = [
   'VISITE_PRE_REPRISE',
   'CONSULTATION_SPONTANEE',
 ] as const;
+
+/**
+ * POR-13, SAN-43 : suivi d'une demande de copie du dossier de santé. Aucun contenu médical : la copie est un document
+ * publié (`documentId`), téléchargé comme les autres documents.
+ */
+export interface DemandeCopie {
+  readonly id: string;
+  readonly deposeeLe: string;
+  readonly dateLimite: string;
+  readonly statut: 'Deposee' | 'Validee' | 'Publiee' | 'Refusee';
+  readonly enRetard: boolean;
+  readonly motifRefus: 'AucunDossier' | 'IdentiteNonConfirmee' | null;
+  readonly documentId: string | null;
+  readonly publieeLe: string | null;
+}
 
 export interface Fichier {
   readonly nom: string;

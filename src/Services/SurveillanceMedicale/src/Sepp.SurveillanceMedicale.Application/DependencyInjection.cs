@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Sepp.BuildingBlocks.Application;
 using Sepp.SurveillanceMedicale.Application.Consultation;
 using Sepp.SurveillanceMedicale.Application.Decisions;
+using Sepp.SurveillanceMedicale.Application.DemandesCopie;
 using Sepp.SurveillanceMedicale.Application.Examens;
 using Sepp.SurveillanceMedicale.Application.MaladiesProfessionnelles;
 using Sepp.SurveillanceMedicale.Application.Protocoles;
@@ -32,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<AccesDeclarationsMp>();
         services.AddScoped<RisquesPersonne>();
         services.AddScoped<ExportDossiers>();
+        services.AddScoped<AccesDemandesCopie>();
         services.AddScoped<InitialiserProtocoles>();
         return services;
     }

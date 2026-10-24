@@ -1,5 +1,6 @@
 using Sepp.SurveillanceMedicale.Domain.Conservation;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
+using Sepp.SurveillanceMedicale.Domain.DemandesCopie;
 using Sepp.SurveillanceMedicale.Domain.Dossiers;
 using Sepp.SurveillanceMedicale.Domain.Examens;
 using Sepp.SurveillanceMedicale.Domain.MaladiesProfessionnelles;
@@ -18,12 +19,27 @@ public interface IDossierSanteRepository
 
     Task<DossierSante?> GetParPersonneAsync(Guid personneId, CancellationToken cancellationToken);
 
+    /// <summary>Dossier qui contient la vaccination (carnet de vaccination, SAN-50).</summary>
+    Task<DossierSante?> GetParVaccinationAsync(Guid vaccinationId, CancellationToken cancellationToken);
+
     /// <summary>Dossiers des personnes rattachées (à une date quelconque) à un groupe d'exposition.</summary>
     Task<IReadOnlyList<DossierSante>> ListerRattachesAuGroupeAsync(Guid groupeExpositionId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<DossierSante>> ListerParStatutAsync(StatutArchivage statut, CancellationToken cancellationToken);
 
     void Add(DossierSante dossier);
+}
+
+/// <summary>SAN-43 : demandes de copie du dossier déposées par les travailleurs (aucune donnée médicale).</summary>
+public interface IDemandeCopieRepository
+{
+    Task<DemandeCopieDossier?> GetAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<DemandeCopieDossier>> ListerParPersonneAsync(Guid personneId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<DemandeCopieDossier>> ListerParStatutAsync(StatutDemandeCopie statut, CancellationToken cancellationToken);
+
+    void Add(DemandeCopieDossier demande);
 }
 
 public interface IExamenRepository

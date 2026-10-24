@@ -678,4 +678,86 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
 
         response.Headers.GetValues("Access-Control-Allow-Origin").ShouldBe(["http://localhost:4202"]);
     }
+
+    // --- POR-13, SAN-43 : demande de copie du dossier ---
+
+    private static object DemandeCopie(Guid id, Guid personne, string statut = "Deposee", Guid? documentId = null) => new
+    {
+        id,
+        personneId = personne,
+        deposeeLe = "2026-10-01T08:00:00Z",
+        dateLimite = "2026-10-16",
+        statut,
+        enRetard = false,
+        traiteeLe = (string?)null,
+        traiteePar = "cpmt-interne",
+        motifRefus = (string?)null,
+        documentId,
+        publieeLe = (string?)null,
+    };
+
+    [Fact]
+    public async Task La_demande_de_copie_est_relayee_avec_le_jeton_sans_corps_ni_identifiant_et_n_est_pas_rejouee()
+    {
+        var id = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.SurveillanceMedicale, "/api/v1/demandes-copie", DemandeCopie(id, _personne), HttpStatusCode.Created, "POST");
+
+        var json = await Json(await Client().PostAsJsonAsync("/api/v1/demandes-copie-dossier", new { personneId = _autrePersonne }, Ct), HttpStatusCode.Created);
+
+        json.GetProperty("id").GetGuid().ShouldBe(id);
+        json.GetProperty("statut").GetString().ShouldBe("Deposee");
+        json.GetRawText().ShouldNotContain("cpmt-interne");
+        var requete = _aval.Requetes.Single();
+        requete.Hote.ShouldBe(ServicesAvalSimules.SurveillanceMedicale);
+        requete.Authorization.ShouldStartWith("Bearer ");
+        requete.Corps.ShouldNotBeNull().ShouldNotContain(_autrePersonne.ToString());
+    }
+
+    [Fact]
+    public async Task Une_demande_deja_en_cours_est_relayee_en_409_sans_rejeu()
+    {
+        _aval.Probleme(ServicesAvalSimules.SurveillanceMedicale, "/api/v1/demandes-copie", HttpStatusCode.Conflict, "demande-copie.en-cours", "POST");
+
+        var probleme = await Json(await Client().PostAsync("/api/v1/demandes-copie-dossier", null, Ct), HttpStatusCode.Conflict);
+
+        probleme.GetProperty("code").GetString().ShouldBe("demande-copie.en-cours");
+        _aval.Requetes.Count(r => r.Methode == "POST").ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Le_suivi_des_demandes_ne_montre_que_celles_de_la_personne_et_jamais_le_dossier()
+    {
+        var document = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.SurveillanceMedicale, "/api/v1/demandes-copie/miennes",
+            new[] { DemandeCopie(Guid.CreateVersion7(), _personne, "Publiee", document), DemandeCopie(Guid.CreateVersion7(), _autrePersonne) });
+
+        var json = await Json(await Client().GetAsync("/api/v1/demandes-copie-dossier", Ct));
+
+        var ligne = json.EnumerateArray().ShouldHaveSingleItem();
+        ligne.GetProperty("documentId").GetGuid().ShouldBe(document);
+        _aval.Requetes.ShouldAllBe(r => !r.Chemin.Contains("/dossiers") && !r.Chemin.Contains("/contenu"));
+    }
+
+    [Fact]
+    public async Task Sans_personne_dans_le_jeton_la_demande_de_copie_est_refusee_sans_appel_aval()
+    {
+        var response = await Client(Jeton("travailleur")).PostAsync("/api/v1/demandes-copie-dossier", null, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        _aval.Requetes.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task La_copie_et_le_carnet_publies_apparaissent_dans_mes_documents_avec_leur_categorie()
+    {
+        _aval.Repondre(ServicesAvalSimules.Documents, "/api/v1/documents", new[]
+        {
+            Document(Guid.CreateVersion7(), _personne, code: "SANTE.COPIE_DOSSIER"),
+            Document(Guid.CreateVersion7(), _personne, code: "SANTE.CARNET_VACCINATION"),
+        });
+
+        var json = await Json(await Client().GetAsync("/api/v1/documents", Ct));
+
+        json.EnumerateArray().Select(d => d.GetProperty("categorie").GetString()).Order().ShouldBe(["carnet-vaccination", "copie-dossier"]);
+    }
 }

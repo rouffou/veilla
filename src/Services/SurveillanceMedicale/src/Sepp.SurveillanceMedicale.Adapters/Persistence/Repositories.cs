@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Sepp.SurveillanceMedicale.Application;
 using Sepp.SurveillanceMedicale.Domain.Conservation;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
+using Sepp.SurveillanceMedicale.Domain.DemandesCopie;
 using Sepp.SurveillanceMedicale.Domain.Dossiers;
 using Sepp.SurveillanceMedicale.Domain.Examens;
 using Sepp.SurveillanceMedicale.Domain.MaladiesProfessionnelles;
@@ -21,6 +22,9 @@ internal sealed class DossierSanteRepository(SurveillanceMedicaleDbContext db) :
     public Task<DossierSante?> GetParPersonneAsync(Guid personneId, CancellationToken cancellationToken) =>
         db.Dossiers.AsSplitQuery().SingleOrDefaultAsync(d => d.PersonneId == personneId, cancellationToken);
 
+    public Task<DossierSante?> GetParVaccinationAsync(Guid vaccinationId, CancellationToken cancellationToken) =>
+        db.Dossiers.AsSplitQuery().SingleOrDefaultAsync(d => d.Vaccinations.Any(v => v.Id == vaccinationId), cancellationToken);
+
     public async Task<IReadOnlyList<DossierSante>> ListerRattachesAuGroupeAsync(Guid groupeExpositionId, CancellationToken cancellationToken) =>
         await db.Dossiers.AsSplitQuery().Where(d => d.GroupesExposition.Any(g => g.GroupeExpositionId == groupeExpositionId)).ToListAsync(cancellationToken);
 
@@ -28,6 +32,20 @@ internal sealed class DossierSanteRepository(SurveillanceMedicaleDbContext db) :
         await db.Dossiers.AsSplitQuery().Where(d => d.StatutArchivage == statut).ToListAsync(cancellationToken);
 
     public void Add(DossierSante dossier) => db.Dossiers.Add(dossier);
+}
+
+internal sealed class DemandeCopieRepository(SurveillanceMedicaleDbContext db) : IDemandeCopieRepository
+{
+    public Task<DemandeCopieDossier?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        db.DemandesCopie.SingleOrDefaultAsync(d => d.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<DemandeCopieDossier>> ListerParPersonneAsync(Guid personneId, CancellationToken cancellationToken) =>
+        await db.DemandesCopie.Where(d => d.PersonneId == personneId).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<DemandeCopieDossier>> ListerParStatutAsync(StatutDemandeCopie statut, CancellationToken cancellationToken) =>
+        await db.DemandesCopie.Where(d => d.Statut == statut).ToListAsync(cancellationToken);
+
+    public void Add(DemandeCopieDossier demande) => db.DemandesCopie.Add(demande);
 }
 
 internal sealed class ExamenRepository(SurveillanceMedicaleDbContext db) : IExamenRepository

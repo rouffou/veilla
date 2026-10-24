@@ -12,6 +12,7 @@ using Sepp.Documents.Adapters.Persistence;
 using Sepp.Documents.Adapters.Securite;
 using Sepp.Documents.Adapters.Stockage;
 using Sepp.Documents.Application;
+using Sepp.Documents.Application.DossierSante;
 using Sepp.Documents.Application.EvaluationSante;
 
 namespace Sepp.Documents.Adapters;
@@ -43,6 +44,11 @@ public static class DependencyInjection
 
         // Saga de reprise (§14.6 étape 5) : un formulaire d'évaluation de santé par décision émise (ARC-31).
         services.AddIntegrationEventHandler<DecisionEmise, DecisionEmiseHandler>();
+
+        // POR-13 : copie du dossier validée par le CPMT (SAN-43) et carnet de vaccination après chaque dose (SAN-50),
+        // publiés au travailleur en zone médicale ; contenu lu auprès de la Surveillance médicale (compte technique).
+        services.AddIntegrationEventHandler<CopieDossierValidee, CopieDossierValideeHandler>();
+        services.AddIntegrationEventHandler<VaccinationAdministree, VaccinationAdministreeHandler>();
         services.AddSeppConsumer<DocumentsDbContext>(configuration);
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -94,18 +100,23 @@ public static class DependencyInjection
                 break;
         }
 
+        var adresses = configuration.GetSection("Documents:ServicesInternes").Get<OptionsServicesInternes>() ?? new OptionsServicesInternes();
+        var compte = configuration.GetSection("Documents:CompteTechnique").Get<OptionsCompteTechnique>() ?? new OptionsCompteTechnique();
+
+        // En Azure, Terraform injecte SEPP__SERVICES__<NOM> (infra/main.tf, service_urls) : repli sur cette clé.
+        adresses.SurveillanceMedicale ??= Uri.TryCreate(configuration["Sepp:Services:Surveillance_Medicale"], UriKind.Absolute, out var sm) ? sm : null;
+
         switch (Choix(configuration, "SourceLinguistique"))
         {
             case Simulateur:
                 services.AddSingleton<ISourceLinguistique, SourceLinguistiqueSimulee>();
                 break;
             default:
-                AdaptateursExternes.AjouterClientsInternes(
-                    services,
-                    configuration.GetSection("Documents:ServicesInternes").Get<OptionsServicesInternes>() ?? new OptionsServicesInternes(),
-                    configuration.GetSection("Documents:CompteTechnique").Get<OptionsCompteTechnique>() ?? new OptionsCompteTechnique());
+                AdaptateursExternes.AjouterClientsInternes(services, adresses, compte);
                 break;
         }
+
+        AdaptateursExternes.AjouterSourceDossierSante(services, adresses, compte);
     }
 
     private static string Choix(IConfiguration configuration, string port)

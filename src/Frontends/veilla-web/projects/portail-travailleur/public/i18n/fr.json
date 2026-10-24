@@ -137,7 +137,7 @@
   },
   "documents": {
     "title": "Mes documents",
-    "intro": "Documents mis à votre disposition par le SEPP.",
+    "intro": "Documents mis à votre disposition par le SEPP : formulaires d'évaluation de santé, carnet de vaccination et copie de votre dossier de santé.",
     "empty": "Aucun document n'est disponible.",
     "caption": "Liste de vos documents",
     "name": "Document",
@@ -147,9 +147,35 @@
     "download": "Télécharger",
     "categories": {
       "evaluation-sante": "Formulaire d'évaluation de santé",
-      "autre": "Autre document"
+      "autre": "Autre document",
+      "carnet-vaccination": "Carnet de vaccination",
+      "copie-dossier": "Copie du dossier de santé"
     },
-    "notYetTitle": "Carnet de vaccination et copie du dossier",
-    "notYet": "Le carnet de vaccination et la demande de copie de votre dossier de santé ne sont pas encore disponibles dans ce portail : adressez votre demande au médecin du travail."
+    "vaccinationTitle": "Carnet de vaccination",
+    "vaccination": "Votre carnet de vaccination est mis à jour après chaque vaccination et apparaît dans la liste ci-dessus.",
+    "copy": {
+      "title": "Copie de mon dossier de santé",
+      "intro": "Vous pouvez demander une copie de votre dossier de santé. Le médecin du travail traite votre demande ; la copie apparaît ensuite dans vos documents.",
+      "submit": "Demander une copie",
+      "submitting": "Envoi de la demande…",
+      "success": "Votre demande a été enregistrée.",
+      "inProgress": "Une demande est déjà en cours de traitement.",
+      "caption": "Suivi de vos demandes de copie",
+      "requestedOn": "Demandée le",
+      "deadline": "Traitée au plus tard le",
+      "status": "Statut",
+      "late": "Délai dépassé",
+      "empty": "Vous n'avez fait aucune demande de copie.",
+      "statuses": {
+        "Deposee": "En attente du médecin du travail",
+        "Validee": "Validée, copie en préparation",
+        "Publiee": "Copie disponible dans vos documents",
+        "Refusee": "Refusée"
+      },
+      "refusals": {
+        "AucunDossier": "Aucun dossier de santé n'existe à votre nom.",
+        "IdentiteNonConfirmee": "Votre identité n'a pas pu être confirmée : contactez le SEPP."
+      }
+    }
   }
 }

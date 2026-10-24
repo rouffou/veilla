@@ -22,6 +22,7 @@ using Sepp.Contracts.Decisions;
 using Sepp.Contracts.Documents;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Documents.Adapters.Persistence;
+using Sepp.Documents.Application.DossierSante;
 using Sepp.Documents.Application.EvaluationSante;
 
 using Shouldly;
@@ -43,6 +44,7 @@ public sealed class DocumentsApiTests : IAsyncLifetime
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17-alpine").Build();
     private readonly string _racine = Path.Combine(Path.GetTempPath(), "sepp-documents-tests", Guid.NewGuid().ToString("N"));
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
+    private readonly SourceDossierSanteSimulee _source = new();
     private WebApplicationFactory<Program> _factory = null!;
 
     public async ValueTask InitializeAsync()
@@ -67,6 +69,8 @@ public sealed class DocumentsApiTests : IAsyncLifetime
 
             b.ConfigureTestServices(s =>
             {
+                // SAN-43, SAN-50 : la Surveillance médicale est simulée au niveau du port (contenu fourni par le test).
+                s.AddSingleton<ISourceDossierSante>(_source);
                 s.AddAuthentication(TestAuth.Name).AddScheme<AuthenticationSchemeOptions, TestAuth>(TestAuth.Name, _ => { });
                 s.PostConfigure<AuthenticationOptions>(o =>
                 {
@@ -363,6 +367,65 @@ public sealed class DocumentsApiTests : IAsyncLifetime
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<DocumentsDbContext>();
         (await db.Documents.CountAsync(d => d.ObjetId == decision.DecisionId, _ct)).ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task Une_copie_validee_est_publiee_au_travailleur_en_zone_medicale_et_lui_seul_la_telecharge()
+    {
+        const string Anamnese = "Bronchite-Zorglub-tenace";
+
+        // Modèles de départ en brouillon : la validation d'un modèle médical revient au CPMT dirigeant (DOC-01).
+        var modeles = await Client(Roles.AdministrateurFonctionnel).GetFromJsonAsync<JsonElement>($"/api/v1/modeles?code={ModelesDossierSante.CodeCopie}", Json, _ct);
+        modeles.GetArrayLength().ShouldBe(3);
+        foreach (var modele in modeles.EnumerateArray())
+        {
+            modele.GetProperty("zone").GetString().ShouldBe("medicale");
+            modele.GetProperty("statut").GetString().ShouldBe("Brouillon");
+            var id = modele.GetProperty("id").GetGuid();
+            (await Client(Roles.AdministrateurFonctionnel).PostAsync($"/api/v1/modeles/{id}/validation", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+            (await Client(Roles.CpmtDirigeant).PostAsync($"/api/v1/modeles/{id}/validation", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+            (await Client(Roles.AdministrateurFonctionnel).PostAsync($"/api/v1/modeles/{id}/publication", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        }
+
+        var demande = Guid.CreateVersion7();
+        _source.Copies[demande] = new CopieDossierMedicale(demande, Personne, new DateOnly(2020, 1, 15), DateTimeOffset.UtcNow,
+            [], [new ElementCopie(new DateOnly(2026, 3, 2), "EVALUATION_PERIODIQUE", [new RubriqueCopie("ANAMNESE", Anamnese)])], [], [], [], [], [], []);
+        var payload = JsonSerializer.Serialize(new CopieDossierValidee(demande, Personne), EventSerialization.Options);
+        var dispatcher = _factory.Services.GetRequiredService<IntegrationEventDispatcher<DocumentsDbContext>>();
+        (await dispatcher.DispatchAsync(Guid.CreateVersion7(), EventContractAttribute.Of(typeof(CopieDossierValidee)).FullName, payload, _ct)).ShouldBe(1);
+
+        var travailleur = ClientDe("travailleur-1", Personne, null, Roles.Travailleur);
+        var documents = await travailleur.GetFromJsonAsync<JsonElement>($"/api/v1/documents?typeDestinataire=Personne&destinataireId={Personne}", Json, _ct);
+        var copie = documents.EnumerateArray().Single(d => d.GetProperty("codeModele").GetString() == ModelesDossierSante.CodeCopie);
+        copie.GetProperty("zone").GetString().ShouldBe("medicale");
+        var copieId = copie.GetProperty("id").GetGuid();
+        var pdf = await travailleur.GetAsync($"/api/v1/documents/{copieId}/contenu", _ct);
+        pdf.StatusCode.ShouldBe(HttpStatusCode.OK);
+        pdf.Content.Headers.ContentType!.MediaType.ShouldBe("application/pdf");
+
+        (await ClientDe("travailleur-2", Guid.CreateVersion7(), null, Roles.Travailleur).GetAsync($"/api/v1/documents/{copieId}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await ClientDe("employeur-1", null, Affilie, Roles.Employeur).GetAsync($"/api/v1/documents/{copieId}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await Client(Roles.GestionnaireDossiers).GetAsync($"/api/v1/documents/{copieId}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        await Eventually(() => Publies.Any(m => m.EventType == "documents.document-publie.v1" && m.Payload.Contains(demande.ToString(), StringComparison.Ordinal)));
+        Publies.ShouldAllBe(m => !m.Payload.Contains(Anamnese, StringComparison.Ordinal));
+        await Eventually(() => Publies.Count(m => m.EventType == "audit.acces-donnee-sensible.v1" && m.Payload.Contains(copieId.ToString(), StringComparison.Ordinal)
+                                                  && m.Payload.Contains("\"medicale\"", StringComparison.Ordinal)) >= 3);
+
+        // Le contenu n'est jamais en base en clair : seul le stockage chiffré le porte.
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<DocumentsDbContext>();
+        (await db.Database.SqlQueryRaw<int>("SELECT count(*)::int AS \"Value\" FROM document d WHERE d::text ILIKE {0}", $"%{Anamnese}%").SingleAsync(_ct)).ShouldBe(0);
+    }
+
+    private sealed class SourceDossierSanteSimulee : ISourceDossierSante
+    {
+        public System.Collections.Concurrent.ConcurrentDictionary<Guid, CopieDossierMedicale> Copies { get; } = new();
+
+        public Task<CopieDossierMedicale> ObtenirCopieAsync(Guid demandeId, CancellationToken cancellationToken) =>
+            Copies.TryGetValue(demandeId, out var copie) ? Task.FromResult(copie) : throw new InvalidOperationException("Copie non validée.");
+
+        public Task<CarnetVaccination?> ObtenirCarnetAsync(Guid vaccinationId, CancellationToken cancellationToken) => Task.FromResult<CarnetVaccination?>(null);
     }
 
     /// <summary>Authentification de test : rôles, utilisateur et périmètre passés dans des en-têtes.</summary>
