@@ -32,7 +32,7 @@ Même code et même image, **une instance par zone qui produit des documents** (
   `surveillance-medicale.copie-dossier-validee.v1` (copie validée par le CPMT) et `surveillance-medicale.vaccination-administree.v1`
   (carnet mis à jour **après chaque vaccination** : l'événement existe, aucune demande ni route d'écriture supplémentaire, et le
   travailleur a toujours la dernière version). Le contenu n'est jamais dans l'événement (ARC-06) : il est lu auprès de la
-  Surveillance médicale par le port `ISourceDossierSante` avec le compte technique (`dossier-sante:transmettre-documents`,
+  Surveillance médicale par le port `ISourceDossierSante` avec le compte technique de l'instance médicale (rôle `documents-medicale`, permission `dossier-sante:transmettre-documents` ; l'instance standard, rôle `documents`, ne l'a pas ; en local, le compte `veilla-documents` porte aussi ce rôle),
   `Documents:ServicesInternes:SurveillanceMedicale`, à défaut `SEPP__SERVICES__SURVEILLANCE_MEDICALE`, sans simulateur : aucun
   contenu médical fictif n'est publié), fusionné dans les modèles `SANTE.COPIE_DOSSIER` et `SANTE.CARNET_VACCINATION` (zone
   médicale, FR, NL, DE), archivé avec la clé de la zone médicale et publié au travailleur (`DocumentPublie`, objets
