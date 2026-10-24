@@ -4,6 +4,7 @@ using Sepp.Audit.Adapters;
 using Sepp.Audit.Adapters.Api;
 using Sepp.Audit.Adapters.Persistence;
 using Sepp.Audit.Application;
+using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Web;
 
 // Racine de composition du service Audit (couche Infrastructure, §14.5) : journal infalsifiable des accès (NF-04).
@@ -13,7 +14,7 @@ builder.AddSeppServiceDefaults("audit");
 builder.Services.AddAuditApplication();
 builder.Services.AddAuditAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
-    .AddNpgSql(builder.Configuration.GetConnectionString(Sepp.Audit.Adapters.DependencyInjection.ConnectionStringName)!, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
+    .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.Audit.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
 var app = builder.Build();
 

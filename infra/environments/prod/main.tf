@@ -71,6 +71,11 @@ module "sepp" {
   document_immutability_locked          = var.document_immutability_locked
   managed_hsm_enabled                   = var.managed_hsm_enabled
   managed_hsm_admin_object_ids          = var.managed_hsm_admin_object_ids
+  encryption_key_ids                    = var.encryption_key_ids
+  entra_tenant_id                       = var.entra_tenant_id
+  authentication_audience               = var.authentication_audience
+  technical_account_client_ids          = var.technical_account_client_ids
+  adapter_mode                          = var.adapter_mode
   log_retention_days                    = var.log_retention_days
   alert_email                           = var.alert_email
   apim_sku_name                         = var.apim_sku_name

@@ -103,6 +103,9 @@ public static class DependencyInjection
     private static string Choix(IConfiguration configuration, string systeme)
     {
         var valeur = configuration[$"Planification:Adaptateurs:{systeme}"];
+
+        // Les deux adaptateurs réels sont des squelettes : refusés hors production.
+        GardeAdaptateurs.RefuserReelNonImplementeHorsProduction(configuration, $"Planification:Adaptateurs:{systeme}", valeur, reelImplemente: false);
         return valeur switch
         {
             Simulateur or Reel => valeur,

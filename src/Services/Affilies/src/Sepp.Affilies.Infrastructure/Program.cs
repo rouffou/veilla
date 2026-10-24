@@ -4,6 +4,7 @@ using Sepp.Affilies.Adapters;
 using Sepp.Affilies.Adapters.Api;
 using Sepp.Affilies.Adapters.Persistence;
 using Sepp.Affilies.Application;
+using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Web;
 
 // Racine de composition du service Affiliés (couche Infrastructure, §14.5).
@@ -13,7 +14,7 @@ builder.AddSeppServiceDefaults("affilies");
 builder.Services.AddAffiliesApplication();
 builder.Services.AddAffiliesAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
-    .AddNpgSql(builder.Configuration.GetConnectionString(Sepp.Affilies.Adapters.DependencyInjection.ConnectionStringName)!, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
+    .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.Affilies.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
 var app = builder.Build();
 

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
+using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Web;
 using Sepp.Documents.Adapters;
 using Sepp.Documents.Adapters.Api;
@@ -14,7 +15,7 @@ builder.AddSeppServiceDefaults("documents");
 builder.Services.AddDocumentsApplication();
 builder.Services.AddDocumentsAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
-    .AddNpgSql(builder.Configuration.GetConnectionString(Sepp.Documents.Adapters.DependencyInjection.ConnectionStringName)!, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
+    .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.Documents.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
 var app = builder.Build();
 

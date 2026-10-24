@@ -85,6 +85,18 @@ variable "tags" {
 # - http_concurrency : seuil de la règle KEDA HTTP ; queue_scaling / message_count : règles KEDA Service Bus (CTR-13) ;
 # - image : image complète (sinon <acr>/sepp/<service>:<image_tag>) ;
 # - key_vault_secrets : variables alimentées par des secrets du Key Vault de la zone, nom -> nom du secret (CTR-16).
+#   Le nom de la variable d'environnement est le nom de l'application en majuscules, « - » devenant « _ »
+#   (ex. blindindex--key -> BLINDINDEX__KEY) ;
+# - compte_technique : préfixe de configuration du compte technique OIDC du service (client credentials), par ex.
+#   Affilies__CompteTechnique. Terraform injecte <préfixe>__TokenEndpoint, __ClientId (var.technical_account_client_ids)
+#   et __Scope, et référence le secret <préfixe>__ClientSecret du Key Vault de la zone (secret à créer hors dépôt) ;
+# - internal_services : clé de configuration -> service appelé ; la valeur injectée est l'adresse interne du service ;
+# - encryption : préfixe de configuration d'un jeu de clés de chiffrement applicatif (ARC-45) -> zone du Key Vault qui
+#   porte les clés. Terraform injecte <préfixe>__CurrentKeyId et référence un secret <préfixe>__Keys__<id> par
+#   identifiant de var.encryption_key_ids (secrets à créer hors dépôt). Les clés d'une autre zone que celle du service
+#   donnent à son identité le rôle Key Vault Secrets User sur ce coffre (à valider, ARC-04) ;
+# - adapters : clés de configuration <Section>__Adaptateurs__<Port> du choix Reel / Simulateur ; la valeur injectée est
+#   var.adapter_mode (Simulateur partout hors production, ARC-05, NF-14).
 variable "services" {
   description = "Catalogue des microservices (zone, ressources, mise à l'échelle, base de données, événements). Voir le commentaire ci-dessus."
   type = map(object({
@@ -102,6 +114,10 @@ variable "services" {
     message_count     = optional(number, 20)
     image             = optional(string)
     key_vault_secrets = optional(map(string), {})
+    compte_technique  = optional(string)
+    internal_services = optional(map(string), {})
+    encryption        = optional(map(string), {})
+    adapters          = optional(list(string), [])
   }))
   default = {
     # --- Zone plateforme : BFF (ARC-43) et identité (ARC-40) ---
@@ -120,8 +136,18 @@ variable "services" {
       database        = true
       subscribes_to   = ["integrations"]
       subject_filters = { integrations = ["integrations.donnees-bce-recues.v1"] }
+      # AFF-01, AFF-02, INT-04 : lecture des données d'entreprise chez Intégrations avec le compte technique du service.
+      compte_technique  = "Affilies__CompteTechnique"
+      internal_services = { Affilies__ServicesInternes__Integrations = "integrations" }
     }
-    "personnes" = { zone = "standard", database = true, subscribes_to = ["integrations", "affilies"] }
+    "personnes" = {
+      zone          = "standard"
+      database      = true
+      subscribes_to = ["integrations", "affilies"]
+      # ARC-45, DAT-06 : clés de chiffrement des champs sensibles et clé de l'index aveugle du NISS.
+      encryption        = { Encryption = "standard" }
+      key_vault_secrets = { "blindindex--key" = "blindindex--key" }
+    }
     "postes-risques" = {
       zone          = "standard"
       database      = true
@@ -143,6 +169,7 @@ variable "services" {
       zone          = "standard"
       database      = true
       subscribes_to = ["obligations", "referentiels", "communications"]
+      adapters      = ["Planification__Adaptateurs__OutilRh", "Planification__Adaptateurs__AgendaExterne"]
     }
     "prevention"  = { zone = "standard", database = true, subscribes_to = ["affilies", "postes-risques", "bff-employeur"] }
     "prestations" = { zone = "standard", database = true, subscribes_to = ["planification", "prevention", "surveillance-medicale", "reintegration", "psychosocial"] }
@@ -160,6 +187,24 @@ variable "services" {
           "surveillance-medicale.vaccination-administree.v1",
         ]
       }
+      # NF-41 : langue des documents lue chez Affiliés et Personnes (compte technique).
+      compte_technique = "Documents__CompteTechnique"
+      internal_services = {
+        Documents__ServicesInternes__Affilies             = "affilies"
+        Documents__ServicesInternes__Personnes            = "personnes"
+        Documents__ServicesInternes__SurveillanceMedicale = "surveillance-medicale"
+      }
+      # §14.3, ARC-45 : une clé par zone de sensibilité, dans le Key Vault de la zone (Documents lit les trois).
+      encryption = {
+        Documents__Chiffrement__standard__Encryption      = "standard"
+        Documents__Chiffrement__medicale__Encryption      = "medicale"
+        Documents__Chiffrement__psychosociale__Encryption = "psychosociale"
+      }
+      adapters = [
+        "Documents__Adaptateurs__Horodatage",
+        "Documents__Adaptateurs__Signature",
+        "Documents__Adaptateurs__SourceLinguistique",
+      ]
     }
     "communications" = {
       zone          = "standard"
@@ -167,12 +212,38 @@ variable "services" {
       subscribes_to = ["planification", "documents", "audit"]
       # Seul le bris de glace intéresse Communications sur le topic partagé « audit » (NF-04).
       subject_filters = { audit = ["audit.bris-de-glace-signale.v1"] }
+      # DOC-03 : coordonnées et langue des destinataires lues chez Affiliés et Personnes (compte technique).
+      compte_technique = "Communications__CompteTechnique"
+      internal_services = {
+        Communications__ServicesInternes__Affilies  = "affilies"
+        Communications__ServicesInternes__Personnes = "personnes"
+      }
+      adapters = [
+        "Communications__Adaptateurs__Annuaire",
+        "Communications__Adaptateurs__Portail",
+        "Communications__Adaptateurs__Email",
+        "Communications__Adaptateurs__Sms",
+        "Communications__Adaptateurs__Courrier",
+        "Communications__Adaptateurs__RecommandeElectronique",
+        "Communications__Adaptateurs__EBoxEntreprise",
+        "Communications__Adaptateurs__EBoxCitoyen",
+      ]
     }
     "integrations" = {
       zone     = "standard"
       database = true
       # affilies : seul abonnement avec gestionnaire (AffilieCree, AffilieModifie) ; prestations n'est pas encore écrit.
       subscribes_to = ["affilies", "prestations"]
+      # INT-04 : appel du service Personnes (flux DIMONA) avec le compte technique ; chiffrement des charges utiles (ARC-45).
+      compte_technique  = "Integrations__Personnes"
+      internal_services = { Integrations__Personnes__BaseAddress = "personnes" }
+      encryption        = { Encryption = "standard" }
+      adapters = [
+        "Integrations__Adaptateurs__Bce",
+        "Integrations__Adaptateurs__Dimona",
+        "Integrations__Adaptateurs__RegistreNational",
+        "Integrations__Adaptateurs__Incapacites",
+      ]
     }
     "referentiels" = { zone = "standard", database = true }
     "reporting" = {
@@ -204,6 +275,9 @@ variable "services" {
         personnes = ["personnes.affectation-modifiee.v1"]
         documents = ["documents.document-publie.v1"]
       }
+      # ARC-04, ARC-45 : clés propres à la zone médicale (Key Vault Premium / HSM de la zone), jamais partagées.
+      # Pas d'adaptateur « Reel » : seuls les simulateurs existent, fixés par appsettings.json (le service refuse le reste).
+      encryption = { ZoneMedicale__Encryption = "medicale" }
     }
     "reintegration" = {
       zone          = "medicale"
@@ -216,6 +290,9 @@ variable "services" {
         planification = ["planification.absence-rendez-vous-constatee.v1"]
         referentiels  = ["referentiels.parametre-legal-modifie.v1", "referentiels.jours-feries-modifies.v1"]
       }
+      # ARC-04, ARC-45 : clés propres à la zone médicale, jamais partagées. SAN-64 : canal eHealth (squelette, INT-04).
+      encryption = { ZoneMedicale__Encryption = "medicale" }
+      adapters   = ["Reintegration__Adaptateurs__EHealth"]
     }
 
     # --- Zone psychosociale (ARC-04) ---
@@ -392,6 +469,68 @@ variable "managed_hsm_admin_object_ids" {
   validation {
     condition     = !var.managed_hsm_enabled || length(var.managed_hsm_admin_object_ids) > 0
     error_message = "Au moins un administrateur est requis lorsque managed_hsm_enabled vaut true."
+  }
+}
+
+variable "encryption_key_ids" {
+  description = "Identifiants des clés de chiffrement applicatif (ARC-45) : le premier est la clé courante (CurrentKeyId), les suivants sont les anciennes clés conservées pour déchiffrer pendant la rotation. Un secret Key Vault <préfixe>--keys--<id en minuscules> doit exister dans chaque zone concernée (infra/README.md). Identifiants en majuscules et chiffres : les variables d'environnement sont en majuscules."
+  type        = list(string)
+  default     = ["K1"]
+
+  validation {
+    condition     = length(var.encryption_key_ids) > 0 && alltrue([for id in var.encryption_key_ids : can(regex("^[A-Z0-9]{1,16}$", id))])
+    error_message = "encryption_key_ids doit contenir au moins un identifiant de 1 à 16 caractères parmi A-Z et 0-9."
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Identité et adaptateurs externes (ARC-40, ARC-05, NF-14)
+# -----------------------------------------------------------------------------
+
+variable "entra_tenant_id" {
+  description = "Identifiant du tenant Microsoft Entra de l'environnement : émetteur des jetons (Authentication__Authority) et point de jeton des comptes techniques. Identifiant public, pas un secret."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.entra_tenant_id))
+    error_message = "entra_tenant_id doit être un GUID."
+  }
+}
+
+variable "authentication_audience" {
+  description = "Audience des jetons acceptés par les services de l'environnement (Authentication__Audience), par ex. api://sepp-dev. Les comptes techniques demandent la portée <audience>/.default."
+  type        = string
+
+  validation {
+    condition     = length(trimspace(var.authentication_audience)) > 0
+    error_message = "authentication_audience ne peut pas être vide."
+  }
+}
+
+variable "technical_account_client_ids" {
+  description = "Identifiant client (public) du compte technique OIDC de chaque service qui en déclare un (compte_technique), par nom de service. Le secret du compte est dans le Key Vault de la zone, jamais ici."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for n, s in var.services : s.compte_technique == null || contains(keys(var.technical_account_client_ids), n)])
+    error_message = "technical_account_client_ids doit fournir l'identifiant client de chaque service qui déclare un compte_technique dans var.services."
+  }
+}
+
+variable "adapter_mode" {
+  description = "Choix des adaptateurs externes des services (Simulateur ou Reel) : Simulateur partout hors production. Reel n'est accepté qu'en production ; les services refusent au démarrage un adaptateur Reel non implémenté hors production."
+  type        = string
+  default     = "Simulateur"
+
+  validation {
+    condition     = contains(["Simulateur", "Reel"], var.adapter_mode)
+    error_message = "adapter_mode doit valoir Simulateur ou Reel."
+  }
+
+  validation {
+    condition     = var.adapter_mode == "Simulateur" || var.environment == "prod"
+    error_message = "Les adaptateurs Reel ne sont autorisés qu'en production : utiliser Simulateur dans les autres environnements."
   }
 }
 

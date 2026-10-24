@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
+using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Web;
 using Sepp.Reintegration.Adapters;
 using Sepp.Reintegration.Adapters.Api;
@@ -14,7 +15,7 @@ builder.Services.AddReintegrationApplication(
     builder.Configuration.GetSection("Reintegration").Get<OptionsReintegration>() ?? new OptionsReintegration());
 builder.Services.AddReintegrationAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
-    .AddNpgSql(builder.Configuration.GetConnectionString(Sepp.Reintegration.Adapters.DependencyInjection.ConnectionStringName)!, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
+    .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.Reintegration.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
 var app = builder.Build();
 

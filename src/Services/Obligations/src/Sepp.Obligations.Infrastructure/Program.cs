@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
+using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Web;
 using Sepp.Obligations.Adapters;
 using Sepp.Obligations.Adapters.Api;
@@ -13,7 +14,7 @@ builder.AddSeppServiceDefaults("obligations");
 builder.Services.AddObligationsApplication();
 builder.Services.AddObligationsAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
-    .AddNpgSql(builder.Configuration.GetConnectionString(Sepp.Obligations.Adapters.DependencyInjection.ConnectionStringName)!, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
+    .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.Obligations.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
 var app = builder.Build();
 

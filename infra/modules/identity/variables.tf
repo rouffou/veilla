@@ -32,6 +32,12 @@ variable "crypto_zones" {
   default     = []
 }
 
+variable "additional_key_vault_zones" {
+  description = "Zones dont le Key Vault est lu en plus de celui de la zone du service (clé = service), pour les clés de chiffrement par zone (rôle Key Vault Secrets User). Élargit volontairement l'accès d'un service au-delà de sa zone (ARC-04) : à limiter au strict nécessaire."
+  type        = map(list(string))
+  default     = {}
+}
+
 variable "tags" {
   description = "Étiquettes appliquées aux ressources."
   type        = map(string)

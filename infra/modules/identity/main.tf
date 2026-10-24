@@ -46,6 +46,23 @@ resource "azurerm_role_assignment" "key_vault_secrets_user" {
   principal_type       = "ServicePrincipal"
 }
 
+# Lecture de secrets d'un autre coffre que celui de la zone du service : uniquement les clés de chiffrement par zone
+# dont le service a besoin (Documents lit les clés des trois zones, §14.3).
+resource "azurerm_role_assignment" "key_vault_secrets_user_additional" {
+  for_each = {
+    for paire in flatten([
+      for service, zones in var.additional_key_vault_zones : [
+        for zone in zones : { cle = "${service}.${zone}", service = service, zone = zone }
+      ]
+    ]) : paire.cle => paire
+  }
+
+  scope                = var.key_vault_ids[each.value.zone]
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.this[each.value.service].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 resource "azurerm_role_assignment" "key_vault_crypto_user" {
   for_each = { for k, s in var.services : k => s if contains(var.crypto_zones, s.zone) }
 
