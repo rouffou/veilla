@@ -23,7 +23,10 @@
     "annulationTardive": "Weniger als 24 Stunden vor dem Termin ist die Online-Absage nicht mehr möglich: wenden Sie sich an den überbetrieblichen Dienst.",
     "creneauIndisponible": "Dieser Zeitraum ist nicht mehr verfügbar. Wählen Sie einen anderen.",
     "aucuneObligation": "Für diese Terminart ist bei diesem Arbeitgeber keine Untersuchung zu planen.",
-    "perimetre": "Ihr Konto ist keiner Person oder keinem betroffenen Arbeitgeber zugeordnet: wenden Sie sich an den überbetrieblichen Dienst."
+    "perimetre": "Ihr Konto ist keiner Person oder keinem betroffenen Arbeitgeber zugeordnet: wenden Sie sich an den überbetrieblichen Dienst.",
+    "deplacementTardif": "Weniger als 24 Stunden vor dem Termin ist die Online-Verschiebung nicht mehr möglich: wenden Sie sich an den überbetrieblichen Dienst.",
+    "deplacementsEpuises": "Dieser Termin wurde bereits die maximale Anzahl Male verschoben: wenden Sie sich an den überbetrieblichen Dienst.",
+    "creneauInvalide": "Wählen Sie einen anderen Zeitraum derselben Terminart."
   },
   "form": {
     "summary": "Das Formular enthält Fehler:",
@@ -77,7 +80,6 @@
     "cancel": "Absagen",
     "cancelled": "Ihr Termin wurde abgesagt.",
     "booked": "Ihr Termin ist gebucht.",
-    "moveHint": "Um ihn zu verschieben, buchen Sie unten einen anderen Zeitraum.",
     "bookTitle": "Einen Zeitraum buchen",
     "noEmployer": "Zum Buchen öffnen Sie den Link Ihrer Einladung oder wenden Sie sich an den Dienst: in Ihrem Bereich ist noch kein Arbeitgeber bekannt.",
     "employer": "Arbeitgeber",
@@ -85,7 +87,30 @@
     "search": "Zeiträume suchen",
     "noSlots": "Kein freier Zeitraum in den nächsten 60 Tagen.",
     "slots": "Freie Zeiträume",
-    "book": "Buchen"
+    "book": "Buchen",
+    "confirm": "Meine Anwesenheit bestätigen",
+    "confirmed": "Ihre Anwesenheit ist bestätigt.",
+    "presenceConfirmed": "Anwesenheit bestätigt",
+    "move": "Verschieben",
+    "moved": "Ihr Termin wurde verschoben.",
+    "moveTitle": "Neuen Zeitraum wählen",
+    "moveIntro": "Die Verschiebung erfolgt sofort: der alte Zeitraum wird frei und der neue wird in einem Schritt für Sie reserviert.",
+    "moveHere": "Hierhin verschieben",
+    "cancelTitle": "Diesen Termin absagen",
+    "reason": "Grund der Absage",
+    "reasonChoose": "— Grund wählen —",
+    "reasons": {
+      "ConflitHoraire": "Terminkonflikt",
+      "ObligationProfessionnelle": "Berufliche Verpflichtung",
+      "ProblemeTransport": "Transportproblem",
+      "ChangementSituation": "Änderung der Situation",
+      "ExamenDejaEffectue": "Untersuchung bereits durchgeführt",
+      "Autre": "Anderer Grund"
+    },
+    "comment": "Hinweis (freiwillig)",
+    "commentHelp": "Kurzer Text (höchstens 200 Zeichen), der vom Planungsdienst gelesen wird. Geben Sie darin keine Gesundheitsdaten an (Krankheit, Behandlung, Symptom, Arbeitsunfähigkeit…).",
+    "confirmCancel": "Absage bestätigen",
+    "close": "Schließen"
   },
   "questionnaires": {
     "title": "Gesundheitsfragebögen",

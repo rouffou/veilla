@@ -23,7 +23,10 @@
     "annulationTardive": "Less than 24 hours before the appointment, online cancellation is no longer possible: contact the service.",
     "creneauIndisponible": "This slot is no longer available. Choose another one.",
     "aucuneObligation": "No examination needs to be scheduled for this type of appointment with this employer.",
-    "perimetre": "Your account is not linked to a person or to a relevant employer: contact the service."
+    "perimetre": "Your account is not linked to a person or to a relevant employer: contact the service.",
+    "deplacementTardif": "Less than 24 hours before the appointment, moving it online is no longer possible: contact the service.",
+    "deplacementsEpuises": "This appointment has already been moved the maximum number of times: contact the service.",
+    "creneauInvalide": "Choose another slot of the same appointment type."
   },
   "form": {
     "summary": "The form contains errors:",
@@ -77,7 +80,6 @@
     "cancel": "Cancel",
     "cancelled": "Your appointment is cancelled.",
     "booked": "Your appointment is booked.",
-    "moveHint": "To move it, book another slot below.",
     "bookTitle": "Book a slot",
     "noEmployer": "To book, open the link in your invitation or contact the service: no employer is known in your space yet.",
     "employer": "Employer",
@@ -85,7 +87,30 @@
     "search": "Search for slots",
     "noSlots": "No open slot in the next 60 days.",
     "slots": "Open slots",
-    "book": "Book"
+    "book": "Book",
+    "confirm": "Confirm my attendance",
+    "confirmed": "Your attendance is confirmed.",
+    "presenceConfirmed": "Attendance confirmed",
+    "move": "Move",
+    "moved": "Your appointment is moved.",
+    "moveTitle": "Choose a new slot",
+    "moveIntro": "The move is immediate: the old slot is released and the new one is booked for you in a single operation.",
+    "moveHere": "Move here",
+    "cancelTitle": "Cancel this appointment",
+    "reason": "Reason for cancelling",
+    "reasonChoose": "— Choose a reason —",
+    "reasons": {
+      "ConflitHoraire": "Schedule conflict",
+      "ObligationProfessionnelle": "Work commitment",
+      "ProblemeTransport": "Transport problem",
+      "ChangementSituation": "Change of circumstances",
+      "ExamenDejaEffectue": "Examination already done",
+      "Autre": "Other reason"
+    },
+    "comment": "Additional details (optional)",
+    "commentHelp": "Short text (200 characters at most) read by the planning service. Do not include any health information (illness, treatment, symptom, sick leave…).",
+    "confirmCancel": "Confirm cancellation",
+    "close": "Close"
   },
   "questionnaires": {
     "title": "Health questionnaires",

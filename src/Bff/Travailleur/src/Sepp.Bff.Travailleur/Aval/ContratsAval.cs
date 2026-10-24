@@ -21,7 +21,15 @@ public sealed record RendezVousAval(
     DateTimeOffset Fin,
     string TypeActe,
     string Statut,
-    string? MotifAnnulation);
+    string? MotifAnnulation,
+    DateTimeOffset? PresenceConfirmeeLe = null,
+    int NombreDeplacements = 0);
+
+/// <summary>Corps de <c>POST …/annulation</c> : raison codée et précision libre courte (aucune donnée de santé).</summary>
+public sealed record AnnulationCorpsAval(string? Raison, string? Commentaire);
+
+/// <summary>Corps de <c>POST …/deplacement</c> : le rendez-vous est celui de la route, la personne celle du jeton.</summary>
+public sealed record DeplacementCorpsAval(Guid NouveauCreneauId);
 
 /// <summary>Créneau ouvert à la réservation en ligne (sans ressource ni information interne).</summary>
 public sealed record CreneauOuvertAval(Guid Id, Guid LieuId, DateTimeOffset Debut, DateTimeOffset Fin, string TypeActe);

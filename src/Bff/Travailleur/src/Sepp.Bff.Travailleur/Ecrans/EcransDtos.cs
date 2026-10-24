@@ -12,7 +12,9 @@ public sealed record RendezVousEcran(
     DateTimeOffset Fin,
     string TypeActe,
     string Statut,
-    string? MotifAnnulation);
+    string? MotifAnnulation,
+    DateTimeOffset? PresenceConfirmeeLe = null,
+    int NombreDeplacements = 0);
 
 public sealed record CreneauEcran(Guid Id, Guid LieuId, DateTimeOffset Debut, DateTimeOffset Fin, string TypeActe);
 
@@ -20,6 +22,15 @@ public sealed record CreneauEcran(Guid Id, Guid LieuId, DateTimeOffset Debut, Da
 public sealed record ReservationCorps(Guid CreneauId, Guid AffilieId, IReadOnlyList<Guid>? ObligationIds);
 
 public sealed record RendezVousReserve(Guid Id);
+
+/// <summary>
+/// Annulation demandée par le travailleur : <paramref name="Raison"/> est un code (ConflitHoraire, ObligationProfessionnelle,
+/// ProblemeTransport, ChangementSituation, ExamenDejaEffectue, Autre) ; <paramref name="Commentaire"/> est un texte libre court
+/// qui ne doit contenir aucune donnée de santé (POR-11, ARC-06).
+/// </summary>
+public sealed record AnnulationCorps(string? Raison, string? Commentaire);
+
+public sealed record DeplacementCorps(Guid NouveauCreneauId);
 
 public sealed record QuestionEcran(string Code, string Libelle, string TypeReponse, bool Obligatoire, IReadOnlyList<string> Choix);
 

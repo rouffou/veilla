@@ -172,6 +172,8 @@ public sealed class PlanificationDbContext(DbContextOptions<PlanificationDbConte
             b.Property(r => r.TypeActe).HasMaxLength(50);
             b.Property(r => r.Statut).HasConversion<string>().HasMaxLength(20);
             b.Property(r => r.MotifAnnulation).HasConversion<string>().HasMaxLength(30);
+            b.Property(r => r.RaisonAnnulation).HasConversion<string>().HasMaxLength(40);
+            b.Property(r => r.CommentaireAnnulation).HasMaxLength(Domain.Agenda.RendezVous.LongueurMaxCommentaire);
             b.Property(r => r.Origine).HasConversion<string>().HasMaxLength(30);
             b.Property(r => r.ReferenceAgendaExterne).HasMaxLength(200);
             b.Ignore(r => r.EstActif);

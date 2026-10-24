@@ -33,6 +33,10 @@ public static class PlanificationEndpoints
 
     public sealed record CorpsAnnulation(string Motif);
 
+    public sealed record CorpsAnnulationEnLigne(string? Raison, string? Commentaire);
+
+    public sealed record CorpsDeplacement(Guid NouveauCreneauId);
+
     public sealed record CorpsReconvocation(Guid? CreneauId, string? Canal);
 
     public sealed record CorpsCanal(string Canal);
@@ -240,9 +244,17 @@ public static class PlanificationEndpoints
         reservations.MapGet("/rendez-vous", async (Guid? affilieId, IQueryHandler<ListerMesRendezVous, IReadOnlyList<RendezVousDto>> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ListerMesRendezVous(affilieId), ct)).ToHttpResult())
             .WithName("ListerMesRendezVous");
-        reservations.MapPost("/rendez-vous/{id:guid}/annulation", async (Guid id, ICommandHandler<AnnulerEnLigne, Unit> h, CancellationToken ct) =>
-                (await h.HandleAsync(new AnnulerEnLigne(id), ct)).ToHttpResult())
+        reservations.MapPost("/rendez-vous/{id:guid}/annulation", async (Guid id, CorpsAnnulationEnLigne? body, ICommandHandler<AnnulerEnLigne, Unit> h, CancellationToken ct) =>
+                (await h.HandleAsync(new AnnulerEnLigne(id, body?.Raison, body?.Commentaire), ct)).ToHttpResult())
             .WithName("AnnulerEnLigne")
-            .WithSummary("SAN-12 : annulation en ligne jusqu'à 24 heures avant le rendez-vous.");
+            .WithSummary("SAN-12, POR-11 : annulation en ligne jusqu'à 24 heures avant le rendez-vous, avec une raison codée et une précision courte facultative (aucune donnée de santé).");
+        reservations.MapPost("/rendez-vous/{id:guid}/deplacement", async (Guid id, CorpsDeplacement body, ICommandHandler<DeplacerEnLigne, RendezVousDto> h, CancellationToken ct) =>
+                (await h.HandleAsync(new DeplacerEnLigne(id, body.NouveauCreneauId), ct)).ToHttpResult())
+            .WithName("DeplacerEnLigne")
+            .WithSummary("POR-11 : déplacement atomique vers un autre créneau ouvert (libère l'ancien, réserve le nouveau, publie rendez-vous-replanifie) ; 409 si le créneau est pris.");
+        reservations.MapPost("/rendez-vous/{id:guid}/confirmation", async (Guid id, ICommandHandler<ConfirmerPresence, RendezVousDto> h, CancellationToken ct) =>
+                (await h.HandleAsync(new ConfirmerPresence(id), ct)).ToHttpResult())
+            .WithName("ConfirmerPresence")
+            .WithSummary("POR-11 : le travailleur confirme sa présence (enregistrée, visible du planificateur ; idempotent).");
     }
 }

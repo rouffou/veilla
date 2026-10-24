@@ -493,6 +493,11 @@ namespace Sepp.Planification.Adapters.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("arrivee_a");
 
+                    b.Property<string>("CommentaireAnnulation")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("commentaire_annulation");
+
                     b.Property<Guid>("CreneauId")
                         .HasColumnType("uuid")
                         .HasColumnName("creneau_id");
@@ -514,6 +519,10 @@ namespace Sepp.Planification.Adapters.Persistence.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("motif_annulation");
 
+                    b.Property<int>("NombreDeplacements")
+                        .HasColumnType("integer")
+                        .HasColumnName("nombre_deplacements");
+
                     b.PrimitiveCollection<Guid[]>("ObligationIds")
                         .IsRequired()
                         .HasColumnType("uuid[]")
@@ -532,6 +541,15 @@ namespace Sepp.Planification.Adapters.Persistence.Migrations
                     b.Property<DateTimeOffset>("PlanifieLe")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("planifie_le");
+
+                    b.Property<DateTimeOffset?>("PresenceConfirmeeLe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("presence_confirmee_le");
+
+                    b.Property<string>("RaisonAnnulation")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("raison_annulation");
 
                     b.Property<DateTimeOffset?>("Rappel1EmisLe")
                         .HasColumnType("timestamp with time zone")

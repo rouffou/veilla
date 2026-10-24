@@ -10,7 +10,11 @@ public interface IPlanificationApi
 
     Task<Guid> ReserverAsync(ReservationCorpsAval corps, CancellationToken ct);
 
-    Task AnnulerAsync(Guid rendezVousId, CancellationToken ct);
+    Task AnnulerAsync(Guid rendezVousId, AnnulationCorpsAval corps, CancellationToken ct);
+
+    Task<RendezVousAval> DeplacerAsync(Guid rendezVousId, Guid nouveauCreneauId, CancellationToken ct);
+
+    Task<RendezVousAval> ConfirmerAsync(Guid rendezVousId, CancellationToken ct);
 }
 
 /// <summary>Service Surveillance médicale : modèles de questionnaire et pré-remplissage en écriture seule (SAN-22, POR-12).</summary>
@@ -71,8 +75,14 @@ internal sealed class PlanificationApi(HttpClient http) : ClientAval(http, NomsS
     public async Task<Guid> ReserverAsync(ReservationCorpsAval corps, CancellationToken ct) =>
         (await PostAsync<IdentifiantAval>("api/v1/reservations", corps, ct)).Id;
 
-    public Task AnnulerAsync(Guid rendezVousId, CancellationToken ct) =>
-        PostSansReponseAsync($"api/v1/reservations/rendez-vous/{rendezVousId}/annulation", ct);
+    public Task AnnulerAsync(Guid rendezVousId, AnnulationCorpsAval corps, CancellationToken ct) =>
+        PostSansReponseAsync($"api/v1/reservations/rendez-vous/{rendezVousId}/annulation", corps, ct);
+
+    public Task<RendezVousAval> DeplacerAsync(Guid rendezVousId, Guid nouveauCreneauId, CancellationToken ct) =>
+        PostAsync<RendezVousAval>($"api/v1/reservations/rendez-vous/{rendezVousId}/deplacement", new DeplacementCorpsAval(nouveauCreneauId), ct);
+
+    public Task<RendezVousAval> ConfirmerAsync(Guid rendezVousId, CancellationToken ct) =>
+        PostAsync<RendezVousAval>($"api/v1/reservations/rendez-vous/{rendezVousId}/confirmation", new { }, ct);
 }
 
 internal sealed class SurveillanceMedicaleApi(HttpClient http) : ClientAval(http, NomsServices.SurveillanceMedicale), ISurveillanceMedicaleApi

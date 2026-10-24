@@ -18,6 +18,9 @@ export class Chargement {}
 const MESSAGES_PAR_CODE: Readonly<Record<string, string>> = {
   'rendez-vous.annulation-tardive': 'errors.annulationTardive',
   'creneau.indisponible': 'errors.creneauIndisponible',
+  'rendez-vous.deplacement-tardif': 'errors.deplacementTardif',
+  'rendez-vous.deplacements-epuises': 'errors.deplacementsEpuises',
+  'deplacement.creneau-invalide': 'errors.creneauInvalide',
   'reservation.aucune-obligation': 'errors.aucuneObligation',
   'perimetre.interdit': 'errors.perimetre',
 };

@@ -23,7 +23,10 @@
     "annulationTardive": "Moins de 24 heures avant le rendez-vous, l'annulation en ligne n'est plus possible : contactez le SEPP.",
     "creneauIndisponible": "Ce créneau n'est plus disponible. Choisissez-en un autre.",
     "aucuneObligation": "Aucun examen n'est à planifier pour ce type de rendez-vous chez cet employeur.",
-    "perimetre": "Votre compte n'est associé à aucune personne ou à aucun employeur concerné : contactez le SEPP."
+    "perimetre": "Votre compte n'est associé à aucune personne ou à aucun employeur concerné : contactez le SEPP.",
+    "deplacementTardif": "Moins de 24 heures avant le rendez-vous, le déplacement en ligne n’est plus possible : contactez le SEPP.",
+    "deplacementsEpuises": "Ce rendez-vous a déjà été déplacé le nombre maximal de fois : contactez le SEPP.",
+    "creneauInvalide": "Choisissez un autre créneau du même type de rendez-vous."
   },
   "form": {
     "summary": "Le formulaire contient des erreurs :",
@@ -77,7 +80,6 @@
     "cancel": "Annuler",
     "cancelled": "Votre rendez-vous est annulé.",
     "booked": "Votre rendez-vous est réservé.",
-    "moveHint": "Pour le déplacer, réservez ci-dessous un autre créneau.",
     "bookTitle": "Réserver un créneau",
     "noEmployer": "Pour réserver, ouvrez le lien de votre convocation ou contactez le SEPP : aucun employeur n'est encore connu de votre espace.",
     "employer": "Employeur",
@@ -85,7 +87,30 @@
     "search": "Chercher des créneaux",
     "noSlots": "Aucun créneau ouvert dans les 60 prochains jours.",
     "slots": "Créneaux ouverts",
-    "book": "Réserver"
+    "book": "Réserver",
+    "confirm": "Confirmer ma présence",
+    "confirmed": "Votre présence est confirmée.",
+    "presenceConfirmed": "Présence confirmée",
+    "move": "Déplacer",
+    "moved": "Votre rendez-vous est déplacé.",
+    "moveTitle": "Choisir un nouveau créneau",
+    "moveIntro": "Le déplacement est immédiat : l’ancien créneau est libéré et le nouveau vous est réservé en une seule opération.",
+    "moveHere": "Déplacer ici",
+    "cancelTitle": "Annuler ce rendez-vous",
+    "reason": "Raison de l’annulation",
+    "reasonChoose": "— Choisir une raison —",
+    "reasons": {
+      "ConflitHoraire": "Conflit d’horaire",
+      "ObligationProfessionnelle": "Obligation professionnelle",
+      "ProblemeTransport": "Problème de transport",
+      "ChangementSituation": "Changement de situation",
+      "ExamenDejaEffectue": "Examen déjà effectué",
+      "Autre": "Autre raison"
+    },
+    "comment": "Précision (facultative)",
+    "commentHelp": "Texte court (200 caractères au plus) lu par le service de planification. N’y indiquez aucune information de santé (maladie, traitement, symptôme, arrêt de travail…).",
+    "confirmCancel": "Confirmer l’annulation",
+    "close": "Fermer"
   },
   "questionnaires": {
     "title": "Questionnaires de santé",

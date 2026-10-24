@@ -327,6 +327,62 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         probleme.GetProperty("code").GetString().ShouldBe("rendez-vous.annulation-tardive");
     }
 
+    [Fact]
+    public async Task L_annulation_relaie_la_raison_codee_et_la_precision_au_service()
+    {
+        var id = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Planification, $"/api/v1/reservations/rendez-vous/{id}/annulation", new { }, HttpStatusCode.NoContent, "POST");
+
+        var response = await Client().PostAsJsonAsync($"/api/v1/rendez-vous/{id}/annulation", new { raison = "ConflitHoraire", commentaire = "Réunion fixée" }, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var corps = JsonDocument.Parse(_aval.Requetes.Single().Corps!).RootElement;
+        corps.GetProperty("raison").GetString().ShouldBe("ConflitHoraire");
+        corps.GetProperty("commentaire").GetString().ShouldBe("Réunion fixée");
+    }
+
+    [Fact]
+    public async Task Le_deplacement_est_relaye_en_un_seul_appel_avec_le_jeton()
+    {
+        var id = Guid.CreateVersion7();
+        var nouveau = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Planification, $"/api/v1/reservations/rendez-vous/{id}/deplacement",
+            RendezVous(id, _personne, "2026-12-08T09:00:00Z"), HttpStatusCode.OK, "POST");
+        var jeton = Jeton("travailleur", _personne.ToString());
+
+        var json = await Json(await Client(jeton).PostAsJsonAsync($"/api/v1/rendez-vous/{id}/deplacement", new { nouveauCreneauId = nouveau }, Ct));
+
+        json.GetProperty("id").GetGuid().ShouldBe(id);
+        json.TryGetProperty("ressourceId", out _).ShouldBeFalse();
+        var requete = _aval.Requetes.Single();
+        requete.Authorization.ShouldBe($"Bearer {jeton}");
+        JsonDocument.Parse(requete.Corps!).RootElement.GetProperty("nouveauCreneauId").GetGuid().ShouldBe(nouveau);
+    }
+
+    [Fact]
+    public async Task Un_creneau_pris_au_deplacement_est_relaye_en_409_sans_rejeu()
+    {
+        var id = Guid.CreateVersion7();
+        _aval.Probleme(ServicesAvalSimules.Planification, $"/api/v1/reservations/rendez-vous/{id}/deplacement", HttpStatusCode.Conflict, "creneau.indisponible", "POST");
+
+        var probleme = await Json(await Client().PostAsJsonAsync($"/api/v1/rendez-vous/{id}/deplacement", new { nouveauCreneauId = Guid.CreateVersion7() }, Ct), HttpStatusCode.Conflict);
+
+        probleme.GetProperty("code").GetString().ShouldBe("creneau.indisponible");
+        _aval.Requetes.Count(r => r.Methode == "POST").ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task La_confirmation_de_presence_est_relayee()
+    {
+        var id = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Planification, $"/api/v1/reservations/rendez-vous/{id}/confirmation",
+            RendezVous(id, _personne, "2026-12-08T09:00:00Z"), HttpStatusCode.OK, "POST");
+
+        var json = await Json(await Client().PostAsync($"/api/v1/rendez-vous/{id}/confirmation", null, Ct));
+
+        json.GetProperty("id").GetGuid().ShouldBe(id);
+    }
+
     // --- POR-12 : questionnaires et demandes ---
 
     [Fact]

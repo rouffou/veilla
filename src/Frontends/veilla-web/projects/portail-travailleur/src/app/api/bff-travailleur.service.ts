@@ -10,6 +10,7 @@ import {
   ExamenAPlanifier,
   Fichier,
   Questionnaire,
+  RaisonAnnulation,
   Reponse,
   RendezVous,
   TypeDemande,
@@ -110,8 +111,25 @@ export class BffTravailleurService {
     return this.http.post<{ readonly id: string }>(`${this.base}/rendez-vous`, { creneauId, affilieId });
   }
 
-  annuler(rendezVousId: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/rendez-vous/${encodeURIComponent(rendezVousId)}/annulation`, null);
+  /** Annulation avec raison codée et précision libre courte (sans donnée de santé). */
+  annuler(rendezVousId: string, raison?: RaisonAnnulation, commentaire?: string): Observable<void> {
+    const texte = commentaire?.trim();
+    return this.http.post<void>(`${this.base}/rendez-vous/${encodeURIComponent(rendezVousId)}/annulation`, {
+      raison: raison ?? null,
+      commentaire: texte ? texte : null,
+    });
+  }
+
+  /** POR-11 : déplacement atomique (un seul appel) ; jamais rejoué automatiquement. */
+  deplacer(rendezVousId: string, nouveauCreneauId: string): Observable<RendezVous> {
+    return this.http.post<RendezVous>(`${this.base}/rendez-vous/${encodeURIComponent(rendezVousId)}/deplacement`, {
+      nouveauCreneauId,
+    });
+  }
+
+  /** POR-11 : confirmation de présence. */
+  confirmer(rendezVousId: string): Observable<RendezVous> {
+    return this.http.post<RendezVous>(`${this.base}/rendez-vous/${encodeURIComponent(rendezVousId)}/confirmation`, null);
   }
 
   /** POR-12 : modèles de questionnaire de santé (écriture seule : aucune réponse déjà enregistrée n'est relue). */

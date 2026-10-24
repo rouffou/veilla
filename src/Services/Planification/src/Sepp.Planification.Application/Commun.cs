@@ -42,6 +42,18 @@ public sealed class OptionsPlanification
     /// <summary>Horizon de recherche d'un créneau de remplacement ou de reconvocation (jours).</summary>
     public int HorizonRechercheJours { get; set; } = 60;
 
+    /// <summary>
+    /// POR-11 : délai minimal avant le début du rendez-vous pour le déplacer en ligne. Valeur par défaut alignée sur le délai
+    /// d'annulation en ligne (24 h) — à valider avec le SEPP (le cahier des charges ne la fixe pas).
+    /// </summary>
+    public TimeSpan DelaiMinimalDeplacement { get; set; } = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// POR-11 : nombre maximal de déplacements en ligne d'un même rendez-vous ; ensuite, le planificateur déplace — à valider
+    /// avec le SEPP (le cahier des charges ne le fixe pas).
+    /// </summary>
+    public int NombreMaximalDeplacements { get; set; } = 2;
+
     /// <summary>SAN-03 : une session couvre les obligations dues dans cette fenêtre après sa date (jours).</summary>
     public int FenetreRegroupementJours { get; set; } = 90;
 

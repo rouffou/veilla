@@ -48,8 +48,12 @@ namespace Sepp.Contracts.Planification
     [EventContract("planification.rendez-vous-planifie", 1)]
     public sealed record RendezVousPlanifie(Guid RendezVousId, Guid PersonneId, Guid AffilieId, DateTimeOffset Debut, IReadOnlyList<Guid> ObligationIds) : IntegrationEvent;
 
+    /// <summary>
+    /// Rendez-vous annulé. <c>Motif</c> est un code. <c>Raison</c> (facultatif, ajouté en fin, rétrocompatible) est la raison codée choisie
+    /// lors d'une annulation en ligne ; le texte libre saisi par la personne n'est jamais publié (ARC-06).
+    /// </summary>
     [EventContract("planification.rendez-vous-annule", 1)]
-    public sealed record RendezVousAnnule(Guid RendezVousId, Guid PersonneId, string Motif) : IntegrationEvent;
+    public sealed record RendezVousAnnule(Guid RendezVousId, Guid PersonneId, string Motif, string? Raison = null) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.SurveillanceMedicale
