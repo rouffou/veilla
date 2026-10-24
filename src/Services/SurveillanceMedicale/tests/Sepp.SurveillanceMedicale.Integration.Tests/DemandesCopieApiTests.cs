@@ -24,7 +24,11 @@ public sealed class DemandesCopieApiTests(SurveillanceMedicaleFixture fixture) :
 
     private HttpClient Cpmt => fixture.Client(Roles.Cpmt, "cpmt-copie");
 
-    private HttpClient Documents => fixture.Client(Roles.Documents, "service-account-veilla-documents");
+    // Instance de la zone médicale du service Documents (décision #356) : seule autorisée à recevoir le contenu clinique.
+    private HttpClient Documents => fixture.Client(Roles.DocumentsMedicale, "service-account-veilla-documents-medicale");
+
+    // Instance standard : n'a plus dossier-sante:transmettre-documents.
+    private HttpClient DocumentsStandard => fixture.Client(Roles.Documents, "service-account-veilla-documents");
 
     private HttpClient Travailleur(Guid personne) => fixture.Client(Roles.Travailleur, "travailleur-1", personneId: personne);
 
@@ -105,6 +109,20 @@ public sealed class DemandesCopieApiTests(SurveillanceMedicaleFixture fixture) :
         (await intrus.PostAsJsonAsync($"/api/v1/demandes-copie/{demande}/refus", new { motif = "AucunDossier" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await intrus.GetAsync($"/api/v1/demandes-copie/{demande}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await intrus.GetAsync($"/api/v1/vaccinations/{Guid.CreateVersion7()}/carnet", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Le_compte_technique_de_l_instance_standard_de_documents_est_refuse_sur_les_routes_de_transmission()
+    {
+        var (personne, dossier) = await DossierAsync();
+        var demande = (await Json(await Travailleur(personne).PostAsync("/api/v1/demandes-copie", null, _ct), HttpStatusCode.Created)).GetProperty("id").GetGuid();
+        await Json(await Cpmt.PostAsync($"/api/v1/demandes-copie/{demande}/validation", null, _ct), HttpStatusCode.OK);
+        var vaccination = (await Json(await Cpmt.PostAsJsonAsync($"/api/v1/dossiers/{dossier}/vaccinations",
+            new { vaccinCode = "HEPATITE_B", dose = 1 }, _ct), HttpStatusCode.Created)).GetProperty("id").GetGuid();
+
+        (await DocumentsStandard.GetAsync($"/api/v1/demandes-copie/{demande}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await DocumentsStandard.GetAsync($"/api/v1/vaccinations/{vaccination}/carnet", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Documents.GetAsync($"/api/v1/demandes-copie/{demande}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]

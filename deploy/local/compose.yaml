@@ -405,6 +405,46 @@ services:
       keycloak:
         condition: service_healthy
 
+  documents-medicale:
+    # Instance de la zone médicale du service Documents (décision #356, ADR 0009) : même image que « documents », sa propre
+    # base et son propre compte technique. Elle lit, rend et archive la copie du dossier, le carnet de vaccination et les
+    # pièces jointes chez Surveillance médicale (SAN-43, SAN-50, SAN-41). Lancée seulement avec le profil « par-zone » et
+    # le fichier compose.documents-par-zone.yaml (voir README) ; l'instance « documents » ne sert alors que la zone standard.
+    <<: *service-defaults
+    profiles: ["par-zone"]
+    build:
+      context: ../..
+      dockerfile: src/Services/Documents/Dockerfile
+    image: sepp/documents:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Documents: Host=postgres;Database=documents_medicale;Username=sepp;Password=sepp-local-dev
+      Database__MigrateOnStartup: "true"
+      Authentication__Authority: http://localhost:8180/realms/veilla
+      Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
+      Authentication__ValidIssuer: http://localhost:8180/realms/veilla
+      Authentication__RequireHttpsMetadata: "false"
+      Documents__Stockage__Racine: /tmp/sepp-documents
+      # Zone servie : la seule zone médicale (les valeurs vides écrasent les entrées de appsettings.Development.json).
+      Documents__Zones__0: medicale
+      Documents__Zones__1: ""
+      Documents__Zones__2: ""
+      # Contenu clinique lu chez Surveillance médicale (intra-zone) avec le compte technique de l'instance (rôle
+      # documents-medicale, permission dossier-sante:transmettre-documents). Pas d'Affiliés ni de Personnes : la langue
+      # viendra d'une projection (lot 7). Secret de développement uniquement ; hors poste de développement, Key Vault.
+      Documents__ServicesInternes__SurveillanceMedicale: http://surveillance-medicale:8080/
+      Documents__CompteTechnique__TokenEndpoint: http://keycloak:8080/realms/veilla/protocol/openid-connect/token
+      Documents__CompteTechnique__ClientId: veilla-documents-medicale
+      Documents__CompteTechnique__ClientSecret: documents-medicale-local-dev
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
+    ports:
+      - "5122:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
   communications:
     # Messages et preuves d'envoi (DOC-03 à DOC-05). En local : tous les canaux et l'annuaire sont simulés (aucun envoi
     # réel) ; dirigeants alertés des bris de glace fictifs (appsettings.Development.json).

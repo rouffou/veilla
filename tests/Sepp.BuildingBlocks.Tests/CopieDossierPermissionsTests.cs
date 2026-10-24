@@ -12,7 +12,7 @@ public class CopieDossierPermissionsTests
         Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.AssistantMedical, Roles.ConseillerSecurite, Roles.ConseillerErgonome,
         Roles.ConseillerHygieniste, Roles.Cpap, Roles.CpapDirigeant, Roles.GestionnaireDossiers, Roles.Planificateur,
         Roles.ResponsableCentre, Roles.Direction, Roles.AdministrateurFonctionnel, Roles.Dpo, Roles.Employeur, Roles.Sipp,
-        Roles.Travailleur, Roles.Integrations, Roles.Documents, Roles.Communications, Roles.Affilies,
+        Roles.Travailleur, Roles.Integrations, Roles.Documents, Roles.DocumentsMedicale, Roles.Communications, Roles.Affilies,
     ];
 
     private static string[] RolesAvec(string permission) =>
@@ -27,13 +27,28 @@ public class CopieDossierPermissionsTests
         RolesAvec(Permissions.CopieDossierTraiter).ShouldBe([Roles.Cpmt, Roles.CpmtDirigeant], ignoreOrder: true);
 
     [Fact]
-    public void Seul_le_compte_technique_de_documents_recoit_le_contenu_a_publier() =>
-        RolesAvec(Permissions.DossierSanteTransmettreDocuments).ShouldBe([Roles.Documents]);
+    public void Seul_le_compte_technique_de_documents_medicale_recoit_le_contenu_a_publier() =>
+        RolesAvec(Permissions.DossierSanteTransmettreDocuments).ShouldBe([Roles.DocumentsMedicale]);
+
+    [Fact]
+    public void Le_compte_technique_de_documents_standard_ne_recoit_aucun_contenu_clinique()
+    {
+        // Décision #356, ARC-06 : l'instance standard n'a plus dossier-sante:transmettre-documents.
+        RolePermissions.For([Roles.Documents]).ShouldNotContain(Permissions.DossierSanteTransmettreDocuments);
+        RolePermissions.For([Roles.Documents]).ShouldBe([Permissions.AffilieLire, Permissions.PersonneLire], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Le_compte_technique_de_documents_medicale_n_a_que_le_droit_de_transmission()
+    {
+        // Moindre privilège : ni lecture du dossier, ni accès à Affiliés ni à Personnes (interdits par le pare-feu de la zone).
+        RolePermissions.For([Roles.DocumentsMedicale]).ShouldBe([Permissions.DossierSanteTransmettreDocuments]);
+    }
 
     [Fact]
     public void Ni_le_travailleur_ni_le_compte_technique_de_documents_ne_lisent_le_dossier()
     {
-        foreach (var role in new[] { Roles.Travailleur, Roles.Documents })
+        foreach (var role in new[] { Roles.Travailleur, Roles.Documents, Roles.DocumentsMedicale })
         {
             RolePermissions.For([role]).ShouldNotContain(Permissions.DossierSanteLire);
             RolePermissions.For([role]).ShouldNotContain(Permissions.DossierSanteEcrire);

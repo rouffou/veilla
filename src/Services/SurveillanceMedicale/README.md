@@ -116,7 +116,8 @@ publié par Documents en zone médicale.
    (`AucunDossier`, `IdentiteNonConfirmee`). La validation publie `surveillance-medicale.copie-dossier-validee.v1`
    (identifiants seulement).
 3. **Transmission à Documents** : `GET /api/v1/demandes-copie/{id}/contenu` (copie validée et non publiée seulement) et
-   `GET /api/v1/vaccinations/{id}/carnet`, réservés au compte technique de Documents (`dossier-sante:transmettre-documents`).
+   `GET /api/v1/vaccinations/{id}/carnet`, réservés au compte technique de l'instance zone médicale de Documents (rôle `documents-medicale`, permission
+   `dossier-sante:transmettre-documents` ; le rôle `documents` de l'instance standard ne l'a plus, décision #356).
    La copie reprend les parties du dossier en éléments datés et rubriques codées (`RubriquesCopie`, libellés FR, NL, DE
    dans Documents) ; les décisions en brouillon et le paquet brut des dossiers reçus en sont exclus. Le carnet ne contient
    ni remarque ni vaccinateur.

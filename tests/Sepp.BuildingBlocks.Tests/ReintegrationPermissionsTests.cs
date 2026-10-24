@@ -12,7 +12,7 @@ public class ReintegrationPermissionsTests
         Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier, Roles.AssistantMedical, Roles.ConseillerSecurite, Roles.ConseillerErgonome,
         Roles.ConseillerHygieniste, Roles.Cpap, Roles.CpapDirigeant, Roles.GestionnaireDossiers, Roles.Planificateur, Roles.ResponsableCentre,
         Roles.Direction, Roles.AdministrateurFonctionnel, Roles.Dpo, Roles.Employeur, Roles.Sipp, Roles.Travailleur, Roles.Integrations,
-        Roles.Documents, Roles.Communications, Roles.Affilies,
+        Roles.Documents, Roles.DocumentsMedicale, Roles.Communications, Roles.Affilies,
     ];
 
     private static string[] RolesAvec(string permission) =>
