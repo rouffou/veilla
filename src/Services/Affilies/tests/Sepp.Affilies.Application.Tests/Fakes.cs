@@ -1,9 +1,11 @@
 using Sepp.Affilies.Application.Affilies;
+using Sepp.Affilies.Application.Occupations;
 using Sepp.Affilies.Application.Securite;
 using Sepp.Affilies.Domain.Affilies;
 using Sepp.Affilies.Domain.Ecarts;
 using Sepp.Affilies.Domain.Groupes;
 using Sepp.Affilies.Domain.Historique;
+using Sepp.Affilies.Domain.Occupations;
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Contracts;
@@ -73,6 +75,13 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IAff
             criteres.Taille));
     }
 
+    public Task<IReadOnlyList<MonEmployeurDto>> EmployeursAsync(IReadOnlyCollection<Guid> affilieIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<MonEmployeurDto>>(Affilies
+            .Where(a => affilieIds.Contains(a.Id))
+            .OrderBy(a => a.Denomination, StringComparer.Ordinal)
+            .Select(a => new MonEmployeurDto(a.Id, a.Denomination, a.Langue, a.RegimeLinguistique))
+            .ToList());
+
     public void Add(Affilie affilie) => Affilies.Add(affilie);
 
     Task<Groupe?> IGroupeRepository.GetAsync(Guid id, CancellationToken cancellationToken) =>
@@ -128,4 +137,24 @@ internal sealed class Contexte(InMemoryStore store, FakeUser utilisateur, Horlog
     public ControleAcces Acces { get; } = new(utilisateur, utilisateur);
 
     public ModificateurAffilie Modificateur => new(store, store, store, store, utilisateur, Acces, horloge);
+}
+
+/// <summary>Occupations projetées en mémoire (POR-11, #340).</summary>
+internal sealed class FakeOccupations : IOccupationRepository
+{
+    public List<OccupationLocale> Occupations { get; } = [];
+
+    public Task<OccupationLocale?> GetAsync(Guid occupationId, CancellationToken cancellationToken) =>
+        Task.FromResult(Occupations.SingleOrDefault(o => o.OccupationId == occupationId));
+
+    public Task<IReadOnlyList<Guid>> AffiliesOccupesAsync(Guid personneId, DateOnly date, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Guid>>(Occupations.Where(o => o.PersonneId == personneId && o.EstActiveAu(date)).Select(o => o.AffilieId).Distinct().ToList());
+
+    public void Add(OccupationLocale occupation) => Occupations.Add(occupation);
+}
+
+/// <summary>Personne du jeton (claim <c>personne_id</c>) ; <c>null</c> si le claim est absent ou ambigu.</summary>
+internal sealed class FakeContextePersonne(Guid? personneId) : IContextePersonne
+{
+    public Guid? PersonneId { get; } = personneId;
 }

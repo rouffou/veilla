@@ -5,6 +5,7 @@ using Sepp.Affilies.Domain.Affilies;
 using Sepp.Affilies.Domain.Ecarts;
 using Sepp.Affilies.Domain.Groupes;
 using Sepp.Affilies.Domain.Historique;
+using Sepp.Affilies.Domain.Occupations;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
@@ -23,8 +24,18 @@ public sealed class AffiliesDbContext(DbContextOptions<AffiliesDbContext> option
 
     public DbSet<EcartSynchronisation> EcartsSynchronisation => Set<EcartSynchronisation>();
 
+    public DbSet<OccupationLocale> Occupations => Set<OccupationLocale>();
+
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<OccupationLocale>(b =>
+        {
+            b.ToTable("occupation_locale");
+            b.HasKey(o => o.OccupationId);
+            b.Property(o => o.OccupationId).ValueGeneratedNever();
+            b.HasIndex(o => o.PersonneId);
+        });
+
         modelBuilder.Entity<Groupe>(b =>
         {
             b.ToTable("groupe");

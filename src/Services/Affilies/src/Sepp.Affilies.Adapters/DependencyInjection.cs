@@ -8,8 +8,10 @@ using Sepp.Affilies.Adapters.Persistence;
 using Sepp.Affilies.Adapters.Securite;
 using Sepp.Affilies.Application;
 using Sepp.Affilies.Application.Bce;
+using Sepp.Affilies.Application.Occupations;
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.Contracts.Integrations;
+using Sepp.Contracts.Personnes;
 
 namespace Sepp.Affilies.Adapters;
 
@@ -25,7 +27,9 @@ public static class DependencyInjection
         services.AddScoped<IGroupeRepository, GroupeRepository>();
         services.AddScoped<IHistoriqueAffilieRepository, HistoriqueAffilieRepository>();
         services.AddScoped<IEcartSynchronisationRepository, EcartSynchronisationRepository>();
+        services.AddScoped<IOccupationRepository, OccupationRepository>();
         services.AddScoped<IPerimetreUtilisateur, PerimetreJeton>();
+        services.AddScoped<IContextePersonne, ContextePersonneJeton>();
 
         // AFF-01, AFF-02, INT-04 : données d'entreprise lues chez Intégrations avec le compte technique du service (rôle affilies).
         ClientsInternes.Ajouter(
@@ -35,6 +39,10 @@ public static class DependencyInjection
 
         // Mise à jour de l'affilié depuis la BCE (ARC-31 : consommateur idempotent, abonnement affilies ← integrations).
         services.AddIntegrationEventHandler<DonneesBceRecues, DonneesBceRecuesHandler>();
+        // POR-11 (#340) : occupations projetées depuis Personnes pour ne répondre qu'aux employeurs de la personne du jeton
+        // (abonnement affilies <- personnes, filtré sur ces deux sujets dans infra/variables.tf).
+        services.AddIntegrationEventHandler<OccupationDebutee, OccupationDebuteeHandler>();
+        services.AddIntegrationEventHandler<OccupationTerminee, OccupationTermineeHandler>();
         services.AddSeppConsumer<AffiliesDbContext>(configuration);
 
         // Énumérations métier échangées par leur nom (« A », « ComitePpt »…) dans l'API.

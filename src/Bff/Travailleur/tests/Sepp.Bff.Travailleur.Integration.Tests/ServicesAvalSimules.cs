@@ -14,6 +14,7 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
     public const string Planification = "planification.test";
     public const string SurveillanceMedicale = "surveillance-medicale.test";
     public const string Personnes = "personnes.test";
+    public const string Affilies = "affilies.test";
     public const string Obligations = "obligations.test";
     public const string Documents = "documents.test";
 

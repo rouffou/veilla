@@ -25,6 +25,7 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.Contracts;
 using Sepp.Contracts.Integrations;
+using Sepp.Contracts.Personnes;
 
 using Shouldly;
 
@@ -84,6 +85,18 @@ public sealed class AffiliesApiTests : IAsyncLifetime
         if (affilies.Length > 0)
         {
             client.DefaultRequestHeaders.Add(TestAuth.AffiliesHeader, string.Join(',', affilies));
+        }
+
+        return client;
+    }
+
+    /// <summary>Travailleur connecté : rôle <c>travailleur</c> et claim(s) <c>personne_id</c> (aucun si la liste est vide).</summary>
+    private HttpClient Travailleur(params Guid[] personnes)
+    {
+        var client = Client(Roles.Travailleur);
+        if (personnes.Length > 0)
+        {
+            client.DefaultRequestHeaders.Add(TestAuth.PersonnesHeader, string.Join(',', personnes));
         }
 
         return client;
@@ -444,6 +457,96 @@ public sealed class AffiliesApiTests : IAsyncLifetime
         (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce?ouverts=false", Ct))!.ShouldBeEmpty();
     }
 
+    private async Task<int> RecevoirAsync<T>(T evenement)
+        where T : IntegrationEvent
+    {
+        var dispatcher = _factory.Services.GetRequiredService<IntegrationEventDispatcher<AffiliesDbContext>>();
+        return await dispatcher.DispatchAsync(Guid.CreateVersion7(), EventContractAttribute.Of(typeof(T)).FullName,
+            JsonSerializer.Serialize(evenement, EventSerialization.Options), Ct);
+    }
+
+    private Task<int> OccupationDebuteeAsync(Guid personne, Guid affilie, DateOnly debut, Guid? occupation = null) =>
+        RecevoirAsync(new OccupationDebutee(occupation ?? Guid.CreateVersion7(), personne, affilie, debut));
+
+    [Fact]
+    public async Task Le_travailleur_lit_la_denomination_de_ses_seuls_employeurs_et_rien_d_autre()
+    {
+        var employeur = await CreerAsync();
+        var autre = await CreerAsync("0403.170.701");
+        var personne = Guid.CreateVersion7();
+        (await OccupationDebuteeAsync(personne, employeur, new DateOnly(2024, 1, 1))).ShouldBe(1);
+        (await OccupationDebuteeAsync(Guid.CreateVersion7(), autre, new DateOnly(2024, 1, 1))).ShouldBe(1);
+
+        var reponse = await Travailleur(personne).GetAsync("/api/v1/mes-employeurs", Ct);
+
+        reponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var employeurs = (await reponse.Content.ReadFromJsonAsync<List<JsonElement>>(Ct))!;
+        var element = employeurs.ShouldHaveSingleItem();
+        element.GetProperty("affilieId").GetGuid().ShouldBe(employeur);
+        element.GetProperty("denomination").GetString().ShouldBe("Boulangerie Dupont");
+        element.GetProperty("langue").GetString().ShouldBe("Fr");
+        element.EnumerateObject().Select(p => p.Name).Order().ShouldBe(["affilieId", "denomination", "langue", "regimeLinguistique"]);
+    }
+
+    [Fact]
+    public async Task Un_travailleur_sans_occupation_chez_un_affilie_n_en_apprend_rien()
+    {
+        await CreerAsync();
+        var personne = Guid.CreateVersion7();
+
+        var reponse = await Travailleur(personne).GetAsync("/api/v1/mes-employeurs", Ct);
+
+        reponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await reponse.Content.ReadFromJsonAsync<List<JsonElement>>(Ct))!.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Une_occupation_terminee_ne_fait_plus_connaitre_l_employeur()
+    {
+        var employeur = await CreerAsync();
+        var personne = Guid.CreateVersion7();
+        var occupation = Guid.CreateVersion7();
+        (await OccupationDebuteeAsync(personne, employeur, new DateOnly(2024, 1, 1), occupation)).ShouldBe(1);
+        (await Travailleur(personne).GetFromJsonAsync<List<JsonElement>>("/api/v1/mes-employeurs", Ct))!.ShouldHaveSingleItem();
+
+        (await RecevoirAsync(new OccupationTerminee(occupation, personne, employeur, new DateOnly(2025, 1, 1)))).ShouldBe(1);
+
+        (await Travailleur(personne).GetFromJsonAsync<List<JsonElement>>("/api/v1/mes-employeurs", Ct))!.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Sans_claim_personne_id_ou_avec_deux_personnes_le_travailleur_est_refuse()
+    {
+        var employeur = await CreerAsync();
+        var personne = Guid.CreateVersion7();
+        await OccupationDebuteeAsync(personne, employeur, new DateOnly(2024, 1, 1));
+
+        (await Travailleur().GetAsync("/api/v1/mes-employeurs", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Travailleur(personne, Guid.CreateVersion7()).GetAsync("/api/v1/mes-employeurs", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Theory]
+    [InlineData(Roles.Employeur)]
+    [InlineData(Roles.Sipp)]
+    [InlineData(Roles.GestionnaireDossiers)]
+    public async Task Les_autres_roles_n_ont_pas_la_route_des_employeurs_du_travailleur(string role) =>
+        (await Client(role).GetAsync("/api/v1/mes-employeurs", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+    [Fact]
+    public async Task Le_travailleur_ne_lit_toujours_aucune_fiche_d_affilie()
+    {
+        var employeur = await CreerAsync();
+        var personne = Guid.CreateVersion7();
+        await OccupationDebuteeAsync(personne, employeur, new DateOnly(2024, 1, 1));
+
+        (await Travailleur(personne).GetAsync($"/api/v1/affilies/{employeur}", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Travailleur(personne).GetAsync("/api/v1/affilies", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Une_requete_anonyme_est_refusee_sur_les_employeurs_du_travailleur() =>
+        (await _factory.CreateClient().GetAsync("/api/v1/mes-employeurs", Ct)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+
     /// <summary>Données BCE d'Intégrations, simulées.</summary>
     private sealed class EntrepriseBceSimulee : IEntrepriseBceClient
     {
@@ -472,6 +575,7 @@ public sealed class AffiliesApiTests : IAsyncLifetime
         public const string Name = "Test";
         public const string RolesHeader = "X-Test-Roles";
         public const string AffiliesHeader = "X-Test-Affilies";
+        public const string PersonnesHeader = "X-Test-Personnes";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
@@ -484,6 +588,8 @@ public sealed class AffiliesApiTests : IAsyncLifetime
                 .Select(r => new Claim("roles", r))
                 .Concat(Request.Headers[AffiliesHeader].ToString().Split(',', StringSplitOptions.RemoveEmptyEntries)
                     .Select(a => new Claim(PerimetreJeton.ClaimAffilie, a)))
+                .Concat(Request.Headers[PersonnesHeader].ToString().Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(p => new Claim("personne_id", p)))
                 .Append(new Claim("sub", "test-user"));
             var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Name, "sub", "roles"));
             return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, Name)));

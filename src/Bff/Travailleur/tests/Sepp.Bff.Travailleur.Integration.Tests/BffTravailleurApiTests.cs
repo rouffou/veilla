@@ -45,6 +45,7 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
             b.UseSetting("ServicesAval:Planification", $"http://{ServicesAvalSimules.Planification}");
             b.UseSetting("ServicesAval:SurveillanceMedicale", $"http://{ServicesAvalSimules.SurveillanceMedicale}");
             b.UseSetting("ServicesAval:Personnes", $"http://{ServicesAvalSimules.Personnes}");
+            b.UseSetting("ServicesAval:Affilies", $"http://{ServicesAvalSimules.Affilies}");
             b.UseSetting("ServicesAval:Obligations", $"http://{ServicesAvalSimules.Obligations}");
             b.UseSetting("ServicesAval:Documents", $"http://{ServicesAvalSimules.Documents}");
             b.UseSetting("Cors:Origines:0", "http://localhost:4202");
@@ -501,9 +502,14 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
     // --- POR-11 : employeurs et examens à planifier de la personne du jeton ---
 
     [Fact]
-    public async Task Mes_employeurs_viennent_des_occupations_actives_de_Personnes_sans_personne_dans_la_requete()
+    public async Task Mes_employeurs_viennent_des_occupations_actives_de_Personnes_et_sont_nommes_par_Affilies_sans_personne_dans_la_requete()
     {
         var recent = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Affilies, "/api/v1/mes-employeurs", new[]
+        {
+            new { affilieId = _affilie, denomination = "Boulangerie Dupont", langue = "Nl", regimeLinguistique = "Francais", numeroBce = "0202239951" },
+            new { affilieId = Guid.CreateVersion7(), denomination = "Affilié non occupé", langue = "Fr", regimeLinguistique = "Francais", numeroBce = "0403170701" },
+        });
         _aval.Repondre(ServicesAvalSimules.Personnes, "/api/v1/mes-occupations", new[]
         {
             new { occupationId = Guid.CreateVersion7(), affilieId = recent, typeTravailleur = "Interimaire", dateDebut = "2026-05-01", dateFin = (string?)null, referenceDimona = "SECRET" },
@@ -513,11 +519,44 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         var json = await Json(await Client().GetAsync("/api/v1/employeurs", Ct));
 
         json.EnumerateArray().Select(e => e.GetProperty("affilieId").GetGuid()).ShouldBe([_affilie, recent]);
-        json[0].EnumerateObject().Select(p => p.Name).Order().ShouldBe(["affilieId", "dateDebut", "dateFin", "typeTravailleur"]);
-        var requete = _aval.Requetes.Single();
-        requete.Hote.ShouldBe(ServicesAvalSimules.Personnes);
-        requete.Chemin.ShouldBe("/api/v1/mes-occupations");
-        requete.Authorization.ShouldNotBeNull();
+        json[0].EnumerateObject().Select(p => p.Name).Order().ShouldBe(["affilieId", "dateDebut", "dateFin", "denomination", "langue", "typeTravailleur"]);
+        json[0].GetProperty("denomination").GetString().ShouldBe("Boulangerie Dupont");
+        json[0].GetProperty("langue").GetString().ShouldBe("Nl");
+        json[1].GetProperty("denomination").ValueKind.ShouldBe(JsonValueKind.Null);
+        var requetes = _aval.Requetes.OrderBy(r => r.Hote).ToList();
+        requetes.Select(r => (r.Hote, r.Chemin)).ShouldBe(
+        [
+            (ServicesAvalSimules.Affilies, "/api/v1/mes-employeurs"),
+            (ServicesAvalSimules.Personnes, "/api/v1/mes-occupations"),
+        ]);
+        requetes.ShouldAllBe(r => r.Authorization != null);
+    }
+
+    [Fact]
+    public async Task Mes_employeurs_restent_listes_sans_denomination_quand_Affilies_est_injoignable_ou_refuse()
+    {
+        _aval.Repondre(ServicesAvalSimules.Personnes, "/api/v1/mes-occupations", new[]
+        {
+            new { occupationId = Guid.CreateVersion7(), affilieId = _affilie, typeTravailleur = "Salarie", dateDebut = "2025-01-01", dateFin = (string?)null },
+        });
+        _aval.Injoignable(ServicesAvalSimules.Affilies);
+
+        var injoignable = await Json(await Client().GetAsync("/api/v1/employeurs", Ct));
+        injoignable.EnumerateArray().ShouldHaveSingleItem().GetProperty("denomination").ValueKind.ShouldBe(JsonValueKind.Null);
+
+        _aval.HotesInjoignables.Clear();
+        _aval.Probleme(ServicesAvalSimules.Affilies, "/api/v1/mes-employeurs", HttpStatusCode.Forbidden, "affilie.lecture-interdite");
+        var refuse = await Json(await Client().GetAsync("/api/v1/employeurs", Ct));
+        refuse.EnumerateArray().ShouldHaveSingleItem().GetProperty("denomination").ValueKind.ShouldBe(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Une_panne_de_Personnes_reste_une_erreur_meme_si_Affilies_repond()
+    {
+        _aval.Repondre(ServicesAvalSimules.Affilies, "/api/v1/mes-employeurs", Array.Empty<object>());
+        _aval.Injoignable(ServicesAvalSimules.Personnes);
+
+        (await Client().GetAsync("/api/v1/employeurs", Ct)).StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
     }
 
     [Fact]

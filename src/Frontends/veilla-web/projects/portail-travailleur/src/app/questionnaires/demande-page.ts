@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, input
 import { TranslocoDirective } from '@jsverse/transloco';
 import { TYPES_DEMANDE, TypeDemande } from '../api/bff-travailleur.models';
 import { BffTravailleurService, ErreurApi, versErreurApi } from '../api/bff-travailleur.service';
-import { affiliesConnus } from '../ui/affilies';
+import { affiliesConnus, denominationsConnues } from '../ui/affilies';
 import { chargeable } from '../ui/chargeable';
 import { Chargement, ErreurApiMessage } from '../ui/etats';
 
@@ -46,7 +46,7 @@ import { Chargement, ErreurApiMessage } from '../ui/etats';
                   <select id="demande-affilie" class="app-input" (change)="affilieChoisi.set($any($event.target).value)">
                     @for (id of affilies(); track id; let i = $index) {
                       <option [value]="id" [selected]="id === affilieCourant()">
-                        {{ t('appointments.employerN', { n: i + 1 }) }}
+                        {{ denominations().get(id) ?? t('appointments.employerN', { n: i + 1 }) }}
                       </option>
                     }
                   </select>
@@ -92,6 +92,10 @@ export class DemandePage {
   protected readonly erreurEnvoi = signal<ErreurApi | null>(null);
   private readonly succes = viewChild<ElementRef<HTMLElement>>('succes');
 
+  protected readonly denominations = computed(() => {
+    const etat = this.employeurs.etat();
+    return denominationsConnues(etat.statut === 'ok' ? etat.valeur : []);
+  });
   protected readonly affilies = computed(() => {
     const rdv = this.rendezVous.etat();
     const employeurs = this.employeurs.etat();

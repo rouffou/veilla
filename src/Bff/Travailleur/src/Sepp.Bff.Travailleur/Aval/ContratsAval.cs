@@ -76,6 +76,15 @@ public sealed record ExamenAPlanifierAval(
 /// </summary>
 public sealed record OccupationAval(Guid OccupationId, Guid AffilieId, string TypeTravailleur, DateOnly DateDebut, DateOnly? DateFin);
 
+// --- Service Affiliés (port 5111) ---
+
+/// <summary>
+/// Employeur de la personne du jeton (<c>GET /api/v1/mes-employeurs</c>, permission <c>affilie:lire-employeurs</c>) :
+/// dénomination et langue seulement, pour les affiliés où elle a une occupation active. Aucune autre donnée de la fiche
+/// (BCE, adresse, contacts) n'est déclarée.
+/// </summary>
+public sealed record EmployeurAval(Guid AffilieId, string Denomination, string Langue);
+
 // --- Service Documents (port 5119) ---
 
 /// <summary>Métadonnées d'un document : ni empreinte, ni zone, ni stockage, ni horodatage ne sont relayés.</summary>

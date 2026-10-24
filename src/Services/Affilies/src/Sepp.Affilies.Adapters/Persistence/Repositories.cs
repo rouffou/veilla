@@ -2,10 +2,12 @@ using Microsoft.EntityFrameworkCore;
 
 using Sepp.Affilies.Application;
 using Sepp.Affilies.Application.Affilies;
+using Sepp.Affilies.Application.Occupations;
 using Sepp.Affilies.Domain.Affilies;
 using Sepp.Affilies.Domain.Ecarts;
 using Sepp.Affilies.Domain.Groupes;
 using Sepp.Affilies.Domain.Historique;
+using Sepp.Affilies.Domain.Occupations;
 
 namespace Sepp.Affilies.Adapters.Persistence;
 
@@ -61,7 +63,37 @@ internal sealed class AffilieRepository(AffiliesDbContext db) : IAffilieReposito
             criteres.Taille);
     }
 
+    public async Task<IReadOnlyList<MonEmployeurDto>> EmployeursAsync(IReadOnlyCollection<Guid> affilieIds, CancellationToken cancellationToken)
+    {
+        if (affilieIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = affilieIds.ToList();
+        return await db.Affilies.IgnoreAutoIncludes().AsNoTracking()
+            .Where(a => ids.Contains(a.Id))
+            .OrderBy(a => a.Denomination).ThenBy(a => a.Id)
+            .Select(a => new MonEmployeurDto(a.Id, a.Denomination, a.Langue, a.RegimeLinguistique))
+            .ToListAsync(cancellationToken);
+    }
+
     public void Add(Affilie affilie) => db.Affilies.Add(affilie);
+}
+
+internal sealed class OccupationRepository(AffiliesDbContext db) : IOccupationRepository
+{
+    public Task<OccupationLocale?> GetAsync(Guid occupationId, CancellationToken cancellationToken) =>
+        db.Occupations.SingleOrDefaultAsync(o => o.OccupationId == occupationId, cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> AffiliesOccupesAsync(Guid personneId, DateOnly date, CancellationToken cancellationToken) =>
+        await db.Occupations.AsNoTracking()
+            .Where(o => o.PersonneId == personneId && o.DateDebut != null && o.DateDebut <= date && (o.DateFin == null || o.DateFin >= date))
+            .Select(o => o.AffilieId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+    public void Add(OccupationLocale occupation) => db.Occupations.Add(occupation);
 }
 
 internal sealed class GroupeRepository(AffiliesDbContext db) : IGroupeRepository

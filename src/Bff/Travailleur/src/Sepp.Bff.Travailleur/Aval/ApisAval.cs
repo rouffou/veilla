@@ -31,6 +31,12 @@ public interface IPersonnesApi
     Task<IReadOnlyList<OccupationAval>> ListerMesOccupationsAsync(CancellationToken ct);
 }
 
+/// <summary>Service Affiliés : dénomination des employeurs de la personne du jeton (POR-11, #340).</summary>
+public interface IAffiliesApi
+{
+    Task<IReadOnlyList<EmployeurAval>> ListerMesEmployeursAsync(CancellationToken ct);
+}
+
 /// <summary>Service Obligations : demandes et examens à planifier de la personne du jeton (§5.1, POR-11, POR-12).</summary>
 public interface IObligationsApi
 {
@@ -54,6 +60,7 @@ public static class NomsServices
     public const string Planification = "planification";
     public const string SurveillanceMedicale = "surveillance-medicale";
     public const string Personnes = "personnes";
+    public const string Affilies = "affilies";
     public const string Obligations = "obligations";
     public const string Documents = "documents";
 }
@@ -98,6 +105,12 @@ internal sealed class PersonnesApi(HttpClient http) : ClientAval(http, NomsServi
 {
     public Task<IReadOnlyList<OccupationAval>> ListerMesOccupationsAsync(CancellationToken ct) =>
         GetAsync<IReadOnlyList<OccupationAval>>("api/v1/mes-occupations", ct);
+}
+
+internal sealed class AffiliesApi(HttpClient http) : ClientAval(http, NomsServices.Affilies), IAffiliesApi
+{
+    public Task<IReadOnlyList<EmployeurAval>> ListerMesEmployeursAsync(CancellationToken ct) =>
+        GetAsync<IReadOnlyList<EmployeurAval>>("api/v1/mes-employeurs", ct);
 }
 
 internal sealed class ObligationsApi(HttpClient http) : ClientAval(http, NomsServices.Obligations), IObligationsApi

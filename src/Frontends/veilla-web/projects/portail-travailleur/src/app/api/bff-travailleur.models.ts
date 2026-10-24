@@ -17,9 +17,14 @@ export interface RendezVous {
   readonly nombreDeplacements?: number;
 }
 
-/** POR-11 : employeur du travailleur (occupation active). Aucun service n'expose sa dénomination au rôle travailleur. */
+/**
+ * POR-11 : employeur du travailleur (occupation active). La dénomination et la langue viennent d'Affiliés (permission
+ * `affilie:lire-employeurs`) ; `null` si le service est indisponible ou ne connaît pas l'affilié.
+ */
 export interface Employeur {
   readonly affilieId: string;
+  readonly denomination: string | null;
+  readonly langue: string | null;
   readonly typeTravailleur: string;
   readonly dateDebut: string;
   readonly dateFin: string | null;

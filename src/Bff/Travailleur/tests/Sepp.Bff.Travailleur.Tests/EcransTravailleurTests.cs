@@ -22,6 +22,7 @@ public sealed class EcransTravailleurTests
     private readonly IPlanificationApi _planification = Substitute.For<IPlanificationApi>();
     private readonly ISurveillanceMedicaleApi _surveillance = Substitute.For<ISurveillanceMedicaleApi>();
     private readonly IPersonnesApi _personnes = Substitute.For<IPersonnesApi>();
+    private readonly IAffiliesApi _affilies = Substitute.For<IAffiliesApi>();
     private readonly IObligationsApi _obligations = Substitute.For<IObligationsApi>();
     private readonly IDocumentsApi _documents = Substitute.For<IDocumentsApi>();
 
@@ -219,7 +220,7 @@ public sealed class EcransTravailleurTests
 
     // --- POR-11 : employeurs et examens à planifier ---
 
-    private EcransEmployeursEtExamens EmployeursEtExamens => new(_personnes, _obligations);
+    private EcransEmployeursEtExamens EmployeursEtExamens => new(_personnes, _affilies, _obligations);
 
     [Fact]
     public async Task Un_employeur_n_apparait_qu_une_fois_meme_avec_plusieurs_occupations_et_le_plus_ancien_d_abord()
@@ -236,6 +237,56 @@ public sealed class EcransTravailleurTests
 
         employeurs.Select(e => e.AffilieId).ShouldBe([_affilie, autre]);
         employeurs[0].DateDebut.ShouldBe(new DateOnly(2025, 1, 1));
+    }
+
+    [Fact]
+    public async Task Les_employeurs_sont_nommes_par_Affilies_et_une_denomination_d_un_autre_affilie_est_ignoree()
+    {
+        var autre = Guid.CreateVersion7();
+        _personnes.ListerMesOccupationsAsync(Ct).Returns([new OccupationAval(Guid.CreateVersion7(), _affilie, "Salarie", new DateOnly(2025, 1, 1), null)]);
+        _affilies.ListerMesEmployeursAsync(Ct).Returns(
+        [
+            new EmployeurAval(autre, "Atelier Durand", "Fr"),
+            new EmployeurAval(_affilie, "Boulangerie Dupont", "Nl"),
+        ]);
+
+        var employeur = (await EmployeursEtExamens.MesEmployeursAsync(Ct)).ShouldHaveSingleItem();
+
+        employeur.AffilieId.ShouldBe(_affilie);
+        employeur.Denomination.ShouldBe("Boulangerie Dupont");
+        employeur.Langue.ShouldBe("Nl");
+    }
+
+    [Fact]
+    public async Task Un_employeur_inconnu_d_Affilies_reste_liste_sans_denomination()
+    {
+        _personnes.ListerMesOccupationsAsync(Ct).Returns([new OccupationAval(Guid.CreateVersion7(), _affilie, "Salarie", new DateOnly(2025, 1, 1), null)]);
+        _affilies.ListerMesEmployeursAsync(Ct).Returns([]);
+
+        var employeur = (await EmployeursEtExamens.MesEmployeursAsync(Ct)).ShouldHaveSingleItem();
+
+        employeur.Denomination.ShouldBeNull();
+        employeur.Langue.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Les_employeurs_restent_listes_quand_Affilies_est_indisponible_ou_refuse()
+    {
+        _personnes.ListerMesOccupationsAsync(Ct).Returns([new OccupationAval(Guid.CreateVersion7(), _affilie, "Salarie", new DateOnly(2025, 1, 1), null)]);
+        _affilies.ListerMesEmployeursAsync(Ct).ThrowsAsync(new ServiceIndisponibleException("affilies"));
+        (await EmployeursEtExamens.MesEmployeursAsync(Ct)).ShouldHaveSingleItem().Denomination.ShouldBeNull();
+
+        _affilies.ListerMesEmployeursAsync(Ct).ThrowsAsync(new ErreurAvalException("affilies", HttpStatusCode.Forbidden, "affilie.lecture-interdite", null));
+        (await EmployeursEtExamens.MesEmployeursAsync(Ct)).ShouldHaveSingleItem().Denomination.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Une_panne_de_Personnes_n_est_pas_masquee()
+    {
+        _personnes.ListerMesOccupationsAsync(Ct).ThrowsAsync(new ServiceIndisponibleException("personnes"));
+        _affilies.ListerMesEmployeursAsync(Ct).Returns([]);
+
+        await Should.ThrowAsync<ServiceIndisponibleException>(() => EmployeursEtExamens.MesEmployeursAsync(Ct));
     }
 
     [Fact]

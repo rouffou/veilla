@@ -30,8 +30,8 @@ Règles :
 | obligations | `obligations.reprise-enregistree.v1` | RepriseEnregistree | RepriseId, PersonneId, AffilieId, DateReprise, DebutAbsence, Origine, Statut | Réintégration (fin de l'incapacité à la reprise), Reporting, BFF |
 | personnes | `personnes.affectation-modifiee.v1` | AffectationModifiee | AffectationId, PersonneId, PosteId, DateDebut, DateFin | Obligations, Postes et risques, Surveillance médicale (SAN-20) |
 | personnes | `personnes.etat-particulier-declare.v1` | EtatParticulierDeclare | EtatParticulierId, PersonneId, Categorie, DateDebut, DateFin | Obligations (voir note ARC-06 ci-dessous) |
-| personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut | Obligations, Planification, Reporting |
-| personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Obligations, Planification, Reporting |
+| personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut | Affiliés, Obligations, Planification, Reporting |
+| personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Affiliés, Obligations, Planification, Reporting |
 | planification | `planification.absence-rendez-vous-constatee.v1` | AbsenceRendezVousConstatee | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Obligations (les obligations redeviennent à planifier), Communications (SAN-13), Réintégration (compteur d'absences du trajet, SAN-63) |
 | planification | `planification.convocation-emise.v1` | ConvocationEmise | ConvocationId, RendezVousId, PersonneId, AffilieId, LieuId, TypeActe, Debut, Canal, Recommande, TypeConvocation, LotId | Communications (envoi, SAN-10, SAN-11) |
 | planification | `planification.convocation-envoyee.v1` | ConvocationEnvoyee | ConvocationId, RendezVousId, PersonneId, AffilieId, ObligationIds, Canal, Recommande, DateEnvoi | Obligations (obligations « convoquées »), Reporting |

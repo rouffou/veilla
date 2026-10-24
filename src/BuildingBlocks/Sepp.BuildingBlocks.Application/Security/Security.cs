@@ -69,6 +69,10 @@ public static class Permissions
     public const string AnalyseRisquesEcrire = "analyse-risques:ecrire";
     public const string AffilieLire = "affilie:lire";
     public const string AffilieEcrire = "affilie:ecrire";
+
+    // Dénomination et langue des seuls affiliés chez qui la personne du jeton (claim personne_id) a une occupation active,
+    // pour le portail travailleur (POR-11, #340) : aucune autre donnée de la fiche, aucun autre affilié.
+    public const string AffilieLireEmployeurs = "affilie:lire-employeurs";
     public const string ReferentielsLire = "referentiels:lire";
     public const string ReferentielsAdministrer = "referentiels:administrer";
     public const string AuditLire = "audit:lire";
@@ -365,6 +369,11 @@ public static class RolePermissions
         // pré-reprise ou une consultation spontanée (POR-12) et voit ses examens à planifier et ses occupations actives
         // (POR-11), uniquement pour la personne de son jeton (claim personne_id, vérifié par les services propriétaires).
         Grant(Roles.Travailleur, Permissions.ObligationDemander, Permissions.ObligationLirePropres, Permissions.PersonneLirePropres);
+
+        // Portail travailleur — la dénomination de ses employeurs vient d'Affiliés, limitée aux affiliés où la personne du jeton
+        // a une occupation active (projection locale de personnes.occupation-debutee / -terminee) ; le travailleur n'a toujours
+        // pas affilie:lire (#340).
+        Grant(Roles.Travailleur, Permissions.AffilieLireEmployeurs);
 
         // Documents — DOC-01 : l'administrateur fonctionnel gère, valide et publie les modèles ; les modèles médicaux sont
         // validés par le CPMT dirigeant et les modèles psychosociaux par le CPAP dirigeant. Génération et lecture de la zone

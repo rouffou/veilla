@@ -59,7 +59,7 @@ describe('RendezVousPage (POR-11)', () => {
 
   it('permet une première réservation sans rendez-vous ni lien : employeur et type viennent des examens à planifier', async () => {
     const autre = '0192a5c8-0000-7000-8000-000000000002';
-    const employeur: Employeur = { affilieId: AFFILIE, typeTravailleur: 'Salarie', dateDebut: '2025-01-01', dateFin: null };
+    const employeur: Employeur = { affilieId: AFFILIE, denomination: 'Boulangerie Dupont', langue: 'Nl', typeTravailleur: 'Salarie', dateDebut: '2025-01-01', dateFin: null };
     const examen: ExamenAPlanifier = {
       obligationId: 'o1',
       affilieId: autre,
@@ -74,7 +74,11 @@ describe('RendezVousPage (POR-11)', () => {
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.querySelector('form')).not.toBeNull();
-    expect(root.querySelectorAll('#rdv-affilie option').length).toBe(2);
+    const options = [...root.querySelectorAll('#rdv-affilie option')].map((o) => o.textContent?.trim());
+    expect(options.length).toBe(2);
+    // L'employeur connu est nommé par sa dénomination ; celui qui ne vient que d'un examen garde son rang.
+    expect(options).toContain('Boulangerie Dupont');
+    expect(options.filter((o) => o?.includes('appointments.employerN')).length).toBe(1);
     root.querySelector<HTMLButtonElement>('form button[type="submit"]')!.click();
     await stable(fixture);
 
@@ -322,6 +326,23 @@ describe('DemandePage (POR-12)', () => {
     post.flush({ id: 'd1' }, { status: 201, statusText: 'Created' });
     await stable(fixture);
     expect(root.querySelector('[role="status"]')?.textContent).toContain('request.success');
+  });
+
+  it('nomme les employeurs par leur dénomination, et par leur rang à défaut', async () => {
+    const autre = '0192a5c8-0000-7000-8000-000000000002';
+    const employeurs: readonly Employeur[] = [
+      { affilieId: AFFILIE, denomination: 'Boulangerie Dupont', langue: 'Fr', typeTravailleur: 'Salarie', dateDebut: '2025-01-01', dateFin: null },
+      { affilieId: autre, denomination: null, langue: null, typeTravailleur: 'Salarie', dateDebut: '2026-01-01', dateFin: null },
+    ];
+    const fixture = TestBed.createComponent(DemandePage);
+    await stable(fixture);
+    bff().expectOne(`${BFF}/rendez-vous`).flush([]);
+    bff().expectOne(`${BFF}/employeurs`).flush(employeurs);
+    await stable(fixture);
+
+    const options = [...(fixture.nativeElement as HTMLElement).querySelectorAll('#demande-affilie option')].map((o) => o.textContent?.trim());
+    expect(options[0]).toBe('Boulangerie Dupont');
+    expect(options[1]).toContain('appointments.employerN');
   });
 
   it('affiche le refus de droits du service sans perdre le formulaire', async () => {
