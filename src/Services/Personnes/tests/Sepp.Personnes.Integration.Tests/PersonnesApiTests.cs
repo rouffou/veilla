@@ -314,7 +314,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
     public async Task Le_compte_technique_integrations_identifie_une_personne_par_niss_sans_rien_lire_d_autre()
     {
         var integrations = fixture.Client(Roles.Integrations);
-        var niss = NouveauNiss();
+        var niss = NissIdentification(1);
         var reference = $"DIM{Guid.CreateVersion7():N}"[..20];
         var reponse = await integrations.PostAsJsonAsync("/api/v1/dimona/entrees", new
         {
@@ -326,6 +326,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
             typeContrat = "DureeIndeterminee",
             dateDebut = "2026-09-01",
         }, _ct);
+        reponse.StatusCode.ShouldBe(HttpStatusCode.OK, await reponse.Content.ReadAsStringAsync(_ct));
         var enregistree = (await reponse.Content.ReadFromJsonAsync<DimonaEnregistreeDto>(Json, _ct))!;
 
         var identification = await integrations.PostAsJsonAsync("/api/v1/identifications", new { niss }, _ct);
@@ -335,8 +336,15 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
         corps.ShouldNotContain(niss);
         corps.ShouldNotContain("nom", Case.Insensitive);
 
-        (await integrations.PostAsJsonAsync("/api/v1/identifications", new { niss = NouveauNiss() }, _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await integrations.PostAsJsonAsync("/api/v1/identifications", new { niss = NissIdentification(2) }, _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await fixture.Client(Roles.GestionnaireDossiers).PostAsJsonAsync("/api/v1/identifications", new { niss }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>NISS propres au test d'identification (numéros d'ordre 9xx) : la suite de <see cref="NouveauNiss"/> n'est pas décalée.</summary>
+    private static string NissIdentification(int ordre)
+    {
+        var corps = long.Parse($"850730{900 + ordre:D3}", System.Globalization.CultureInfo.InvariantCulture);
+        return $"850730{900 + ordre:D3}{97 - (corps % 97):D2}";
     }
 
     private static object Mutation(string niss, string reference, string type, string effet, object? adresse = null, string? nom = null, string? prenom = null, string? langue = null) =>
