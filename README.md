@@ -11,3 +11,11 @@ Logiciel métier pour un Service Externe de Prévention et de Protection au trav
 - **Milestones** : Lot 0 (fondations techniques) puis Lots 1 à 5 du §16.1, plus un jalon transverse (conformité, recette, mise en service).
 - **Epics** : un par microservice (§14.3) ; chaque exigence du cahier des charges (AFF-01, SAN-10, …) est une sous-issue de l'epic de son service propriétaire (matrice de traçabilité ARC-09).
 - **Labels** : `type:*`, `svc:*`, `zone:medicale`, `zone:psychosociale`.
+
+## Licence
+
+Copyright (c) 2026 Nicolas Rouffart. Tous droits réservés.
+
+Veilla est un **logiciel propriétaire**. Son code source est publié pour consultation et évaluation seulement. Toute
+utilisation exige une **licence commerciale payante** délivrée par le titulaire des droits : exécution, déploiement,
+mise à disposition comme service, intégration ou modification en vue d'une utilisation. Voir [LICENSE](LICENSE).
