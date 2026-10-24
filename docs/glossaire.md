@@ -12,8 +12,10 @@ sont reformulées. Les points non tranchés sont listés en fin de document.
 | BCSS | Banque Carrefour de la Sécurité Sociale. Définition à vérifier (note 1). | `ConfigurationBcss` | Integrations |
 | BFF | Backend for Frontend : service d'agrégation propre à un canal (interne, employeur, travailleur). | `Sepp.Bff.Employeur`, `Sepp.Bff.Travailleur` | BFF employeur, BFF travailleur (`src/Bff/`) |
 | CBE | Contrôle du bien-être au travail (inspection du SPF ETCS). Définition à vérifier (note 1). | — | Externe (inspection) |
+| Chiffrement par enveloppe | Chiffrement d'un document par une clé de données aléatoire, elle-même chiffrée (enveloppée) par une clé racine de la zone : seule la zone peut déballer la clé de données. | — | Documents |
 | Comité PPT | Comité pour la prévention et la protection au travail (CPPT), organe de concertation de l'entreprise. | `TypeOrgane.ComitePpt` | Affilies |
 | Clean architecture | Architecture en couches concentriques où les dépendances pointent vers le domaine métier. | — (projets `*.Domain`, `*.Application`, `*.Adapters` par service) | Plateforme |
+| Clé racine | Clé non exportable du coffre de la zone, qui enveloppe les clés de données. | — | Plateforme |
 | Conteneur (OCI) | Unité d'exécution standardisée qui regroupe un service et ses dépendances. | — | Plateforme |
 | Contexte délimité | Périmètre métier cohérent (Domain-Driven Design), correspondant en principe à un microservice. | — (un dossier `src/Services/<Service>` par contexte) | Plateforme |
 | CPAP | Conseiller en prévention aspects psychosociaux. | `Roles.Cpap` (`Sepp.BuildingBlocks.Application`, `Security/Security.cs`) | Plateforme |
@@ -22,6 +24,7 @@ sont reformulées. Les points non tranchés sont listés en fin de document.
 | DIMONA | Déclaration immédiate de l'emploi : entrées et sorties des travailleurs, échangées via la BCSS. | `EnregistrerEntreeDimonaHandler`, `EnregistrerSortieDimonaHandler`, `DimonaAdaptateurReel` | Integrations |
 | DmfA | Déclaration multifonctionnelle trimestrielle adressée à l'ONSS, échangée via la BCSS. | — | Integrations |
 | Fedris | Agence fédérale des risques professionnels, partenaire du SEPP pour les maladies professionnelles et les demandes d'information. | `DemandeInformationFedris` | SurveillanceMedicale |
+| Instance de zone | Déploiement d'un même service dans une zone de sensibilité (standard, médicale, psychosociale). | — | Plateforme |
 | Kubernetes | Orchestrateur de conteneurs (déploiement, mise à l'échelle, réseau, redémarrage). Non retenu : l'ADR 0003 choisit Azure Container Apps. | — | Plateforme |
 | NISS | Numéro d'identification à la sécurité sociale, identifiant d'une personne physique. | `NissIndex` | Personnes |
 | OIDC | OpenID Connect : protocole standard d'authentification (ADR 0005 : Entra ID et CSAM). | `AddJwtBearer`, `AddAuthentication` | Plateforme |

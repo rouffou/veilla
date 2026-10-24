@@ -2,6 +2,11 @@
 
 Modèles de documents, génération, archivage à valeur probante et signature (cahier des charges §10.3 DOC-01 et DOC-02, NF-21, NF-41, §15.3). Base `documents`, port local 5119.
 
+
+## Évolution prévue (ADR 0009)
+
+Le service Documents passera à une **instance par zone de sensibilité** (`documents` en zone standard, `documents-medicale` en zone médicale), avec le même code et la même image. Chaque instance tiendra sa base, son compte WORM et sa clé racine dans sa zone. Le chiffrement passera par **enveloppe** : chaque document aura une clé de données AES-256-GCM, enveloppée par une clé racine RSA-HSM non exportable de la zone ; une instance ne déballera que les clés de sa zone. La copie du dossier et le carnet de vaccination seront générés et archivés par l'instance médicale, sans contenu clinique en zone standard. Le travail suit les lots #361 à #366. **Écart connu** : en attendant, la génération de la copie du dossier et du carnet en zone standard reste à corriger (#359).
+
 ## Ce que fait le service
 
 - **Modèles versionnés par langue** (DOC-01) : une ligne par couple (code, langue, version) ; cycle brouillon → validé → publié (une seule version publiée par code et par langue, la précédente est retirée). Une version validée ou publiée n'est plus modifiable : on crée une nouvelle version. Les modèles de la zone médicale sont validés par le CPMT dirigeant (`documents:modele-valider-medical`), ceux de la zone psychosociale par le CPAP dirigeant, les autres par l'administrateur fonctionnel ; la publication reste à l'administrateur fonctionnel.

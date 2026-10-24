@@ -19,3 +19,5 @@ CTR-00 demande de choisir entre App Service, Container Apps et AKS au regard des
 
 ## Conséquences
 Terraform décrit les environnements et les applications (ADR 0007). La disponibilité de Container Apps avec redondance de zone en Belgium Central est à confirmer avant la mise en production (ARC-53).
+
+Complétée par l'ADR 0009 (Documents déployé une fois par zone).
