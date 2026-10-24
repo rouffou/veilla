@@ -25,17 +25,56 @@ namespace Sepp.Personnes.Integration.Tests;
 public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixture<PersonnesApiFixture>
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
-    private static int _ordre = 100;
+
+    private const int NissParTestMax = 10;
+
+    /// <summary>
+    /// Rang de chaque test (ordre alphabétique des noms de méthodes) : fixe, indépendant de l'ordre d'exécution, de la
+    /// parallélisation et des tests qui ont déjà tourné. Chaque test dispose ainsi de sa propre tranche de numéros d'ordre.
+    /// </summary>
+    private static readonly Dictionary<string, int> RangParTest = typeof(PersonnesApiTests)
+        .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+        .Where(m => m.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0)
+        .Select(m => m.Name)
+        .Order(StringComparer.Ordinal)
+        .Select((nom, rang) => (nom, rang))
+        .ToDictionary(t => t.nom, t => t.rang, StringComparer.Ordinal);
 
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
     private readonly Guid _affilie = Guid.CreateVersion7();
+    private int _nissDemandes;
 
-    /// <summary>NISS valide et unique par test (personne née le 30/07/1985).</summary>
-    private static string NouveauNiss()
+    /// <summary>
+    /// NISS valide et propre à ce test (personne née le 30/07/1985) : le numéro d'ordre dérive du rang du test et du nombre de
+    /// NISS déjà demandés par ce test, jamais d'une séquence partagée. Deux tests n'obtiennent donc jamais le même NISS et un
+    /// test obtient les mêmes NISS quel que soit l'ordre d'exécution (#347).
+    /// </summary>
+    private string NouveauNiss()
     {
-        var ordre = Interlocked.Increment(ref _ordre);
-        var corps = long.Parse($"850730{ordre:D3}");
+        var test = TestContext.Current.TestMethod?.MethodName ?? throw new InvalidOperationException("NISS de test demandé hors d'un test.");
+        var rang = RangParTest[test];
+        if (_nissDemandes >= NissParTestMax)
+        {
+            throw new InvalidOperationException($"Un test ne peut demander que {NissParTestMax} NISS ; augmenter NissParTestMax.");
+        }
+
+        // Numéros d'ordre 100 à 899 : au plus 79 tests de NISS sans collision (000 à 099 et 9xx laissés à d'autres usages).
+        var ordre = 100 + (rang * NissParTestMax) + _nissDemandes++;
+        ordre.ShouldBeLessThan(900, "Trop de tests pour la plage de numéros d'ordre ; élargir la plage.");
+        var corps = long.Parse($"850730{ordre:D3}", System.Globalization.CultureInfo.InvariantCulture);
         return $"850730{ordre:D3}{97 - (corps % 97):D2}";
+    }
+
+    /// <summary>
+    /// Même NISS que <paramref name="niss"/> dont le chiffre de contrôle est faux pour les deux règles (naissance avant et après
+    /// 2000) : invalide quelle que soit la valeur de départ.
+    /// </summary>
+    private static string NissInvalide(string niss)
+    {
+        var corps = long.Parse(niss[..9], System.Globalization.CultureInfo.InvariantCulture);
+        var valides = new[] { 97 - (corps % 97), 97 - ((2_000_000_000L + corps) % 97) };
+        var controle = Enumerable.Range(0, 100).First(c => !valides.Contains(c));
+        return $"{niss[..9]}{controle:D2}";
     }
 
     private static object Identite(string nom = "Dupont") =>
@@ -108,7 +147,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
     {
         var niss = NouveauNiss();
         var creee = await Creer(niss);
-        var invalide = niss[..10] + (niss[10] == '0' ? '1' : '0');
+        var invalide = NissInvalide(niss);
         var gestionnaire = fixture.Client(Roles.GestionnaireDossiers);
         (await gestionnaire.PostAsJsonAsync("/api/v1/personnes/recherche", new { niss }, _ct)).EnsureSuccessStatusCode();
         var refus = await gestionnaire.PostAsJsonAsync("/api/v1/personnes/recherche", new { niss = invalide }, _ct);
@@ -314,7 +353,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
     public async Task Le_compte_technique_integrations_identifie_une_personne_par_niss_sans_rien_lire_d_autre()
     {
         var integrations = fixture.Client(Roles.Integrations);
-        var niss = NissIdentification(1);
+        var niss = NouveauNiss();
         var reference = $"DIM{Guid.CreateVersion7():N}"[..20];
         var reponse = await integrations.PostAsJsonAsync("/api/v1/dimona/entrees", new
         {
@@ -336,15 +375,8 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
         corps.ShouldNotContain(niss);
         corps.ShouldNotContain("nom", Case.Insensitive);
 
-        (await integrations.PostAsJsonAsync("/api/v1/identifications", new { niss = NissIdentification(2) }, _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await integrations.PostAsJsonAsync("/api/v1/identifications", new { niss = NouveauNiss() }, _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await fixture.Client(Roles.GestionnaireDossiers).PostAsJsonAsync("/api/v1/identifications", new { niss }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-    }
-
-    /// <summary>NISS propres au test d'identification (numéros d'ordre 9xx) : la suite de <see cref="NouveauNiss"/> n'est pas décalée.</summary>
-    private static string NissIdentification(int ordre)
-    {
-        var corps = long.Parse($"850730{900 + ordre:D3}", System.Globalization.CultureInfo.InvariantCulture);
-        return $"850730{900 + ordre:D3}{97 - (corps % 97):D2}";
     }
 
     private static object Mutation(string niss, string reference, string type, string effet, object? adresse = null, string? nom = null, string? prenom = null, string? langue = null) =>
@@ -560,9 +592,9 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
         (await fixture.Client(Roles.Cpmt).PostAsJsonAsync("/api/v1/registre-national/mutations", mutation, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         var integrations = fixture.Client(Roles.Integrations);
-        var invalide = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss[..10] + (niss[10] == '0' ? '1' : '0'), "RN-X", "Deces", "2026-09-01"), _ct);
+        var invalide = await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(NissInvalide(niss), "RN-X", "Deces", "2026-09-01"), _ct);
         invalide.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        (await invalide.Content.ReadAsStringAsync(_ct)).ShouldNotContain(niss[..10]);
+        (await invalide.Content.ReadAsStringAsync(_ct)).ShouldNotContain(niss[..9]);
         (await integrations.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss, "RN-Y", "ChangementNom", "2026-09-01"), _ct))
             .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 

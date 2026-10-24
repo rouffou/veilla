@@ -6,6 +6,9 @@ namespace Sepp.Sagas.Tests.Plateforme;
 /// <summary>Message publié par un hôte, tel que le verrait Service Bus (sujet = nom versionné du contrat, ADR 0004).</summary>
 public sealed record MessagePublie(string Source, Guid Id, string Sujet, string Rubrique, string Charge, DateTimeOffset OccurredAt);
 
+/// <summary>Couples (message, abonné prévu) d'un scénario : total, jamais remis, remis au moins deux fois (doublons effectivement livrés).</summary>
+public sealed record BilanLivraisons(int Couples, int NonRemis, int RemisPlusieursFois);
+
 /// <summary>Message qui n'a pu être traité après le nombre maximal de livraisons (lettre morte).</summary>
 public sealed record LettreMorte(string Destinataire, MessagePublie Message, string Erreur);
 
@@ -26,6 +29,7 @@ public sealed class BusDeTest
     private readonly List<Livraison> _retenues = [];
     private readonly List<MessagePublie> _publies = [];
     private readonly List<LettreMorte> _lettresMortes = [];
+    private readonly Dictionary<(string Destinataire, Guid Message), int> _reussites = [];
     private readonly Lock _verrou = new();
     private Random _hasard = new(20261009);
 
@@ -100,6 +104,22 @@ public sealed class BusDeTest
         }
     }
 
+    /// <summary>
+    /// Bilan des livraisons réussies des messages publiés à partir du rang <paramref name="depuis"/> (index dans <see cref="Publies"/>) :
+    /// pour chaque couple (message, abonné prévu par la table de routage), combien de fois le message a été remis. Ne dépend ni du
+    /// nombre de passes de la pompe ni des messages d'un autre scénario : seul compte ce qu'a réellement reçu chaque abonné.
+    /// </summary>
+    public BilanLivraisons Bilan(int depuis)
+    {
+        lock (_verrou)
+        {
+            var couples = _publies.Skip(depuis)
+                .SelectMany(m => Destinataires(m).Select(d => _reussites.GetValueOrDefault((d, m.Id))))
+                .ToList();
+            return new BilanLivraisons(couples.Count, couples.Count(n => n == 0), couples.Count(n => n >= 2));
+        }
+    }
+
     /// <summary>Services hébergés abonnés à la rubrique du message et acceptant son sujet (table de routage Terraform).</summary>
     public IReadOnlyList<string> Destinataires(MessagePublie message) =>
     [
@@ -133,6 +153,11 @@ public sealed class BusDeTest
             try
             {
                 await _abonnes[livraison.Destinataire](livraison.Message.Id, livraison.Message.Sujet, livraison.Message.Charge, cancellationToken);
+                lock (_verrou)
+                {
+                    var cle = (livraison.Destinataire, livraison.Message.Id);
+                    _reussites[cle] = _reussites.GetValueOrDefault(cle) + 1;
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
