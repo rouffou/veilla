@@ -57,6 +57,8 @@ public static class DependencyInjection
         // Chiffrement par enveloppe (ADR 0009) : clé de données par document, enveloppée par la clé racine de la zone.
         ConfigurationEnveloppe.AjouterEnveloppe(services, configuration, environment, zones);
         services.AddSingleton<IChiffrementDocuments, ChiffrementParZone>();
+        // #377 : version de clé racine introuvable ou refusée → 503 et journal d'exploitation, jamais « document altéré ».
+        services.AddExceptionHandler<Api.CleRacineIndisponibleExceptionHandler>();
         services.AddScoped<IPerimetreExterne, PerimetreJeton>();
         services.AddScoped<IJournalAcces, JournalAccesOutbox>();
 
