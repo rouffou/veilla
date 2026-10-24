@@ -11,6 +11,9 @@ on:
       - "tests/**"
       - ".github/workflows/codeql.yml"
   pull_request:
+  # File de fusion de main (#344) : chaque groupe est testé intégralement avant d'arriver sur main.
+  merge_group:
+    types: [checks_requested]
   schedule:
     - cron: "17 3 * * 1" # chaque lundi, 03:17 UTC
   workflow_dispatch:

@@ -54,8 +54,11 @@ ce format. Une rupture de contrat ou d'API se signale par `!` (`feat(contrats)!:
 Règle de dépôt « Protection de main » (ruleset GitHub) :
 
 - pull request obligatoire, fusion en squash uniquement, conversations résolues ;
-- contrôles obligatoires, branche à jour avec `main` : `Statut .NET`, `Statut fronts`, `Statut Terraform`,
-  `Statut images`, `Statut CodeQL` ;
+- contrôles obligatoires : `Statut .NET`, `Statut fronts`, `Statut Terraform`, `Statut images`, `Statut CodeQL` ;
+- **file de fusion** (merge queue) : une PR verte est ajoutée à la file (« Merge when ready », ou
+  `gh pr merge <n> --squash`). GitHub la combine avec `main` et les PR qui la précèdent, relance les 5 workflows sur ce
+  groupe (événement `merge_group`, sans filtrage par chemins) et ne fusionne que si tout est vert. Plus besoin de
+  rebaser une PR sur `main` avant de la fusionner ;
 - historique linéaire ; poussée forcée et suppression de la branche interdites.
 
 Chaque workflow se déclenche sur toutes les PR. Son job « Détection des changements » ignore les jobs coûteux quand
