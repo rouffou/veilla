@@ -83,7 +83,11 @@ variable "tags" {
 #   contrat). Absent = tous les messages du topic. Le filtre remplace la règle `$Default` créée par Azure
 #   (azapi, voir infra/README.md) ;
 # - http_concurrency : seuil de la règle KEDA HTTP ; queue_scaling / message_count : règles KEDA Service Bus (CTR-13) ;
-# - image : image complète (sinon <acr>/sepp/<service>:<image_tag>) ;
+# - image : image complète (sinon <acr>/sepp/<instance_de ou service>:<image_tag>) ;
+# - instance_de : nom du service dont ce service est une instance supplémentaire (même code, même image), déployée dans
+#   sa propre zone avec sa base, son stockage et sa clé racine (décision #356, ADR 0009). Détermine le dépôt d'image, le
+#   topic de publication partagé (le topic du service d'origine, par un émetteur partagé, sans topic propre : mettre
+#   publishes_events = false) et l'appsettings correspondant. Exemple : documents-medicale est une instance de documents ;
 # - key_vault_secrets : variables alimentées par des secrets du Key Vault de la zone, nom -> nom du secret (CTR-16).
 #   Le nom de la variable d'environnement est le nom de l'application en majuscules, « - » devenant « _ »
 #   (ex. blindindex--key -> BLINDINDEX__KEY) ;
@@ -93,8 +97,9 @@ variable "tags" {
 # - internal_services : clé de configuration -> service appelé ; la valeur injectée est l'adresse interne du service ;
 # - encryption : préfixe de configuration d'un jeu de clés de chiffrement applicatif (ARC-45) -> zone du Key Vault qui
 #   porte les clés. Terraform injecte <préfixe>__CurrentKeyId et référence un secret <préfixe>__Keys__<id> par
-#   identifiant de var.encryption_key_ids (secrets à créer hors dépôt). Les clés d'une autre zone que celle du service
-#   donnent à son identité le rôle Key Vault Secrets User sur ce coffre (à valider, ARC-04) ;
+#   identifiant de var.encryption_key_ids (secrets à créer hors dépôt). Un service ne référence que le coffre de sa propre
+#   zone (ARC-04) : la validation refuse toute autre zone. Les clés racines de Documents (documents-kek) ne passent pas par
+#   cet attribut : ce sont des clés de coffre créées par le module keyvault, jamais des secrets ;
 # - adapters : clés de configuration <Section>__Adaptateurs__<Port> du choix Reel / Simulateur ; la valeur injectée est
 #   var.adapter_mode (Simulateur partout hors production, ARC-05, NF-14).
 variable "services" {
@@ -113,6 +118,7 @@ variable "services" {
     queue_scaling     = optional(bool, true)
     message_count     = optional(number, 20)
     image             = optional(string)
+    instance_de       = optional(string)
     key_vault_secrets = optional(map(string), {})
     compte_technique  = optional(string)
     internal_services = optional(map(string), {})
@@ -177,13 +183,42 @@ variable "services" {
     }
     "prevention"  = { zone = "standard", database = true, subscribes_to = ["affilies", "postes-risques", "bff-employeur"] }
     "prestations" = { zone = "standard", database = true, subscribes_to = ["planification", "prevention", "surveillance-medicale", "reintegration", "psychosocial"] }
+    # Documents : une instance par zone qui produit des documents (décision #356). Celle-ci est l'instance de la zone
+    # standard ; documents-medicale (zone médicale) exécute le même code avec sa base, son stockage et sa clé racine.
     "documents" = {
       zone     = "standard"
       database = true
-      # surveillance-medicale : seul abonnement avec gestionnaires (formulaire d'évaluation de santé, copie du dossier,
-      # carnet de vaccination) ; les autres producteurs (reintegration, psychosocial, prevention) ne sont pas encore écrits.
+      # surveillance-medicale : seul abonnement avec gestionnaire pour la zone standard (formulaire d'évaluation de santé,
+      # SAN-30, exemplaire employeur) ; les autres producteurs (reintegration, psychosocial, prevention) ne sont pas
+      # encore écrits. La copie du dossier et le carnet de vaccination sont traités par documents-medicale.
       subscribes_to = ["surveillance-medicale", "reintegration", "psychosocial", "prevention"]
-      # Contrats de la Surveillance médicale qui ont un gestionnaire (SAN-30, SAN-43, SAN-50).
+      subject_filters = {
+        surveillance-medicale = ["surveillance-medicale.decision-emise.v1"]
+      }
+      # NF-41 : langue des documents lue chez Affiliés et Personnes (compte technique). Aucun appel à la zone médicale.
+      compte_technique = "Documents__CompteTechnique"
+      internal_services = {
+        Documents__ServicesInternes__Affilies  = "affilies"
+        Documents__ServicesInternes__Personnes = "personnes"
+      }
+      adapters = [
+        "Documents__Adaptateurs__Horodatage",
+        "Documents__Adaptateurs__Signature",
+        "Documents__Adaptateurs__SourceLinguistique",
+      ]
+    }
+    # Instance zone médicale de Documents (décision #356, ADR 0009, ARC-06) : exemplaires travailleur et dossier de
+    # DecisionEmise (SAN-30), copie du dossier (SAN-43), carnet de vaccination (SAN-50) et pièces jointes (SAN-41) sont
+    # lus, rendus et archivés dans la zone médicale. Clé racine documents-kek, base et stockage de la zone médicale.
+    # Le contexte linguistique viendra d'une projection alimentée par événements (lot 7) : aucun appel à Affiliés ni à
+    # Personnes, que le NSG de la zone médicale interdit.
+    "documents-medicale" = {
+      zone             = "medicale"
+      instance_de      = "documents"
+      database         = true
+      publishes_events = false # publie sur le topic « documents » par l'émetteur partagé
+      subscribes_to    = ["surveillance-medicale"]
+      # Contrats de la Surveillance médicale qui ont un gestionnaire dans l'instance médicale (SAN-30, SAN-43, SAN-50).
       subject_filters = {
         surveillance-medicale = [
           "surveillance-medicale.decision-emise.v1",
@@ -191,19 +226,12 @@ variable "services" {
           "surveillance-medicale.vaccination-administree.v1",
         ]
       }
-      # NF-41 : langue des documents lue chez Affiliés et Personnes (compte technique).
+      # Contenu clinique lu chez Surveillance médicale (intra-zone) avec le compte technique de l'instance.
       compte_technique = "Documents__CompteTechnique"
       internal_services = {
-        Documents__ServicesInternes__Affilies             = "affilies"
-        Documents__ServicesInternes__Personnes            = "personnes"
         Documents__ServicesInternes__SurveillanceMedicale = "surveillance-medicale"
       }
-      # §14.3, ARC-45 : une clé par zone de sensibilité, dans le Key Vault de la zone (Documents lit les trois).
-      encryption = {
-        Documents__Chiffrement__standard__Encryption      = "standard"
-        Documents__Chiffrement__medicale__Encryption      = "medicale"
-        Documents__Chiffrement__psychosociale__Encryption = "psychosociale"
-      }
+      # SourceLinguistique : à passer sur la projection d'événements (lot 7) avant d'utiliser « Reel » en production.
       adapters = [
         "Documents__Adaptateurs__Horodatage",
         "Documents__Adaptateurs__Signature",
@@ -346,6 +374,39 @@ variable "services" {
       )
     ])
     error_message = "Seul obligations peut recevoir personnes.etat-particulier-declare.v1 : les autres abonnés au topic personnes doivent déclarer subject_filters.personnes sans ce sujet."
+  }
+
+  # Une instance supplémentaire désigne un service d'origine existant (lui-même pas une instance) et ne crée pas de topic :
+  # elle publie sur le topic du service d'origine par l'émetteur partagé.
+  validation {
+    condition = alltrue([
+      for n, s in var.services : s.instance_de == null || (
+        try(var.services[s.instance_de].instance_de == null, false) && !s.publishes_events
+      )
+    ])
+    error_message = "instance_de doit désigner un service existant qui n'est pas lui-même une instance, et l'instance ne doit pas avoir de topic propre (publishes_events = false : émetteur partagé du service d'origine)."
+  }
+
+  validation {
+    condition = alltrue([
+      for n, s in var.services : s.instance_de == null || s.zone != try(var.services[s.instance_de].zone, s.zone)
+    ])
+    error_message = "Une instance (instance_de) doit être déployée dans une autre zone que le service d'origine."
+  }
+
+  # Une seule instance de Documents par zone : un stockage et une clé racine par zone.
+  validation {
+    condition = alltrue([
+      for z in distinct([for s in values(var.services) : s.zone]) :
+      length([for n, s in var.services : n if s.zone == z && coalesce(s.instance_de, n) == "documents"]) <= 1
+    ])
+    error_message = "Une seule instance du service documents par zone (un stockage et une clé racine par zone)."
+  }
+
+  # ARC-04 : un service ne référence que le coffre de sa propre zone.
+  validation {
+    condition     = alltrue([for s in values(var.services) : alltrue([for zone in values(s.encryption) : zone == s.zone])])
+    error_message = "encryption ne peut désigner que la zone du service (ARC-04) : un service ne lit jamais le Key Vault d'une autre zone."
   }
 
   validation {

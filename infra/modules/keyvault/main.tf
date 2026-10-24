@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.80"
     }
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.13"
+    }
   }
 }
 
@@ -119,5 +123,49 @@ resource "azurerm_monitor_diagnostic_setting" "managed_hsm" {
 
   enabled_log {
     category_group = "audit"
+  }
+}
+
+# --- Clé racine de Documents (documents-kek), décision #356, ADR 0009 --------------
+# Clé asymétrique RSA 3072 qui enveloppe (wrapKey) la clé de données AES-256 de chaque document : une clé par zone qui
+# produit des documents, dans le coffre de la zone.
+#   - Zones sensibles : RSA-HSM (Key Vault Premium, ou Managed HSM si managed_hsm_enabled, ARC-44) ; zone standard : RSA.
+#   - Rotation automatique tous les 12 mois, sans expiration des versions : les objets archivés portent l'identifiant
+#     versionné de la clé (kid) et les anciennes versions restent utilisables pour déballer (unwrapKey).
+#   - Création par l'API ARM (azapi), pas par azurerm_key_vault_key : celui-ci passerait par le plan de données du coffre,
+#     fermé au réseau public (CTR-11). Le principal de déploiement a besoin du droit ARM
+#     Microsoft.KeyVault/vaults/keys/write (managedHSMs/keys/write avec un Managed HSM) : voir infra/README.md et #282.
+#   - Un PUT ARM sur une clé existante crée une nouvelle version : le corps n'est donc modifié qu'à dessein.
+#   - La perte de la clé rend illisibles les archives de la zone : protection contre la purge active, sauvegarde décrite
+#     dans infra/README.md (« Clés racines de Documents »).
+locals {
+  documents_kek_kty    = (var.sku_name == "premium" || var.managed_hsm_enabled) ? "RSA-HSM" : "RSA"
+  documents_kek_parent = var.managed_hsm_enabled ? one(azurerm_key_vault_managed_hardware_security_module.this[*].id) : azurerm_key_vault.this.id
+}
+
+resource "azapi_resource" "documents_kek" {
+  count = var.documents_kek_enabled ? 1 : 0
+
+  type      = var.managed_hsm_enabled ? "Microsoft.KeyVault/managedHSMs/keys@2023-07-01" : "Microsoft.KeyVault/vaults/keys@2023-07-01"
+  name      = var.documents_kek_name
+  parent_id = local.documents_kek_parent
+
+  body = {
+    properties = {
+      kty     = local.documents_kek_kty
+      keySize = 3072
+      keyOps  = ["wrapKey", "unwrapKey"]
+      attributes = {
+        enabled = true
+      }
+      rotationPolicy = {
+        lifetimeActions = [
+          {
+            trigger = { timeAfterCreate = var.documents_kek_rotation_period }
+            action  = { type = "rotate" }
+          }
+        ]
+      }
+    }
   }
 }

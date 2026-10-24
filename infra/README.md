@@ -55,7 +55,8 @@ Internet ──► Application Gateway WAF_v2 (IP publique, TLS, OWASP/DRS 2.1, 
    affiliés, personnes, ...        surveillance-medicale,              psychosocial
    audit, reporting               reintegration
    PostgreSQL std, KV std,        PostgreSQL méd., KV Premium       PostgreSQL psy., KV Premium
-   stockage documentaire WORM     (+ Managed HSM)                   (+ Managed HSM)
+   documents, stockage WORM       documents-medicale, stockage      (+ Managed HSM)
+   + clé racine documents-kek     WORM + clé racine (+ Managed HSM)
                  └─────────────── Service Bus Premium (point privé, plateforme) ──────┘
 ```
 
@@ -82,6 +83,16 @@ Internet ──► Application Gateway WAF_v2 (IP publique, TLS, OWASP/DRS 2.1, 
   encore écrits sont conservés avec un commentaire dans `variables.tf`. Un test
   d'architecture par service (`Sepp.<Service>.Architecture.Tests`) échoue si le service
   s'abonne par `AddIntegrationEventHandler` à un topic absent de son `subscribes_to`.
+- **Documents : une instance par zone** (décision #356, ADR 0009) : même code et même image
+  (`sepp/documents`), une entrée du catalogue par zone qui produit des documents. `documents` (zone standard) et
+  `documents-medicale` (zone médicale, `instance_de = "documents"`) ; `documents-psychosociale` suivra quand le service
+  Psychosocial produira des documents. Chaque instance a, **dans sa zone**, sa base (`documents` sur le serveur standard,
+  `documents_medicale` sur `psql-…-medicale`), son compte de stockage WORM (`stsepp<env><std|med|psy><suffixe>`, point privé
+  `pe-<zone>`, conteneur `documents-<zone>`, rôle Blob Data Contributor pour la seule instance de la zone), sa clé racine
+  `documents-kek` (module `keyvault`) et son identité managée. L'instance n'a pas de topic propre : elle publie sur le topic
+  `documents` par l'émetteur partagé (`shared_topic_senders`) et sa subscription porte son nom
+  (`SERVICEBUS__SUBSCRIPTIONNAME`). Aucun service ne référence le coffre d'une autre zone et aucune règle NSG n'ouvre la zone
+  standard vers les zones médicale et psychosociale (tests `ConfigurationTerraformTests`).
 - **Filtres par sujet** : `subject_filters` (topic -> sujets) crée une règle SQL
   `sys.Label IN (...)` par subscription filtrée. Le sujet du message est le nom versionné
   du contrat (`audit.bris-de-glace-signale.v1`, ADR 0004). Utilisé pour limiter
@@ -135,15 +146,16 @@ pas fournie par Terraform.
 | `POSTGRES__HOST`, `POSTGRES__DATABASE`, `POSTGRES__USER` | module `postgres` et identité du service | services avec base |
 | `Authentication__Authority`, `Authentication__Audience` | `var.entra_tenant_id` (émetteur `https://login.microsoftonline.com/<tenant>/v2.0`), `var.authentication_audience` | tous |
 | `SEPP__SERVICES__<SERVICE>` | adresses internes `https://ca-<service>.<domaine de la zone>` | BFF |
-| `<Section>__ServicesInternes__*` | attribut `internal_services` du catalogue | affilies, communications, documents, integrations |
-| `<Préfixe>__TokenEndpoint`, `__ClientId`, `__Scope` ; secret `__ClientSecret` | attribut `compte_technique`, `var.technical_account_client_ids`, Key Vault de la zone | affilies, communications, documents, integrations |
-| `<Préfixe>__CurrentKeyId` ; secrets `<Préfixe>__Keys__<id>` | attribut `encryption`, `var.encryption_key_ids`, Key Vault de la zone | personnes, integrations, documents, surveillance-medicale |
+| `SERVICEBUS__SUBSCRIPTIONNAME` | nom du service ou de l'instance (la subscription porte ce nom) | tous |
+| `<Section>__ServicesInternes__*` | attribut `internal_services` du catalogue | affilies, communications, documents, documents-medicale, integrations |
+| `<Préfixe>__TokenEndpoint`, `__ClientId`, `__Scope` ; secret `__ClientSecret` | attribut `compte_technique`, `var.technical_account_client_ids`, Key Vault de la zone | affilies, communications, documents, documents-medicale, integrations |
+| `<Préfixe>__CurrentKeyId` ; secrets `<Préfixe>__Keys__<id>` | attribut `encryption`, `var.encryption_key_ids`, Key Vault de la zone **du service** | personnes, integrations, surveillance-medicale, reintegration |
+| `DOCUMENTS__ZONES` (et `DOCUMENTS__ZONES__0`), `DOCUMENTS__ENVELOPPE__TYPE` (`KeyVault`), `DOCUMENTS__ENVELOPPE__CLEKEK` (URI de `documents-kek` sans version), `DOCUMENTS__BLOBENDPOINT` | zone de l'instance, module `keyvault` et module `storage` de la zone | documents, documents-medicale |
 | `BLINDINDEX__KEY` | `key_vault_secrets` du catalogue (secret `blindindex--key`) | personnes |
-| `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, integrations, planification |
+| `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, documents-medicale, integrations, planification |
 
 Un secret est exposé au conteneur sous le nom du secret en majuscules, `-` devenant `_` : le secret
-`documents--chiffrement--medicale--encryption--keys--k1` devient `DOCUMENTS__CHIFFREMENT__MEDICALE__ENCRYPTION__KEYS__K1`,
-soit la clé `Documents:Chiffrement:medicale:Encryption:Keys:K1` de la configuration .NET.
+`personnes--encryption--keys--k1` devient `ENCRYPTION__KEYS__K1`, soit la clé `Encryption:Keys:K1` de la configuration .NET.
 
 ### PostgreSQL par identité managée
 
@@ -161,8 +173,8 @@ version, lus avec l'identité du service). Les secrets doivent exister **avant**
 référence vers un secret absent fait échouer l'`apply`). Les Key Vault n'ayant aucun accès public, les créer depuis un
 agent relié au VNet, avec le rôle *Key Vault Secrets Officer* sur le coffre de la zone. Valeurs :
 
-- clé de chiffrement : 256 bits aléatoires en base64 (`openssl rand -base64 32`), **distincte par zone** (Documents refuse
-  de démarrer si deux zones partagent une clé) ;
+- clé de chiffrement : 256 bits aléatoires en base64 (`openssl rand -base64 32`), **distincte par zone** et créée dans le
+  coffre de la zone du service (un service ne lit jamais le coffre d'une autre zone) ;
 - clé de l'index aveugle du NISS : idem, 256 bits en base64 ;
 - secret d'un compte technique : le secret client de l'application Entra du service.
 
@@ -177,8 +189,13 @@ az keyvault secret set --vault-name <kv-standard> --name personnes--encryption--
 | `integrations--encryption--keys--<id>` | standard | integrations |
 | `blindindex--key` | standard | personnes |
 | `surveillance-medicale--zonemedicale--encryption--keys--<id>` | médicale | surveillance-medicale |
-| `documents--chiffrement--<zone>--encryption--keys--<id>` | coffre de chaque zone (`standard`, `medicale`, `psychosociale`) | documents |
+| `reintegration--zonemedicale--encryption--keys--<id>` | médicale | reintegration |
 | `affilies--comptetechnique--clientsecret`, `communications--comptetechnique--clientsecret`, `documents--comptetechnique--clientsecret`, `integrations--personnes--clientsecret` | standard | affilies, communications, documents, integrations |
+| `documents-medicale--comptetechnique--clientsecret` | médicale | documents-medicale |
+
+Les anciens secrets `documents--chiffrement--<zone>--encryption--keys--<id>` n'existent plus : les clés AES de Documents,
+exportables, sont remplacées par une clé racine non exportable par zone (voir « Clés racines de Documents »). Ne pas les
+créer ; ceux déjà créés dans un coffre peuvent être supprimés.
 
 Le secret Key Vault d'une clé de chiffrement est préfixé par le nom du service (une clé par service) ; la variable
 d'environnement injectée reste `ENCRYPTION__KEYS__<ID>` (ou le préfixe propre au service).
@@ -188,10 +205,57 @@ Rotation : ajouter le nouvel identifiant **en tête** de `encryption_key_ids` (l
 l'utilise (`FieldEncryptor.NeedsRotation`). Les identifiants sont en majuscules et chiffres (`K1`, `K2`), les variables
 d'environnement étant en majuscules.
 
-Documents lit les clés des trois zones (clés distinctes, §14.3) : son identité reçoit donc *Key Vault Secrets User* sur les
-coffres des zones médicale et psychosociale (`additional_key_vault_zones`). C'est un élargissement volontaire de l'accès
-d'un service standard (ARC-04) **à valider** ; il suppose aussi que l'environnement Container Apps standard puisse joindre ces
-coffres (NSG, voir ci-dessous).
+### Clés racines de Documents (décision #356, ADR 0009)
+
+Chaque instance de Documents chiffre chaque document par enveloppe : une clé AES-256 aléatoire par document, enveloppée
+(`wrapKey`, RSA-OAEP-256) par la clé racine `documents-kek` de **sa zone**. Terraform crée cette clé (module `keyvault`,
+ressource ARM `Microsoft.KeyVault/vaults/keys@2023-07-01` par azapi) :
+
+- RSA-HSM 3072 dans le Key Vault Premium des zones sensibles, ou dans le Managed HSM si `managed_hsm_enabled`
+  (`Microsoft.KeyVault/managedHSMs/keys@2023-07-01`) ; RSA 3072 dans le coffre standard ; opérations `wrapKey` et `unwrapKey` ;
+- rotation automatique tous les 12 mois (`documents_kek_rotation_period`, `P12M`), **sans expiration des versions** : l'objet
+  archivé porte l'identifiant versionné de la clé et les anciennes versions restent utilisables pour déballer ;
+- l'identité de l'instance reçoit *Key Vault Crypto Service Encryption User* **sur la clé** (pas sur le coffre) ; avec un
+  Managed HSM, le rôle local *Managed HSM Crypto Service Encryption User* (`33413926-3206-4cdd-b39a-83574fe37a17`) sur
+  `/keys/documents-kek` (le HSM doit être activé, voir ci-dessous) ;
+- `DOCUMENTS__ENVELOPPE__CLEKEK` vaut l'URI de la clé sans version ; sorties `documents_kek_uris`.
+
+Un `apply` qui modifie le corps de la clé crée une **nouvelle version** (comportement de l'API ARM) : les anciennes
+versions restent valides.
+
+**La perte d'une clé racine rend illisibles toutes les archives de la zone** (les clés de données ne sont récupérables que
+par elle). Les coffres ont la protection contre la purge (90 jours de suppression récupérable) ; la sauvegarde ci-dessous
+est en plus **obligatoire** avant toute mise en service, puis après chaque rotation.
+
+Sauvegarde, par zone :
+
+1. **Key Vault** (standard, ou Premium des zones sensibles sans Managed HSM) : sauvegarde de la clé, **toutes versions
+   incluses**, par le plan de données (depuis un agent relié au VNet, rôle *Key Vault Administrator* ou *Crypto Officer*) :
+
+   ```bash
+   az keyvault key backup --vault-name <kv-zone> --name documents-kek --file documents-kek-<zone>-<date>.keybackup
+   ```
+
+   Le fichier est chiffré, ne peut être restauré que dans un coffre **de la même géographie Azure et de la même
+   souscription** (`az keyvault key restore`) : le stocker dans un compte de stockage ou un coffre d'archivage de cette
+   géographie (Belgique/UE), jamais hors de l'UE, avec accès restreint et journalisé. Répéter après chaque rotation
+   (tous les 12 mois, ou après un `apply` qui crée une version). La restauration d'une clé supprimée et purgée se fait dans
+   le même coffre ou un coffre de la même géographie ; la clé redevient utilisable avec les mêmes versions.
+2. **Managed HSM** : la clé est couverte par la sauvegarde complète du HSM et par son **domaine de sécurité** :
+   - télécharger le domaine de sécurité à l'activation (voir « Managed HSM ») et le conserver chiffré, hors ligne, avec ses
+     détenteurs de clés de quorum répartis (au moins deux personnes ; ne jamais conserver le quorum au même endroit) ;
+   - sauvegarde complète du HSM vers un compte de stockage de la même géographie (`az keyvault backup start --hsm-name
+     <hsm> --storage-account-name … --blob-container-name …`) après la création de la clé et après chaque rotation ;
+   - sans le domaine de sécurité, une sauvegarde de HSM ne peut pas être restaurée : tester la restauration dans un HSM
+     de recette avant la production.
+3. Documenter dans le registre d'exploitation : date de la dernière sauvegarde de chaque clé, emplacement, détenteurs du
+   quorum. Une restauration de la clé d'une zone doit être répétée une fois par an (relecture d'une archive de test).
+
+La rotation du coffre standard s'applique de la même façon (clé logicielle) ; ce n'est pas un substitut à la sauvegarde.
+
+Le service Documents d'une zone ne lit jamais le coffre d'une autre zone (ARC-04, ARC-06) : les anciennes références
+inter-zones (`additional_key_vault_zones`) sont supprimées et la validation de `services` refuse `encryption` vers une
+autre zone.
 
 ### Adaptateurs externes : simulateurs hors production
 
@@ -212,7 +276,12 @@ ressource) et les tests .NET : aucun `plan` ni `apply` réel n'a été exécuté
 - le rôle PostgreSQL de chaque identité existe et la connexion par jeton aboutit (`/health/ready` vert) ;
 - l'émetteur et l'audience des jetons correspondent aux applications Entra (v2.0 : `iss` = `Authority`, `aud` = `Audience`) ;
 - les comptes techniques obtiennent un jeton (`<audience>/.default`) portant le rôle attendu (`affilies`, `communications`, `documents`, `integrations`) ;
-- le service Documents lit les secrets des coffres médical et psychosocial : rôle RBAC propagé et flux réseau (point privé de la zone cible depuis l'environnement standard, aujourd'hui refusé par la segmentation NSG des zones) ;
+- chaque instance de Documents (`documents`, `documents-medicale`) ne lit que le coffre, le stockage et la base de sa zone : le rôle *Key Vault Crypto Service Encryption User* sur `documents-kek` est propagé, `wrapKey`/`unwrapKey` aboutissent depuis l'environnement de la zone par le point privé `pe-<zone>`, et l'écriture Blob dans `documents-<zone>` aussi ;
+- **le principal de déploiement peut créer les clés par ARM** : droit `Microsoft.KeyVault/vaults/keys/write` (rôle *Key Vault Contributor* ou équivalent) sur chaque coffre, et `Microsoft.KeyVault/managedHSMs/keys/write` plus le rôle local *Managed HSM Crypto User* ou *Crypto Officer* avec un Managed HSM activé ; la création de la clé et de sa politique de rotation (`P12M`, sans expiration) par l'API ARM `2023-07-01` n'a pas été exécutée sur Azure ;
+- la variante Managed HSM : l'`apply` des clés et des rôles locaux échoue tant que le HSM n'est pas activé (domaine de sécurité) ; l'ordre « apply sans clé → activation → apply » est à répéter en recette ;
+- le compte de stockage renommé `stsepp<env><std|med|psy><suffixe>` remplace l'ancien `stsepp<env><suffixe>` (remplacement de ressource : à ne pas appliquer sur un environnement qui contient déjà des archives, surtout WORM verrouillé) ;
+- `Documents:Zones` est injecté sous forme scalaire (`DOCUMENTS__ZONES`) et indexée (`DOCUMENTS__ZONES__0`) pour la liaison de tableau .NET : à confirmer avec le code de l'instance ;
+- les sauvegardes des clés racines de chaque zone sont réalisées et leur restauration testée (voir « Clés racines de Documents ») ;
 - les adresses internes `https://ca-<service>.<domaine>` résolvent depuis les environnements appelants et les restrictions d'IP d'entrée les autorisent ;
 - la migration des schémas (`Database:MigrateOnStartup` vaut `false` par défaut) est assurée par la chaîne de déploiement ;
 - les valeurs d'exemple des `terraform.tfvars` (`entra_tenant_id`, `technical_account_client_ids`, `authentication_audience`) sont remplacées ;
@@ -241,14 +310,14 @@ ressource) et les tests .NET : aucun `plan` ni `apply` réel n'a été exécuté
 | ARC-42 | Application Gateway WAF_v2 (Microsoft_DefaultRuleSet 2.1, Bot Manager, limitation de débit par IP, TLS 1.2+) devant API Management interne. |
 | ARC-43 | Seuls les BFF sont joignables par l'API Management (backends APIM par BFF). |
 | ARC-44 | Key Vault par zone ; Managed HSM dédié aux zones médicale et psychosociale (`managed_hsm_enabled`), Key Vault Premium (clés HSM) à défaut. |
-| ARC-45 | Rôle Key Vault Crypto User pour le chiffrement applicatif dans les zones de données. |
+| ARC-45 | Rôle Key Vault Crypto User pour le chiffrement applicatif des seuls services qui déclarent `encryption` ; Documents : clé racine `documents-kek` par zone (RSA-HSM, rotation 12 mois), rôle *Crypto Service Encryption User* sur la clé. |
 | ARC-46 | mTLS Container Apps, segmentation NSG par zone, restrictions IP d'entrée. |
 | ARC-47 / NF-62 | Log Analytics, Application Insights (OpenTelemetry), paramètres de diagnostic sur toutes les ressources, groupe d'actions. |
 | ARC-50 | Révisions multiples ; image et répartition du trafic pilotées par la CI/CD (`ignore_changes`). |
 | ARC-52 | `dr_location` (région UE) ; géo-réplication ACR activable (`enable_dr_replication`). |
 | ARC-53 | Voir « Vérifications de disponibilité » ci-dessous. |
 | NF-13 | Stratégie « localisations autorisées » limitée à la région principale et à la région de reprise UE. |
-| NF-21 | Conteneurs Blob `documents-<zone>` avec stratégie WORM à rétention temporelle (verrouillée en prod). |
+| NF-21 | Un compte de stockage par zone d'instance Documents, conteneur Blob `documents-<zone>` avec stratégie WORM à rétention temporelle (verrouillée en prod). |
 | NF-33 | Restauration PostgreSQL à un instant donné (rétention 35 jours en prod). |
 
 ## Prérequis
@@ -330,9 +399,11 @@ az keyvault security-domain download --hsm-name <hsm> \
   --sd-wrapping-keys cle1.cer cle2.cer cle3.cer --sd-quorum 2 --security-domain-file <hsm>-sd.json
 ```
 
-Les rôles locaux du HSM (*Managed HSM Crypto User* pour les identités des services de
-la zone) et les clés (rotation automatique) sont ensuite attribués ; ils ne sont pas
-gérés par ce code tant que le HSM n'est pas activé.
+Après l'activation, un nouvel `apply` crée la clé racine `documents-kek` dans le HSM (rotation automatique tous les
+12 mois) et attribue à l'identité de l'instance Documents de la zone le rôle local *Managed HSM Crypto Service Encryption
+User* sur cette clé. Tant que le HSM n'est pas activé, ces ressources échouent : le domaine de sécurité doit être
+téléchargé et sauvegardé avant le premier `apply` qui les crée (voir « Clés racines de Documents » pour la sauvegarde).
+Les autres rôles locaux (*Managed HSM Crypto User* pour d'autres services de la zone) ne sont pas gérés par ce code.
 
 ## Vérifications de disponibilité (ARC-53)
 

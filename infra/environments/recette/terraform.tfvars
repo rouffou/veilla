@@ -36,10 +36,11 @@ managed_hsm_admin_object_ids = []
 entra_tenant_id         = "00000000-0000-0000-0000-000000000000"
 authentication_audience = "api://sepp-recette"
 technical_account_client_ids = {
-  affilies       = "00000000-0000-0000-0000-000000000000"
-  communications = "00000000-0000-0000-0000-000000000000"
-  documents      = "00000000-0000-0000-0000-000000000000"
-  integrations   = "00000000-0000-0000-0000-000000000000"
+  affilies           = "00000000-0000-0000-0000-000000000000"
+  communications     = "00000000-0000-0000-0000-000000000000"
+  documents          = "00000000-0000-0000-0000-000000000000"
+  documents-medicale = "00000000-0000-0000-0000-000000000000" # instance zone médicale : GUID d'exemple à remplacer
+  integrations       = "00000000-0000-0000-0000-000000000000"
 }
 
 # Adaptateurs externes : Simulateur hors production (ARC-05, NF-14).
