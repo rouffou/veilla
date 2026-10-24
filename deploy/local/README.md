@@ -66,16 +66,16 @@ Pour tester le flux DIMONA en local : associer un numéro BCE à un affilié (`P
 
 ## Documents : une instance par zone
 
-Par défaut, un seul service `documents` (port 5119) sert les trois zones, comme avant. Son compte technique `veilla-documents` (rôle `documents`) n'a plus `dossier-sante:transmettre-documents` (décision #356, ARC-06) : en configuration par défaut, la copie du dossier (SAN-43) et le carnet de vaccination (SAN-50) obtiennent un 403 de Surveillance médicale.
+Par défaut, un seul service `documents` (port 5119) sert les trois zones, comme avant. Dans le realm local uniquement, le compte de service de `veilla-documents` porte aussi le rôle `documents-medicale` : l'instance unique de développement sert les trois zones, donc la copie du dossier (SAN-43) et le carnet de vaccination (SAN-50) restent servis. La séparation des droits (`dossier-sante:transmettre-documents` réservé au rôle `documents-medicale`, décision #356, ARC-06) n'est réelle qu'en déploiement par zone, où le rôle `documents` seul n'a pas ce droit.
 
-Pour reproduire la production (« une instance par zone », ADR 0009) et faire fonctionner ces deux flux :
+Pour reproduire la production (« une instance par zone », ADR 0009) :
 
 ```bash
 docker compose -f deploy/local/compose.yaml -f deploy/local/compose.documents-par-zone.yaml --profile par-zone up -d --build
 ```
 
 - `documents` (port 5119) ne sert plus que la zone standard ;
-- `documents-medicale` (port 5122, profil `par-zone`) sert la zone médicale, avec sa base `documents_medicale`, son stockage de fichiers propre et le client confidentiel `veilla-documents-medicale` (rôle technique `documents-medicale`, secret de développement `documents-medicale-local-dev`), seul autorisé à lire le contenu clinique chez Surveillance médicale.
+- `documents-medicale` (port 5122, profil `par-zone`) sert la zone médicale, avec sa base `documents_medicale`, son stockage de fichiers propre et le client confidentiel `veilla-documents-medicale` (rôle technique `documents-medicale`, secret de développement `documents-medicale-local-dev`), chargé de lire le contenu clinique chez Surveillance médicale (le compte `veilla-documents` garde néanmoins le rôle `documents-medicale` en local, sans effet puisque `documents` ne sert plus que la zone standard).
 
 Le script `init-databases.sql` ne s'exécute qu'à la création du volume PostgreSQL, et le realm qu'à l'import initial de Keycloak : sur un environnement existant, créez la base (`docker compose -f deploy/local/compose.yaml exec postgres psql -U sepp -c "CREATE DATABASE documents_medicale"`) et recréez le volume ou le conteneur Keycloak pour obtenir le nouveau client.
 

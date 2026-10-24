@@ -382,7 +382,8 @@ services:
       Authentication__ValidIssuer: http://localhost:8180/realms/veilla
       Authentication__RequireHttpsMetadata: "false"
       Documents__Stockage__Racine: /tmp/sepp-documents
-      # Zones servies (décision #356) : en local, une seule instance sert les trois zones (comportement inchangé) ; hors
+      # Zones servies (décision #356) : en local, une seule instance sert les trois zones (comportement inchangé ; le compte
+      # veilla-documents porte aussi le rôle documents-medicale dans le realm local, pour la copie du dossier) ; hors
       # développement, une instance par zone sert exactement la zone de SEPP__ZONE.
       Documents__Zones__0: standard
       Documents__Zones__1: medicale
