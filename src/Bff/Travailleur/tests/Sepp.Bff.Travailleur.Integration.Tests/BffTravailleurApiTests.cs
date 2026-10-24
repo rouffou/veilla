@@ -39,6 +39,8 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
 
     public ValueTask InitializeAsync()
     {
+        // Par défaut, l'instance Documents médicale n'a aucun document pour la personne.
+        _aval.Repondre(ServicesAvalSimules.DocumentsMedicale, "/api/v1/documents", Array.Empty<object>());
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Testing");
@@ -48,6 +50,7 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
             b.UseSetting("ServicesAval:Affilies", $"http://{ServicesAvalSimules.Affilies}");
             b.UseSetting("ServicesAval:Obligations", $"http://{ServicesAvalSimules.Obligations}");
             b.UseSetting("ServicesAval:Documents", $"http://{ServicesAvalSimules.Documents}");
+            b.UseSetting("ServicesAval:DocumentsMedicale", $"http://{ServicesAvalSimules.DocumentsMedicale}");
             b.UseSetting("Cors:Origines:0", "http://localhost:4202");
             b.ConfigureTestServices(s =>
             {
@@ -627,7 +630,7 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         texte.ShouldNotContain("empreinte");
         texte.ShouldNotContain("sha256");
         texte.ShouldNotContain("Medicale");
-        _aval.Requetes.Single().Chemin.ShouldBe($"/api/v1/documents?typeDestinataire=Personne&destinataireId={_personne}");
+        _aval.Requetes.Select(r => r.Chemin).Distinct().ShouldBe([$"/api/v1/documents?typeDestinataire=Personne&destinataireId={_personne}"]);
     }
 
     [Fact]
@@ -657,6 +660,66 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
 
         probleme.GetProperty("code").GetString().ShouldBe("document.inconnu");
         _aval.Requetes.ShouldNotContain(r => r.Chemin.EndsWith("/contenu", StringComparison.Ordinal));
+    }
+
+    // --- POR-13 : deux instances Documents (décision #356) ---
+
+    [Fact]
+    public async Task La_liste_fusionne_les_deux_instances_avec_le_jeton_propage_sans_exposer_la_zone()
+    {
+        var standard = Guid.CreateVersion7();
+        var medical = Guid.CreateVersion7();
+        _aval.Repondre(ServicesAvalSimules.Documents, "/api/v1/documents", new[] { Document(standard, _personne) });
+        _aval.Repondre(ServicesAvalSimules.DocumentsMedicale, "/api/v1/documents", new[] { Document(medical, _personne, code: "SANTE.COPIE_DOSSIER") });
+
+        var response = await Client().GetAsync("/api/v1/documents", Ct);
+        var texte = await response.Content.ReadAsStringAsync(Ct);
+        var json = await Json(response);
+
+        json.EnumerateArray().Select(e => e.GetProperty("id").GetGuid()).ShouldBe([standard, medical], ignoreOrder: true);
+        texte.ToLowerInvariant().ShouldNotContain("zone");
+        _aval.Requetes.Select(r => r.Hote).ShouldBe([ServicesAvalSimules.Documents, ServicesAvalSimules.DocumentsMedicale], ignoreOrder: true);
+        _aval.Requetes.ShouldAllBe(r => r.Authorization != null);
+    }
+
+    [Fact]
+    public async Task Le_contenu_d_un_document_medical_est_lu_sur_l_instance_medicale()
+    {
+        var id = Guid.CreateVersion7();
+        byte[] pdf = [0x25, 0x50, 0x44, 0x46];
+        _aval.Repondre(ServicesAvalSimules.DocumentsMedicale, $"/api/v1/documents/{id}", Document(id, _personne, code: "SANTE.COPIE_DOSSIER"));
+        _aval.RepondreFichier(ServicesAvalSimules.DocumentsMedicale, $"/api/v1/documents/{id}/contenu", pdf, "copie.pdf");
+
+        var response = await Client().GetAsync($"/api/v1/documents/{id}/contenu", Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await response.Content.ReadAsByteArrayAsync(Ct)).ShouldBe(pdf);
+        _aval.Requetes.ShouldContain(r => r.Hote == ServicesAvalSimules.Documents && r.Chemin == $"/api/v1/documents/{id}");
+        _aval.Requetes.ShouldNotContain(r => r.Hote == ServicesAvalSimules.Documents && r.Chemin.EndsWith("/contenu", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Un_document_inconnu_des_deux_instances_donne_404()
+    {
+        var id = Guid.CreateVersion7();
+
+        var probleme = await Json(await Client().GetAsync($"/api/v1/documents/{id}/contenu", Ct), HttpStatusCode.NotFound);
+
+        probleme.GetProperty("code").GetString().ShouldBe("document.inconnu");
+    }
+
+    [Fact]
+    public async Task L_accueil_signale_les_documents_quand_l_instance_medicale_est_injoignable()
+    {
+        _aval.Repondre(ServicesAvalSimules.Planification, "/api/v1/reservations/rendez-vous", Array.Empty<object>());
+        _aval.Repondre(ServicesAvalSimules.SurveillanceMedicale, "/api/v1/protocoles/questionnaires", Array.Empty<object>());
+        _aval.Repondre(ServicesAvalSimules.Documents, "/api/v1/documents", new[] { Document(Guid.CreateVersion7(), _personne) });
+        _aval.Injoignable(ServicesAvalSimules.DocumentsMedicale);
+
+        var json = await Json(await Client().GetAsync("/api/v1/accueil", Ct));
+
+        json.GetProperty("documentsRecents").ValueKind.ShouldBe(JsonValueKind.Null);
+        json.GetProperty("indisponibles").EnumerateArray().Select(e => e.GetString()).ShouldContain("documents");
     }
 
     // --- Accueil composite, erreurs, CORS ---

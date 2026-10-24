@@ -30,7 +30,11 @@ public sealed class EcransTravailleurTests
 
     private EcransQuestionnaires Questionnaires => new(_surveillance, _obligations);
 
+    private readonly IDocumentsMedicaleApi _medicale = Substitute.For<IDocumentsMedicaleApi>();
+
     private EcransDocuments Documents => new(_documents);
+
+    private EcransDocuments DocumentsDeuxInstances => new(_documents, _medicale);
 
     private RendezVousAval Rdv(Guid personne, string debut, string statut = "Planifie") =>
         new(Guid.CreateVersion7(), personne, _affilie, Guid.CreateVersion7(), DateTimeOffset.Parse(debut), DateTimeOffset.Parse(debut).AddMinutes(30),
@@ -350,6 +354,124 @@ public sealed class EcransTravailleurTests
         contenu.ShouldBe([1, 2]);
         nom.ShouldBe($"document-{document.Id}.pdf");
     }
+
+    // --- POR-13 : deux instances Documents (décision #356) ---
+
+    [Fact]
+    public async Task Les_listes_des_deux_instances_sont_fusionnees_et_triees_sans_zone()
+    {
+        var standard = Doc(_personne) with { Date = DateTimeOffset.Parse("2026-09-01T08:00:00Z") };
+        var medical = Doc(_personne, "SANTE.CARNET_VACCINATION") with { Date = DateTimeOffset.Parse("2026-10-01T08:00:00Z") };
+        _documents.ListerDocumentsDeLaPersonneAsync(_personne, Ct).Returns([standard, Doc(_autre)]);
+        _medicale.ListerDocumentsDeLaPersonneAsync(_personne, Ct).Returns([medical]);
+
+        var liste = await DocumentsDeuxInstances.MesDocumentsAsync(_personne, Ct);
+
+        liste.Select(d => d.Id).ShouldBe([medical.Id, standard.Id]);
+        typeof(DocumentEcran).GetProperties().Select(p => p.Name).ShouldNotContain(n => n.Contains("Zone", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Sans_instance_medicale_une_seule_instance_sert_toutes_les_zones()
+    {
+        _documents.ListerDocumentsDeLaPersonneAsync(_personne, Ct).Returns([Doc(_personne)]);
+
+        (await Documents.MesDocumentsAsync(_personne, Ct)).Count.ShouldBe(1);
+        await _medicale.DidNotReceiveWithAnyArgs().ListerDocumentsDeLaPersonneAsync(default, Ct);
+    }
+
+    [Fact]
+    public async Task Une_instance_indisponible_rend_la_liste_indisponible_et_l_accueil_ne_signale_que_les_documents()
+    {
+        _documents.ListerDocumentsDeLaPersonneAsync(_personne, Ct).Returns([Doc(_personne)]);
+        _medicale.ListerDocumentsDeLaPersonneAsync(_personne, Ct).Throws(new ServiceIndisponibleException(NomsServices.DocumentsMedicale));
+        _planification.ListerMesRendezVousAsync(Ct).Returns([]);
+        _surveillance.ListerModelesQuestionnaireAsync("fr", Ct).Returns([]);
+
+        await Should.ThrowAsync<ServiceIndisponibleException>(() => DocumentsDeuxInstances.MesDocumentsAsync(_personne, Ct));
+
+        var ecran = await new EcransAccueil(RendezVous, DocumentsDeuxInstances, Questionnaires).AccueilAsync(_personne, "fr", Ct);
+
+        ecran.Indisponibles.ShouldBe(["documents"]);
+        ecran.ProchainsRendezVous.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Le_contenu_est_lu_chez_l_instance_qui_connait_le_document()
+    {
+        var document = Doc(_personne, "SANTE.COPIE_DOSSIER");
+        _documents.ObtenirDocumentAsync(document.Id, Ct).Throws(Introuvable());
+        _medicale.ObtenirDocumentAsync(document.Id, Ct).Returns(document);
+        _medicale.LireContenuAsync(document.Id, Ct).Returns(([7], (string?)"copie.pdf"));
+
+        var (contenu, nom) = await DocumentsDeuxInstances.ContenuAsync(_personne, document.Id, Ct);
+
+        contenu.ShouldBe([7]);
+        nom.ShouldBe("copie.pdf");
+        await _documents.DidNotReceiveWithAnyArgs().LireContenuAsync(default, Ct);
+    }
+
+    [Fact]
+    public async Task Le_contenu_est_lu_chez_l_instance_standard_quand_elle_repond_200()
+    {
+        var document = Doc(_personne);
+        _documents.ObtenirDocumentAsync(document.Id, Ct).Returns(document);
+        _medicale.ObtenirDocumentAsync(document.Id, Ct).Throws(Introuvable());
+        _documents.LireContenuAsync(document.Id, Ct).Returns(([1], (string?)"a.pdf"));
+
+        (await DocumentsDeuxInstances.ContenuAsync(_personne, document.Id, Ct)).Contenu.ShouldBe([1]);
+        await _medicale.DidNotReceiveWithAnyArgs().LireContenuAsync(default, Ct);
+    }
+
+    [Fact]
+    public async Task Un_document_inconnu_des_deux_instances_donne_404()
+    {
+        var id = Guid.CreateVersion7();
+        _documents.ObtenirDocumentAsync(id, Ct).Throws(Introuvable());
+        _medicale.ObtenirDocumentAsync(id, Ct).Throws(Introuvable());
+
+        var erreur = await Should.ThrowAsync<ErreurAvalException>(() => DocumentsDeuxInstances.ContenuAsync(_personne, id, Ct));
+
+        erreur.Status.ShouldBe(HttpStatusCode.NotFound);
+        erreur.Code.ShouldBe("document.inconnu");
+    }
+
+    [Fact]
+    public async Task Le_document_d_un_autre_destinataire_chez_l_instance_medicale_n_est_pas_lu()
+    {
+        var etranger = Doc(_autre);
+        _documents.ObtenirDocumentAsync(etranger.Id, Ct).Throws(Introuvable());
+        _medicale.ObtenirDocumentAsync(etranger.Id, Ct).Returns(etranger);
+
+        var erreur = await Should.ThrowAsync<ErreurAvalException>(() => DocumentsDeuxInstances.ContenuAsync(_personne, etranger.Id, Ct));
+
+        erreur.Status.ShouldBe(HttpStatusCode.NotFound);
+        await _medicale.DidNotReceiveWithAnyArgs().LireContenuAsync(default, Ct);
+    }
+
+    [Fact]
+    public async Task Une_instance_en_panne_ne_masque_pas_un_document_trouve_sur_l_autre()
+    {
+        var document = Doc(_personne);
+        _documents.ObtenirDocumentAsync(document.Id, Ct).Throws(new ServiceIndisponibleException(NomsServices.Documents));
+        _medicale.ObtenirDocumentAsync(document.Id, Ct).Returns(document);
+        _medicale.LireContenuAsync(document.Id, Ct).Returns(([3], (string?)"m.pdf"));
+
+        (await DocumentsDeuxInstances.ContenuAsync(_personne, document.Id, Ct)).Contenu.ShouldBe([3]);
+    }
+
+    [Fact]
+    public async Task Un_404_et_une_instance_en_panne_ne_concluent_pas_a_un_document_inconnu()
+    {
+        var id = Guid.CreateVersion7();
+        _documents.ObtenirDocumentAsync(id, Ct).Throws(Introuvable());
+        _medicale.ObtenirDocumentAsync(id, Ct).Throws(new ServiceIndisponibleException(NomsServices.DocumentsMedicale));
+
+        await Should.ThrowAsync<ServiceIndisponibleException>(() => DocumentsDeuxInstances.ContenuAsync(_personne, id, Ct));
+    }
+
+    private static ErreurAvalException Introuvable() =>
+        new(NomsServices.Documents, HttpStatusCode.NotFound, "introuvable", null);
 
     // --- Accueil composite ---
 

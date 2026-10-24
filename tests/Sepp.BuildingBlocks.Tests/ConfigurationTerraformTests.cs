@@ -74,7 +74,7 @@ public sealed partial class ConfigurationTerraformTests
         ["reintegration"] = [.. Authentification, .. BasePostgres, .. Chiffrement("ZoneMedicale:Encryption"), .. Adaptateurs("Reintegration", "EHealth")],
         ["surveillance-medicale"] = [.. Authentification, .. BasePostgres, .. Chiffrement("ZoneMedicale:Encryption")],
         ["bff-employeur"] = [.. Authentification, "Sepp:Services:Affilies", "Sepp:Services:Personnes", "Sepp:Services:Postes_Risques", "Sepp:Services:Obligations"],
-        ["bff-travailleur"] = [.. Authentification, "Sepp:Services:Planification", "Sepp:Services:Surveillance_Medicale", "Sepp:Services:Obligations", "Sepp:Services:Documents"],
+        ["bff-travailleur"] = [.. Authentification, "Sepp:Services:Planification", "Sepp:Services:Surveillance_Medicale", "Sepp:Services:Obligations", "Sepp:Services:Documents", "Sepp:Services:Documents_Medicale"],
     };
 
     /// <summary>
