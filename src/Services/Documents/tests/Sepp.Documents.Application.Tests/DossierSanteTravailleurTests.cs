@@ -113,7 +113,7 @@ public sealed class DossierSanteTravailleurTests
     [Fact]
     public async Task Sans_modele_valide_par_le_cpmt_dirigeant_l_evenement_echoue_pour_etre_rejoue()
     {
-        await new EvaluationSante.InitialiserModelesParDefaut(_ctx.Store, _ctx.Store).ExecuteAsync(_ct);
+        await new EvaluationSante.InitialiserModelesParDefaut(_ctx.Store, _ctx.Store, _ctx.ZonesServies).ExecuteAsync(_ct);
         _ctx.Store.Modeles.Where(m => m.Code is ModelesDossierSante.CodeCopie or ModelesDossierSante.CodeCarnet)
             .ShouldAllBe(m => m.Zone == ZoneDocument.Medicale && m.Statut == StatutModele.Brouillon);
 

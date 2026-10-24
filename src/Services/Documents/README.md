@@ -7,6 +7,18 @@ Modèles de documents, génération, archivage à valeur probante et signature (
 
 Le service Documents passera à une **instance par zone de sensibilité** (`documents` en zone standard, `documents-medicale` en zone médicale), avec le même code et la même image. Chaque instance tiendra sa base, son compte WORM et sa clé racine dans sa zone. Le chiffrement passera par **enveloppe** : chaque document aura une clé de données AES-256-GCM, enveloppée par une clé racine RSA-HSM non exportable de la zone ; une instance ne déballera que les clés de sa zone. La copie du dossier et le carnet de vaccination seront générés et archivés par l'instance médicale, sans contenu clinique en zone standard. Le travail suit les lots #361 à #366. **Écart connu** : en attendant, la génération de la copie du dossier et du carnet en zone standard reste à corriger (#359).
 
+## Zones servies par l'instance (décision #356)
+
+Même code et même image, **une instance par zone qui produit des documents** (`documents` en zone standard, `documents-medicale` en zone médicale ; psychosociale plus tard). Chaque instance ne sert que ses zones :
+
+- **Configuration obligatoire, sans valeur par défaut** : `Documents:Zones` (liste de zones `standard`, `medicale`, `psychosociale` ; en variable d'environnement `DOCUMENTS__ZONES__0=medicale` ou `DOCUMENTS__ZONES=medicale`). Absente, vide ou inconnue : le service ne démarre pas.
+- **Garde de démarrage** : hors environnements `Development`, `Test` et `Testing`, la liste contient exactement une zone, égale à la zone de l'environnement `SEPP__ZONE` (variable déjà injectée par Terraform dans chaque conteneur, clé de configuration `Sepp:Zone`). En local, une instance peut servir les trois zones (`deploy/local/compose.yaml`).
+- **Clés de chiffrement** : seules les clés des zones servies sont chargées ; chiffrer ou déchiffrer pour une autre zone échoue.
+- **Refus hors zone** : générer un document, créer ou valider un modèle d'une zone non servie répond `422 documents.zone-non-servie` ; lire un document d'une zone non servie répond 404.
+- **Exemplaires de `DecisionEmise`** (table statique `DecisionEmiseHandler.ZonesDesExemplaires`) : employeur → standard ; travailleur et dossier → médicale. Une instance ne génère que les exemplaires de ses zones. Chaque instance a sa base et les clés `decision:<id>:<exemplaire>` sont distinctes : deux instances qui traitent le même événement ne produisent aucun doublon.
+- **Consommateurs** : `CopieDossierValidee` et `VaccinationAdministree` ne sont enregistrés que si la zone médicale est servie.
+- **Amorçage des modèles de départ** filtré par zone (les modèles médicaux ne sont créés que par une instance qui sert la zone médicale).
+
 ## Ce que fait le service
 
 - **Modèles versionnés par langue** (DOC-01) : une ligne par couple (code, langue, version) ; cycle brouillon → validé → publié (une seule version publiée par code et par langue, la précédente est retirée). Une version validée ou publiée n'est plus modifiable : on crée une nouvelle version. Les modèles de la zone médicale sont validés par le CPMT dirigeant (`documents:modele-valider-medical`), ceux de la zone psychosociale par le CPAP dirigeant, les autres par l'administrateur fonctionnel ; la publication reste à l'administrateur fonctionnel.
@@ -47,7 +59,7 @@ Bibliothèque : **PDFsharp 6.2 (licence MIT)** ; polices Lato incorporées (SIL 
 | `ISignatureQualifiee` | `Reel` : eID, itsme via un prestataire qualifié eIDAS, **à raccorder** | `Simulateur` (sans valeur juridique) |
 | `ISourceLinguistique` | `Reel` : `GET /api/v1/affilies/{id}` et `GET /api/v1/personnes/{id}` avec le compte technique OIDC (rôle `documents`) | `Simulateur` : régime français |
 
-Configuration : `Documents:Adaptateurs:{Horodatage|Signature|SourceLinguistique}` (`Simulateur` ou `Reel`, sans défaut), `Documents:Stockage:Type`, `Documents:Chiffrement:<zone>:Encryption:{CurrentKeyId,Keys:<id>}` (clés Key Vault, HSM pour les zones médicale et psychosociale en production), `Documents:ServicesInternes`, `Documents:CompteTechnique`.
+Configuration : `Documents:Zones` (obligatoire, voir ci-dessus), `Documents:Adaptateurs:{Horodatage|Signature|SourceLinguistique}` (`Simulateur` ou `Reel`, sans défaut), `Documents:Stockage:Type`, `Documents:Chiffrement:<zone>:Encryption:{CurrentKeyId,Keys:<id>}` (clés Key Vault, HSM pour les zones médicale et psychosociale en production), `Documents:ServicesInternes`, `Documents:CompteTechnique`.
 
 Hors périmètre ou à compléter : le client OIDC `veilla-documents` (rôle `documents`) et le claim `personne_id` existent dans le realm local (`deploy/local/keycloak`) ; en production, `personne_id` doit être fourni par la fédération du portail travailleur ; les API d'Affiliés et de Personnes doivent exposer `regimeLinguistique` et `langue`.
 

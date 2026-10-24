@@ -11,8 +11,16 @@ namespace Sepp.Documents.Application.Securite;
 /// travailleur lit les documents publiés qui lui sont adressés (§3.3 « ses propres documents », POR-13). L'employeur ne lit
 /// que les documents de la zone standard publiés pour son affilié (claim <c>affilie_id</c>).
 /// </summary>
-public sealed class AccesDocuments(ICurrentUser utilisateur, IPerimetreExterne perimetre)
+public sealed class AccesDocuments(ICurrentUser utilisateur, IPerimetreExterne perimetre, IZonesServies zonesServies)
 {
+    public const string CodeZoneNonServie = "documents.zone-non-servie";
+
+    /// <summary>Refus (422) d'une opération sur une zone que cette instance ne sert pas.</summary>
+    public Error? VerifierZoneServie(ZoneDocument zone) =>
+        zonesServies.Sert(zone)
+            ? null
+            : Error.Unprocessable(CodeZoneNonServie, $"Cette instance du service Documents ne sert pas la zone {zone.Code()}.");
+
     public bool EstTravailleur => utilisateur.Roles.Contains(Roles.Travailleur);
 
     public bool EstEmployeur => utilisateur.Roles.Contains(Roles.Employeur) || utilisateur.Roles.Contains(Roles.Sipp);
@@ -31,6 +39,12 @@ public sealed class AccesDocuments(ICurrentUser utilisateur, IPerimetreExterne p
 
     public Error? VerifierLecture(Document document)
     {
+        // Un document d'une zone non servie n'existe pas pour cette instance (il vit dans l'instance de sa zone).
+        if (!zonesServies.Sert(document.Zone))
+        {
+            return Error.NotFound("document.inconnu", "Document inconnu.");
+        }
+
         if (!utilisateur.HasPermission(Permissions.DocumentsLire))
         {
             return Interdit();
@@ -62,7 +76,7 @@ public sealed class AccesDocuments(ICurrentUser utilisateur, IPerimetreExterne p
             ZoneDocument.Psychosociale => utilisateur.HasPermission(Permissions.DossierPsyEcrire),
             _ => false,
         };
-        return autorise ? null : Error.Forbidden("documents.generation-interdite", $"Génération d'un document de la zone {zone.Code()} non autorisée.");
+        return autorise ? VerifierZoneServie(zone) : Error.Forbidden("documents.generation-interdite", $"Génération d'un document de la zone {zone.Code()} non autorisée.");
     }
 
     /// <summary>DOC-01 : les modèles médicaux sont validés par le CPMT dirigeant, les psychosociaux par le CPAP dirigeant.</summary>
@@ -75,7 +89,7 @@ public sealed class AccesDocuments(ICurrentUser utilisateur, IPerimetreExterne p
             _ => Permissions.DocumentsModeleValider,
         };
         return utilisateur.HasPermission(permission)
-            ? null
+            ? VerifierZoneServie(zone)
             : Error.Forbidden("documents.validation-interdite", zone switch
             {
                 ZoneDocument.Medicale => "Un modèle de la zone médicale est validé par le CPMT dirigeant.",

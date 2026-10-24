@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddSeppServiceDefaults("documents");
 builder.Services.AddDocumentsApplication();
-builder.Services.AddDocumentsAdapters(builder.Configuration);
+builder.Services.AddDocumentsAdapters(builder.Configuration, builder.Environment);
 builder.Services.AddHealthChecks()
     .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.Documents.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 

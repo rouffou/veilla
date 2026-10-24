@@ -111,6 +111,9 @@ public sealed class PlateformeSaga : IAsyncLifetime
             ["Documents:Adaptateurs:Horodatage"] = "Simulateur",
             ["Documents:Adaptateurs:Signature"] = "Simulateur",
             ["Documents:Adaptateurs:SourceLinguistique"] = "Simulateur",
+            ["Documents:Zones:0"] = "standard",
+            ["Documents:Zones:1"] = "medicale",
+            ["Documents:Zones:2"] = "psychosociale",
             ["Documents:Stockage:Type"] = "Local",
             ["Documents:Stockage:Racine"] = _racineDocuments,
         };

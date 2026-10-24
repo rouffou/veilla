@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting.Internal;
 
 using Sepp.Documents.Adapters;
 using Sepp.Documents.Application;
@@ -17,5 +19,5 @@ public sealed class AbonnementsTerraformTests : AbonnementsTerraformRules
     protected override IServiceCollection Composer(IConfiguration configuration) =>
         new ServiceCollection()
             .AddDocumentsApplication()
-            .AddDocumentsAdapters(configuration);
+            .AddDocumentsAdapters(configuration, new HostingEnvironment { EnvironmentName = Environments.Development });
 }

@@ -26,7 +26,14 @@ public class ChiffrementParZoneTests
     };
 
     private static ChiffrementParZone Chiffrement(Dictionary<string, string?> valeurs) =>
-        new(new ConfigurationBuilder().AddInMemoryCollection(valeurs).Build());
+        new(new ConfigurationBuilder().AddInMemoryCollection(valeurs).Build(), new ZonesToutes());
+
+    private sealed class ZonesToutes : IZonesServies
+    {
+        public IReadOnlyCollection<ZoneDocument> Zones => Sepp.Documents.Domain.Commun.Zones.Toutes;
+
+        public bool Sert(ZoneDocument zone) => true;
+    }
 
     [Fact]
     public void Le_contenu_chiffre_se_dechiffre_avec_la_cle_de_sa_zone()

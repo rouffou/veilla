@@ -379,6 +379,11 @@ services:
       Authentication__ValidIssuer: http://localhost:8180/realms/veilla
       Authentication__RequireHttpsMetadata: "false"
       Documents__Stockage__Racine: /tmp/sepp-documents
+      # Zones servies (décision #356) : en local, une seule instance sert les trois zones (comportement inchangé) ; hors
+      # développement, une instance par zone sert exactement la zone de SEPP__ZONE.
+      Documents__Zones__0: standard
+      Documents__Zones__1: medicale
+      Documents__Zones__2: psychosociale
       # Lecture de l'affilié et de la personne avec le compte technique du realm local (secret de développement uniquement ;
       # hors poste de développement, le secret vient de Key Vault).
       Documents__ServicesInternes__Affilies: http://affilies:8080/

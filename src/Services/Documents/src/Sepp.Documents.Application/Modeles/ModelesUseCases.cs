@@ -83,7 +83,7 @@ public sealed record CreerModele(
     string Contenu,
     IReadOnlyList<ChampDto> Champs);
 
-public sealed class CreerModeleHandler(IModeleRepository repository, IUnitOfWork unitOfWork, ICurrentUser currentUser) : ICommandHandler<CreerModele, Guid>
+public sealed class CreerModeleHandler(IModeleRepository repository, IUnitOfWork unitOfWork, ICurrentUser currentUser, AccesDocuments acces) : ICommandHandler<CreerModele, Guid>
 {
     public async Task<Result<Guid>> HandleAsync(CreerModele command, CancellationToken cancellationToken)
     {
@@ -97,6 +97,11 @@ public sealed class CreerModeleHandler(IModeleRepository repository, IUnitOfWork
         {
             var code = Modele.NormaliserCode(command.Code);
             var zone = Zones.Depuis(command.Zone);
+            if (acces.VerifierZoneServie(zone) is { } zoneNonServie)
+            {
+                return zoneNonServie;
+            }
+
             var existants = await repository.ListAsync(code, cancellationToken);
             if (existants.Any(m => m.Langue == command.Langue))
             {

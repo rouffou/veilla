@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.Contracts.SurveillanceMedicale;
@@ -14,6 +15,7 @@ using Sepp.Documents.Adapters.Stockage;
 using Sepp.Documents.Application;
 using Sepp.Documents.Application.DossierSante;
 using Sepp.Documents.Application.EvaluationSante;
+using Sepp.Documents.Domain.Commun;
 
 namespace Sepp.Documents.Adapters;
 
@@ -27,8 +29,14 @@ public static class DependencyInjection
     /// <summary>Valeur de <c>Documents:Adaptateurs:&lt;Port&gt;</c> sélectionnant l'adaptateur réel.</summary>
     public const string Reel = "Reel";
 
-    public static IServiceCollection AddDocumentsAdapters(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddDocumentsAdapters(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
+        // Zones servies (décision #356) : échec au démarrage si la liste est absente ou si, hors développement et test, elle
+        // n'est pas réduite à la zone de l'environnement (SEPP__ZONE).
+        var zones = ZonesServies.Depuis(configuration, environment);
+        services.AddSingleton(zones);
+        services.AddSingleton<IZonesServies>(zones);
+
         services.AddSeppPersistence<DocumentsDbContext>(configuration, ConnectionStringName);
         services.AddSeppMessaging(configuration);
         services.AddScoped<IModeleRepository, ModeleRepository>();
@@ -47,8 +55,13 @@ public static class DependencyInjection
 
         // POR-13 : copie du dossier validée par le CPMT (SAN-43) et carnet de vaccination après chaque dose (SAN-50),
         // publiés au travailleur en zone médicale ; contenu lu auprès de la Surveillance médicale (compte technique).
-        services.AddIntegrationEventHandler<CopieDossierValidee, CopieDossierValideeHandler>();
-        services.AddIntegrationEventHandler<VaccinationAdministree, VaccinationAdministreeHandler>();
+        // Enregistrés seulement par une instance qui sert la zone médicale (décision #356).
+        if (zones.Sert(ZoneDocument.Medicale))
+        {
+            services.AddIntegrationEventHandler<CopieDossierValidee, CopieDossierValideeHandler>();
+            services.AddIntegrationEventHandler<VaccinationAdministree, VaccinationAdministreeHandler>();
+        }
+
         services.AddSeppConsumer<DocumentsDbContext>(configuration);
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
