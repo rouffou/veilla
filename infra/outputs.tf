@@ -38,9 +38,14 @@ output "servicebus_namespace" {
   value       = module.servicebus.fully_qualified_namespace
 }
 
-output "documents_blob_endpoint" {
-  description = "Point de terminaison Blob du stockage documentaire WORM."
-  value       = module.storage.blob_endpoint
+output "documents_blob_endpoints" {
+  description = "Point de terminaison Blob du stockage documentaire WORM de chaque zone dotée d'une instance Documents."
+  value       = { for z, st in module.storage : z => st.blob_endpoint }
+}
+
+output "documents_kek_uris" {
+  description = "URI (sans version) de la clé racine documents-kek de chaque zone dotée d'une instance Documents."
+  value       = { for z in local.documents_zones : z => module.keyvault[z].documents_kek_uri }
 }
 
 output "gateway_public_ip" {

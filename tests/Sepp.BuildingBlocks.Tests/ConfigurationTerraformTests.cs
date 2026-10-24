@@ -26,6 +26,12 @@ public sealed partial class ConfigurationTerraformTests
 
     private static string[] Adaptateurs(string section, params string[] ports) => [.. ports.Select(p => $"{section}:Adaptateurs:{p}")];
 
+    /// <summary>Clés que Terraform fournit à chaque instance du service Documents, quelle que soit sa zone.</summary>
+    private static readonly string[] ClesInstanceDocuments =
+    [
+        "Documents:BlobEndpoint", "Documents:Zones", "Documents:Enveloppe:CleKek", "ServiceBus:SubscriptionName",
+    ];
+
     /// <summary>
     /// Clés obligatoires au démarrage ou à l'usage de chaque service déployé (hors valeurs par défaut d'appsettings.json),
     /// relevées dans <c>DependencyInjection.cs</c> et <c>Program.cs</c> de chaque service. Nom = catalogue Terraform.
@@ -40,13 +46,18 @@ public sealed partial class ConfigurationTerraformTests
             "Communications:ServicesInternes:Affilies", "Communications:ServicesInternes:Personnes",
             .. Adaptateurs("Communications", "Annuaire", "Portail", "Email", "Sms", "Courrier", "RecommandeElectronique", "EBoxEntreprise", "EBoxCitoyen"),
         ],
+        // Documents : une instance par zone (décision #356). Le code est le même ; chaque instance sert sa seule zone
+        // (Documents:Zones), écrit dans le stockage de sa zone et enveloppe ses clés de données avec sa clé racine.
         ["documents"] =
         [
             .. Authentification, .. BasePostgres, .. Compte("Documents:CompteTechnique"),
-            "Documents:ServicesInternes:Affilies", "Documents:ServicesInternes:Personnes", "Documents:ServicesInternes:SurveillanceMedicale", "Documents:BlobEndpoint",
-            .. Chiffrement("Documents:Chiffrement:standard:Encryption"),
-            .. Chiffrement("Documents:Chiffrement:medicale:Encryption"),
-            .. Chiffrement("Documents:Chiffrement:psychosociale:Encryption"),
+            "Documents:ServicesInternes:Affilies", "Documents:ServicesInternes:Personnes", .. ClesInstanceDocuments,
+            .. Adaptateurs("Documents", "Horodatage", "Signature", "SourceLinguistique"),
+        ],
+        ["documents-medicale"] =
+        [
+            .. Authentification, .. BasePostgres, .. Compte("Documents:CompteTechnique"),
+            "Documents:ServicesInternes:SurveillanceMedicale", .. ClesInstanceDocuments,
             .. Adaptateurs("Documents", "Horodatage", "Signature", "SourceLinguistique"),
         ],
         ["integrations"] =
@@ -159,10 +170,13 @@ public sealed partial class ConfigurationTerraformTests
                     problemes.Add($"{service} : {cle} vaut « Reel » dans appsettings.json (défaut sûr = Simulateur ; Reel est imposé par Terraform en production).");
                 }
 
-                if (cle.Contains(":Adaptateurs:", StringComparison.Ordinal) && !SansAdaptateurReel.Contains(service)
-                    && !terraform.CleFournies(service).Contains(Normaliser(cle)))
+                if (cle.Contains(":Adaptateurs:", StringComparison.Ordinal) && !SansAdaptateurReel.Contains(service))
                 {
-                    problemes.Add($"{service} : {cle} n'est pas injecté par Terraform (adapters du catalogue).");
+                    // Chaque instance du service (même code) doit recevoir l'adaptateur.
+                    foreach (var instance in terraform.Instances(service).Where(i => !terraform.CleFournies(i).Contains(Normaliser(cle))))
+                    {
+                        problemes.Add($"{instance} : {cle} n'est pas injecté par Terraform (adapters du catalogue).");
+                    }
                 }
             }
         }
@@ -182,7 +196,8 @@ public sealed partial class ConfigurationTerraformTests
             foreach (var adaptateur in definition.Adapters)
             {
                 var cle = adaptateur.Replace("__", ":", StringComparison.Ordinal);
-                var existe = parService.TryGetValue(service, out var fichier)
+                // Une instance (instance_de) partage le code, donc l'appsettings, du service d'origine.
+                var existe = parService.TryGetValue(definition.InstanceDe ?? service, out var fichier)
                     && Aplatir(JsonDocument.Parse(File.ReadAllText(fichier), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip }).RootElement, string.Empty).Any(c => string.Equals(c.Cle, cle, StringComparison.OrdinalIgnoreCase));
                 if (!existe)
                 {
@@ -204,19 +219,204 @@ public sealed partial class ConfigurationTerraformTests
         {
             using var document = JsonDocument.Parse(File.ReadAllText(fichier), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip });
             var nom = Aplatir(document.RootElement, string.Empty).FirstOrDefault(c => c.Cle == "ServiceBus:SubscriptionName").Valeur;
-            if (nom is not null && nom != service)
+            if (nom is null)
+            {
+                continue;
+            }
+
+            // L'appsettings porte le nom du service d'origine ; Terraform crée la subscription au nom de chaque instance
+            // (instance_de) et le lui injecte (SERVICEBUS__SUBSCRIPTIONNAME = n), ce qui remplace la valeur par défaut.
+            if (nom != service)
             {
                 ecarts.Add($"{service} : ServiceBus:SubscriptionName = « {nom} » (Terraform crée la subscription au nom du service).");
             }
 
-            if (nom is not null)
+            foreach (var instance in terraform.Instances(service))
             {
-                terraform.Services[service].SubscribesTo.ShouldNotBeEmpty($"{service} : subscription configurée mais aucun subscribes_to dans Terraform.");
+                terraform.Services[instance].SubscribesTo.ShouldNotBeEmpty($"{instance} : subscription configurée mais aucun subscribes_to dans Terraform.");
+                terraform.CleFournies(instance).ShouldContain(Normaliser("ServiceBus:SubscriptionName"), $"{instance} : Terraform n'injecte pas SERVICEBUS__SUBSCRIPTIONNAME = nom de l'instance.");
             }
         }
 
         ecarts.ShouldBeEmpty(string.Join(Environment.NewLine, ecarts));
     }
+
+    [Fact]
+    public void Aucun_service_ne_reference_le_coffre_d_une_autre_zone()
+    {
+        var terraform = Terraform.Lire();
+        var ecarts = new List<string>();
+
+        // Le catalogue : un jeu de clés de chiffrement (encryption) ne désigne que la zone du service.
+        foreach (var (service, definition) in terraform.Services)
+        {
+            ecarts.AddRange(definition.EncryptionZones
+                .Where(e => e.Zone != definition.Zone)
+                .Select(e => $"{service} (zone {definition.Zone}) : encryption {e.Prefixe} désigne le coffre de la zone {e.Zone}."));
+        }
+
+        // main.tf : plus de zones additionnelles, et tout accès à un coffre se fait par la zone du service (ou plateforme).
+        terraform.Main.ShouldNotContain("additional_key_vault_zones", Case.Sensitive, "Le rôle inter-zones additional_key_vault_zones doit rester supprimé (ARC-04, ARC-06).");
+        foreach (Match m in Regex.Matches(terraform.Main, @"module\.keyvault\[(?<i>[^\]]+)\]"))
+        {
+            var index = m.Groups["i"].Value.Trim();
+            if (index is not ("s.zone" or "zone" or "\"platform\""))
+            {
+                ecarts.Add($"main.tf : module.keyvault[{index}] (seuls s.zone, la zone d'encryption validée et « platform » sont admis).");
+            }
+        }
+
+        // Module identité : aucun rôle sur le coffre d'une autre zone.
+        var identite = File.ReadAllText(Path.Combine(Terraform.RacineDepot(), "infra", "modules", "identity", "main.tf"));
+        identite.ShouldNotContain("additional_key_vault_zones", Case.Sensitive);
+        identite.ShouldNotContain("key_vault_secrets_user_additional", Case.Sensitive);
+
+        // La validation Terraform refuse encryption vers une autre zone.
+        Regex.IsMatch(terraform.Variables, @"zone\s*==\s*s\.zone").ShouldBeTrue("variables.tf doit valider que encryption ne désigne que la zone du service.");
+
+        ecarts.ShouldBeEmpty(string.Join(Environment.NewLine, ecarts));
+    }
+
+    [Fact]
+    public void Aucune_regle_NSG_n_ouvre_standard_vers_medicale_ou_psychosociale()
+    {
+        // Analyse textuelle de infra/modules/network/main.tf : les règles sont écrites par zone (variable z), donc on vérifie
+        // que l'expression de chaque source n'introduit jamais la zone standard, ni un tag ou une plage large, dans une
+        // règle d'autorisation. Une règle qui ajouterait standard comme appelant d'une zone sensible échoue ici.
+        var reseau = SansCommentaires(File.ReadAllText(Path.Combine(Terraform.RacineDepot(), "infra", "modules", "network", "main.tf")));
+        var problemes = new List<string>();
+
+        reseau.ShouldNotContain("cae-standard", Case.Sensitive);
+        reseau.ShouldNotContain("pe-standard", Case.Sensitive);
+
+        var blocs = Regex.Matches(reseau, @"\{[^{}]*\}").Where(b => b.Value.Contains("sources", StringComparison.Ordinal) && b.Value.Contains("access", StringComparison.Ordinal)).ToList();
+        blocs.ShouldNotBeEmpty("Aucune règle NSG analysée : le format de infra/modules/network/main.tf a changé.");
+
+        foreach (var bloc in blocs)
+        {
+            var access = Regex.Match(bloc.Value, "access\\s*=\\s*\"(?<v>[A-Za-z]+)\"").Groups["v"].Value;
+            var sources = Regex.Match(bloc.Value, @"sources\s*=\s*(?<v>[^\r\n]+)").Groups["v"].Value.Trim();
+            var nom = Regex.Match(bloc.Value, "name\\s*=\\s*\"(?<v>[A-Za-z]+)\"").Groups["v"].Value;
+
+            if (sources.Contains("standard", StringComparison.OrdinalIgnoreCase))
+            {
+                problemes.Add($"{nom} : la source mentionne la zone standard ({sources}).");
+            }
+
+            // Seuls z (la zone de la règle) et platform peuvent apparaître comme préfixes de sous-réseau.
+            foreach (Match m in Regex.Matches(sources, @"(?:cae|pe)_prefixes\[(?<i>[^\]]+)\]"))
+            {
+                if (m.Groups["i"].Value.Trim() is not ("z" or "\"platform\""))
+                {
+                    problemes.Add($"{nom} : source {m.Value} (seuls z et « platform » sont admis).");
+                }
+            }
+
+            // values(local.cae_prefixes) englobe standard : réservé à la zone plateforme (z == "platform" ? values(...) : ...).
+            if (Regex.IsMatch(sources, @"values\(local\.(?:cae|pe)_prefixes\)")
+                && !Regex.IsMatch(sources, @"^z\s*==\s*""platform""\s*\?\s*values\(local\.(?:cae|pe)_prefixes\)"))
+            {
+                problemes.Add($"{nom} : values(...) des préfixes inclut standard hors de la zone plateforme ({sources}).");
+            }
+
+            // Une source générique n'est admise que dans une règle de refus.
+            if (access == "Allow" && (sources.Contains("\"*\"", StringComparison.Ordinal) || sources.Contains("VirtualNetwork", StringComparison.Ordinal)))
+            {
+                problemes.Add($"{nom} : règle Allow avec une source générique ({sources}).");
+            }
+        }
+
+        problemes.ShouldBeEmpty(string.Join(Environment.NewLine, problemes));
+    }
+
+    [Fact]
+    public void Chaque_instance_documents_a_son_stockage_dans_sa_zone()
+    {
+        var terraform = Terraform.Lire();
+        var instances = terraform.Instances("documents").ToList();
+        instances.ShouldContain("documents");
+        instances.ShouldContain("documents-medicale");
+
+        // Une seule instance par zone, et chaque instance est dans la zone qui lui correspond.
+        var zones = instances.Select(i => terraform.Services[i].Zone).ToList();
+        zones.Distinct().Count().ShouldBe(zones.Count, "Deux instances de Documents dans la même zone partageraient stockage et clé racine.");
+        terraform.Services["documents"].Zone.ShouldBe("standard");
+        terraform.Services["documents-medicale"].Zone.ShouldBe("medicale");
+        terraform.Services["documents-medicale"].InstanceDe.ShouldBe("documents");
+
+        // main.tf : un compte de stockage par zone d'instance, dans le groupe de ressources et derrière le point privé de la zone,
+        // avec le seul rôle Blob pour les instances de cette zone ; le point de terminaison injecté est celui du compte de la zone.
+        var main = terraform.Main;
+        var stockage = BlocModule(main, "storage");
+        stockage.ShouldContain("for_each = local.documents_zones");
+        Regex.IsMatch(stockage, @"resource_group_name\s*=\s*azurerm_resource_group\.zone\[each\.value\]\.name").ShouldBeTrue("Le stockage doit être dans le groupe de ressources de la zone.");
+        Regex.IsMatch(stockage, @"private_endpoint_subnet_id\s*=\s*module\.network\.subnet_ids\[""pe-\$\{each\.value\}""\]").ShouldBeTrue("Le stockage doit être derrière le point privé pe-<zone>.");
+        Regex.IsMatch(stockage, @"containers\s*=\s*\[""documents-\$\{each\.value\}""\]").ShouldBeTrue("Un seul conteneur WORM documents-<zone> par compte.");
+        Regex.IsMatch(stockage, @"blob_contributor_principal_ids\s*=.*if s\.zone == each\.value").ShouldBeTrue("Seules les instances de la zone reçoivent le rôle Blob Data Contributor.");
+        Regex.IsMatch(stockage, @"name\s*=\s*""stsepp\$\{var\.environment\}\$\{local\.zone_short\[each\.value\]\}\$\{local\.suffix\}""").ShouldBeTrue("Nom attendu : stsepp<env><std|med|psy><suffixe>.");
+        Regex.IsMatch(main, @"DOCUMENTS__BLOBENDPOINT\s*=\s*module\.storage\[s\.zone\]\.blob_endpoint").ShouldBeTrue("Chaque instance doit recevoir le compte de sa zone.");
+        main.ShouldNotContain("module.storage.blob_endpoint", Case.Sensitive);
+
+        // Longueur maximale du nom (22 caractères avec le plus long environnement, preprod).
+        ("stsepp" + "preprod" + "med" + "abcdef").Length.ShouldBeLessThanOrEqualTo(24);
+
+        // La clé racine est créée dans le coffre de chaque zone d'instance.
+        Regex.IsMatch(main, @"documents_kek_enabled\s*=\s*contains\(local\.documents_zones, each\.value\)").ShouldBeTrue("Le coffre de chaque zone d'instance Documents doit porter documents-kek.");
+    }
+
+    [Fact]
+    public void Les_cles_obligatoires_de_documents_medicale_sont_injectees()
+    {
+        var terraform = Terraform.Lire();
+        var service = "documents-medicale";
+        terraform.Services.ShouldContainKey(service);
+        var fournies = terraform.CleFournies(service);
+
+        var manquantes = ClesObligatoires[service].Where(c => !fournies.Contains(Normaliser(c))).ToList();
+        manquantes.ShouldBeEmpty("Clés obligatoires de documents-medicale non fournies par Terraform : " + string.Join(", ", manquantes));
+
+        // Valeurs injectées par main.tf pour une instance : zone servie, clé racine, stockage et subscription propres.
+        foreach (var variable in new[] { "DOCUMENTS__ZONES", "DOCUMENTS__ENVELOPPE__CLEKEK", "DOCUMENTS__BLOBENDPOINT", "SERVICEBUS__SUBSCRIPTIONNAME" })
+        {
+            terraform.Main.ShouldContain(variable, Case.Sensitive, $"main.tf n'injecte pas {variable}.");
+        }
+
+        Regex.IsMatch(terraform.Main, @"DOCUMENTS__ZONES\s*=\s*s\.zone").ShouldBeTrue("Documents:Zones doit valoir la zone de l'instance.");
+        Regex.IsMatch(terraform.Main, @"DOCUMENTS__ENVELOPPE__CLEKEK\s*=\s*module\.keyvault\[s\.zone\]\.documents_kek_uri").ShouldBeTrue("La clé racine est celle du coffre de la zone de l'instance.");
+        Regex.IsMatch(terraform.Main, @"SERVICEBUS__SUBSCRIPTIONNAME\s*=\s*n\b").ShouldBeTrue("La subscription porte le nom de l'instance.");
+        Regex.IsMatch(terraform.Main, @"coalesce\(each\.value\.instance_de, each\.key\)").ShouldBeTrue("L'image d'une instance est celle du service d'origine.");
+        Regex.IsMatch(terraform.Main, @"""\$\{s\.instance_de\}\.\$\{n\}"" => \{ topic = s\.instance_de").ShouldBeTrue("Une instance publie sur le topic du service d'origine (émetteur partagé).");
+
+        // L'instance médicale n'appelle ni Affiliés ni Personnes (NSG de la zone médicale), et n'a pas de topic propre.
+        terraform.Services[service].InternalServices.ShouldBe(new[] { "Documents__ServicesInternes__SurveillanceMedicale" });
+        terraform.Services[service].CompteTechnique.ShouldBe("Documents__CompteTechnique");
+        terraform.Services["documents"].InternalServices.ShouldNotContain("Documents__ServicesInternes__SurveillanceMedicale");
+        terraform.Services[service].PublishesEvents.ShouldBeFalse();
+        terraform.Services[service].SubscribesTo.ShouldBe(new[] { "surveillance-medicale" });
+        terraform.Services["documents"].SubjectsOf("surveillance-medicale").ShouldBe(new[] { "surveillance-medicale.decision-emise.v1" });
+        terraform.Services[service].SubjectsOf("surveillance-medicale").Count.ShouldBe(3);
+
+        // Aucun secret Documents__Chiffrement__* : les clés racines sont des clés de coffre, plus des secrets exportables.
+        terraform.Variables.ShouldNotContain("Documents__Chiffrement", Case.Sensitive);
+
+        // Identifiant client du compte technique renseigné dans chaque environnement.
+        var tfvars = Directory.EnumerateFiles(Path.Combine(Terraform.RacineDepot(), "infra", "environments"), "terraform.tfvars", SearchOption.AllDirectories).ToList();
+        tfvars.ShouldNotBeEmpty();
+        foreach (var fichier in tfvars)
+        {
+            Regex.IsMatch(File.ReadAllText(fichier), @"(?m)^\s*documents-medicale\s*=\s*""[0-9a-fA-F-]{36}""").ShouldBeTrue($"{fichier} : technical_account_client_ids doit contenir documents-medicale.");
+        }
+    }
+
+    private static string BlocModule(string main, string nom)
+    {
+        var debut = main.IndexOf($"module \"{nom}\" {{", StringComparison.Ordinal);
+        debut.ShouldBeGreaterThanOrEqualTo(0, $"module \"{nom}\" introuvable dans main.tf.");
+        var ouvrante = main.IndexOf('{', debut);
+        return main[ouvrante..(Terraform.FinAccolade(main, ouvrante) + 1)];
+    }
+
+    private static string SansCommentaires(string contenu) => Terraform.SansCommentaires(contenu);
 
     [Fact]
     public void Toute_cle_de_configuration_lue_par_le_code_a_ete_classee()
@@ -313,13 +513,24 @@ public sealed partial class ConfigurationTerraformTests
     {
         private readonly string _main;
 
-        private Terraform(string main, Dictionary<string, ServiceTf> services)
+        private Terraform(string main, string variables, Dictionary<string, ServiceTf> services)
         {
             _main = main;
+            Variables = variables;
             Services = services;
         }
 
         public IReadOnlyDictionary<string, ServiceTf> Services { get; }
+
+        /// <summary>Contenu de <c>infra/main.tf</c> sans commentaires.</summary>
+        public string Main => _main;
+
+        /// <summary>Contenu de <c>infra/variables.tf</c> sans commentaires.</summary>
+        public string Variables { get; }
+
+        /// <summary>Instances déployées du code d'un service : lui-même et les services qui en sont <c>instance_de</c>.</summary>
+        public IEnumerable<string> Instances(string service) =>
+            Services.Where(s => (s.Value.InstanceDe ?? s.Key) == service).Select(s => s.Key);
 
         public static string RacineDepot()
         {
@@ -339,7 +550,7 @@ public sealed partial class ConfigurationTerraformTests
             var racine = RacineDepot();
             var main = SansCommentaires(File.ReadAllText(Path.Combine(racine, "infra", "main.tf")));
             var variables = SansCommentaires(File.ReadAllText(Path.Combine(racine, "infra", "variables.tf")));
-            return new Terraform(main, AnalyserCatalogue(variables));
+            return new Terraform(main, variables, AnalyserCatalogue(variables));
         }
 
         /// <summary>Clés (forme canonique) que Terraform fournit au service : variables d'environnement et secrets Key Vault.</summary>
@@ -367,9 +578,15 @@ public sealed partial class ConfigurationTerraformTests
                 }
             }
 
-            if (service == "documents")
+            // Variables communes à tous les services abonnés : la subscription porte le nom du service ou de l'instance.
+            Ajouter(fournies, s.SubscribesTo.Count > 0 && Regex.IsMatch(_main, @"SERVICEBUS__SUBSCRIPTIONNAME\s*=\s*n\b"), "ServiceBus__SubscriptionName");
+
+            // Instances du service Documents : une par zone, avec stockage, zone servie et clé racine propres.
+            if ((s.InstanceDe ?? service) == "documents")
             {
                 Ajouter(fournies, _main.Contains("DOCUMENTS__BLOBENDPOINT", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__BlobEndpoint");
+                Ajouter(fournies, _main.Contains("DOCUMENTS__ZONES", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__Zones");
+                Ajouter(fournies, _main.Contains("DOCUMENTS__ENVELOPPE__CLEKEK", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__Enveloppe__CleKek");
             }
 
             // Clés propres au service déclarées dans le catalogue.
@@ -415,7 +632,7 @@ public sealed partial class ConfigurationTerraformTests
             }
         }
 
-        private static string SansCommentaires(string contenu) => Regex.Replace(contenu, @"#[^\r\n]*", string.Empty);
+        public static string SansCommentaires(string contenu) => Regex.Replace(contenu, @"#[^\r\n]*", string.Empty);
 
         private static Dictionary<string, ServiceTf> AnalyserCatalogue(string variables)
         {
@@ -445,7 +662,16 @@ public sealed partial class ConfigurationTerraformTests
                     CompteTechnique: Regex.Match(bloc, "compte_technique\\s*=\\s*\"(?<v>[^\"]+)\"") is { Success: true } c ? c.Groups["v"].Value : null,
                     InternalServices: Cles(bloc, @"internal_services\s*=\s*\{(?<v>[^}]*)\}"),
                     Encryption: Cles(bloc, @"encryption\s*=\s*\{(?<v>[^}]*)\}"),
-                    KeyVaultSecrets: Cles(bloc, @"key_vault_secrets\s*=\s*\{(?<v>[^}]*)\}"));
+                    KeyVaultSecrets: Cles(bloc, @"key_vault_secrets\s*=\s*\{(?<v>[^}]*)\}"),
+                    InstanceDe: Regex.Match(bloc, "instance_de\\s*=\\s*\"(?<v>[^\"]+)\"") is { Success: true } i ? i.Groups["v"].Value : null,
+                    PublishesEvents: !Regex.IsMatch(bloc, @"publishes_events\s*=\s*false"),
+                    EncryptionZones: Regex.Match(bloc, @"encryption\s*=\s*\{(?<v>[^}]*)\}") is { Success: true } e
+                        ? [.. Regex.Matches(e.Groups["v"].Value, "(?:^|[\\s,])\"?(?<k>[A-Za-z][A-Za-z0-9_-]*)\"?\\s*=\\s*\"(?<z>[^\"]*)\"").Select(v => (v.Groups["k"].Value, v.Groups["z"].Value))]
+                        : [],
+                    SubjectFilters: Regex.Match(bloc, @"subject_filters\s*=\s*\{(?<v>[^}]*)\}") is { Success: true } f
+                        ? Regex.Matches(f.Groups["v"].Value, @"""?(?<k>[A-Za-z][A-Za-z0-9_-]*)""?\s*=\s*\[(?<l>[^\]]*)\]")
+                            .ToDictionary(v => v.Groups["k"].Value, v => Regex.Matches(v.Groups["l"].Value, "\"([^\"]+)\"").Select(x => x.Groups[1].Value).ToList(), StringComparer.Ordinal)
+                        : []);
             }
 
             return services;
@@ -462,7 +688,7 @@ public sealed partial class ConfigurationTerraformTests
                 ? [.. Regex.Matches(m.Groups["v"].Value, "(?:^|[\\s,])\"?(?<k>[A-Za-z][A-Za-z0-9_-]*)\"?\\s*=\\s*\"[^\"]*\"").Select(v => v.Groups["k"].Value)]
                 : [];
 
-        private static int FinAccolade(string texte, int ouvrante)
+        public static int FinAccolade(string texte, int ouvrante)
         {
             var profondeur = 0;
             for (var i = ouvrante; i < texte.Length; i++)
@@ -486,5 +712,13 @@ public sealed partial class ConfigurationTerraformTests
         string? CompteTechnique,
         List<string> InternalServices,
         List<string> Encryption,
-        List<string> KeyVaultSecrets);
+        List<string> KeyVaultSecrets,
+        string? InstanceDe,
+        bool PublishesEvents,
+        List<(string Prefixe, string Zone)> EncryptionZones,
+        Dictionary<string, List<string>> SubjectFilters)
+    {
+        /// <summary>Sujets acceptés par la subscription du service sur un topic (vide = tous les messages).</summary>
+        public List<string> SubjectsOf(string topic) => SubjectFilters.TryGetValue(topic, out var sujets) ? sujets : [];
+    }
 }

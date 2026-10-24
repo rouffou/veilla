@@ -28,8 +28,9 @@ public sealed class RoutageBusTests
     [InlineData("surveillance-medicale.decision-emise.v1", "documents,obligations")]
     // Documents ne reçoit de la Surveillance médicale que les contrats qu'il traite (filtre de sujets, #326).
     [InlineData("surveillance-medicale.examen-cloture.v1", "obligations")]
-    [InlineData("surveillance-medicale.copie-dossier-validee.v1", "documents,obligations")]
-    [InlineData("surveillance-medicale.vaccination-administree.v1", "documents,obligations")]
+    // La copie du dossier et le carnet de vaccination vont à l'instance zone médicale (documents-medicale, décision #356), absente de ce bus.
+    [InlineData("surveillance-medicale.copie-dossier-validee.v1", "obligations")]
+    [InlineData("surveillance-medicale.vaccination-administree.v1", "obligations")]
     [InlineData("planification.convocation-emise.v1", "communications,obligations,surveillance-medicale")]
     [InlineData("planification.convocation-envoyee.v1", "communications,obligations,surveillance-medicale")]
     [InlineData("communications.message-envoye.v1", "planification")]

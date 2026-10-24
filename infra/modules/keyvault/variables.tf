@@ -68,6 +68,24 @@ variable "managed_hsm_private_dns_zone_id" {
   default     = null
 }
 
+variable "documents_kek_enabled" {
+  description = "Crée la clé racine de Documents (RSA 3072, wrapKey/unwrapKey) dans le coffre ou le Managed HSM de la zone : à activer pour les zones qui hébergent une instance Documents."
+  type        = bool
+  default     = false
+}
+
+variable "documents_kek_name" {
+  description = "Nom de la clé racine de Documents."
+  type        = string
+  default     = "documents-kek"
+}
+
+variable "documents_kek_rotation_period" {
+  description = "Délai (ISO 8601) après lequel Key Vault crée automatiquement une nouvelle version de la clé racine (12 mois). Les versions n'expirent jamais."
+  type        = string
+  default     = "P12M"
+}
+
 variable "log_analytics_workspace_id" {
   description = "Espace Log Analytics destinataire des journaux d'audit."
   type        = string

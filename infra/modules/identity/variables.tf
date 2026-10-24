@@ -26,16 +26,21 @@ variable "key_vault_ids" {
   type        = map(string)
 }
 
-variable "crypto_zones" {
-  description = "Zones dont les services reçoivent le rôle Key Vault Crypto User (chiffrement applicatif, ARC-45)."
+variable "crypto_services" {
+  description = "Services qui reçoivent le rôle Key Vault Crypto User sur le coffre de leur zone (chiffrement applicatif, ARC-45). Les instances Documents n'en font pas partie."
   type        = list(string)
   default     = []
 }
 
-variable "additional_key_vault_zones" {
-  description = "Zones dont le Key Vault est lu en plus de celui de la zone du service (clé = service), pour les clés de chiffrement par zone (rôle Key Vault Secrets User). Élargit volontairement l'accès d'un service au-delà de sa zone (ARC-04) : à limiter au strict nécessaire."
-  type        = map(list(string))
-  default     = {}
+variable "documents_kek_assignments" {
+  description = "Clé racine documents-kek de chaque instance Documents (clé = service) : key_id (identifiant ARM de la clé), managed_hsm_id (null si la clé est dans un Key Vault) et key_name. L'identité du service reçoit le rôle d'enveloppement/déballage sur cette seule clé."
+  type = map(object({
+    key_id         = optional(string)
+    managed_hsm    = bool
+    managed_hsm_id = optional(string)
+    key_name       = string
+  }))
+  default = {}
 }
 
 variable "tags" {

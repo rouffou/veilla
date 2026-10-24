@@ -10,8 +10,10 @@
 #                                 passerelle (APIM + WAF), BFF et identité
 #   rg-sepp-<env>-standard      : services standard/transverses, PostgreSQL,
 #                                 Key Vault, stockage documentaire WORM
-#   rg-sepp-<env>-medicale      : services médicaux, PostgreSQL, Key Vault, HSM
+#   rg-sepp-<env>-medicale      : services médicaux, PostgreSQL, Key Vault, HSM,
+#                                 stockage WORM et clé racine de documents-medicale
 #   rg-sepp-<env>-psychosociale : service psychosocial, PostgreSQL, Key Vault, HSM
+# Documents est déployé une fois par zone qui produit des documents (décision #356).
 # -----------------------------------------------------------------------------
 
 data "azurerm_client_config" "current" {}
@@ -48,8 +50,16 @@ locals {
   ]...)
   queue_scaled_services = [for n, s in var.services : n if s.queue_scaling && length(s.subscribes_to) > 0]
 
-  # Services autorisés à lire et écrire les documents (stockage WORM).
-  blob_services = [for n in keys(var.services) : n if n == "documents"]
+  # Instances du service Documents (une par zone qui produit des documents, décision #356) : elles seules lisent et
+  # écrivent les documents (stockage WORM de leur zone) et portent une clé racine documents-kek dans le coffre de leur zone.
+  documents_instances = { for n, s in var.services : n => s if coalesce(s.instance_de, n) == "documents" }
+  documents_zones     = toset([for s in values(local.documents_instances) : s.zone])
+  # Émetteurs d'un topic partagé : audit (toute instance dotée d'une base) et documents (instances supplémentaires,
+  # qui publient sur le topic du service d'origine).
+  shared_topic_senders = merge(
+    { for n, s in var.services : "audit.${n}" => { topic = "audit", principal = n } if s.database && n != "audit" },
+    { for n, s in var.services : "${s.instance_de}.${n}" => { topic = s.instance_de, principal = n } if s.instance_de != null },
+  )
 
   # --- Entrée des applications (ARC-43, ARC-46) ---
   # Plateforme : API Management et les autres applications de la plateforme.
@@ -121,10 +131,6 @@ locals {
       ]...),
     )
   }
-  # Zones dont un service lit un Key Vault autre que le sien (clés de chiffrement par zone de Documents).
-  additional_key_vault_zones = {
-    for n, s in var.services : n => sort(tolist(setsubtract(toset(values(s.encryption)), toset([s.zone]))))
-  }
 
   # Variables d'environnement injectées dans chaque conteneur (CTR-05 : rien dans l'image).
   common_environment = {
@@ -135,6 +141,7 @@ locals {
       AZURE_CLIENT_ID                     = module.identity.identities[n].client_id
       OTEL_SERVICE_NAME                   = n
       SERVICEBUS__FULLYQUALIFIEDNAMESPACE = module.servicebus.fully_qualified_namespace
+      SERVICEBUS__SUBSCRIPTIONNAME        = n # la subscription porte le nom du service (ou de l'instance)
       KEYVAULT__URI                       = module.keyvault[s.zone].key_vault_uri
     }
   }
@@ -145,8 +152,19 @@ locals {
       POSTGRES__USER     = "id-${local.name_prefix}-${n}"
     } if s.database
   }
-  documents_environment = { for n in local.blob_services : n => { DOCUMENTS__BLOBENDPOINT = module.storage.blob_endpoint } }
-  bff_environment       = { for n, s in var.services : n => local.service_urls if s.zone == "platform" }
+  # Documents : une instance par zone. Chaque instance ne sert que sa zone (DOCUMENTS__ZONES, aussi en liste indexée pour
+  # la liaison de tableau .NET), écrit dans le compte de stockage de sa zone et chiffre par enveloppe avec sa clé racine
+  # (URI de la clé sans version : l'objet archivé porte la version utilisée).
+  documents_environment = {
+    for n, s in local.documents_instances : n => {
+      DOCUMENTS__BLOBENDPOINT      = module.storage[s.zone].blob_endpoint
+      DOCUMENTS__ZONES             = s.zone
+      DOCUMENTS__ZONES__0          = s.zone
+      DOCUMENTS__ENVELOPPE__TYPE   = "KeyVault"
+      DOCUMENTS__ENVELOPPE__CLEKEK = module.keyvault[s.zone].documents_kek_uri
+    }
+  }
+  bff_environment = { for n, s in var.services : n => local.service_urls if s.zone == "platform" }
 
   app_environment = {
     for n in keys(var.services) : n => merge(
@@ -240,6 +258,7 @@ module "keyvault" {
   managed_hsm_name                = "hsm-${var.environment}-${local.zone_short[each.value]}-${local.suffix}"
   managed_hsm_admin_object_ids    = var.managed_hsm_admin_object_ids
   managed_hsm_private_dns_zone_id = module.network.private_dns_zone_ids["managedhsm"]
+  documents_kek_enabled           = contains(local.documents_zones, each.value)
   log_analytics_workspace_id      = module.monitoring.log_analytics_workspace_id
   tags                            = merge(local.tags, { zone = each.value })
 }
@@ -280,11 +299,21 @@ module "identity" {
       resource_group_name = azurerm_resource_group.zone[s.zone].name
     }
   }
-  container_registry_id      = module.registry.id
-  key_vault_ids              = { for z, kv in module.keyvault : z => kv.key_vault_id }
-  crypto_zones               = local.data_zones
-  additional_key_vault_zones = local.additional_key_vault_zones
-  tags                       = local.tags
+  container_registry_id = module.registry.id
+  key_vault_ids         = { for z, kv in module.keyvault : z => kv.key_vault_id }
+  # Chiffrement applicatif (ARC-45) : rôle Key Vault Crypto User au niveau du coffre pour les seuls services qui déclarent
+  # un jeu de clés (encryption), jamais pour les instances Documents (rôle porté sur la clé racine de leur zone).
+  crypto_services = [for n, s in var.services : n if length(s.encryption) > 0 && contains(local.data_zones, s.zone)]
+  # Clé racine documents-kek de la zone de chaque instance Documents (wrapKey/unwrapKey, rôle porté sur la clé).
+  documents_kek_assignments = {
+    for n, s in local.documents_instances : n => {
+      key_id         = module.keyvault[s.zone].documents_kek_id
+      managed_hsm    = var.managed_hsm_enabled && contains(local.sensitive_zones, s.zone)
+      managed_hsm_id = module.keyvault[s.zone].documents_kek_managed_hsm_id
+      key_name       = module.keyvault[s.zone].documents_kek_name
+    }
+  }
+  tags = local.tags
 }
 
 module "servicebus" {
@@ -297,7 +326,7 @@ module "servicebus" {
   topics                     = local.topics
   subscriptions              = local.subscriptions
   principal_ids              = { for n, i in module.identity.identities : n => i.principal_id }
-  shared_topic_senders       = { for n, s in var.services : "audit.${n}" => { topic = "audit", principal = n } if s.database && n != "audit" }
+  shared_topic_senders       = local.shared_topic_senders
   queue_scaled_services      = local.queue_scaled_services
   private_endpoint_subnet_id = module.network.subnet_ids["pe-platform"]
   private_dns_zone_id        = module.network.private_dns_zone_ids["servicebus"]
@@ -305,21 +334,25 @@ module "servicebus" {
   tags                       = local.tags
 }
 
+# Stockage documentaire WORM : un compte par zone dotée d'une instance Documents (décision #356), dans le groupe de
+# ressources de la zone, derrière le point privé pe-<zone>. Nom : stsepp<env><std|med|psy><suffixe> (22 caractères au plus).
+# Seule l'instance Documents de la zone reçoit le rôle Storage Blob Data Contributor.
 module "storage" {
-  source = "./modules/storage"
+  source   = "./modules/storage"
+  for_each = local.documents_zones
 
-  name                           = "stsepp${var.environment}${local.suffix}"
-  resource_group_name            = azurerm_resource_group.zone["standard"].name
+  name                           = "stsepp${var.environment}${local.zone_short[each.value]}${local.suffix}"
+  resource_group_name            = azurerm_resource_group.zone[each.value].name
   location                       = var.location
   replication_type               = var.storage_replication_type
-  containers                     = [for z in local.data_zones : "documents-${z}"]
+  containers                     = ["documents-${each.value}"]
   immutability_period_in_days    = var.document_retention_days
   immutability_locked            = var.document_immutability_locked
-  blob_contributor_principal_ids = { for n in local.blob_services : n => module.identity.identities[n].principal_id }
-  private_endpoint_subnet_id     = module.network.subnet_ids["pe-standard"]
+  blob_contributor_principal_ids = { for n, s in local.documents_instances : n => module.identity.identities[n].principal_id if s.zone == each.value }
+  private_endpoint_subnet_id     = module.network.subnet_ids["pe-${each.value}"]
   private_dns_zone_id            = module.network.private_dns_zone_ids["blob"]
   log_analytics_workspace_id     = module.monitoring.log_analytics_workspace_id
-  tags                           = merge(local.tags, { zone = "standard" })
+  tags                           = merge(local.tags, { zone = each.value })
 }
 
 # -----------------------------------------------------------------------------
@@ -350,7 +383,7 @@ module "container_app" {
   workload_profile_name          = module.container_apps_env[each.value.zone].workload_profile_name
   identity_id                    = module.identity.identities[each.key].id
   registry_server                = module.registry.login_server
-  image                          = coalesce(each.value.image, "${module.registry.login_server}/sepp/${each.key}:${var.image_tag}")
+  image                          = coalesce(each.value.image, "${module.registry.login_server}/sepp/${coalesce(each.value.instance_de, each.key)}:${var.image_tag}")
   cpu                            = each.value.cpu
   memory                         = each.value.memory
   min_replicas                   = max(coalesce(each.value.min_replicas, var.default_min_replicas), local.is_prod ? 2 : 0)

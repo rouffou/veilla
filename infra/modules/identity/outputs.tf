@@ -13,5 +13,7 @@ output "identities" {
     azurerm_role_assignment.acr_pull,
     azurerm_role_assignment.key_vault_secrets_user,
     azurerm_role_assignment.key_vault_crypto_user,
+    azurerm_role_assignment.documents_kek,
+    azurerm_key_vault_managed_hardware_security_module_role_assignment.documents_kek,
   ]
 }
