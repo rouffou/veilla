@@ -417,7 +417,9 @@ public sealed class AffiliesApiTests : IAsyncLifetime
 
         (await RecevoirBceAsync("0403170701")).ShouldBe(1);
 
-        var ecart = (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce", Ct))!.ShouldHaveSingleItem();
+        // Les écarts informatifs (saisies manuelles de la fiche remplacées par la BCE, #315) ne sont pas en cause ici.
+        var ecart = (await Gestionnaire.GetFromJsonAsync<List<JsonElement>>("/api/v1/ecarts-bce", Ct))!
+            .Where(e => !e.GetProperty("informatif").GetBoolean()).ShouldHaveSingleItem();
         ecart.GetProperty("code").GetString().ShouldBe("unite-autre-affilie");
         ecart.GetProperty("affilieId").GetGuid().ShouldBe(second);
         (await ObtenirAsync(second)).UnitesEtablissement.ShouldBeEmpty();
