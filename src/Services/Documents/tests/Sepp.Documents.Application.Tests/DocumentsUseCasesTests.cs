@@ -54,7 +54,7 @@ public class DocumentsUseCasesTests
         var stocke = c.Stockage.Objets[document.StockageUri];
         FakeRendu.Texte(stocke).ShouldNotContain("Marie"); // jamais en clair dans le stockage
         GenerateurDocuments.Empreinte(stocke).ShouldBe(document.EmpreinteStockage);
-        FakeRendu.Texte(c.Chiffrement.Dechiffrer(document.Zone, document.Id, stocke)).ShouldContain("Bonjour Marie");
+        FakeRendu.Texte(FakeChiffrement.Dechiffrer(document.Zone, document.Id, stocke)).ShouldContain("Bonjour Marie");
         c.Store.Acces.ShouldContain(a => a.Action == Sepp.BuildingBlocks.Application.Auditing.ActionAudit.Creation && a.DocumentId == document.Id);
     }
 

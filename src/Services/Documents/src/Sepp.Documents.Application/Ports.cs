@@ -60,19 +60,38 @@ public interface IZonesServies
     bool Sert(ZoneDocument zone);
 }
 
-/// <summary>Contenu chiffré et identifiant de la clé de zone utilisée.</summary>
+/// <summary>Contenu chiffré et identifiant de la clé racine (kid versionné) qui a enveloppé sa clé de données.</summary>
 public sealed record ContenuChiffre(byte[] Octets, string CleId);
 
 /// <summary>
-/// Chiffrement authentifié du contenu par zone (§14.3, ARC-45) : une clé distincte par zone ; le contenu est lié à son
-/// document et à sa zone, si bien qu'un objet déplacé ou altéré ne se déchiffre pas.
+/// Chiffrement authentifié du contenu par zone (§14.3, ARC-45, ADR 0009) : chaque document est chiffré avec sa propre clé
+/// de données, enveloppée par la clé racine de sa zone ; le contenu est lié à son document, à sa zone et à la version de
+/// la clé racine, si bien qu'un objet déplacé ou altéré ne se déchiffre pas.
 /// </summary>
 public interface IChiffrementDocuments
 {
-    ContenuChiffre Chiffrer(ZoneDocument zone, Guid documentId, byte[] clair);
+    Task<ContenuChiffre> ChiffrerAsync(ZoneDocument zone, Guid documentId, byte[] clair, CancellationToken cancellationToken);
 
     /// <exception cref="ContenuAltereException">Contenu altéré, tronqué ou chiffré pour un autre document ou une autre zone.</exception>
-    byte[] Dechiffrer(ZoneDocument zone, Guid documentId, byte[] chiffre);
+    Task<byte[]> DechiffrerAsync(ZoneDocument zone, Guid documentId, byte[] chiffre, CancellationToken cancellationToken);
+}
+
+/// <summary>Clé de données enveloppée par la clé racine d'une zone, avec l'identifiant versionné (kid) de cette clé racine.</summary>
+public sealed record CleEnveloppee(string Kid, byte[] Octets);
+
+/// <summary>
+/// Enveloppe des clés de données par la clé racine <c>documents-kek</c> de la zone (ARC-44, ADR 0009) : la clé racine ne
+/// quitte jamais le HSM ; seules les clés de données enveloppées sont stockées, avec la version de la clé racine pour
+/// pouvoir les déballer après une rotation.
+/// </summary>
+public interface IEnveloppeCles
+{
+    /// <summary>Enveloppe la clé de données avec la version courante de la clé racine de la zone.</summary>
+    Task<CleEnveloppee> EnvelopperAsync(ZoneDocument zone, ReadOnlyMemory<byte> cleDonnees, CancellationToken cancellationToken);
+
+    /// <summary>Déballe une clé de données avec la version <paramref name="kid"/> de la clé racine de la zone.</summary>
+    /// <exception cref="ContenuAltereException">Kid étranger à la clé racine de la zone, version inconnue ou clé enveloppée invalide.</exception>
+    Task<byte[]> DesenvelopperAsync(ZoneDocument zone, string kid, byte[] cleEnveloppee, CancellationToken cancellationToken);
 }
 
 /// <summary>Le contenu stocké ne correspond plus à ce qui a été archivé.</summary>

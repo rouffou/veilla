@@ -114,7 +114,7 @@ public class EvaluationSanteTests
         await Handler().HandleAsync(decision, _ct);
 
         var employeur = _ctx.Store.Documents.Single(d => d.Exemplaire == "employeur");
-        var contenu = FakeRendu.Texte(_ctx.Chiffrement.Dechiffrer(employeur.Zone, employeur.Id, _ctx.Stockage.Objets[employeur.StockageUri]));
+        var contenu = FakeRendu.Texte(FakeChiffrement.Dechiffrer(employeur.Zone, employeur.Id, _ctx.Stockage.Objets[employeur.StockageUri]));
         contenu.ShouldContain("Apte avec mesures");
         contenu.ShouldNotContain(CategoriesDecision.ApteAvecMesures, Case.Sensitive);
         contenu.ShouldContain(decision.DecisionId.ToString());
@@ -161,7 +161,7 @@ public class EvaluationSanteTests
 
         _ctx.Store.Documents.ShouldAllBe(d => d.Langue == Language.Nl);
         var employeur = _ctx.Store.Documents.Single(d => d.Exemplaire == "employeur");
-        FakeRendu.Texte(_ctx.Chiffrement.Dechiffrer(employeur.Zone, employeur.Id, _ctx.Stockage.Objets[employeur.StockageUri]))
+        FakeRendu.Texte(FakeChiffrement.Dechiffrer(employeur.Zone, employeur.Id, _ctx.Stockage.Objets[employeur.StockageUri]))
             .ShouldContain("Geschikt mits maatregelen");
     }
 
@@ -209,7 +209,7 @@ public class EvaluationSanteTests
         await Handler().HandleAsync(Decision(categorie), _ct);
 
         var employeur = _ctx.Store.Documents.Single(d => d.Exemplaire == "employeur");
-        var contenu = FakeRendu.Texte(_ctx.Chiffrement.Dechiffrer(employeur.Zone, employeur.Id, _ctx.Stockage.Objets[employeur.StockageUri]));
+        var contenu = FakeRendu.Texte(FakeChiffrement.Dechiffrer(employeur.Zone, employeur.Id, _ctx.Stockage.Objets[employeur.StockageUri]));
         contenu.ShouldContain(libelle);
         contenu.ShouldNotContain(categorie, Case.Sensitive);
     }

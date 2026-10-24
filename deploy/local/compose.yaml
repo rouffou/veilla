@@ -388,6 +388,9 @@ services:
       Documents__Zones__0: standard
       Documents__Zones__1: medicale
       Documents__Zones__2: psychosociale
+      # Chiffrement par enveloppe (ADR 0009) : en local, clés racines de développement par zone lues dans
+      # appsettings.Development.json (Documents:Enveloppe:CleKek:<zone>) ; en Azure, KeyVault et l'URI de documents-kek.
+      Documents__Enveloppe__Type: Local
       # Lecture de l'affilié et de la personne avec le compte technique du realm local (secret de développement uniquement ;
       # hors poste de développement, le secret vient de Key Vault).
       Documents__ServicesInternes__Affilies: http://affilies:8080/
@@ -430,6 +433,8 @@ services:
       Documents__Zones__0: medicale
       Documents__Zones__1: ""
       Documents__Zones__2: ""
+      # Clé racine de développement de la zone médicale (appsettings.Development.json, Documents:Enveloppe:CleKek:medicale).
+      Documents__Enveloppe__Type: Local
       # Contenu clinique lu chez Surveillance médicale (intra-zone) avec le compte technique de l'instance (rôle
       # documents-medicale, permission dossier-sante:transmettre-documents). Pas d'Affiliés ni de Personnes : la langue
       # viendra d'une projection (lot 7). Secret de développement uniquement ; hors poste de développement, Key Vault.

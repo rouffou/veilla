@@ -228,7 +228,7 @@ public sealed class LireContenuDocumentHandler(
         byte[] clair;
         try
         {
-            clair = chiffrement.Dechiffrer(document.Zone, document.Id, stocke);
+            clair = await chiffrement.DechiffrerAsync(document.Zone, document.Id, stocke, cancellationToken);
         }
         catch (ContenuAltereException)
         {
@@ -292,7 +292,7 @@ public sealed class VerifierIntegriteDocumentHandler(
             try
             {
                 // Déchiffrement en mémoire uniquement : seule l'empreinte sort de la vérification.
-                empreinte = GenerateurDocuments.Empreinte(chiffrement.Dechiffrer(document.Zone, document.Id, stocke));
+                empreinte = GenerateurDocuments.Empreinte(await chiffrement.DechiffrerAsync(document.Zone, document.Id, stocke, cancellationToken));
                 authentifie = true;
             }
             catch (ContenuAltereException)

@@ -108,7 +108,13 @@ internal sealed class FakeRendu : IRenduPdf
 /// <summary>Chiffrement factice lié à la zone et au document, avec un contrôle d'intégrité (comme AES-GCM).</summary>
 internal sealed class FakeChiffrement : IChiffrementDocuments
 {
-    public ContenuChiffre Chiffrer(ZoneDocument zone, Guid documentId, byte[] clair)
+    public Task<ContenuChiffre> ChiffrerAsync(ZoneDocument zone, Guid documentId, byte[] clair, CancellationToken cancellationToken) =>
+        Task.FromResult(Chiffrer(zone, documentId, clair));
+
+    public Task<byte[]> DechiffrerAsync(ZoneDocument zone, Guid documentId, byte[] chiffre, CancellationToken cancellationToken) =>
+        Task.FromResult(Dechiffrer(zone, documentId, chiffre));
+
+    public static ContenuChiffre Chiffrer(ZoneDocument zone, Guid documentId, byte[] clair)
     {
         var marque = Encoding.UTF8.GetBytes($"{zone.Code()}|{documentId:N}|");
         byte[] corps = [.. clair.Select(b => (byte)(b ^ 0x5A))];
@@ -116,7 +122,7 @@ internal sealed class FakeChiffrement : IChiffrementDocuments
         return new ContenuChiffre([.. marque, .. corps, .. sceau], $"cle-{zone.Code()}");
     }
 
-    public byte[] Dechiffrer(ZoneDocument zone, Guid documentId, byte[] chiffre)
+    public static byte[] Dechiffrer(ZoneDocument zone, Guid documentId, byte[] chiffre)
     {
         var marque = Encoding.UTF8.GetBytes($"{zone.Code()}|{documentId:N}|");
         if (chiffre.Length < marque.Length + 32 || !chiffre.AsSpan(0, marque.Length).SequenceEqual(marque))

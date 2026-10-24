@@ -8,6 +8,8 @@
     <!-- #337 : version corrigée de la dépendance transitive de PDFsharp. -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" />
     <PackageReference Include="Azure.Storage.Blobs" />
+    <!-- Azure.Security.KeyVault.Keys (MIT) : enveloppe des clés de données par la clé racine HSM de la zone (ARC-44). -->
+    <PackageReference Include="Azure.Security.KeyVault.Keys" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sepp.Documents.Application\Sepp.Documents.Application.csproj" />
