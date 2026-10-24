@@ -81,7 +81,7 @@ public sealed class GenerateurDocuments(
         var date = horloge.GetUtcNow();
         var pdf = rendu.Rendre(fusion, new MetadonneesPdf(modele.Libelle, choix.Langue, Auteur, date, id.ToString()));
         var empreinte = Empreinte(pdf.Contenu);
-        var chiffre = chiffrement.Chiffrer(modele.Zone, id, pdf.Contenu);
+        var chiffre = await chiffrement.ChiffrerAsync(modele.Zone, id, pdf.Contenu, cancellationToken);
         var empreinteStockage = Empreinte(chiffre.Octets);
         var jeton = await horodatage.HorodaterAsync(empreinte, cancellationToken);
         var uri = await stockage.EcrireAsync(modele.Zone, $"{date:yyyy}/{date:MM}/{id}.pdf.enc", chiffre.Octets,

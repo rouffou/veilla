@@ -116,11 +116,12 @@ public sealed class PlateformeSaga : IAsyncLifetime
             ["Documents:Zones:2"] = "psychosociale",
             ["Documents:Stockage:Type"] = "Local",
             ["Documents:Stockage:Racine"] = _racineDocuments,
+            ["Documents:Enveloppe:Type"] = "Local",
         };
         foreach (var zone in new[] { "standard", "medicale", "psychosociale" })
         {
-            documents[$"Documents:Chiffrement:{zone}:Encryption:CurrentKeyId"] = $"test-{zone}";
-            documents[$"Documents:Chiffrement:{zone}:Encryption:Keys:test-{zone}"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+            documents[$"Documents:Enveloppe:CleKek:{zone}:Courante"] = "v1";
+            documents[$"Documents:Enveloppe:CleKek:{zone}:Versions:v1"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         }
 
         Documents = Demarrer<DocumentsProgram, DocumentsDbContext>("documents", "Documents", "documents", documents);

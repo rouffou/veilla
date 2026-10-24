@@ -19,7 +19,7 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
-// Échec au démarrage si les clés de chiffrement d'une zone sont absentes, invalides ou partagées entre zones (ARC-45).
+// Échec au démarrage si la clé racine d'une zone servie est absente ou invalide, ou si une clé est partagée entre zones (ARC-44, ARC-45).
 _ = app.Services.GetRequiredService<IChiffrementDocuments>();
 
 app.MapSeppServiceDefaults();

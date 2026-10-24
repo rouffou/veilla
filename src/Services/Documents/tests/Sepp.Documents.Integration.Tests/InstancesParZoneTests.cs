@@ -80,13 +80,14 @@ public sealed class InstancesParZoneTests : IAsyncLifetime
             b.UseSetting("Documents:Adaptateurs:Signature", "Simulateur");
             b.UseSetting("Documents:Adaptateurs:SourceLinguistique", "Simulateur");
             b.UseSetting("Documents:Stockage:Type", "Local");
+            b.UseSetting("Documents:Enveloppe:Type", "Local");
             b.UseSetting("Documents:Stockage:Racine", _racine);
             b.UseSetting("Documents:Zones:0", zone);
             b.UseSetting("Sepp:Zone", zone);
             foreach (var z in new[] { "standard", "medicale", "psychosociale" })
             {
-                b.UseSetting($"Documents:Chiffrement:{z}:Encryption:CurrentKeyId", $"test-{z}");
-                b.UseSetting($"Documents:Chiffrement:{z}:Encryption:Keys:test-{z}", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+                b.UseSetting($"Documents:Enveloppe:CleKek:{z}:Courante", "v1");
+                b.UseSetting($"Documents:Enveloppe:CleKek:{z}:Versions:v1", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
             }
         });
     }

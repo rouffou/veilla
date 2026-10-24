@@ -43,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<IDocumentRepository, DocumentRepository>();
 
         services.AddSingleton<IRenduPdf, RenduPdfA>();
+        // Chiffrement par enveloppe (ADR 0009) : clé de données par document, enveloppée par la clé racine de la zone.
+        ConfigurationEnveloppe.AjouterEnveloppe(services, configuration, environment, zones);
         services.AddSingleton<IChiffrementDocuments, ChiffrementParZone>();
         services.AddScoped<IPerimetreExterne, PerimetreJeton>();
         services.AddScoped<IJournalAcces, JournalAccesOutbox>();

@@ -73,7 +73,8 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
             b.Property(d => d.Empreinte).HasMaxLength(64).IsFixedLength();
             b.Property(d => d.EmpreinteStockage).HasMaxLength(64).IsFixedLength();
             b.Property(d => d.Format).HasMaxLength(20);
-            b.Property(d => d.CleChiffrement).HasMaxLength(100);
+            // Kid versionné de la clé racine (URI Key Vault ou Managed HSM, ADR 0009).
+            b.Property(d => d.CleChiffrement).HasMaxLength(300);
             b.Property(d => d.AutoriteHorodatage).HasMaxLength(200);
             b.Property(d => d.JetonHorodatage);
             b.Property(d => d.Statut).HasConversion<string>().HasMaxLength(20);

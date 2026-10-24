@@ -63,11 +63,12 @@ public sealed class DocumentsApiTests : IAsyncLifetime
             b.UseSetting("Documents:Zones:1", "medicale");
             b.UseSetting("Documents:Zones:2", "psychosociale");
             b.UseSetting("Documents:Stockage:Type", "Local");
+            b.UseSetting("Documents:Enveloppe:Type", "Local");
             b.UseSetting("Documents:Stockage:Racine", _racine);
             foreach (var zone in new[] { "standard", "medicale", "psychosociale" })
             {
-                b.UseSetting($"Documents:Chiffrement:{zone}:Encryption:CurrentKeyId", $"test-{zone}");
-                b.UseSetting($"Documents:Chiffrement:{zone}:Encryption:Keys:test-{zone}", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+                b.UseSetting($"Documents:Enveloppe:CleKek:{zone}:Courante", "v1");
+                b.UseSetting($"Documents:Enveloppe:CleKek:{zone}:Versions:v1", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
             }
 
             b.ConfigureTestServices(s =>
@@ -201,6 +202,7 @@ public sealed class DocumentsApiTests : IAsyncLifetime
         // Le fichier stocké est chiffré : ni PDF ni texte en clair.
         var fichier = Directory.EnumerateFiles(_racine, "*.enc", SearchOption.AllDirectories).Single();
         var brut = await File.ReadAllBytesAsync(fichier, _ct);
+        Encoding.ASCII.GetString(brut[..8]).ShouldBe("SEPPDOC2", "chiffrement par enveloppe (ADR 0009)");
         Encoding.Latin1.GetString(brut).ShouldNotContain("%PDF");
         Encoding.UTF8.GetString(brut).ShouldNotContain("Marie");
 
@@ -230,6 +232,26 @@ public sealed class DocumentsApiTests : IAsyncLifetime
         var integrite = await Client(Roles.AdministrateurFonctionnel).GetFromJsonAsync<JsonElement>($"/api/v1/documents/{id}/integrite", Json, _ct);
         integrite.GetProperty("integre").GetBoolean().ShouldBeFalse();
         integrite.GetProperty("conclusion").GetString()!.ShouldContain("altéré");
+        (await Client(Roles.GestionnaireDossiers).GetAsync($"/api/v1/documents/{id}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task L_alteration_de_la_cle_enveloppee_fait_echouer_le_dechiffrement_authentifie()
+    {
+        await ModelePublie("COURRIER.ENVELOPPE", "standard", Roles.AdministrateurFonctionnel);
+        var id = (await Generer(Client(Roles.GestionnaireDossiers), "COURRIER.ENVELOPPE", Personne)).GetProperty("id").GetGuid();
+        var fichier = Directory.EnumerateFiles(_racine, $"{id}.pdf.enc", SearchOption.AllDirectories).Single();
+
+        // Un octet de la clé de données enveloppée (après la signature et le kid) est modifié.
+        File.SetAttributes(fichier, FileAttributes.Normal);
+        var octets = await File.ReadAllBytesAsync(fichier, _ct);
+        var longueurKid = (octets[8] << 8) | octets[9];
+        octets[8 + 2 + longueurKid + 2 + 5] ^= 0x01;
+        await File.WriteAllBytesAsync(fichier, octets, _ct);
+
+        var integrite = await Client(Roles.AdministrateurFonctionnel).GetFromJsonAsync<JsonElement>($"/api/v1/documents/{id}/integrite", Json, _ct);
+        integrite.GetProperty("integre").GetBoolean().ShouldBeFalse();
+        integrite.GetProperty("dechiffrementAuthentifie").GetBoolean().ShouldBeFalse();
         (await Client(Roles.GestionnaireDossiers).GetAsync($"/api/v1/documents/{id}/contenu", _ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 

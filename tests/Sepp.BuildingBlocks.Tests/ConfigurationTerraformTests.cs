@@ -29,7 +29,7 @@ public sealed partial class ConfigurationTerraformTests
     /// <summary>Clés que Terraform fournit à chaque instance du service Documents, quelle que soit sa zone.</summary>
     private static readonly string[] ClesInstanceDocuments =
     [
-        "Documents:BlobEndpoint", "Documents:Zones", "Documents:Enveloppe:CleKek", "ServiceBus:SubscriptionName",
+        "Documents:BlobEndpoint", "Documents:Zones", "Documents:Enveloppe:Type", "Documents:Enveloppe:CleKek", "ServiceBus:SubscriptionName",
     ];
 
     /// <summary>
@@ -376,13 +376,14 @@ public sealed partial class ConfigurationTerraformTests
         manquantes.ShouldBeEmpty("Clés obligatoires de documents-medicale non fournies par Terraform : " + string.Join(", ", manquantes));
 
         // Valeurs injectées par main.tf pour une instance : zone servie, clé racine, stockage et subscription propres.
-        foreach (var variable in new[] { "DOCUMENTS__ZONES", "DOCUMENTS__ENVELOPPE__CLEKEK", "DOCUMENTS__BLOBENDPOINT", "SERVICEBUS__SUBSCRIPTIONNAME" })
+        foreach (var variable in new[] { "DOCUMENTS__ZONES", "DOCUMENTS__ENVELOPPE__TYPE", "DOCUMENTS__ENVELOPPE__CLEKEK", "DOCUMENTS__BLOBENDPOINT", "SERVICEBUS__SUBSCRIPTIONNAME" })
         {
             terraform.Main.ShouldContain(variable, Case.Sensitive, $"main.tf n'injecte pas {variable}.");
         }
 
         Regex.IsMatch(terraform.Main, @"DOCUMENTS__ZONES\s*=\s*s\.zone").ShouldBeTrue("Documents:Zones doit valoir la zone de l'instance.");
         Regex.IsMatch(terraform.Main, @"DOCUMENTS__ENVELOPPE__CLEKEK\s*=\s*module\.keyvault\[s\.zone\]\.documents_kek_uri").ShouldBeTrue("La clé racine est celle du coffre de la zone de l'instance.");
+        Regex.IsMatch(terraform.Main, @"DOCUMENTS__ENVELOPPE__TYPE\s*=\s*""KeyVault""").ShouldBeTrue("En Azure, la clé racine est une clé de coffre (adaptateur KeyVault, ARC-44).");
         Regex.IsMatch(terraform.Main, @"SERVICEBUS__SUBSCRIPTIONNAME\s*=\s*n\b").ShouldBeTrue("La subscription porte le nom de l'instance.");
         Regex.IsMatch(terraform.Main, @"coalesce\(each\.value\.instance_de, each\.key\)").ShouldBeTrue("L'image d'une instance est celle du service d'origine.");
         Regex.IsMatch(terraform.Main, @"""\$\{s\.instance_de\}\.\$\{n\}"" => \{ topic = s\.instance_de").ShouldBeTrue("Une instance publie sur le topic du service d'origine (émetteur partagé).");
@@ -587,6 +588,7 @@ public sealed partial class ConfigurationTerraformTests
                 Ajouter(fournies, _main.Contains("DOCUMENTS__BLOBENDPOINT", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__BlobEndpoint");
                 Ajouter(fournies, _main.Contains("DOCUMENTS__ZONES", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__Zones");
                 Ajouter(fournies, _main.Contains("DOCUMENTS__ENVELOPPE__CLEKEK", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__Enveloppe__CleKek");
+                Ajouter(fournies, _main.Contains("DOCUMENTS__ENVELOPPE__TYPE", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__Enveloppe__Type");
             }
 
             // Clés propres au service déclarées dans le catalogue.

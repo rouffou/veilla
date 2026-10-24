@@ -56,7 +56,7 @@ public sealed class DossierSanteTravailleurTests
     }
 
     private string Texte(Document document) =>
-        FakeRendu.Texte(_ctx.Chiffrement.Dechiffrer(document.Zone, document.Id, _ctx.Stockage.Objets[document.StockageUri]));
+        FakeRendu.Texte(FakeChiffrement.Dechiffrer(document.Zone, document.Id, _ctx.Stockage.Objets[document.StockageUri]));
 
     private Guid CopieValidee(int examens = 1)
     {

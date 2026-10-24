@@ -17,7 +17,7 @@ namespace Sepp.Documents.Adapters.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -112,8 +112,8 @@ namespace Sepp.Documents.Adapters.Persistence.Migrations
 
                     b.Property<string>("CleChiffrement")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
                         .HasColumnName("cle_chiffrement");
 
                     b.Property<string>("CleIdempotence")
