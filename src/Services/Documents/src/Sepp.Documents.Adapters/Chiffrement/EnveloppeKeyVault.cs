@@ -24,7 +24,9 @@ public interface IOperationsCleRacine
     Task<CleEnveloppee> EnvelopperAsync(Uri cleSansVersion, byte[] cleDonnees, CancellationToken cancellationToken);
 
     /// <summary>Déballe avec la version désignée par le kid versionné.</summary>
-    /// <exception cref="ContenuAltereException">Clé enveloppée refusée par le coffre ou version inconnue.</exception>
+    /// <exception cref="RequestFailedException">
+    /// Refus du coffre, transmis tel quel : <see cref="EnveloppeKeyVault"/> le classe selon son statut HTTP.
+    /// </exception>
     Task<byte[]> DesenvelopperAsync(Uri kid, byte[] cleEnveloppee, CancellationToken cancellationToken);
 }
 
@@ -93,12 +95,33 @@ public sealed partial class EnveloppeKeyVault : IEnveloppeCles
         }
     }
 
-    public Task<byte[]> DesenvelopperAsync(ZoneDocument zone, string kid, byte[] cleEnveloppee, CancellationToken cancellationToken)
+    /// <remarks>
+    /// Classement des refus du coffre (#377) : 400 (clé enveloppée invalide) signale une archive altérée ; 404 (version
+    /// supprimée ou purgée) et 401/403 (droits manquants, version désactivée) sont des erreurs d'exploitation, l'archive
+    /// n'est pas en cause et redevient lisible une fois la version restaurée ou l'accès rétabli. Les autres statuts
+    /// (indisponibilité du coffre, limitation) remontent tels quels.
+    /// </remarks>
+    public async Task<byte[]> DesenvelopperAsync(ZoneDocument zone, string kid, byte[] cleEnveloppee, CancellationToken cancellationToken)
     {
         _ = Cle(zone);
         var canonique = KidCanonique(zone, kid)
             ?? throw new ContenuAltereException($"Kid étranger à la clé racine de la zone {zone.Code()}.");
-        return _operations.DesenvelopperAsync(new Uri(canonique), cleEnveloppee, cancellationToken);
+        try
+        {
+            return await _operations.DesenvelopperAsync(new Uri(canonique), cleEnveloppee, cancellationToken);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 400)
+        {
+            throw new ContenuAltereException("Clé enveloppée refusée par le coffre.", ex);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            throw new CleRacineIndisponibleException(canonique, CauseCleRacineIndisponible.Introuvable, ex);
+        }
+        catch (RequestFailedException ex) when (ex.Status is 401 or 403)
+        {
+            throw new CleRacineIndisponibleException(canonique, CauseCleRacineIndisponible.AccesRefuse, ex);
+        }
     }
 
     /// <summary>Kid versionné de la clé racine de la zone, sous forme canonique, ou <c>null</c> s'il lui est étranger.</summary>
@@ -142,15 +165,9 @@ public sealed class OperationsCleRacineAzure : IOperationsCleRacine
 
     public async Task<byte[]> DesenvelopperAsync(Uri kid, byte[] cleEnveloppee, CancellationToken cancellationToken)
     {
+        // Les refus du coffre (RequestFailedException) sont classés par EnveloppeKeyVault (#377).
         var client = _parVersion.GetOrAdd(kid.AbsoluteUri, k => new CryptographyClient(new Uri(k), _identite));
-        try
-        {
-            var resultat = await client.UnwrapKeyAsync(KeyWrapAlgorithm.RsaOaep256, cleEnveloppee, cancellationToken);
-            return resultat.Key;
-        }
-        catch (RequestFailedException ex) when (ex.Status is 400 or 404)
-        {
-            throw new ContenuAltereException("Clé enveloppée refusée par le coffre ou version de la clé racine inconnue.", ex);
-        }
+        var resultat = await client.UnwrapKeyAsync(KeyWrapAlgorithm.RsaOaep256, cleEnveloppee, cancellationToken);
+        return resultat.Key;
     }
 }

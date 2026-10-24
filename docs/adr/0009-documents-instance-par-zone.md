@@ -48,7 +48,9 @@ qu'ARC-06 autorise à sortir de la zone. Seuls ses exemplaires travailleur et do
      non exportable dans le Key Vault Premium des zones médicale et psychosociale (ou dans leur Managed HSM), clé RSA dans
      le coffre standard.
    - La rotation est automatique, par politique de rotation, sans expiration des versions. L'objet archivé porte la version
-     de la clé racine, et les anciennes versions restent utilisables pour déballer.
+     de la clé racine, et les anciennes versions restent utilisables pour déballer. Aucune version n'est désactivée ni
+     supprimée tant que des archives l'utilisent ; une version introuvable ou refusée par le coffre est une erreur
+     d'exploitation, distincte d'une archive altérée (#377).
    - Seule l'identité de l'instance de la zone reçoit le rôle « Key Vault Crypto Service Encryption User » sur cette clé.
    - Les données associées authentifiées lient l'objet à sa zone, à son document et à sa clé.
 4. **Publication commune.** Les instances publient `documents.document-publie.v1` sur le topic `documents`, par un émetteur

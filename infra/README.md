@@ -223,6 +223,15 @@ ressource ARM `Microsoft.KeyVault/vaults/keys@2023-07-01` par azapi) :
 Un `apply` qui modifie le corps de la clé crée une **nouvelle version** (comportement de l'API ARM) : les anciennes
 versions restent valides.
 
+**Rotation : ne jamais désactiver ni supprimer une version de `documents-kek` tant que des archives l'utilisent** (#377).
+Chaque archive porte le kid de la version qui a enveloppé sa clé de données ; la rotation ajoute une version, elle n'en
+retire aucune. Ne pas poser de date d'expiration, ne pas désactiver (`az keyvault key set-attributes --enabled false`) ni
+supprimer une ancienne version, et ne pas retirer à l'identité de l'instance son rôle sur la clé. Documents traite ces cas
+comme une erreur d'exploitation, pas comme une altération : l'API répond `503 document.cle-racine-indisponible` et journalise
+en erreur le kid concerné (404 du coffre : version supprimée ou purgée ; 403 : accès refusé ou version désactivée). Pour
+rétablir la lecture : récupérer la clé supprimée (`az keyvault key recover`, dans les 90 jours), réactiver la version, ou
+rétablir le rôle ; après purge, restaurer la sauvegarde ci-dessous.
+
 **La perte d'une clé racine rend illisibles toutes les archives de la zone** (les clés de données ne sont récupérables que
 par elle). Les coffres ont la protection contre la purge (90 jours de suppression récupérable) ; la sauvegarde ci-dessous
 est en plus **obligatoire** avant toute mise en service, puis après chaque rotation.

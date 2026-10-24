@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using Azure;
+
 using Microsoft.Extensions.Configuration;
 
 using Sepp.Documents.Adapters.Chiffrement;
@@ -22,7 +24,10 @@ public class EnveloppeKeyVaultTests
     private static readonly byte[] Clair = "carnet de vaccination"u8.ToArray();
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
 
-    /// <summary>Coffre simulé : une clé RSA 3072 par version, la dernière version enveloppe, toutes déballent.</summary>
+    /// <summary>
+    /// Coffre simulé : une clé RSA 3072 par version, la dernière version enveloppe, toutes déballent. Il refuse comme
+    /// Azure Key Vault : 404 pour une version supprimée, 400 pour une clé enveloppée invalide, 403 si l'accès est retiré.
+    /// </summary>
     private sealed class CoffreSimule : IOperationsCleRacine
     {
         private readonly Dictionary<string, RSA> _versions = new(StringComparer.Ordinal);
@@ -33,6 +38,9 @@ public class EnveloppeKeyVaultTests
 
         public List<Uri> Deballages { get; } = [];
 
+        /// <summary>Droit <c>unwrapKey</c> retiré à l'identité de l'instance : tout déballage répond 403.</summary>
+        public bool AccesRetire { get; set; }
+
         public string Tourner()
         {
             Courante = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
@@ -40,15 +48,23 @@ public class EnveloppeKeyVaultTests
             return Courante;
         }
 
+        /// <summary>Suppression (ou purge) d'une version de la clé racine.</summary>
+        public void Supprimer(string version) => _versions.Remove(version);
+
         public Task<CleEnveloppee> EnvelopperAsync(Uri cleSansVersion, byte[] cleDonnees, CancellationToken cancellationToken) =>
             Task.FromResult(new CleEnveloppee($"{cleSansVersion.AbsoluteUri}/{Courante}", _versions[Courante].Encrypt(cleDonnees, RSAEncryptionPadding.OaepSHA256)));
 
         public Task<byte[]> DesenvelopperAsync(Uri kid, byte[] cleEnveloppee, CancellationToken cancellationToken)
         {
             Deballages.Add(kid);
+            if (AccesRetire)
+            {
+                throw new RequestFailedException(403, "Forbidden", "Forbidden", null);
+            }
+
             if (!_versions.TryGetValue(kid.Segments[^1], out var rsa))
             {
-                throw new ContenuAltereException("Version inconnue.");
+                throw new RequestFailedException(404, "Key not found", "KeyNotFound", null);
             }
 
             try
@@ -57,7 +73,7 @@ public class EnveloppeKeyVaultTests
             }
             catch (CryptographicException ex)
             {
-                throw new ContenuAltereException("Clé enveloppée refusée.", ex);
+                throw new RequestFailedException(400, "Bad request", "BadParameter", ex);
             }
         }
     }
@@ -142,6 +158,61 @@ public class EnveloppeKeyVaultTests
         altere[8 + 2 + longueurKid + 2 + 10] ^= 0x01;
         await Should.ThrowAsync<ContenuAltereException>(() => chiffrement.DechiffrerAsync(ZoneDocument.Medicale, id, altere, _ct));
         await Should.ThrowAsync<ContenuAltereException>(() => chiffrement.DechiffrerAsync(ZoneDocument.Medicale, Guid.CreateVersion7(), chiffre, _ct));
+    }
+
+    [Fact]
+    public async Task Une_version_de_cle_racine_supprimee_n_est_pas_classee_comme_alteration()
+    {
+        // 404 du coffre (#377) : version supprimée ou purgée par une rotation mal conduite ; l'archive n'est pas en cause.
+        var coffre = new CoffreSimule();
+        var chiffrement = Chiffrement(new EnveloppeKeyVault(new Dictionary<ZoneDocument, Uri> { [ZoneDocument.Medicale] = new(CleMedicale) }, coffre), ZoneDocument.Medicale);
+        var id = Guid.CreateVersion7();
+        var ancienneVersion = coffre.Courante;
+        var ancien = await chiffrement.ChiffrerAsync(ZoneDocument.Medicale, id, Clair, _ct);
+        coffre.Tourner();
+        coffre.Supprimer(ancienneVersion);
+
+        var erreur = await Should.ThrowAsync<CleRacineIndisponibleException>(() => chiffrement.DechiffrerAsync(ZoneDocument.Medicale, id, ancien.Octets, _ct));
+
+        erreur.Cause.ShouldBe(CauseCleRacineIndisponible.Introuvable);
+        erreur.Kid.ShouldBe(ancien.CleId);
+        erreur.InnerException.ShouldBeOfType<RequestFailedException>().Status.ShouldBe(404);
+    }
+
+    [Fact]
+    public async Task Une_cle_enveloppee_refusee_par_le_coffre_reste_une_alteration()
+    {
+        // 400 du coffre : clé enveloppée invalide pour une version existante.
+        var coffre = new CoffreSimule();
+        var enveloppe = new EnveloppeKeyVault(new Dictionary<ZoneDocument, Uri> { [ZoneDocument.Medicale] = new(CleMedicale) }, coffre);
+        var cle = await enveloppe.EnvelopperAsync(ZoneDocument.Medicale, RandomNumberGenerator.GetBytes(32), _ct);
+        var alteree = (byte[])cle.Octets.Clone();
+        alteree[10] ^= 0x01;
+
+        var erreur = await Should.ThrowAsync<ContenuAltereException>(() => enveloppe.DesenvelopperAsync(ZoneDocument.Medicale, cle.Kid, alteree, _ct));
+
+        erreur.InnerException.ShouldBeOfType<RequestFailedException>().Status.ShouldBe(400);
+        coffre.Deballages.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task Un_acces_refuse_par_le_coffre_est_une_erreur_d_exploitation_et_non_une_alteration()
+    {
+        // 403 du coffre : rôle retiré à l'identité de l'instance ou version désactivée.
+        var coffre = new CoffreSimule();
+        var chiffrement = Chiffrement(new EnveloppeKeyVault(new Dictionary<ZoneDocument, Uri> { [ZoneDocument.Psychosociale] = new(CleHsm) }, coffre), ZoneDocument.Psychosociale);
+        var id = Guid.CreateVersion7();
+        var chiffre = await chiffrement.ChiffrerAsync(ZoneDocument.Psychosociale, id, Clair, _ct);
+        coffre.AccesRetire = true;
+
+        var erreur = await Should.ThrowAsync<CleRacineIndisponibleException>(() => chiffrement.DechiffrerAsync(ZoneDocument.Psychosociale, id, chiffre.Octets, _ct));
+
+        erreur.Cause.ShouldBe(CauseCleRacineIndisponible.AccesRefuse);
+        erreur.Kid.ShouldBe(chiffre.CleId);
+
+        // L'accès rétabli, l'archive se relit : elle n'a jamais été altérée.
+        coffre.AccesRetire = false;
+        (await chiffrement.DechiffrerAsync(ZoneDocument.Psychosociale, id, chiffre.Octets, _ct)).ShouldBe(Clair);
     }
 
     [Fact]

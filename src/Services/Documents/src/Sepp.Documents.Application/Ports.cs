@@ -73,6 +73,7 @@ public interface IChiffrementDocuments
     Task<ContenuChiffre> ChiffrerAsync(ZoneDocument zone, Guid documentId, byte[] clair, CancellationToken cancellationToken);
 
     /// <exception cref="ContenuAltereException">Contenu altéré, tronqué ou chiffré pour un autre document ou une autre zone.</exception>
+    /// <exception cref="CleRacineIndisponibleException">Version de la clé racine introuvable ou refusée : le contenu n'est pas en cause.</exception>
     Task<byte[]> DechiffrerAsync(ZoneDocument zone, Guid documentId, byte[] chiffre, CancellationToken cancellationToken);
 }
 
@@ -90,7 +91,14 @@ public interface IEnveloppeCles
     Task<CleEnveloppee> EnvelopperAsync(ZoneDocument zone, ReadOnlyMemory<byte> cleDonnees, CancellationToken cancellationToken);
 
     /// <summary>Déballe une clé de données avec la version <paramref name="kid"/> de la clé racine de la zone.</summary>
-    /// <exception cref="ContenuAltereException">Kid étranger à la clé racine de la zone, version inconnue ou clé enveloppée invalide.</exception>
+    /// <exception cref="ContenuAltereException">
+    /// Kid étranger à la clé racine de la zone, clé enveloppée refusée (HTTP 400 du coffre) ou version inconnue de
+    /// l'enveloppe locale de développement.
+    /// </exception>
+    /// <exception cref="CleRacineIndisponibleException">
+    /// Version de la clé racine introuvable dans le coffre (supprimée, purgée) ou opération refusée (droits manquants,
+    /// version désactivée) : erreur d'exploitation, pas une altération de l'archive (#377).
+    /// </exception>
     Task<byte[]> DesenvelopperAsync(ZoneDocument zone, string kid, byte[] cleEnveloppee, CancellationToken cancellationToken);
 }
 
@@ -108,6 +116,51 @@ public sealed class ContenuAltereException : Exception
     public ContenuAltereException()
     {
     }
+}
+
+/// <summary>Cause de l'indisponibilité d'une version de la clé racine (ARC-44, #377).</summary>
+public enum CauseCleRacineIndisponible
+{
+    /// <summary>Version introuvable dans le coffre (HTTP 404) : supprimée ou purgée.</summary>
+    Introuvable,
+
+    /// <summary>Opération refusée par le coffre (HTTP 401 ou 403) : droits de l'identité manquants ou version désactivée.</summary>
+    AccesRefuse,
+}
+
+/// <summary>
+/// La version de la clé racine désignée par le kid d'une archive est inutilisable (ARC-44, NF-62) : erreur d'exploitation
+/// (rotation mal conduite, version supprimée ou désactivée, rôle retiré), à distinguer d'un contenu altéré
+/// (<see cref="ContenuAltereException"/>). L'archive redevient lisible dès que la version est restaurée ou l'accès rétabli.
+/// Le kid n'est pas un secret mais n'est jamais renvoyé au client : il sert au journal d'exploitation.
+/// </summary>
+public sealed class CleRacineIndisponibleException : Exception
+{
+    public CleRacineIndisponibleException(string kid, CauseCleRacineIndisponible cause, Exception? innerException)
+        : base(cause == CauseCleRacineIndisponible.Introuvable
+            ? "Version de la clé racine introuvable dans le coffre (supprimée ou purgée)."
+            : "Opération sur la version de la clé racine refusée par le coffre (droits manquants ou version désactivée).", innerException)
+    {
+        Kid = kid;
+        Cause = cause;
+    }
+
+    public CleRacineIndisponibleException(string message) : base(message)
+    {
+    }
+
+    public CleRacineIndisponibleException(string message, Exception innerException) : base(message, innerException)
+    {
+    }
+
+    public CleRacineIndisponibleException()
+    {
+    }
+
+    /// <summary>Kid versionné de la clé racine, pour le journal d'exploitation uniquement.</summary>
+    public string Kid { get; } = string.Empty;
+
+    public CauseCleRacineIndisponible Cause { get; }
 }
 
 /// <summary>
