@@ -192,6 +192,7 @@ variable "services" {
       internal_services = {
         Documents__ServicesInternes__Affilies  = "affilies"
         Documents__ServicesInternes__Personnes = "personnes"
+        Documents__ServicesInternes__SurveillanceMedicale = "surveillance-medicale"
       }
       # §14.3, ARC-45 : une clé par zone de sensibilité, dans le Key Vault de la zone (Documents lit les trois).
       encryption = {
@@ -241,6 +242,7 @@ variable "services" {
         "Integrations__Adaptateurs__Bce",
         "Integrations__Adaptateurs__Dimona",
         "Integrations__Adaptateurs__RegistreNational",
+        "Integrations__Adaptateurs__Incapacites",
       ]
     }
     "referentiels" = { zone = "standard", database = true }
@@ -288,6 +290,9 @@ variable "services" {
         planification = ["planification.absence-rendez-vous-constatee.v1"]
         referentiels  = ["referentiels.parametre-legal-modifie.v1", "referentiels.jours-feries-modifies.v1"]
       }
+      # ARC-04, ARC-45 : clés propres à la zone médicale, jamais partagées. SAN-64 : canal eHealth (squelette, INT-04).
+      encryption = { ZoneMedicale__Encryption = "medicale" }
+      adapters   = ["Reintegration__Adaptateurs__EHealth"]
     }
 
     # --- Zone psychosociale (ARC-04) ---

@@ -43,7 +43,7 @@ public sealed partial class ConfigurationTerraformTests
         ["documents"] =
         [
             .. Authentification, .. BasePostgres, .. Compte("Documents:CompteTechnique"),
-            "Documents:ServicesInternes:Affilies", "Documents:ServicesInternes:Personnes", "Documents:BlobEndpoint",
+            "Documents:ServicesInternes:Affilies", "Documents:ServicesInternes:Personnes", "Documents:ServicesInternes:SurveillanceMedicale", "Documents:BlobEndpoint",
             .. Chiffrement("Documents:Chiffrement:standard:Encryption"),
             .. Chiffrement("Documents:Chiffrement:medicale:Encryption"),
             .. Chiffrement("Documents:Chiffrement:psychosociale:Encryption"),
@@ -53,13 +53,14 @@ public sealed partial class ConfigurationTerraformTests
         [
             .. Authentification, .. BasePostgres, .. Compte("Integrations:Personnes"), "Integrations:Personnes:BaseAddress",
             .. Chiffrement("Encryption"),
-            .. Adaptateurs("Integrations", "Bce", "Dimona", "RegistreNational"),
+            .. Adaptateurs("Integrations", "Bce", "Dimona", "RegistreNational", "Incapacites"),
         ],
         ["obligations"] = [.. Authentification, .. BasePostgres],
         ["personnes"] = [.. Authentification, .. BasePostgres, .. Chiffrement("Encryption"), "BlindIndex:Key"],
         ["planification"] = [.. Authentification, .. BasePostgres, .. Adaptateurs("Planification", "OutilRh", "AgendaExterne")],
         ["postes-risques"] = [.. Authentification, .. BasePostgres],
         ["referentiels"] = [.. Authentification, .. BasePostgres],
+        ["reintegration"] = [.. Authentification, .. BasePostgres, .. Chiffrement("ZoneMedicale:Encryption"), .. Adaptateurs("Reintegration", "EHealth")],
         ["surveillance-medicale"] = [.. Authentification, .. BasePostgres, .. Chiffrement("ZoneMedicale:Encryption")],
         ["bff-employeur"] = [.. Authentification, "Sepp:Services:Affilies", "Sepp:Services:Personnes", "Sepp:Services:Postes_Risques", "Sepp:Services:Obligations"],
         ["bff-travailleur"] = [.. Authentification, "Sepp:Services:Planification", "Sepp:Services:Surveillance_Medicale", "Sepp:Services:Obligations", "Sepp:Services:Documents"],
@@ -88,6 +89,7 @@ public sealed partial class ConfigurationTerraformTests
         ["Documents"] = "Terraform",
         ["Integrations"] = "Terraform",
         ["Planification"] = "Terraform",
+        ["Reintegration"] = "Defaut",
         ["ServiceBus"] = "Terraform",
         ["ServicesAval"] = "Defaut",
         ["ConnectionStrings"] = "Local",
@@ -139,7 +141,7 @@ public sealed partial class ConfigurationTerraformTests
 
     /// <summary>Services du catalogue Terraform dont le code n'existe pas encore dans le dépôt (aucune configuration à vérifier).</summary>
     private static readonly string[] ServicesSansCode =
-        ["bff-interne", "identite", "prestations", "prevention", "psychosocial", "reintegration", "reporting"];
+        ["bff-interne", "identite", "prestations", "prevention", "psychosocial", "reporting"];
 
     [Fact]
     public void Chaque_adaptateur_declare_dans_appsettings_est_injecte_par_terraform_et_aucun_ne_vaut_Reel_par_defaut()
@@ -149,7 +151,7 @@ public sealed partial class ConfigurationTerraformTests
 
         foreach (var (service, fichier) in AppSettings())
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(fichier));
+            using var document = JsonDocument.Parse(File.ReadAllText(fichier), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip });
             foreach (var (cle, valeur) in Aplatir(document.RootElement, string.Empty))
             {
                 if (valeur == "Reel")
@@ -181,7 +183,7 @@ public sealed partial class ConfigurationTerraformTests
             {
                 var cle = adaptateur.Replace("__", ":", StringComparison.Ordinal);
                 var existe = parService.TryGetValue(service, out var fichier)
-                    && Aplatir(JsonDocument.Parse(File.ReadAllText(fichier)).RootElement, string.Empty).Any(c => string.Equals(c.Cle, cle, StringComparison.OrdinalIgnoreCase));
+                    && Aplatir(JsonDocument.Parse(File.ReadAllText(fichier), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip }).RootElement, string.Empty).Any(c => string.Equals(c.Cle, cle, StringComparison.OrdinalIgnoreCase));
                 if (!existe)
                 {
                     inconnus.Add($"{service} : {adaptateur}");
@@ -200,7 +202,7 @@ public sealed partial class ConfigurationTerraformTests
 
         foreach (var (service, fichier) in AppSettings())
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(fichier));
+            using var document = JsonDocument.Parse(File.ReadAllText(fichier), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip });
             var nom = Aplatir(document.RootElement, string.Empty).FirstOrDefault(c => c.Cle == "ServiceBus:SubscriptionName").Valeur;
             if (nom is not null && nom != service)
             {

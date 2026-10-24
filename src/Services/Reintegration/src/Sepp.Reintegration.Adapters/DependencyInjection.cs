@@ -53,6 +53,7 @@ public static class DependencyInjection
 
         // SAN-64 : canal eHealth, simulateur ou réel (squelette) ; aucune valeur implicite.
         var canal = configuration["Reintegration:Adaptateurs:EHealth"];
+        GardeAdaptateurs.RefuserReelNonImplementeHorsProduction(configuration, "Reintegration:Adaptateurs:EHealth", canal, reelImplemente: false);
         switch (canal)
         {
             case Simulateur:
