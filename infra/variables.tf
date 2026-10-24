@@ -130,12 +130,16 @@ variable "services" {
     # Les abonnements suivent les gestionnaires d'événements réellement enregistrés dans chaque service (saga de
     # reprise, ARC-33). Personnes et referentiels n'ont pas encore de consommateur : leurs abonnements sont
     # ceux prévus pour leur écriture.
-    # affilies : seul integrations.donnees-bce-recues.v1 est consommé (DonneesBceRecuesHandler, AFF-01, AFF-02, INT-04).
+    # affilies : integrations.donnees-bce-recues.v1 (DonneesBceRecuesHandler, AFF-01, AFF-02, INT-04) et les occupations de
+    # Personnes (OccupationDebuteeHandler, OccupationTermineeHandler : employeurs du travailleur connecté, POR-11, #340).
     "affilies" = {
-      zone            = "standard"
-      database        = true
-      subscribes_to   = ["integrations"]
-      subject_filters = { integrations = ["integrations.donnees-bce-recues.v1"] }
+      zone          = "standard"
+      database      = true
+      subscribes_to = ["integrations", "personnes"]
+      subject_filters = {
+        integrations = ["integrations.donnees-bce-recues.v1"]
+        personnes    = ["personnes.occupation-debutee.v1", "personnes.occupation-terminee.v1"]
+      }
       # AFF-01, AFF-02, INT-04 : lecture des données d'entreprise chez Intégrations avec le compte technique du service.
       compte_technique  = "Affilies__CompteTechnique"
       internal_services = { Affilies__ServicesInternes__Integrations = "integrations" }

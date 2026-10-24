@@ -21,6 +21,7 @@ public class TravailleurPermissionsTests
     [InlineData(Permissions.ObligationDemander)]
     [InlineData(Permissions.ObligationLirePropres)]
     [InlineData(Permissions.PersonneLirePropres)]
+    [InlineData(Permissions.AffilieLireEmployeurs)]
     public void Les_permissions_du_portail_sont_reservees_au_travailleur(string permission) =>
         RolesAvec(permission).ShouldBe([Roles.Travailleur]);
 
@@ -33,6 +34,8 @@ public class TravailleurPermissionsTests
         permissions.ShouldNotContain(Permissions.ObligationLire);
         permissions.ShouldNotContain(Permissions.PersonneLire);
         permissions.ShouldNotContain(Permissions.PersonneEcrire);
+        permissions.ShouldNotContain(Permissions.AffilieLire);
+        permissions.ShouldNotContain(Permissions.AffilieEcrire);
     }
 
     [Fact]

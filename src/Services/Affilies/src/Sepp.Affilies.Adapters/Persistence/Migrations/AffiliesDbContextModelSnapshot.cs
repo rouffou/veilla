@@ -18,7 +18,7 @@ namespace Sepp.Affilies.Adapters.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -962,6 +962,41 @@ namespace Sepp.Affilies.Adapters.Persistence.Migrations
                         .HasDatabaseName("ix_modification_affilie_affilie_id_numero_version");
 
                     b.ToTable("modification_affilie", (string)null);
+                });
+
+            modelBuilder.Entity("Sepp.Affilies.Domain.Occupations.OccupationLocale", b =>
+                {
+                    b.Property<Guid>("OccupationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("occupation_id");
+
+                    b.Property<Guid>("AffilieId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("affilie_id");
+
+                    b.Property<DateOnly?>("DateDebut")
+                        .HasColumnType("date")
+                        .HasColumnName("date_debut");
+
+                    b.Property<DateOnly?>("DateFin")
+                        .HasColumnType("date")
+                        .HasColumnName("date_fin");
+
+                    b.Property<DateTimeOffset?>("FinRecueDu")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fin_recue_du");
+
+                    b.Property<Guid>("PersonneId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("personne_id");
+
+                    b.HasKey("OccupationId")
+                        .HasName("pk_occupation_locale");
+
+                    b.HasIndex("PersonneId")
+                        .HasDatabaseName("ix_occupation_locale_personne_id");
+
+                    b.ToTable("occupation_locale", (string)null);
                 });
 
             modelBuilder.Entity("Sepp.BuildingBlocks.Infrastructure.Messaging.InboxMessage", b =>

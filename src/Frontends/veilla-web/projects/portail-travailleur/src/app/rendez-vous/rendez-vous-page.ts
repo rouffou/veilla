@@ -27,7 +27,7 @@ import {
   ErreurApi,
   versErreurApi,
 } from '../api/bff-travailleur.service';
-import { affiliesConnus } from '../ui/affilies';
+import { affiliesConnus, denominationsConnues } from '../ui/affilies';
 import { chargeable } from '../ui/chargeable';
 import { DateLocalePipe } from '../ui/date-locale.pipe';
 import { Chargement, ErreurApiMessage } from '../ui/etats';
@@ -240,7 +240,7 @@ const JOURS_RECHERCHE = 60;
                   <select id="rdv-affilie" class="app-input" (change)="affilieChoisi.set(valeur($event))">
                     @for (id of affilies(); track id; let i = $index) {
                       <option [value]="id" [selected]="id === affilieCourant()">
-                        {{ t('appointments.employerN', { n: i + 1 }) }}
+                        {{ denominations().get(id) ?? t('appointments.employerN', { n: i + 1 }) }}
                       </option>
                     }
                   </select>
@@ -333,6 +333,10 @@ export class RendezVousPage {
   private readonly recherche = signal<{ affilieId: string; typeActe: string } | null>(null);
   private readonly succes = viewChild<ElementRef<HTMLElement>>('succes');
 
+  protected readonly denominations = computed(() => {
+    const etat = this.employeurs.etat();
+    return denominationsConnues(etat.statut === 'ok' ? etat.valeur : []);
+  });
   protected readonly affilies = computed(() => {
     const rdv = this.rendezVous.etat();
     const employeurs = this.employeurs.etat();

@@ -7,6 +7,7 @@ using Sepp.Affilies.Application.Concertation;
 using Sepp.Affilies.Application.Groupes;
 using Sepp.Affilies.Application.Hierarchie;
 using Sepp.Affilies.Application.Historique;
+using Sepp.Affilies.Application.Occupations;
 using Sepp.Affilies.Application.Operations;
 using Sepp.Affilies.Application.Securite;
 using Sepp.BuildingBlocks.Application;
@@ -57,6 +58,9 @@ public static class DependencyInjection
         // AFF-01, AFF-02, INT-04 — Mise à jour depuis la BCE (donnees-bce-recues) et écarts du gestionnaire de dossiers.
         services.AddScoped<IQueryHandler<ListerEcartsBce, IReadOnlyList<EcartBceDto>>, ListerEcartsBceHandler>();
         services.AddScoped<ICommandHandler<ResoudreEcartBce, Unit>, ResoudreEcartBceHandler>();
+
+        // POR-11 (#340) — Employeurs du travailleur connecté.
+        services.AddScoped<IQueryHandler<ListerMesEmployeurs, IReadOnlyList<MonEmployeurDto>>, ListerMesEmployeursHandler>();
 
         // AFF-06 — Fusion, scission, transfert.
         services.AddScoped<ICommandHandler<ProjeterOperation, Guid>, ProjeterOperationHandler>();

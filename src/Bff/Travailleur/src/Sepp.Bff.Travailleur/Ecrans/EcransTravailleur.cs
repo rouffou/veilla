@@ -109,17 +109,44 @@ public sealed class EcransQuestionnaires(ISurveillanceMedicaleApi surveillance, 
 /// réservation sans lien de convocation. Les services bornent déjà leurs réponses à la personne du jeton ; le BFF écarte en
 /// plus tout examen dont la personne n'est pas celle du jeton (défense en profondeur).
 /// </summary>
-public sealed class EcransEmployeursEtExamens(IPersonnesApi personnes, IObligationsApi obligations)
+public sealed class EcransEmployeursEtExamens(IPersonnesApi personnes, IAffiliesApi affilies, IObligationsApi obligations)
 {
-    /// <summary>Employeurs distincts (un par affilié), le plus ancien d'abord ; la dénomination n'est connue d'aucun service accessible au travailleur.</summary>
-    public async Task<IReadOnlyList<EmployeurEcran>> MesEmployeursAsync(CancellationToken ct) =>
-        (await personnes.ListerMesOccupationsAsync(ct))
-        .GroupBy(o => o.AffilieId)
-        .Select(g => g.OrderBy(o => o.DateDebut).First())
-        .OrderBy(o => o.DateDebut)
-        .ThenBy(o => o.AffilieId)
-        .Select(o => new EmployeurEcran(o.AffilieId, o.TypeTravailleur, o.DateDebut, o.DateFin))
-        .ToList();
+    /// <summary>
+    /// Employeurs distincts (un par affilié), le plus ancien d'abord, nommés par Affiliés. Les deux appels partent ensemble ;
+    /// sans réponse d'Affiliés (indisponible, refus), l'employeur reste listé sans dénomination (ARC-35) et seules les
+    /// dénominations des affiliés de ses occupations sont retenues (défense en profondeur). Le BFF ne décide d'aucun périmètre.
+    /// </summary>
+    public async Task<IReadOnlyList<EmployeurEcran>> MesEmployeursAsync(CancellationToken ct)
+    {
+        var occupations = personnes.ListerMesOccupationsAsync(ct);
+        var denominations = DenominationsAsync(ct);
+        var liste = await occupations;
+        var noms = (await denominations).GroupBy(e => e.AffilieId).ToDictionary(g => g.Key, g => g.First());
+
+        return liste
+            .GroupBy(o => o.AffilieId)
+            .Select(g => g.OrderBy(o => o.DateDebut).First())
+            .OrderBy(o => o.DateDebut)
+            .ThenBy(o => o.AffilieId)
+            .Select(o =>
+            {
+                noms.TryGetValue(o.AffilieId, out var employeur);
+                return new EmployeurEcran(o.AffilieId, employeur?.Denomination, employeur?.Langue, o.TypeTravailleur, o.DateDebut, o.DateFin);
+            })
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<EmployeurAval>> DenominationsAsync(CancellationToken ct)
+    {
+        try
+        {
+            return await affilies.ListerMesEmployeursAsync(ct);
+        }
+        catch (Exception ex) when (ex is ServiceIndisponibleException or ErreurAvalException)
+        {
+            return [];
+        }
+    }
 
     public async Task<IReadOnlyList<ExamenAPlanifierEcran>> MesExamensAPlanifierAsync(Guid personneId, string langue, CancellationToken ct) =>
         (await obligations.ListerMesExamensAPlanifierAsync(langue, ct))

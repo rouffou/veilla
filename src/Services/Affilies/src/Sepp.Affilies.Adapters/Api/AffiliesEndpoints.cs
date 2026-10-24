@@ -8,6 +8,7 @@ using Sepp.Affilies.Application.Concertation;
 using Sepp.Affilies.Application.Groupes;
 using Sepp.Affilies.Application.Hierarchie;
 using Sepp.Affilies.Application.Historique;
+using Sepp.Affilies.Application.Occupations;
 using Sepp.Affilies.Application.Operations;
 using Sepp.Affilies.Domain.Affilies;
 using Sepp.BuildingBlocks.Application;
@@ -33,6 +34,16 @@ public static class AffiliesEndpoints
         MapConcertation(affilies.MapGroup("/{affilieId:guid}").WithTags("Contacts et concertation"));
         MapOperations(affilies.MapGroup("/{affilieId:guid}/operations").WithTags("Fusions, scissions et transferts"));
         MapEcartsBce(api.MapGroup("/ecarts-bce").WithTags("Écarts BCE"));
+
+        // POR-11, #340 : le travailleur ne lit que la dénomination et la langue de ses employeurs (occupations actives de la
+        // personne du claim personne_id) ; hors du groupe affilie:lire, aucune autre donnée de la fiche.
+        app.MapGet("/api/v1/mes-employeurs", async (DateOnly? date, TimeProvider clock,
+                IQueryHandler<ListerMesEmployeurs, IReadOnlyList<MonEmployeurDto>> handler, CancellationToken ct) =>
+                (await handler.HandleAsync(new ListerMesEmployeurs(date ?? clock.TodayInBelgium()), ct)).ToHttpResult())
+            .RequirePermission(Permissions.AffilieLireEmployeurs)
+            .WithTags("Portail travailleur")
+            .WithName("ListerMesEmployeurs")
+            .WithSummary("POR-11 : dénomination et langue des affiliés chez qui la personne du jeton (claim personne_id) a une occupation active ; aucune autre donnée.");
         return app;
     }
 

@@ -14,6 +14,8 @@ public sealed class ServicesAvalOptions
 
     public Uri? Personnes { get; set; }
 
+    public Uri? Affilies { get; set; }
+
     public Uri? Obligations { get; set; }
 
     public Uri? Documents { get; set; }
@@ -35,11 +37,12 @@ public static class DependencyInjection
                 o.Planification ??= Adresse(configuration, "Sepp:Services:Planification");
                 o.SurveillanceMedicale ??= Adresse(configuration, "Sepp:Services:Surveillance_Medicale");
                 o.Personnes ??= Adresse(configuration, "Sepp:Services:Personnes");
+                o.Affilies ??= Adresse(configuration, "Sepp:Services:Affilies");
                 o.Obligations ??= Adresse(configuration, "Sepp:Services:Obligations");
                 o.Documents ??= Adresse(configuration, "Sepp:Services:Documents");
             })
-            .Validate(o => o.Planification is not null && o.SurveillanceMedicale is not null && o.Personnes is not null && o.Obligations is not null && o.Documents is not null,
-                $"Les adresses {ServicesAvalOptions.Section}:Planification, :SurveillanceMedicale, :Personnes, :Obligations et :Documents sont obligatoires.")
+            .Validate(o => o.Planification is not null && o.SurveillanceMedicale is not null && o.Personnes is not null && o.Affilies is not null && o.Obligations is not null && o.Documents is not null,
+                $"Les adresses {ServicesAvalOptions.Section}:Planification, :SurveillanceMedicale, :Personnes, :Affilies, :Obligations et :Documents sont obligatoires.")
             .ValidateOnStart();
 
         services.AddTransient<PropagationJetonHandler>();
@@ -49,6 +52,8 @@ public static class DependencyInjection
         services.AddHttpClient<ISurveillanceMedicaleApi, SurveillanceMedicaleApi>((sp, c) => c.BaseAddress = Base(sp, o => o.SurveillanceMedicale))
             .AddHttpMessageHandler<PropagationJetonHandler>();
         services.AddHttpClient<IPersonnesApi, PersonnesApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Personnes))
+            .AddHttpMessageHandler<PropagationJetonHandler>();
+        services.AddHttpClient<IAffiliesApi, AffiliesApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Affilies))
             .AddHttpMessageHandler<PropagationJetonHandler>();
         services.AddHttpClient<IDemandesCopieApi, DemandesCopieApi>((sp, c) => c.BaseAddress = Base(sp, o => o.SurveillanceMedicale))
             .AddHttpMessageHandler<PropagationJetonHandler>();

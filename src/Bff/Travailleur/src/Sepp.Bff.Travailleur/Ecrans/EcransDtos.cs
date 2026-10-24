@@ -50,10 +50,11 @@ public sealed record DemandeCorps(Guid AffilieId, string Type);
 public sealed record DemandeEnregistree(Guid Id);
 
 /// <summary>
-/// Employeur du travailleur (occupation active). Sans dénomination : aucun service accessible au rôle travailleur ne la
-/// fournit (Affiliés exige <c>affilie:lire</c>) ; le portail désigne l'employeur par son rang.
+/// Employeur du travailleur (occupation active). La dénomination et la langue viennent d'Affiliés (permission dédiée
+/// <c>affilie:lire-employeurs</c>, #340) ; <c>null</c> si ce service est indisponible ou ne connaît pas l'affilié : le portail
+/// désigne alors l'employeur par son rang.
 /// </summary>
-public sealed record EmployeurEcran(Guid AffilieId, string TypeTravailleur, DateOnly DateDebut, DateOnly? DateFin);
+public sealed record EmployeurEcran(Guid AffilieId, string? Denomination, string? Langue, string TypeTravailleur, DateOnly DateDebut, DateOnly? DateFin);
 
 /// <summary>Examen à planifier du travailleur : type, échéances et statut, jamais de contenu médical (ARC-06).</summary>
 public sealed record ExamenAPlanifierEcran(

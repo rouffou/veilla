@@ -46,7 +46,7 @@ portail en local). Projet `Sepp.Bff.Travailleur`, sans base de données ni domai
 | `GET /questionnaires?langue=` | POR-12 : modèles à remplir | Surveillance médicale `GET /protocoles/questionnaires` |
 | `POST /questionnaires/{code}/reponses` `{reponses[]}` | POR-12 : remplissage à l'avance, écriture seule (201 `{id}`) | Surveillance médicale `POST /questionnaires/pre-remplissage` |
 | `POST /demandes` `{affilieId, type}` | POR-12 : consultation spontanée ou visite de pré-reprise (`CONSULTATION_SPONTANEE`, `VISITE_PRE_REPRISE`), sans motif | Obligations `POST /mes-demandes` (personne = jeton) |
-| `GET /employeurs` | POR-11 : mes employeurs (occupations actives : affilié, type de travailleur, dates ; sans dénomination) | Personnes `GET /mes-occupations` |
+| `GET /employeurs` | POR-11 : mes employeurs (occupations actives : affilié, dénomination, langue, type de travailleur, dates) ; sans dénomination (`null`) si Affiliés est indisponible ou ne connaît pas l'affilié | Personnes `GET /mes-occupations` et Affiliés `GET /mes-employeurs` (appelés ensemble) |
 | `GET /examens-a-planifier?langue=` | POR-11 : mes examens à planifier (type, échéances, statut), ceux d'une autre personne écartés | Obligations `GET /mes-examens-a-planifier` |
 | `GET /documents` | POR-13 : documents publiés pour la personne | Documents `GET /documents?typeDestinataire=Personne&destinataireId=` |
 | `GET /documents/{id}/contenu` | POR-13 : PDF, lecture journalisée par Documents (NF-04) ; aussi la copie du dossier et le carnet de vaccination (catégories `copie-dossier`, `carnet-vaccination`) | Documents `GET /documents/{id}` puis `/contenu` |
@@ -98,7 +98,7 @@ claim dans le courtier ou un service Identité.
 | Clé | Rôle |
 |---|---|
 | `Authentication:Authority`, `MetadataAddress`, `ValidIssuer`, `Audience` (`sepp-api`) | validation du jeton (socle) |
-| `ServicesAval:Planification`, `:SurveillanceMedicale`, `:Personnes`, `:Obligations`, `:Documents` | URL des services (obligatoires, vérifiées au démarrage) ; en local `http://localhost:5117`, `5118`, `5112`, `5116`, `5119` ; à défaut `SEPP__SERVICES__PLANIFICATION`, `…__SURVEILLANCE_MEDICALE`, `…__PERSONNES`, `…__OBLIGATIONS`, `…__DOCUMENTS` injectées par Terraform |
+| `ServicesAval:Planification`, `:SurveillanceMedicale`, `:Personnes`, `:Affilies`, `:Obligations`, `:Documents` | URL des services (obligatoires, vérifiées au démarrage) ; en local `http://localhost:5117`, `5118`, `5112`, `5111`, `5116`, `5119` ; à défaut `SEPP__SERVICES__PLANIFICATION`, `…__SURVEILLANCE_MEDICALE`, `…__PERSONNES`, `…__AFFILIES`, `…__OBLIGATIONS`, `…__DOCUMENTS` injectées par Terraform |
 | `Cors:Origines` | origines du portail |
 
 En compose (`deploy/local/compose.yaml`, service `bff-travailleur`, port **5201**), les services sont joints par leur nom de
@@ -114,13 +114,18 @@ Rien n'a été implémenté dans un autre service. Ce qui manque :
 2. **Employeurs et examens à planifier (POR-11) : résolu (#324).** Personnes expose `GET /api/v1/mes-occupations`
    (`personne:lire-propres`) et Obligations `GET /api/v1/mes-examens-a-planifier` (`obligation:lire-propres`), toutes deux bornées au
    claim `personne_id` ; le BFF les relaie en `GET /employeurs` et `GET /examens-a-planifier`, et le portail permet une première
-   réservation sans lien de convocation. **Reste ouvert** : la dénomination de l'employeur n'est connue que du service Affiliés
-   (`affilie:lire`, que le travailleur n'a pas) : le portail désigne les employeurs par leur rang.
+   réservation sans lien de convocation. **Dénomination de l'employeur : résolu (#340).** Affiliés expose `GET /api/v1/mes-employeurs`
+   (permission dédiée `affilie:lire-employeurs`, accordée au seul rôle travailleur) : dénomination et langue des seuls affiliés où la
+   personne du claim `personne_id` a une occupation active, vérifiée par Affiliés sur sa projection des événements d'occupation. Le BFF
+   n'utilise aucun compte technique (ARC-43 : aucune logique métier, aucune décision de périmètre) : il propage le jeton, appelle
+   Personnes et Affiliés ensemble et relie les deux listes par `affilieId` ; seules les dénominations des affiliés de ses occupations
+   sont retenues. Le portail affiche la dénomination, et « Employeur n » (FR, NL, DE, EN) pour un affilié sans dénomination (service
+   indisponible, affilié issu d'un lien).
 3. **Déplacer et confirmer un rendez-vous (POR-11)** : résolu par #325. ~~Carnet de vaccination et demande de copie du dossier (POR-13)~~ : traité (#326). La demande est déposée et suivie dans la
    Surveillance médicale (aucun contenu médical), validée par le CPMT, puis la copie est publiée par Documents en zone médicale ;
    le carnet est publié par Documents après chaque vaccination. Le BFF ne lit toujours aucun dossier : `ArchitectureTests`
    vérifie tous les clients aval (ni `/contenu` d'une copie, ni `/carnet`, ni `/validation`).
-6. Les libellés de lieu et la dénomination des employeurs ne sont pas exposés au travailleur : le portail ne les affiche pas.
+6. Les libellés de lieu ne sont pas exposés au travailleur : le portail ne les affiche pas.
 
 ## Tests
 

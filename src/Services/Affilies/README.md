@@ -48,9 +48,26 @@ sites ouverts (fermeture non automatique), liste d'unités vide, données BCE in
 de dossiers. Une **panne technique** de la lecture chez Intégrations (indisponibilité, accès refusé) fait échouer le message pour reprise
 par le bus.
 
+## Employeurs du travailleur connecté (POR-11, #340)
+
+`GET /api/v1/mes-employeurs[?date=]` rend, pour la personne du claim `personne_id`, la **dénomination**, la **langue** de
+correspondance et le **régime linguistique** des seuls affiliés chez qui elle a une occupation active à la date (aujourd'hui, heure de
+Belgique, par défaut) : `[{ affilieId, denomination, langue, regimeLinguistique }]`. Rien d'autre de la fiche (ni BCE, ni adresse, ni contacts).
+
+- Permission dédiée **`affilie:lire-employeurs`**, accordée au seul rôle `travailleur`, qui n'a toujours pas `affilie:lire`
+  (le groupe de routes de lecture, `/affilies/{id}`, `/affilies`, reste interdit au travailleur).
+- Le service **ne fait pas confiance à l'appelant** : la route n'accepte ni identifiant de personne ni liste d'affiliés. La personne est lue
+  uniquement dans le jeton (une valeur unique et valide, sinon 403 `perimetre.interdit`) et les affiliés sont déduits de la **projection
+  locale des occupations**, table `occupation_locale`, alimentée par `personnes.occupation-debutee.v1` et `personnes.occupation-terminee.v1`
+  (`OccupationDebuteeHandler`, `OccupationTermineeHandler`, inbox idempotente ; les deux événements complètent la même ligne dans n'importe quel
+  ordre, une fin plus ancienne que celle déjà reçue est ignorée). Seuls des identifiants et des dates sont conservés (ARC-06). Une occupation
+  dont le début n'est pas encore reçu n'est pas active ; le dernier jour d'occupation est inclus (comme DIMONA).
+- Abonnement `affilies` ← `personnes`, filtré sur ces deux sujets dans `infra/variables.tf` (`AbonnementsTerraformTests`).
+
 ## Autorisations (§3.3)
 
 - Lecture (`affilie:lire`) : profils internes ; employeur et SIPP limités à leurs affiliés.
+- Employeurs du travailleur (`affilie:lire-employeurs`) : travailleur, limité aux affiliés de ses occupations actives (voir ci-dessus).
 - Écriture (`affilie:ecrire`) : le gestionnaire de dossiers modifie toute la fiche, crée les affiliés et les groupes.
   L'employeur et le SIPP ont une écriture **partielle** : contacts et organes de concertation de leurs affiliés uniquement.
 
