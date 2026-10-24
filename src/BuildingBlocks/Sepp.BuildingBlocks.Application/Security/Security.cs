@@ -44,6 +44,11 @@ public static class Roles
     // à une personne : lecture de la langue de l'affilié et du travailleur pour la langue des documents (NF-41).
     public const string Documents = "documents";
 
+    // Documents, instance de la zone médicale (décision #356, ADR 0009) — rôle technique du compte de service de l'instance
+    // documents-medicale, jamais attribué à une personne : lecture, chez Surveillance médicale (intra-zone), du contenu de la
+    // copie du dossier (SAN-43), du carnet de vaccination (SAN-50) et des pièces jointes (SAN-41) à rendre et archiver.
+    public const string DocumentsMedicale = "documents-medicale";
+
     // Communications — rôle technique du compte de service du service Communications (client credentials OIDC), jamais
     // attribué à une personne : résolution des coordonnées et préférences de canal des destinataires (DOC-03, SAN-10).
     public const string Communications = "communications";
@@ -322,7 +327,12 @@ public static class RolePermissions
         Grant(Roles.Travailleur, Permissions.CopieDossierDemander);
         Grant(Roles.Cpmt, Permissions.CopieDossierTraiter);
         Grant(Roles.CpmtDirigeant, Permissions.CopieDossierTraiter);
-        Grant(Roles.Documents, Permissions.DossierSanteTransmettreDocuments);
+        // Décision #356 : le contenu clinique n'est lu et archivé que par l'instance de la zone médicale. Moindre privilège :
+        // seul documents-medicale reçoit dossier-sante:transmettre-documents (contenu de la copie et carnet de vaccination, les
+        // deux seules routes qui l'exigent) ; elle n'a ni dossier-sante:lire ni dossier-sante:ecrire, ni affilie:lire ni
+        // personne:lire (la langue vient d'une projection, lot 7, le pare-feu de la zone interdisant Affiliés et Personnes).
+        // Le rôle documents (instance standard) le perd : ARC-06, aucun contenu clinique en zone standard.
+        Grant(Roles.DocumentsMedicale, Permissions.DossierSanteTransmettreDocuments);
 
         // Planification — §3.1 : le planificateur gère agendas, convocations et tournées ; le responsable de centre pilote
         // et affecte les ressources (ressources, lieux, congés) ; l'assistant médical tient l'accueil et la salle d'attente

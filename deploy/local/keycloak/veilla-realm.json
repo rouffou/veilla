@@ -78,6 +78,9 @@
         "name": "documents"
       },
       {
+        "name": "documents-medicale"
+      },
+      {
         "name": "communications"
       },
       {
@@ -373,6 +376,20 @@
       ]
     },
     {
+      "clientId": "veilla-documents-medicale",
+      "name": "Service Documents, instance zone médicale (compte technique, développement local)",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "documents-medicale-local-dev",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "defaultClientScopes": [
+        "sepp-api"
+      ]
+    },
+    {
       "clientId": "veilla-communications",
       "name": "Service Communications (compte technique, développement local)",
       "enabled": true,
@@ -636,6 +653,14 @@
       "serviceAccountClientId": "veilla-documents",
       "realmRoles": [
         "documents"
+      ]
+    },
+    {
+      "username": "service-account-veilla-documents-medicale",
+      "enabled": true,
+      "serviceAccountClientId": "veilla-documents-medicale",
+      "realmRoles": [
+        "documents-medicale"
       ]
     },
     {

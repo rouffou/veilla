@@ -98,6 +98,7 @@ public sealed class CopieDossierTests
     [InlineData(Roles.Cpmt)]
     [InlineData(Roles.GestionnaireDossiers)]
     [InlineData(Roles.Documents)]
+    [InlineData(Roles.DocumentsMedicale)]
     public async Task Seul_le_travailleur_depose_une_demande(string role)
     {
         _monde.Agir("x", role);
@@ -167,6 +168,7 @@ public sealed class CopieDossierTests
     [InlineData(Roles.Travailleur)]
     [InlineData(Roles.Employeur)]
     [InlineData(Roles.Documents)]
+    [InlineData(Roles.DocumentsMedicale)]
     public async Task Seul_le_cpmt_traite_une_demande(string role)
     {
         await DossierAvecContenuAsync();
@@ -204,7 +206,7 @@ public sealed class CopieDossierTests
         Travailleur();
         var demande = (await DeposerAsync()).Value;
 
-        _monde.Agir("service-documents", Roles.Documents);
+        _monde.Agir("service-documents-medicale", Roles.DocumentsMedicale);
         (await ContenuAsync(demande.Id)).Error!.Code.ShouldBe("demande-copie.non-validee");
 
         _monde.Agir("cpmt-1", Roles.Cpmt);
@@ -217,7 +219,7 @@ public sealed class CopieDossierTests
             (await ContenuAsync(demande.Id)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
         }
 
-        _monde.Agir("service-documents", Roles.Documents);
+        _monde.Agir("service-documents-medicale", Roles.DocumentsMedicale);
         var contenu = await ContenuAsync(demande.Id);
 
         contenu.IsSuccess.ShouldBeTrue();
@@ -260,7 +262,7 @@ public sealed class CopieDossierTests
 
         (await handler()).Error!.Kind.ShouldBe(ErrorKind.Forbidden, "Même le CPMT passe par le dossier, pas par ce canal.");
 
-        _monde.Agir("service-documents", Roles.Documents);
+        _monde.Agir("service-documents-medicale", Roles.DocumentsMedicale);
         var carnet = await handler();
 
         var dose = carnet.Value.Doses.ShouldHaveSingleItem();

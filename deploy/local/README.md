@@ -64,6 +64,21 @@ Les clients confidentiels `veilla-documents` (rôle `documents`), `veilla-commun
 
 Pour tester le flux DIMONA en local : associer un numéro BCE à un affilié (`PUT /api/v1/correspondances`, utilisateur `gestionnaire`), puis lancer `POST /api/v1/flux/dimona/executions`. Le simulateur produit deux entrées et une sortie pour cet employeur, et une entrée rejetée pour un employeur non affilié.
 
+## Documents : une instance par zone
+
+Par défaut, un seul service `documents` (port 5119) sert les trois zones, comme avant. Son compte technique `veilla-documents` (rôle `documents`) n'a plus `dossier-sante:transmettre-documents` (décision #356, ARC-06) : en configuration par défaut, la copie du dossier (SAN-43) et le carnet de vaccination (SAN-50) obtiennent un 403 de Surveillance médicale.
+
+Pour reproduire la production (« une instance par zone », ADR 0009) et faire fonctionner ces deux flux :
+
+```bash
+docker compose -f deploy/local/compose.yaml -f deploy/local/compose.documents-par-zone.yaml --profile par-zone up -d --build
+```
+
+- `documents` (port 5119) ne sert plus que la zone standard ;
+- `documents-medicale` (port 5122, profil `par-zone`) sert la zone médicale, avec sa base `documents_medicale`, son stockage de fichiers propre et le client confidentiel `veilla-documents-medicale` (rôle technique `documents-medicale`, secret de développement `documents-medicale-local-dev`), seul autorisé à lire le contenu clinique chez Surveillance médicale.
+
+Le script `init-databases.sql` ne s'exécute qu'à la création du volume PostgreSQL, et le realm qu'à l'import initial de Keycloak : sur un environnement existant, créez la base (`docker compose -f deploy/local/compose.yaml exec postgres psql -U sepp -c "CREATE DATABASE documents_medicale"`) et recréez le volume ou le conteneur Keycloak pour obtenir le nouveau client.
+
 ## Portées OIDC
 
 Le realm déclare les portées `profile`, `email`, `offline_access` (rôle `offline_access` donné aux utilisateurs de test) et `sepp-api` : les portails demandent `openid profile email offline_access`.

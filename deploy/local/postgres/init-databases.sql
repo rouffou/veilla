@@ -9,5 +9,7 @@ CREATE DATABASE surveillance_medicale;
 CREATE DATABASE planification;
 CREATE DATABASE obligations;
 CREATE DATABASE documents;
+-- Instance zone médicale du service Documents (décision #356), lancée avec le profil « par-zone ».
+CREATE DATABASE documents_medicale;
 CREATE DATABASE communications;
 CREATE DATABASE reintegration;

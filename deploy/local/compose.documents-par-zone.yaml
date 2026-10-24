@@ -1,0 +1,8 @@
+# Documents : une instance par zone (décision #356). À combiner avec compose.yaml et le profil « par-zone » :
+#   docker compose -f deploy/local/compose.yaml -f deploy/local/compose.documents-par-zone.yaml --profile par-zone up -d --build
+# L'instance « documents » ne sert plus que la zone standard ; « documents-medicale » (port 5122) sert la zone médicale.
+services:
+  documents:
+    environment:
+      Documents__Zones__1: ""
+      Documents__Zones__2: ""
