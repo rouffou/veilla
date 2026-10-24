@@ -81,6 +81,11 @@ public class MutationsRegistreNationalTests
         personne.Adresse!.Rue.ShouldBe("Avenue Louise");
         personne.Langue.ShouldBe(Language.Nl);
         personne.Mutations.Count.ShouldBe(2);
+
+        // NF-41 : seul le changement de langue est publié, pour la projection linguistique de Documents.
+        var langue = _store.Published.ShouldHaveSingleItem().ShouldBeOfType<Sepp.Contracts.Personnes.LangueModifiee>();
+        langue.PersonneId.ShouldBe(personne.Id);
+        langue.Langue.ShouldBe("Nl");
     }
 
     [Fact]

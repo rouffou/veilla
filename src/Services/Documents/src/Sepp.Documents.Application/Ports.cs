@@ -149,6 +149,14 @@ public interface ISourceLinguistique
     Task<InformationsLinguistiques> ObtenirAsync(Guid? affilieId, Guid? personneId, CancellationToken cancellationToken);
 }
 
+/// <summary>Projection locale du contexte linguistique (NF-41, ADR 0009), alimentée par les événements d'Affiliés et de Personnes.</summary>
+public interface IContexteLinguistiqueRepository
+{
+    Task<ContexteLinguistiqueProjete?> GetAsync(SujetLinguistique sujet, Guid sujetId, CancellationToken cancellationToken);
+
+    void Add(ContexteLinguistiqueProjete contexte);
+}
+
 /// <summary>
 /// Journal d'audit des accès aux documents (NF-04) dans la zone de chaque document : le service Documents sert des
 /// documents des trois zones, la zone de la trace est donc celle du document et non celle du service.

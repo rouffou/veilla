@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.Documents.Application;
 using Sepp.Documents.Domain.Documents;
+using Sepp.Documents.Domain.Langues;
 using Sepp.Documents.Domain.Modeles;
 
 namespace Sepp.Documents.Adapters.Persistence;
@@ -56,4 +57,12 @@ internal sealed class DocumentRepository(DocumentsDbContext db) : IDocumentRepos
     }
 
     public void Add(Document document) => db.Documents.Add(document);
+}
+
+internal sealed class ContexteLinguistiqueRepository(DocumentsDbContext db) : IContexteLinguistiqueRepository
+{
+    public Task<ContexteLinguistiqueProjete?> GetAsync(SujetLinguistique sujet, Guid sujetId, CancellationToken cancellationToken) =>
+        db.ContextesLinguistiques.SingleOrDefaultAsync(c => c.Sujet == sujet && c.SujetId == sujetId, cancellationToken);
+
+    public void Add(ContexteLinguistiqueProjete contexte) => db.ContextesLinguistiques.Add(contexte);
 }

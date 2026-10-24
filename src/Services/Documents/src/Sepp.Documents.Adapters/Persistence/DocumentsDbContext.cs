@@ -3,12 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.Documents.Domain.Documents;
+using Sepp.Documents.Domain.Langues;
 using Sepp.Documents.Domain.Modeles;
 
 namespace Sepp.Documents.Adapters.Persistence;
 
 /// <summary>
-/// Base propre au service Documents (ARC-02) : modèles versionnés, métadonnées des documents archivés et signatures.
+/// Base propre au service Documents (ARC-02) : modèles versionnés, métadonnées des documents archivés, signatures et
+/// projection du contexte linguistique (NF-41, ADR 0009).
 /// Le contenu des documents n'est jamais en base (stockage objet chiffré par zone).
 /// </summary>
 public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> options, ICurrentUser currentUser, TimeProvider timeProvider)
@@ -17,6 +19,8 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
     public DbSet<Modele> Modeles => Set<Modele>();
 
     public DbSet<Document> Documents => Set<Document>();
+
+    public DbSet<ContexteLinguistiqueProjete> ContextesLinguistiques => Set<ContexteLinguistiqueProjete>();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
@@ -96,6 +100,17 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
             b.Property(s => s.Preuve).HasMaxLength(8_000);
             b.Property(s => s.EmpreinteSignee).HasMaxLength(64).IsFixedLength();
             b.HasIndex("document_id", nameof(Signature.SignataireId)).IsUnique();
+        });
+
+        // Projection du contexte linguistique (NF-41, ADR 0009) : une ligne par affilié ou par personne, sans donnée d'identité.
+        modelBuilder.Entity<ContexteLinguistiqueProjete>(b =>
+        {
+            b.ToTable("contexte_linguistique");
+            b.HasKey(c => new { c.Sujet, c.SujetId });
+            b.Property(c => c.Sujet).HasConversion<string>().HasMaxLength(20);
+            b.Property(c => c.SujetId).ValueGeneratedNever();
+            b.Property(c => c.Regime).HasConversion<string>().HasMaxLength(30);
+            b.Property(c => c.Langue).HasConversion<string>().HasMaxLength(2);
         });
     }
 }

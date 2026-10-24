@@ -5,9 +5,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using Sepp.BuildingBlocks.Infrastructure;
+using Sepp.Contracts.Affilies;
+using Sepp.Contracts.Personnes;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Documents.Adapters.Chiffrement;
 using Sepp.Documents.Adapters.Externe;
+using Sepp.Documents.Adapters.Langues;
 using Sepp.Documents.Adapters.Pdf;
 using Sepp.Documents.Adapters.Persistence;
 using Sepp.Documents.Adapters.Securite;
@@ -15,6 +18,7 @@ using Sepp.Documents.Adapters.Stockage;
 using Sepp.Documents.Application;
 using Sepp.Documents.Application.DossierSante;
 using Sepp.Documents.Application.EvaluationSante;
+using Sepp.Documents.Application.Langues;
 using Sepp.Documents.Domain.Commun;
 
 namespace Sepp.Documents.Adapters;
@@ -29,6 +33,12 @@ public static class DependencyInjection
     /// <summary>Valeur de <c>Documents:Adaptateurs:&lt;Port&gt;</c> sélectionnant l'adaptateur réel.</summary>
     public const string Reel = "Reel";
 
+    /// <summary>Valeur de <c>Documents:SourceLinguistique</c> : appels HTTP à Affiliés et Personnes (défaut).</summary>
+    public const string SourceLinguistiqueHttp = "Http";
+
+    /// <summary>Valeur de <c>Documents:SourceLinguistique</c> : projection locale alimentée par événements (ADR 0009).</summary>
+    public const string SourceLinguistiqueProjection = "Projection";
+
     public static IServiceCollection AddDocumentsAdapters(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         // Zones servies (décision #356) : échec au démarrage si la liste est absente ou si, hors développement et test, elle
@@ -41,6 +51,7 @@ public static class DependencyInjection
         services.AddSeppMessaging(configuration);
         services.AddScoped<IModeleRepository, ModeleRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IContexteLinguistiqueRepository, ContexteLinguistiqueRepository>();
 
         services.AddSingleton<IRenduPdf, RenduPdfA>();
         // Chiffrement par enveloppe (ADR 0009) : clé de données par document, enveloppée par la clé racine de la zone.
@@ -54,6 +65,13 @@ public static class DependencyInjection
 
         // Saga de reprise (§14.6 étape 5) : un formulaire d'évaluation de santé par décision émise (ARC-31).
         services.AddIntegrationEventHandler<DecisionEmise, DecisionEmiseHandler>();
+
+        // NF-41, ADR 0009 : projection du contexte linguistique (régime et langue de l'affilié, langue du travailleur),
+        // tenue par chaque instance ; lue quand Documents:SourceLinguistique vaut « Projection ».
+        services.AddIntegrationEventHandler<AffilieCree, ProjectionLinguistiqueHandler>();
+        services.AddIntegrationEventHandler<AffilieModifie, ProjectionLinguistiqueHandler>();
+        services.AddIntegrationEventHandler<OccupationDebutee, ProjectionLinguistiqueHandler>();
+        services.AddIntegrationEventHandler<LangueModifiee, ProjectionLinguistiqueHandler>();
 
         // POR-13 : copie du dossier validée par le CPMT (SAN-43) et carnet de vaccination après chaque dose (SAN-50),
         // publiés au travailleur en zone médicale ; contenu lu auprès de la Surveillance médicale (compte technique).
@@ -126,12 +144,34 @@ public static class DependencyInjection
             case Simulateur:
                 services.AddSingleton<ISourceLinguistique, SourceLinguistiqueSimulee>();
                 break;
+            case Reel when ModeSourceLinguistique(configuration) == SourceLinguistiqueProjection:
+                // ADR 0009 : l'instance médicale lit la projection locale (aucun appel à Affiliés ni à Personnes).
+                services.AddScoped<ISourceLinguistique, SourceLinguistiqueParProjection>();
+                break;
             default:
                 AdaptateursExternes.AjouterClientsInternes(services, adresses, compte);
                 break;
         }
 
         AdaptateursExternes.AjouterSourceDossierSante(services, adresses, compte);
+    }
+
+    /// <summary>
+    /// Source de l'adaptateur linguistique réel (<c>Documents:SourceLinguistique</c>, ADR 0009) : <c>Http</c> (défaut, appels à
+    /// Affiliés et Personnes avec le compte technique) ou <c>Projection</c> (table locale alimentée par événements, injecté
+    /// par Terraform pour l'instance médicale). Toute autre valeur empêche le démarrage.
+    /// </summary>
+    public static string ModeSourceLinguistique(IConfiguration configuration)
+    {
+        var valeur = configuration["Documents:SourceLinguistique"];
+        return valeur switch
+        {
+            null or "" => SourceLinguistiqueHttp,
+            _ when string.Equals(valeur, SourceLinguistiqueHttp, StringComparison.OrdinalIgnoreCase) => SourceLinguistiqueHttp,
+            _ when string.Equals(valeur, SourceLinguistiqueProjection, StringComparison.OrdinalIgnoreCase) => SourceLinguistiqueProjection,
+            _ => throw new InvalidOperationException(
+                $"Documents:SourceLinguistique doit valoir « {SourceLinguistiqueHttp} » ou « {SourceLinguistiqueProjection} » ; valeur actuelle : « {valeur} »."),
+        };
     }
 
     private static string Choix(IConfiguration configuration, string port, bool reelImplemente = false)

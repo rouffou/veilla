@@ -191,9 +191,13 @@ variable "services" {
       # surveillance-medicale : seul abonnement avec gestionnaire pour la zone standard (formulaire d'évaluation de santé,
       # SAN-30, exemplaire employeur) ; les autres producteurs (reintegration, psychosocial, prevention) ne sont pas
       # encore écrits. La copie du dossier et le carnet de vaccination sont traités par documents-medicale.
-      subscribes_to = ["surveillance-medicale", "reintegration", "psychosocial", "prevention"]
+      # affilies, personnes : projection du contexte linguistique (ProjectionLinguistiqueHandler, NF-41, ADR 0009), tenue
+      # par chaque instance ; l'instance standard la tient prête mais lit la langue par HTTP (DOCUMENTS__SOURCELINGUISTIQUE).
+      subscribes_to = ["surveillance-medicale", "reintegration", "psychosocial", "prevention", "affilies", "personnes"]
       subject_filters = {
         surveillance-medicale = ["surveillance-medicale.decision-emise.v1"]
+        affilies              = ["affilies.affilie-cree.v1", "affilies.affilie-modifie.v1"]
+        personnes             = ["personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1"]
       }
       # NF-41 : langue des documents lue chez Affiliés et Personnes (compte technique). Aucun appel à la zone médicale.
       compte_technique = "Documents__CompteTechnique"
@@ -210,28 +214,32 @@ variable "services" {
     # Instance zone médicale de Documents (décision #356, ADR 0009, ARC-06) : exemplaires travailleur et dossier de
     # DecisionEmise (SAN-30), copie du dossier (SAN-43), carnet de vaccination (SAN-50) et pièces jointes (SAN-41) sont
     # lus, rendus et archivés dans la zone médicale. Clé racine documents-kek, base et stockage de la zone médicale.
-    # Le contexte linguistique viendra d'une projection alimentée par événements (lot 7) : aucun appel à Affiliés ni à
-    # Personnes, que le NSG de la zone médicale interdit.
+    # Le contexte linguistique vient d'une projection alimentée par les événements d'Affiliés et de Personnes
+    # (DOCUMENTS__SOURCELINGUISTIQUE = Projection, lot 7, #366) : aucun appel à Affiliés ni à Personnes, que le NSG de la
+    # zone médicale interdit. Seuls la langue et le régime linguistique voyagent (ARC-06).
     "documents-medicale" = {
       zone             = "medicale"
       instance_de      = "documents"
       database         = true
       publishes_events = false # publie sur le topic « documents » par l'émetteur partagé
-      subscribes_to    = ["surveillance-medicale"]
-      # Contrats de la Surveillance médicale qui ont un gestionnaire dans l'instance médicale (SAN-30, SAN-43, SAN-50).
+      subscribes_to    = ["surveillance-medicale", "affilies", "personnes"]
+      # Contrats de la Surveillance médicale qui ont un gestionnaire dans l'instance médicale (SAN-30, SAN-43, SAN-50) et
+      # contrats qui alimentent la projection linguistique (ProjectionLinguistiqueHandler).
       subject_filters = {
         surveillance-medicale = [
           "surveillance-medicale.decision-emise.v1",
           "surveillance-medicale.copie-dossier-validee.v1",
           "surveillance-medicale.vaccination-administree.v1",
         ]
+        affilies  = ["affilies.affilie-cree.v1", "affilies.affilie-modifie.v1"]
+        personnes = ["personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1"]
       }
       # Contenu clinique lu chez Surveillance médicale (intra-zone) avec le compte technique de l'instance.
       compte_technique = "Documents__CompteTechnique"
       internal_services = {
         Documents__ServicesInternes__SurveillanceMedicale = "surveillance-medicale"
       }
-      # SourceLinguistique : à passer sur la projection d'événements (lot 7) avant d'utiliser « Reel » en production.
+      # SourceLinguistique « Reel » : adaptateur Projection (table locale), sans appel réseau hors de la zone.
       adapters = [
         "Documents__Adaptateurs__Horodatage",
         "Documents__Adaptateurs__Signature",

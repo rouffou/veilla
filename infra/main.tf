@@ -155,13 +155,16 @@ locals {
   # Documents : une instance par zone. Chaque instance ne sert que sa zone (DOCUMENTS__ZONES, aussi en liste indexée pour
   # la liaison de tableau .NET), écrit dans le compte de stockage de sa zone et chiffre par enveloppe avec sa clé racine
   # (URI de la clé sans version : l'objet archivé porte la version utilisée).
+  # Source linguistique (NF-41, ADR 0009, #366) : l'instance standard appelle Affiliés et Personnes (Http) ; une instance
+  # d'une zone sensible, que le NSG empêche de les appeler, lit la projection alimentée par événements (Projection).
   documents_environment = {
     for n, s in local.documents_instances : n => {
-      DOCUMENTS__BLOBENDPOINT      = module.storage[s.zone].blob_endpoint
-      DOCUMENTS__ZONES             = s.zone
-      DOCUMENTS__ZONES__0          = s.zone
-      DOCUMENTS__ENVELOPPE__TYPE   = "KeyVault"
-      DOCUMENTS__ENVELOPPE__CLEKEK = module.keyvault[s.zone].documents_kek_uri
+      DOCUMENTS__BLOBENDPOINT       = module.storage[s.zone].blob_endpoint
+      DOCUMENTS__ZONES              = s.zone
+      DOCUMENTS__ZONES__0           = s.zone
+      DOCUMENTS__ENVELOPPE__TYPE    = "KeyVault"
+      DOCUMENTS__ENVELOPPE__CLEKEK  = module.keyvault[s.zone].documents_kek_uri
+      DOCUMENTS__SOURCELINGUISTIQUE = s.zone == "standard" ? "Http" : "Projection"
     }
   }
   bff_environment = { for n, s in var.services : n => local.service_urls if s.zone == "platform" }

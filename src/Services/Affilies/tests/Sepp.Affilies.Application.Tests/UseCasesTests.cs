@@ -53,6 +53,8 @@ public class UseCasesTests
         evt.AffilieId.ShouldBe(id);
         evt.NumeroBce.ShouldBe("0202239951");
         evt.CategorieTarifaire.ShouldBe("B");
+        evt.RegimeLinguistique.ShouldBe("Francais");
+        evt.Langue.ShouldBe("Fr");
 
         var creation = _store.Historique.ShouldHaveSingleItem();
         creation.Action.ShouldBe("affilie.cree");
@@ -102,6 +104,21 @@ public class UseCasesTests
     }
 
     [Fact]
+    public async Task Changer_le_regime_linguistique_publie_AffilieModifie_avec_le_nouveau_regime_et_la_langue()
+    {
+        var id = await CreerAsync();
+        _store.Published.Clear();
+
+        var result = await new ModifierFicheHandler(Gestionnaire.Modificateur, _store)
+            .HandleAsync(new ModifierFiche(id, Fiche with { Langue = Language.Nl, RegimeLinguistique = RegimeLinguistique.BruxellesCapitale }, null), _ct);
+
+        result.IsSuccess.ShouldBeTrue(result.Error?.Message);
+        var evt = _store.Published.ShouldHaveSingleItem().ShouldBeOfType<AffilieModifie>();
+        evt.RegimeLinguistique.ShouldBe("BruxellesCapitale");
+        evt.Langue.ShouldBe("Nl");
+    }
+
+    [Fact]
     public async Task Modifier_la_fiche_historise_avant_et_apres_et_publie_AffilieModifie()
     {
         var id = await CreerAsync();
@@ -114,6 +131,8 @@ public class UseCasesTests
         var evt = _store.Published.ShouldHaveSingleItem().ShouldBeOfType<AffilieModifie>();
         evt.CategorieTarifaire.ShouldBe("C");
         evt.Statut.ShouldBe("Actif");
+        evt.RegimeLinguistique.ShouldBe("Francais");
+        evt.Langue.ShouldBe("Fr");
 
         var modification = _store.Historique.Last();
         modification.Action.ShouldBe("fiche.modifiee");

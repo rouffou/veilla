@@ -59,7 +59,7 @@ public sealed class CreerAffilieHandler(
 
         affilies.Add(affilie);
         modificateur.JournaliserCreation(affilie);
-        modificateur.Publier(new AffilieCree(affilie.Id, affilie.NumeroBce.Value, affilie.CategorieTarifaire.ToString()));
+        modificateur.Publier(ModificateurAffilie.AffilieCree(affilie));
         foreach (var operation in affilie.Operations)
         {
             modificateur.Publier(ModificateurAffilie.OperationModifiee(affilie, operation));

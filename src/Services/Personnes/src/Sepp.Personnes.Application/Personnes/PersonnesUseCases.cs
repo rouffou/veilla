@@ -219,7 +219,7 @@ public sealed class ListerTravailleursHandler(IPersonneRepository repository, IC
 /// <summary>Correction de l'identité : réservée aux internes (l'identité provient de la BCSS).</summary>
 public sealed record ModifierIdentite(Guid PersonneId, IdentiteDto Identite);
 
-public sealed class ModifierIdentiteHandler(AccesPersonnes acces, PerimetreUtilisateur perimetre, IUnitOfWork unitOfWork)
+public sealed class ModifierIdentiteHandler(AccesPersonnes acces, PerimetreUtilisateur perimetre, IUnitOfWork unitOfWork, IIntegrationEventOutbox outbox)
     : ICommandHandler<ModifierIdentite, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(ModifierIdentite command, CancellationToken cancellationToken)
@@ -242,6 +242,8 @@ public sealed class ModifierIdentiteHandler(AccesPersonnes acces, PerimetreUtili
         });
         if (resultat.IsSuccess)
         {
+            // NF-41 : un changement de langue est publié (LangueModifiee) pour la projection linguistique de Documents.
+            EvenementsIntegration.Publier(personne.Value, outbox);
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 

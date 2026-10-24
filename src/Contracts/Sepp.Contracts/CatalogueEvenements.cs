@@ -1,16 +1,29 @@
 namespace Sepp.Contracts.Affilies
 {
+    /// <summary>
+    /// Affiliation d'un employeur. <c>RegimeLinguistique</c> (<c>Francais</c>, <c>Neerlandais</c>, <c>Allemand</c>,
+    /// <c>BruxellesCapitale</c>) et <c>Langue</c> de correspondance (<c>Fr</c>, <c>Nl</c>, <c>De</c>, <c>En</c>) sont ajoutés
+    /// de façon compatible (ARC-34, ADR 0009) : facultatifs, <c>null</c> pour un producteur antérieur, ignorés par les
+    /// consommateurs antérieurs. Ils alimentent la projection linguistique de Documents (NF-41) ; ce ne sont pas des données
+    /// sensibles (ARC-06).
+    /// </summary>
     [EventContract("affilies.affilie-cree", 1)]
-    public sealed record AffilieCree(Guid AffilieId, string NumeroBce, string CategorieTarifaire) : IntegrationEvent;
+    public sealed record AffilieCree(Guid AffilieId, string NumeroBce, string CategorieTarifaire, string? RegimeLinguistique = null, string? Langue = null) : IntegrationEvent;
 
+    /// <summary>Fiche de l'affilié modifiée. <c>RegimeLinguistique</c> et <c>Langue</c> : voir <see cref="AffilieCree"/>.</summary>
     [EventContract("affilies.affilie-modifie", 1)]
-    public sealed record AffilieModifie(Guid AffilieId, string NumeroBce, string CategorieTarifaire, string Statut) : IntegrationEvent;
+    public sealed record AffilieModifie(Guid AffilieId, string NumeroBce, string CategorieTarifaire, string Statut, string? RegimeLinguistique = null, string? Langue = null) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.Personnes
 {
+    /// <summary>
+    /// Occupation débutée. <c>Langue</c> (facultatif, ajouté en fin, rétrocompatible, ARC-34) est la langue choisie par le
+    /// travailleur au moment de l'événement (<c>Fr</c>, <c>Nl</c>, <c>De</c>, <c>En</c>) ; <c>null</c> pour un producteur
+    /// antérieur. Elle alimente la projection linguistique de Documents (NF-41, ADR 0009) ; ce n'est pas une donnée sensible.
+    /// </summary>
     [EventContract("personnes.occupation-debutee", 1)]
-    public sealed record OccupationDebutee(Guid OccupationId, Guid PersonneId, Guid AffilieId, DateOnly DateDebut) : IntegrationEvent;
+    public sealed record OccupationDebutee(Guid OccupationId, Guid PersonneId, Guid AffilieId, DateOnly DateDebut, string? Langue = null) : IntegrationEvent;
 
     [EventContract("personnes.occupation-terminee", 1)]
     public sealed record OccupationTerminee(Guid OccupationId, Guid PersonneId, Guid AffilieId, DateOnly DateFin) : IntegrationEvent;
@@ -26,6 +39,15 @@ namespace Sepp.Contracts.Personnes
     /// </summary>
     [EventContract("personnes.etat-particulier-declare", 1)]
     public sealed record EtatParticulierDeclare(Guid EtatParticulierId, Guid PersonneId, string Categorie, DateOnly DateDebut, DateOnly? DateFin) : IntegrationEvent;
+
+    /// <summary>
+    /// NF-41 : la langue choisie par le travailleur a changé (correction de l'identité, mutation du registre national),
+    /// pour une personne déjà connue ; à la création, la langue est portée par <see cref="OccupationDebutee"/>. Langue
+    /// uniquement (<c>Fr</c>, <c>Nl</c>, <c>De</c>, <c>En</c>), aucune autre donnée d'identité (ARC-06). Consommé par la
+    /// projection linguistique de Documents (ADR 0009).
+    /// </summary>
+    [EventContract("personnes.langue-modifiee", 1)]
+    public sealed record LangueModifiee(Guid PersonneId, string Langue) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.PostesRisques

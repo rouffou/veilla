@@ -99,7 +99,11 @@ déploiement, pas sur le découpage : il n'y a toujours qu'un service Documents,
 - **Moindre privilège** : un rôle technique distinct, `documents-medicale`, porte `dossier-sante:transmettre-documents`.
 - **Langue des documents** : l'instance médicale ne peut pas joindre Affiliés ni Personnes. La langue viendra d'une
   projection alimentée par des événements (langue de la personne et régime de l'affilié, en champs facultatifs v1). C'est
-  un prérequis de production.
+  un prérequis de production. Réalisé par le lot 7 (#366) : projection `contexte_linguistique`, configuration
+  `Documents:SourceLinguistique` (`Http` | `Projection`), champs facultatifs sur `affilies.affilie-cree.v1`,
+  `affilies.affilie-modifie.v1` et `personnes.occupation-debutee.v1`, nouveau contrat `personnes.langue-modifiee.v1`
+  (voir `docs/architecture/evenements.md` et le README de Documents). Le rattrapage des données antérieures à la mise
+  en service de la projection est suivi par #369.
 - **Développement local** : une instance unique peut servir les trois zones. Le compose propose aussi `documents-medicale`.
 - **Suites** : appliquer le même principe à `FieldEncryptor` (clés de données enveloppées par la clé racine HSM de la
   zone), et contrôler la relation de soin par l'instance médicale (appel intra-zone à Surveillance médicale).

@@ -144,13 +144,26 @@ public sealed class Personne : AggregateRoot
         }
 
         var personne = new Personne(NewId(), niss, nissHash);
-        personne.ModifierIdentite(identite);
+        personne.AppliquerIdentite(identite);
         personne.ModifierCoordonnees(coordonnees);
         return personne;
     }
 
-    /// <summary>Met à jour l'identité ; la date de naissance doit correspondre à celle encodée dans le NISS.</summary>
+    /// <summary>
+    /// Met à jour l'identité ; la date de naissance doit correspondre à celle encodée dans le NISS. Un changement de langue
+    /// est signalé (<see cref="LangueChangee"/>, NF-41) ; à la création, la langue voyage avec l'occupation.
+    /// </summary>
     public void ModifierIdentite(Identite identite)
+    {
+        var langue = Langue;
+        AppliquerIdentite(identite);
+        if (Langue != langue)
+        {
+            Raise(new LangueChangee(Id, Langue, DateTimeOffset.UtcNow));
+        }
+    }
+
+    private void AppliquerIdentite(Identite identite)
     {
         var nom = Texte(identite.Nom, "nom", 100);
         var prenom = Texte(identite.Prenom, "prénom", 100);
@@ -230,7 +243,7 @@ public sealed class Personne : AggregateRoot
         }
 
         _occupations.Add(occupation);
-        Raise(new OccupationEnregistree(Id, occupation.Id, occupation.AffilieId, occupation.DateDebut, DateTimeOffset.UtcNow));
+        Raise(new OccupationEnregistree(Id, occupation.Id, occupation.AffilieId, occupation.DateDebut, DateTimeOffset.UtcNow, Langue));
         if (occupation.DateFin is { } fin)
         {
             Raise(new OccupationCloturee(Id, occupation.Id, occupation.AffilieId, fin, DateTimeOffset.UtcNow));
@@ -321,7 +334,14 @@ public sealed class Personne : AggregateRoot
                 }
 
                 apres = JsonSerializer.Serialize(langue.ToString());
-                appliquer = () => Langue = langue;
+                appliquer = () =>
+                {
+                    if (Langue != langue)
+                    {
+                        Langue = langue;
+                        Raise(new LangueChangee(Id, langue, DateTimeOffset.UtcNow));
+                    }
+                };
                 break;
             case TypeMutationRegistreNational.Deces:
                 // Le décès n'est pas soumis à l'ordre des dates d'effet : sa correction reste manuelle (voir EnregistrerDeces).
