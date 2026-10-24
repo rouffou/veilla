@@ -22,6 +22,12 @@ portail en local). Projet `Sepp.Bff.Travailleur`, sans base de données ni domai
   demande) ne sont **jamais rejouées** automatiquement.
 - **Écrans composites (ARC-35)** : `GET /accueil` appelle en parallèle Planification, Documents et Surveillance médicale ; une
   section dont le service est indisponible vaut `null` et figure dans `indisponibles`, sans faire échouer l'écran.
+- **Documents sur deux instances (décision #356, ADR 0009)** : Documents est déployé une fois par zone. `GET /documents` appelle
+  les deux instances en parallèle avec le jeton propagé, fusionne et trie les résultats ; si l'une est indisponible, la liste
+  (ou, à l'accueil, la seule section `documents`) est signalée indisponible plutôt que silencieusement incomplète. Pour le
+  contenu, les métadonnées `GET /documents/{id}` sont demandées aux deux instances en parallèle (une répond 200, l'autre 404),
+  le destinataire est vérifié, puis le contenu est lu chez celle qui connaît le document ; deux 404 donnent 404. La zone n'est
+  jamais relayée au portail.
 
 ## Sécurité (POR-10)
 
@@ -98,7 +104,8 @@ claim dans le courtier ou un service Identité.
 | Clé | Rôle |
 |---|---|
 | `Authentication:Authority`, `MetadataAddress`, `ValidIssuer`, `Audience` (`sepp-api`) | validation du jeton (socle) |
-| `ServicesAval:Planification`, `:SurveillanceMedicale`, `:Personnes`, `:Affilies`, `:Obligations`, `:Documents` | URL des services (obligatoires, vérifiées au démarrage) ; en local `http://localhost:5117`, `5118`, `5112`, `5111`, `5116`, `5119` ; à défaut `SEPP__SERVICES__PLANIFICATION`, `…__SURVEILLANCE_MEDICALE`, `…__PERSONNES`, `…__AFFILIES`, `…__OBLIGATIONS`, `…__DOCUMENTS` injectées par Terraform |
+| `ServicesAval:Planification`, `:SurveillanceMedicale`, `:Personnes`, `:Affilies`, `:Obligations`, `:Documents` | URL des services (obligatoires, vérifiées au démarrage) ; en local `http://localhost:5117`, `5118`, `5112`, `5111`, `5116`, `5119` ; à défaut `SEPP__SERVICES__PLANIFICATION`, `…__SURVEILLANCE_MEDICALE`, `…__PERSONNES`, `…__AFFILIES`, `…__OBLIGATIONS`, `…__DOCUMENTS` (et, facultative, `…__DOCUMENTS_MEDICALE`) injectées par Terraform |
+| `ServicesAval:DocumentsMedicale` | instance Documents de la zone médicale (décision #356), **facultative** : sans valeur en local (`SEPP__SERVICES__DOCUMENTS_MEDICALE` injectée par Terraform), une seule instance sert toutes les zones |
 | `Cors:Origines` | origines du portail |
 
 En compose (`deploy/local/compose.yaml`, service `bff-travailleur`, port **5201**), les services sont joints par leur nom de

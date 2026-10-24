@@ -55,6 +55,13 @@ public interface IDocumentsApi
     Task<(byte[] Contenu, string? NomFichier)> LireContenuAsync(Guid documentId, CancellationToken ct);
 }
 
+/// <summary>
+/// Instance du service Documents de la zone médicale (décision #356) : mêmes routes que <see cref="IDocumentsApi"/>, mais
+/// elle seule détient les documents de santé (exemplaire du travailleur, copie du dossier, carnet de vaccination).
+/// Facultative en local : sans elle, l'instance standard sert toutes les zones.
+/// </summary>
+public interface IDocumentsMedicaleApi : IDocumentsApi;
+
 public static class NomsServices
 {
     public const string Planification = "planification";
@@ -63,6 +70,7 @@ public static class NomsServices
     public const string Affilies = "affilies";
     public const string Obligations = "obligations";
     public const string Documents = "documents";
+    public const string DocumentsMedicale = "documents-medicale";
 }
 
 internal sealed class PlanificationApi(HttpClient http) : ClientAval(http, NomsServices.Planification), IPlanificationApi
@@ -122,7 +130,7 @@ internal sealed class ObligationsApi(HttpClient http) : ClientAval(http, NomsSer
         GetAsync<IReadOnlyList<ExamenAPlanifierAval>>($"api/v1/mes-examens-a-planifier?langue={Uri.EscapeDataString(langue)}", ct);
 }
 
-internal sealed class DocumentsApi(HttpClient http) : ClientAval(http, NomsServices.Documents), IDocumentsApi
+internal abstract class DocumentsApiBase(HttpClient http, string service) : ClientAval(http, service), IDocumentsApi
 {
     public Task<IReadOnlyList<DocumentAval>> ListerDocumentsDeLaPersonneAsync(Guid personneId, CancellationToken ct) =>
         GetAsync<IReadOnlyList<DocumentAval>>($"api/v1/documents?typeDestinataire=Personne&destinataireId={personneId}", ct);
@@ -133,3 +141,7 @@ internal sealed class DocumentsApi(HttpClient http) : ClientAval(http, NomsServi
     public Task<(byte[] Contenu, string? NomFichier)> LireContenuAsync(Guid documentId, CancellationToken ct) =>
         GetOctetsAsync($"api/v1/documents/{documentId}/contenu", ct);
 }
+
+internal sealed class DocumentsApi(HttpClient http) : DocumentsApiBase(http, NomsServices.Documents);
+
+internal sealed class DocumentsMedicaleApi(HttpClient http) : DocumentsApiBase(http, NomsServices.DocumentsMedicale), IDocumentsMedicaleApi;

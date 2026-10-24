@@ -161,31 +161,81 @@ public sealed class EcransEmployeursEtExamens(IPersonnesApi personnes, IAffilies
 /// POR-13 : documents publiés pour le travailleur par le service Documents (formulaire d'évaluation de santé, exemplaire du
 /// travailleur). Ce sont ses propres documents (§3.3) ; Documents journalise chaque lecture de contenu (NF-04).
 /// </summary>
-public sealed class EcransDocuments(IDocumentsApi documents)
+public sealed class EcransDocuments(IDocumentsApi documents, IDocumentsMedicaleApi? documentsMedicale = null)
 {
     public const string CategorieEvaluationSante = "evaluation-sante";
     public const string CategorieCarnetVaccination = "carnet-vaccination";
     public const string CategorieCopieDossier = "copie-dossier";
     public const string CategorieAutre = "autre";
 
-    public async Task<IReadOnlyList<DocumentEcran>> MesDocumentsAsync(Guid personneId, CancellationToken ct) =>
-        (await documents.ListerDocumentsDeLaPersonneAsync(personneId, ct))
-        .Where(d => EstPourLaPersonne(d, personneId))
-        .OrderByDescending(d => d.Date)
-        .Select(ToEcran)
-        .ToList();
+    /// <summary>Instances Documents interrogées : standard et, si elle est configurée, médicale (décision #356). La zone n'est jamais relayée.</summary>
+    private IReadOnlyList<IDocumentsApi> Instances => documentsMedicale is null ? [documents] : [documents, documentsMedicale];
+
+    /// <summary>
+    /// Fusionne les documents des deux instances, les plus récents d'abord. Une instance indisponible rend la liste
+    /// indisponible (<see cref="ServiceIndisponibleException"/>) plutôt que silencieusement incomplète.
+    /// </summary>
+    public async Task<IReadOnlyList<DocumentEcran>> MesDocumentsAsync(Guid personneId, CancellationToken ct)
+    {
+        var listes = await Task.WhenAll(Instances.Select(i => i.ListerDocumentsDeLaPersonneAsync(personneId, ct)));
+        return listes
+            .SelectMany(l => l)
+            .Where(d => EstPourLaPersonne(d, personneId))
+            .OrderByDescending(d => d.Date)
+            .ThenBy(d => d.Id)
+            .Select(ToEcran)
+            .ToList();
+    }
 
     public async Task<(byte[] Contenu, string NomFichier)> ContenuAsync(Guid personneId, Guid documentId, CancellationToken ct)
     {
+        // Les métadonnées sont demandées aux deux instances en parallèle : une seule connaît le document (200), l'autre répond 404.
+        var instances = Instances;
+        var reponses = await Task.WhenAll(instances.Select(i => ChercherAsync(i, documentId, ct)));
+
+        var index = Array.FindIndex(reponses, r => r.Document is not null);
+        if (index < 0)
+        {
+            // Une instance injoignable peut détenir le document : ne pas conclure à l'inconnu.
+            var indisponible = reponses.Select(r => r.Indisponible).FirstOrDefault(e => e is not null);
+            if (indisponible is not null)
+            {
+                throw indisponible;
+            }
+
+            throw reponses.Select(r => r.Erreur).FirstOrDefault(e => e is not null)
+                  ?? new ErreurAvalException(NomsServices.Documents, HttpStatusCode.NotFound, "document.inconnu", "Document inconnu.");
+        }
+
         // Un document d'un autre destinataire ou non publié est traité comme inconnu, sans lire son contenu.
-        var document = await documents.ObtenirDocumentAsync(documentId, ct);
-        if (!EstPourLaPersonne(document, personneId))
+        if (!EstPourLaPersonne(reponses[index].Document!, personneId))
         {
             throw new ErreurAvalException(NomsServices.Documents, HttpStatusCode.NotFound, "document.inconnu", "Document inconnu.");
         }
 
-        var (contenu, nom) = await documents.LireContenuAsync(documentId, ct);
+        var (contenu, nom) = await instances[index].LireContenuAsync(documentId, ct);
         return (contenu, string.IsNullOrWhiteSpace(nom) ? $"document-{documentId}.pdf" : nom);
+    }
+
+    private static async Task<(DocumentAval? Document, ServiceIndisponibleException? Indisponible, ErreurAvalException? Erreur)> ChercherAsync(
+        IDocumentsApi instance, Guid documentId, CancellationToken ct)
+    {
+        try
+        {
+            return (await instance.ObtenirDocumentAsync(documentId, ct), null, null);
+        }
+        catch (ErreurAvalException e) when (e.Status == HttpStatusCode.NotFound)
+        {
+            return (null, null, null);
+        }
+        catch (ServiceIndisponibleException e)
+        {
+            return (null, e, null);
+        }
+        catch (ErreurAvalException e)
+        {
+            return (null, null, e);
+        }
     }
 
     private static bool EstPourLaPersonne(DocumentAval d, Guid personneId) =>

@@ -19,6 +19,9 @@ public sealed class ServicesAvalOptions
     public Uri? Obligations { get; set; }
 
     public Uri? Documents { get; set; }
+
+    /// <summary>Instance Documents de la zone médicale (#356) ; facultative : absente, l'instance standard sert toutes les zones.</summary>
+    public Uri? DocumentsMedicale { get; set; }
 }
 
 public static class DependencyInjection
@@ -40,6 +43,7 @@ public static class DependencyInjection
                 o.Affilies ??= Adresse(configuration, "Sepp:Services:Affilies");
                 o.Obligations ??= Adresse(configuration, "Sepp:Services:Obligations");
                 o.Documents ??= Adresse(configuration, "Sepp:Services:Documents");
+                o.DocumentsMedicale ??= Adresse(configuration, "Sepp:Services:Documents_Medicale");
             })
             .Validate(o => o.Planification is not null && o.SurveillanceMedicale is not null && o.Personnes is not null && o.Affilies is not null && o.Obligations is not null && o.Documents is not null,
                 $"Les adresses {ServicesAvalOptions.Section}:Planification, :SurveillanceMedicale, :Personnes, :Affilies, :Obligations et :Documents sont obligatoires.")
@@ -61,6 +65,11 @@ public static class DependencyInjection
             .AddHttpMessageHandler<PropagationJetonHandler>();
         services.AddHttpClient<IDocumentsApi, DocumentsApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Documents))
             .AddHttpMessageHandler<PropagationJetonHandler>();
+        services.AddHttpClient<DocumentsMedicaleApi>((sp, c) => c.BaseAddress = Base(sp, o => o.DocumentsMedicale ?? o.Documents))
+            .AddHttpMessageHandler<PropagationJetonHandler>();
+        // Absente, l'instance médicale n'est pas résolue : EcransDocuments n'interroge alors que l'instance standard.
+        services.AddScoped<IDocumentsMedicaleApi>(sp =>
+            sp.GetRequiredService<IOptions<ServicesAvalOptions>>().Value.DocumentsMedicale is null ? null! : sp.GetRequiredService<DocumentsMedicaleApi>());
 
         // Une réservation, une annulation, un questionnaire ou une demande (POST) n'est pas idempotent : jamais rejoué
         // automatiquement, seules les lectures le sont.
