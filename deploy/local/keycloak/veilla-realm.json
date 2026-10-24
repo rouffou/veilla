@@ -652,7 +652,8 @@
       "enabled": true,
       "serviceAccountClientId": "veilla-documents",
       "realmRoles": [
-        "documents"
+        "documents",
+        "documents-medicale"
       ]
     },
     {
