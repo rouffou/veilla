@@ -84,7 +84,7 @@ locals {
   technical_account_environment = {
     for n, s in var.services : n => {
       "${s.compte_technique}__TokenEndpoint" = local.technical_token_endpoint
-      "${s.compte_technique}__ClientId"      = var.technical_account_client_ids[n]
+      "${s.compte_technique}__ClientId"      = lookup(var.technical_account_client_ids, n, "")
       "${s.compte_technique}__Scope"         = local.technical_scope
     } if s.compte_technique != null
   }
@@ -409,4 +409,14 @@ module "policy" {
   allowed_registries = concat(["${local.acr_name}.azurecr.io"], var.additional_allowed_registries)
   allowed_locations  = distinct([var.location, var.dr_location])
   effect             = var.policy_effect
+}
+
+# Chaque service doté d'un compte technique doit avoir son identifiant client (#352).
+check "comptes_techniques_identifiants" {
+  assert {
+    condition = alltrue([
+      for n, s in var.services : s.compte_technique == null || lookup(var.technical_account_client_ids, n, "") != ""
+    ])
+    error_message = "Identifiant client manquant dans technical_account_client_ids pour un service doté d'un compte technique."
+  }
 }

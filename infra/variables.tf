@@ -190,8 +190,8 @@ variable "services" {
       # NF-41 : langue des documents lue chez Affiliés et Personnes (compte technique).
       compte_technique = "Documents__CompteTechnique"
       internal_services = {
-        Documents__ServicesInternes__Affilies  = "affilies"
-        Documents__ServicesInternes__Personnes = "personnes"
+        Documents__ServicesInternes__Affilies             = "affilies"
+        Documents__ServicesInternes__Personnes            = "personnes"
         Documents__ServicesInternes__SurveillanceMedicale = "surveillance-medicale"
       }
       # §14.3, ARC-45 : une clé par zone de sensibilité, dans le Key Vault de la zone (Documents lit les trois).
