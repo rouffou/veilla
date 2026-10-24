@@ -23,10 +23,10 @@ public sealed class ScenariosSagaTests(PlateformeSaga plateforme) : IClassFixtur
     private readonly OutilsScenario _o = new(plateforme);
 
     /// <summary>Nominal complet jusqu'à la décision signée ; renvoie les identifiants et l'état final observé.</summary>
-    private async Task<(Travailleur Travailleur, Guid Reprise, Guid Examen, Guid Decision, EtatFinal Etat, int Livraisons)> NominalAsync(int fenetre, bool chaos, bool ordreInverse)
+    private async Task<(Travailleur Travailleur, Guid Reprise, Guid Examen, Guid Decision, EtatFinal Etat, BilanLivraisons Bilan)> NominalAsync(int fenetre, bool chaos, bool ordreInverse)
     {
         var t = _o.Demarrer(fenetre);
-        var livraisonsAvant = plateforme.Bus.Livraisons;
+        var publiesAvant = plateforme.Bus.Publies.Count;
         plateforme.Bus.Chaos = chaos;
         await _o.OuvrirCreneauAsync(t.JourCreneau);
 
@@ -79,7 +79,7 @@ public sealed class ScenariosSagaTests(PlateformeSaga plateforme) : IClassFixtur
                 .Select(m => $"{m.GetProperty("type").GetString()}/{m.GetProperty("statut").GetString()}")
                 .Order(StringComparer.Ordinal)),
             (await _o.RendezVousAsync(rendezVousId)).GetProperty("statut").GetString()!);
-        return (t, reprise, examen, decision, etat, plateforme.Bus.Livraisons - livraisonsAvant);
+        return (t, reprise, examen, decision, etat, plateforme.Bus.Bilan(publiesAvant));
     }
 
     [Fact]
@@ -250,8 +250,14 @@ public sealed class ScenariosSagaTests(PlateformeSaga plateforme) : IClassFixtur
         chaos.Etat.ShouldBe(reference.Etat);
         reference.Etat.StatutReprise.ShouldBe("Terminee");
 
-        // Le mode chaos a bien livré chaque message deux fois.
-        chaos.Livraisons.ShouldBeGreaterThanOrEqualTo(reference.Livraisons * 3 / 2);
+        // Le mode chaos a bien livré chaque message à chaque abonné prévu au moins deux fois (doublons effectivement remis),
+        // alors que la référence n'en livre qu'un exemplaire. Le bilan est établi par couple (message, abonné) : il ne dépend
+        // ni du nombre de livraisons d'un autre scénario ni du nombre de passes de la pompe.
+        chaos.Bilan.Couples.ShouldBeGreaterThan(0);
+        chaos.Bilan.NonRemis.ShouldBe(0);
+        chaos.Bilan.RemisPlusieursFois.ShouldBe(chaos.Bilan.Couples);
+        reference.Bilan.NonRemis.ShouldBe(0);
+        reference.Bilan.RemisPlusieursFois.ShouldBe(0);
 
         // Les doublons n'ont créé ni second rendez-vous, ni second dossier de documents.
         foreach (var run in new[] { inverse, chaos })
