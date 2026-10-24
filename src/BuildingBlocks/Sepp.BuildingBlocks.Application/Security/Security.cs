@@ -82,6 +82,9 @@ public static class Permissions
     public const string PersonneLire = "personne:lire";
     public const string PersonneEcrire = "personne:ecrire";
 
+    // Occupations actives de la personne du jeton (claim personne_id), pour le portail travailleur (POR-11) : rien d'autre.
+    public const string PersonneLirePropres = "personne:lire-propres";
+
     // Postes et risques (AFF-10 à AFF-14, AFF-30, AFF-31).
     public const string PosteLire = "poste:lire";
     public const string PosteEcrire = "poste:ecrire";
@@ -115,6 +118,11 @@ public static class Permissions
     // aucune donnée médicale), statuts manuels, demandes du travailleur et recalcul.
     public const string ObligationLire = "obligation:lire";
     public const string ObligationGerer = "obligation:gerer";
+
+    // Portail travailleur (POR-11, POR-12) : demande de pré-reprise ou de consultation spontanée et examens à planifier de
+    // la personne du jeton (claim personne_id) ; jamais ceux d'une autre personne.
+    public const string ObligationDemander = "obligation:demander";
+    public const string ObligationLirePropres = "obligation:lire-propres";
 
     // Documents (DOC-01, DOC-02, NF-21) : modèles, génération, lecture des documents de la zone standard et vérification
     // d'intégrité. Les documents des zones médicale et psychosociale exigent en plus dossier-sante:* ou dossier-psy:*.
@@ -322,6 +330,11 @@ public static class RolePermissions
         {
             Grant(role, Permissions.ObligationGerer);
         }
+
+        // Portail travailleur — le travailleur ne reçoit ni obligation:lire ni obligation:gerer : il demande une visite de
+        // pré-reprise ou une consultation spontanée (POR-12) et voit ses examens à planifier et ses occupations actives
+        // (POR-11), uniquement pour la personne de son jeton (claim personne_id, vérifié par les services propriétaires).
+        Grant(Roles.Travailleur, Permissions.ObligationDemander, Permissions.ObligationLirePropres, Permissions.PersonneLirePropres);
 
         // Documents — DOC-01 : l'administrateur fonctionnel gère, valide et publie les modèles ; les modèles médicaux sont
         // validés par le CPMT dirigeant et les modèles psychosociaux par le CPAP dirigeant. Génération et lecture de la zone

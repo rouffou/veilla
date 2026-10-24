@@ -6,6 +6,7 @@ using Sepp.Obligations.Application.Calcul;
 using Sepp.Obligations.Application.Consultation;
 using Sepp.Obligations.Application.Gestion;
 using Sepp.Obligations.Application.Reprises;
+using Sepp.Obligations.Application.Travailleur;
 using Sepp.Obligations.Domain.Calcul;
 
 namespace Sepp.Obligations.Application;
@@ -43,6 +44,8 @@ public static class DependencyInjection
 
         services.AddScoped<ICommandHandler<ChangerStatutObligation, Unit>, ChangerStatutObligationHandler>();
         services.AddScoped<ICommandHandler<EnregistrerDemandeTravailleur, Guid>, EnregistrerDemandeTravailleurHandler>();
+        services.AddScoped<ICommandHandler<EnregistrerMaDemande, Guid>, EnregistrerMaDemandeHandler>();
+        services.AddScoped<IQueryHandler<ListerMesExamensAPlanifier, IReadOnlyList<ObligationDto>>, ListerMesExamensAPlanifierHandler>();
         services.AddScoped<ICommandHandler<DemanderRecalcul, int>, DemanderRecalculHandler>();
         services.AddScoped<ICommandHandler<TraiterEcheances, ResultatTraitement>, TraiterEcheancesHandler>();
         return services;

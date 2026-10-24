@@ -12,6 +12,8 @@ public sealed class ServicesAvalOptions
 
     public Uri? SurveillanceMedicale { get; set; }
 
+    public Uri? Personnes { get; set; }
+
     public Uri? Obligations { get; set; }
 
     public Uri? Documents { get; set; }
@@ -32,11 +34,12 @@ public static class DependencyInjection
                 // En Azure, Terraform injecte SEPP__SERVICES__<NOM> (infra/main.tf, service_urls) : repli sur ces clés.
                 o.Planification ??= Adresse(configuration, "Sepp:Services:Planification");
                 o.SurveillanceMedicale ??= Adresse(configuration, "Sepp:Services:Surveillance_Medicale");
+                o.Personnes ??= Adresse(configuration, "Sepp:Services:Personnes");
                 o.Obligations ??= Adresse(configuration, "Sepp:Services:Obligations");
                 o.Documents ??= Adresse(configuration, "Sepp:Services:Documents");
             })
-            .Validate(o => o.Planification is not null && o.SurveillanceMedicale is not null && o.Obligations is not null && o.Documents is not null,
-                $"Les adresses {ServicesAvalOptions.Section}:Planification, :SurveillanceMedicale, :Obligations et :Documents sont obligatoires.")
+            .Validate(o => o.Planification is not null && o.SurveillanceMedicale is not null && o.Personnes is not null && o.Obligations is not null && o.Documents is not null,
+                $"Les adresses {ServicesAvalOptions.Section}:Planification, :SurveillanceMedicale, :Personnes, :Obligations et :Documents sont obligatoires.")
             .ValidateOnStart();
 
         services.AddTransient<PropagationJetonHandler>();
@@ -44,6 +47,8 @@ public static class DependencyInjection
         services.AddHttpClient<IPlanificationApi, PlanificationApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Planification))
             .AddHttpMessageHandler<PropagationJetonHandler>();
         services.AddHttpClient<ISurveillanceMedicaleApi, SurveillanceMedicaleApi>((sp, c) => c.BaseAddress = Base(sp, o => o.SurveillanceMedicale))
+            .AddHttpMessageHandler<PropagationJetonHandler>();
+        services.AddHttpClient<IPersonnesApi, PersonnesApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Personnes))
             .AddHttpMessageHandler<PropagationJetonHandler>();
         services.AddHttpClient<IObligationsApi, ObligationsApi>((sp, c) => c.BaseAddress = Base(sp, o => o.Obligations))
             .AddHttpMessageHandler<PropagationJetonHandler>();

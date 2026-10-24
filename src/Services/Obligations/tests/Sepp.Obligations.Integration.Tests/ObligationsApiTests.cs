@@ -398,6 +398,7 @@ public sealed partial class ObligationsApiTests : IAsyncLifetime
         public const string RolesHeader = "X-Test-Roles";
         public const string UserHeader = "X-Test-User";
         public const string AffiliesHeader = "X-Test-Affilies";
+        public const string PersonnesHeader = "X-Test-Personnes";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
@@ -412,6 +413,11 @@ public sealed partial class ObligationsApiTests : IAsyncLifetime
             if (Request.Headers.TryGetValue(AffiliesHeader, out var affilies))
             {
                 claims = claims.Append(new Claim("affilie_id", affilies.ToString()));
+            }
+
+            if (Request.Headers.TryGetValue(PersonnesHeader, out var personnes))
+            {
+                claims = claims.Concat(personnes.Select(p => new Claim("personne_id", p!)));
             }
 
             var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Name, "sub", "roles"));

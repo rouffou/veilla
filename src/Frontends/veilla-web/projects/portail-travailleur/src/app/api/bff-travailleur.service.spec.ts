@@ -21,6 +21,17 @@ describe('BffTravailleurService', () => {
     bff().expectOne(`${BFF}/documents`).flush([]);
   });
 
+  it('lit les employeurs et les examens à planifier sans identifiant de personne', () => {
+    api.employeurs().subscribe();
+    api.examensAPlanifier().subscribe();
+    const employeurs = bff().expectOne(`${BFF}/employeurs`);
+    expect(employeurs.request.params.keys()).toEqual([]);
+    employeurs.flush([]);
+    const examens = bff().expectOne((r) => r.url === `${BFF}/examens-a-planifier`);
+    expect(examens.request.params.keys()).toEqual(['langue']);
+    examens.flush([]);
+  });
+
   it('demande les libellés dans la langue active', () => {
     api.questionnaires().subscribe();
     const req = bff().expectOne((r) => r.url === `${BFF}/questionnaires`);

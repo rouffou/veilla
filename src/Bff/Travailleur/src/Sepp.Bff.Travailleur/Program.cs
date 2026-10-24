@@ -33,6 +33,7 @@ builder.Services.AddServicesAval(builder.Configuration);
 builder.Services.AddScoped<EcransRendezVous>();
 builder.Services.AddScoped<EcransQuestionnaires>();
 builder.Services.AddScoped<EcransDocuments>();
+builder.Services.AddScoped<EcransEmployeursEtExamens>();
 builder.Services.AddScoped<EcransAccueil>();
 
 var app = builder.Build();

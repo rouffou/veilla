@@ -6,6 +6,8 @@ import {
   Accueil,
   Creneau,
   DocumentPersonnel,
+  Employeur,
+  ExamenAPlanifier,
   Fichier,
   Questionnaire,
   Reponse,
@@ -77,6 +79,16 @@ export class BffTravailleurService {
 
   accueil(): Observable<Accueil> {
     return this.http.get<Accueil>(`${this.base}/accueil`, { params: this.langue() });
+  }
+
+  /** POR-11 : mes employeurs (occupations actives), pour réserver sans lien de convocation. */
+  employeurs(): Observable<readonly Employeur[]> {
+    return this.http.get<readonly Employeur[]>(`${this.base}/employeurs`);
+  }
+
+  /** POR-11 : mes examens à planifier. */
+  examensAPlanifier(): Observable<readonly ExamenAPlanifier[]> {
+    return this.http.get<readonly ExamenAPlanifier[]>(`${this.base}/examens-a-planifier`, { params: this.langue() });
   }
 
   /** POR-11 : mes rendez-vous. */

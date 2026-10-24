@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Accueil, Questionnaire } from './api/bff-travailleur.models';
+import { Accueil, Employeur, ExamenAPlanifier, Questionnaire } from './api/bff-travailleur.models';
 import { Dashboard } from './dashboard/dashboard';
 import { DocumentsPage } from './documents/documents-page';
 import { DemandePage } from './questionnaires/demande-page';
@@ -43,13 +43,46 @@ describe('Dashboard (POR-11 à POR-13)', () => {
 describe('RendezVousPage (POR-11)', () => {
   beforeEach(() => TestBed.configureTestingModule({ imports: [RendezVousPage], providers: provideTravailleurTesting() }));
 
-  async function ouvrir(rdv = [rendezVous('r1', '2026-12-01T09:00:00Z'), rendezVous('r2', '2026-09-01T09:00:00Z', 'Termine')]) {
+  async function ouvrir(
+    rdv = [rendezVous('r1', '2026-12-01T09:00:00Z'), rendezVous('r2', '2026-09-01T09:00:00Z', 'Termine')],
+    employeurs: readonly Employeur[] = [],
+    examens: readonly ExamenAPlanifier[] = [],
+  ) {
     const fixture = TestBed.createComponent(RendezVousPage);
     await stable(fixture);
     bff().expectOne(`${BFF}/rendez-vous`).flush(rdv);
+    bff().expectOne(`${BFF}/employeurs`).flush(employeurs);
+    bff().expectOne((r) => r.url === `${BFF}/examens-a-planifier`).flush(examens);
     await stable(fixture);
     return fixture;
   }
+
+  it('permet une première réservation sans rendez-vous ni lien : employeur et type viennent des examens à planifier', async () => {
+    const autre = '0192a5c8-0000-7000-8000-000000000002';
+    const employeur: Employeur = { affilieId: AFFILIE, typeTravailleur: 'Salarie', dateDebut: '2025-01-01', dateFin: null };
+    const examen: ExamenAPlanifier = {
+      obligationId: 'o1',
+      affilieId: autre,
+      type: 'EXAMEN_REPRISE',
+      libelle: 'Examen de reprise',
+      dateDue: '2026-11-01',
+      dateLimite: '2026-11-15',
+      statut: 'APlanifier',
+      enRetard: false,
+    };
+    const fixture = await ouvrir([], [employeur], [examen]);
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('form')).not.toBeNull();
+    expect(root.querySelectorAll('#rdv-affilie option').length).toBe(2);
+    root.querySelector<HTMLButtonElement>('form button[type="submit"]')!.click();
+    await stable(fixture);
+
+    const recherche = bff().expectOne((r) => r.url === `${BFF}/rendez-vous/creneaux`);
+    expect(recherche.request.params.get('affilieId')).toBe(autre);
+    expect(recherche.request.params.get('typeActe')).toBe('EXAMEN_REPRISE');
+    recherche.flush([]);
+  });
 
   it('liste les rendez-vous dans un tableau accessible et ne propose l’annulation que pour les planifiés', async () => {
     const fixture = await ouvrir();
@@ -188,6 +221,7 @@ describe('DemandePage (POR-12)', () => {
     const fixture = TestBed.createComponent(DemandePage);
     await stable(fixture);
     bff().expectOne(`${BFF}/rendez-vous`).flush([rendezVous('r1', '2026-12-01T09:00:00Z')]);
+    bff().expectOne(`${BFF}/employeurs`).flush([]);
     await stable(fixture);
     const root = fixture.nativeElement as HTMLElement;
     const pre = root.querySelector<HTMLInputElement>('input[type="radio"][value="VISITE_PRE_REPRISE"]')!;
@@ -207,6 +241,7 @@ describe('DemandePage (POR-12)', () => {
     const fixture = TestBed.createComponent(DemandePage);
     await stable(fixture);
     bff().expectOne(`${BFF}/rendez-vous`).flush([rendezVous('r1', '2026-12-01T09:00:00Z')]);
+    bff().expectOne(`${BFF}/employeurs`).flush([]);
     await stable(fixture);
     const root = fixture.nativeElement as HTMLElement;
     root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
