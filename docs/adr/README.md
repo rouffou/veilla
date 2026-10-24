@@ -1,5 +1,7 @@
 # Décisions d'architecture (ADR)
 
+Les termes employés dans ces décisions (BFF, Outbox, saga, CQRS…) sont définis dans le [glossaire](../glossaire.md).
+
 | N° | Décision | Statut | Exigences |
 |---|---|---|---|
 | [0001](0001-stack-backend-dotnet.md) | Backend en .NET 10 (LTS) / C# | Acceptée | ARC-08, §14.9 |

@@ -38,6 +38,9 @@ feat(obligations): orchestrer la saga d'examen de reprise
 Agrégat ProcessusReprise, minuteries en base, compensations (ARC-33, POR-04).
 ```
 
+Utiliser les termes du [glossaire](docs/glossaire.md) (langage omniprésent) dans les messages de commit, les titres de
+PR et les noms de code, plutôt que des synonymes.
+
 Les PR sont fusionnées en **squash** : le titre de la PR devient le message du commit sur `main` et doit donc suivre
 ce format. Une rupture de contrat ou d'API se signale par `!` (`feat(contrats)!: …`) et une nouvelle version (ARC-34).
 
