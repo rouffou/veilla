@@ -12,8 +12,8 @@ Règles :
 
 | Producteur | Contrat | Classe | Champs | Consommateurs (§15.4) |
 |---|---|---|---|---|
-| affilies | `affilies.affilie-cree.v1` | AffilieCree | AffilieId, NumeroBce, CategorieTarifaire | Postes et risques, Prestations, Reporting |
-| affilies | `affilies.affilie-modifie.v1` | AffilieModifie | AffilieId, NumeroBce, CategorieTarifaire, Statut | Postes et risques, Prestations, Reporting |
+| affilies | `affilies.affilie-cree.v1` | AffilieCree | AffilieId, NumeroBce, CategorieTarifaire, RegimeLinguistique (facultatif), Langue (facultatif) | Postes et risques, Prestations, Reporting, Documents (projection linguistique, NF-41) |
+| affilies | `affilies.affilie-modifie.v1` | AffilieModifie | AffilieId, NumeroBce, CategorieTarifaire, Statut, RegimeLinguistique (facultatif), Langue (facultatif) | Postes et risques, Prestations, Reporting, Documents (projection linguistique, NF-41) |
 | affilies | `affilies.operation-affilie-modifiee.v1` | OperationAffilieModifiee | OperationId, AffilieId, TypeOperation, Statut, DateEffet, AffilieAbsorbantId, AffiliesBeneficiaires, SeppContrepartie | Surveillance médicale (transfert des dossiers, SAN-42), Postes et risques, Prestations, Reporting (AFF-06) |
 | audit (tous les services) | `audit.acces-donnee-sensible.v1` | AccesDonneeSensible | Service, Zone, UtilisateurId, Role, Action, ObjetType, ObjetId, Motif, BrisDeGlace (horodatage = `occurredAt`) | Audit (journal infalsifiable NF-04) |
 | audit | `audit.bris-de-glace-signale.v1` | BrisDeGlaceSignale | EntreeAuditId, Zone, Service, UtilisateurId, ObjetType, ObjetId | Communications (alerte au CPMT dirigeant / CPAP dirigeant, §3.3) |
@@ -30,7 +30,8 @@ Règles :
 | obligations | `obligations.reprise-enregistree.v1` | RepriseEnregistree | RepriseId, PersonneId, AffilieId, DateReprise, DebutAbsence, Origine, Statut | Réintégration (fin de l'incapacité à la reprise), Reporting, BFF |
 | personnes | `personnes.affectation-modifiee.v1` | AffectationModifiee | AffectationId, PersonneId, PosteId, DateDebut, DateFin | Obligations, Postes et risques, Surveillance médicale (SAN-20) |
 | personnes | `personnes.etat-particulier-declare.v1` | EtatParticulierDeclare | EtatParticulierId, PersonneId, Categorie, DateDebut, DateFin | Obligations (voir note ARC-06 ci-dessous) |
-| personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut | Affiliés, Obligations, Planification, Reporting |
+| personnes | `personnes.langue-modifiee.v1` | LangueModifiee | PersonneId, Langue | Documents (projection linguistique, NF-41) |
+| personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut, Langue (facultatif) | Affiliés, Obligations, Planification, Reporting, Documents (projection linguistique, NF-41) |
 | personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Affiliés, Obligations, Planification, Reporting |
 | planification | `planification.absence-rendez-vous-constatee.v1` | AbsenceRendezVousConstatee | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Obligations (les obligations redeviennent à planifier), Communications (SAN-13), Réintégration (compteur d'absences du trajet, SAN-63) |
 | planification | `planification.convocation-emise.v1` | ConvocationEmise | ConvocationId, RendezVousId, PersonneId, AffilieId, LieuId, TypeActe, Debut, Canal, Recommande, TypeConvocation, LotId | Communications (envoi, SAN-10, SAN-11) |
@@ -76,6 +77,16 @@ Publié à la création, à la clôture et au changement d'une affectation. `Dat
 ### `personnes.occupation-debutee.v1` / `personnes.occupation-terminee.v1` (AFF-20, AFF-23)
 
 `AffilieId` est l'employeur déclarant (pour un intérimaire : l'agence d'intérim). L'entreprise utilisatrice est connue par les affectations aux postes, qui appartiennent à son catalogue. `DateFin` est le dernier jour d'occupation (inclus, comme DIMONA).
+
+### Langue et régime linguistique (NF-41, ADR 0009)
+
+L'instance `documents-medicale` ne peut appeler ni Affiliés ni Personnes (NSG de la zone médicale). Elle détermine la langue des documents à partir d'une projection locale (`contexte_linguistique`) alimentée par ces champs :
+
+- `affilies.affilie-cree.v1` et `affilies.affilie-modifie.v1` portent `RegimeLinguistique` (`Francais`, `Neerlandais`, `Allemand`, `BruxellesCapitale`) et `Langue` de correspondance de l'affilié (`Fr`, `Nl`, `De`, `En`) ;
+- `personnes.occupation-debutee.v1` porte `Langue`, la langue choisie par le travailleur au moment de l'événement ; `personnes.langue-modifiee.v1` est publié quand cette langue change pour une personne déjà connue (correction de l'identité, mutation du registre national) ;
+- les champs ajoutés aux contrats existants sont **facultatifs** (ajoutés en fin, `null` pour un producteur antérieur, ignorés par les consommateurs antérieurs, ARC-34). Langue et régime linguistique ne sont pas des données de santé ni d'identité (ARC-06) ;
+- les valeurs sont les noms des énumérations (`Fr`, `BruxellesCapitale`…), lues sans tenir compte de la casse. Une valeur inconnue est ignorée ;
+- le consommateur applique l'état le plus récent par `OccurredAt` : un événement plus ancien que l'état connu est ignoré.
 
 ### `integrations.donnees-bce-recues.v1` (§12, AFF-01, AFF-02)
 

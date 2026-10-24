@@ -101,8 +101,12 @@ public sealed class ModificateurAffilie(
 
     public void Publier(IntegrationEvent evenement) => outbox.Add(evenement);
 
+    /// <summary>NF-41, ADR 0009 : régime linguistique et langue de l'affilié, pour la projection linguistique de Documents.</summary>
+    public static AffilieCree AffilieCree(Affilie a) =>
+        new(a.Id, a.NumeroBce.Value, a.CategorieTarifaire.ToString(), a.RegimeLinguistique.ToString(), a.Langue.ToString());
+
     public static AffilieModifie AffilieModifie(Affilie a) =>
-        new(a.Id, a.NumeroBce.Value, a.CategorieTarifaire.ToString(), a.Statut.ToString());
+        new(a.Id, a.NumeroBce.Value, a.CategorieTarifaire.ToString(), a.Statut.ToString(), a.RegimeLinguistique.ToString(), a.Langue.ToString());
 
     public static OperationAffilieModifiee OperationModifiee(Affilie a, OperationAffilie o) =>
         new(o.Id, a.Id, o.Type.ToString(), o.Statut.ToString(), o.DateEffet, o.AffilieAbsorbantId, o.AffiliesBeneficiaires.ToList(), o.SeppContrepartie);

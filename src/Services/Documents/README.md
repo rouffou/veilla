@@ -61,11 +61,21 @@ Bibliothèque : **PDFsharp 6.2 (licence MIT)** ; polices Lato incorporées (SIL 
 | `IStockageDocuments` | `AzureBlob` : un conteneur par zone (`documents-standard`, `documents-medicale`, `documents-psychosociale`) créé par Terraform avec une stratégie d'immutabilité WORM ; écriture avec `If-None-Match: *` ; identité managée (`Documents:BlobEndpoint`) | `Local` : fichiers en écriture unique, lecture seule (sans valeur probante) ; chaîne `ConnectionStrings:DocumentsBlob` pour Azurite |
 | `IServiceHorodatage` | `Reel` : horodatage qualifié RFC 3161, **à raccorder** (prestataire à désigner) | `Simulateur` (sans valeur probante) |
 | `ISignatureQualifiee` | `Reel` : eID, itsme via un prestataire qualifié eIDAS, **à raccorder** | `Simulateur` (sans valeur juridique) |
-| `ISourceLinguistique` | `Reel` : `GET /api/v1/affilies/{id}` et `GET /api/v1/personnes/{id}` avec le compte technique OIDC (rôle `documents`) | `Simulateur` : régime français |
+| `ISourceLinguistique` | `Reel` + `Documents:SourceLinguistique=Http` (instance standard) : `GET /api/v1/affilies/{id}` et `GET /api/v1/personnes/{id}` avec le compte technique OIDC (rôle `documents`). `Reel` + `Projection` (instance médicale) : table locale `contexte_linguistique`, voir « Source linguistique par projection » | `Simulateur` : régime français |
 
-Configuration : `Documents:Zones` (obligatoire, voir ci-dessus), `Documents:Adaptateurs:{Horodatage|Signature|SourceLinguistique}` (`Simulateur` ou `Reel`, sans défaut), `Documents:Stockage:Type`, `Documents:Enveloppe:{Type,CleKek}` (voir « Chiffrement par enveloppe »), `Documents:Chiffrement:<zone>:Encryption:Keys:<id>` (facultatif, lecture de `SEPPDOC1`), `Documents:ServicesInternes`, `Documents:CompteTechnique`.
+Configuration : `Documents:Zones` (obligatoire, voir ci-dessus), `Documents:Adaptateurs:{Horodatage|Signature|SourceLinguistique}` (`Simulateur` ou `Reel`, sans défaut), `Documents:SourceLinguistique` (`Http` par défaut ou `Projection`, lu seulement avec l'adaptateur `Reel`), `Documents:Stockage:Type`, `Documents:Enveloppe:{Type,CleKek}` (voir « Chiffrement par enveloppe »), `Documents:Chiffrement:<zone>:Encryption:Keys:<id>` (facultatif, lecture de `SEPPDOC1`), `Documents:ServicesInternes`, `Documents:CompteTechnique`.
 
 Hors périmètre ou à compléter : le client OIDC `veilla-documents` (rôle `documents`) et le claim `personne_id` existent dans le realm local (`deploy/local/keycloak`) ; en production, `personne_id` doit être fourni par la fédération du portail travailleur ; les API d'Affiliés et de Personnes doivent exposer `regimeLinguistique` et `langue`.
+
+## Source linguistique par projection (NF-41, ADR 0009, #366)
+
+L'instance `documents-medicale` ne peut appeler ni Affiliés ni Personnes : le NSG de la zone médicale l'interdit. Elle lit la langue dans une projection locale.
+
+- **Table `contexte_linguistique`** (base de l'instance) : une ligne par affilié (régime linguistique, langue de correspondance) et par personne (langue choisie), avec l'horodatage de l'événement source. Ni identité ni donnée de santé.
+- **Alimentation** (`ProjectionLinguistiqueHandler`, inbox idempotente) : `affilies.affilie-cree.v1`, `affilies.affilie-modifie.v1` (champs facultatifs `RegimeLinguistique`, `Langue`), `personnes.occupation-debutee.v1` (champ facultatif `Langue`) et `personnes.langue-modifiee.v1`. Un événement plus ancien que l'état connu (`OccurredAt`) est ignoré ; un événement sans ces champs (producteur antérieur) ou avec une valeur inconnue ne change rien. Chaque instance tient la projection : les deux sont abonnées aux topics `affilies` et `personnes`, filtrés sur ces sujets (`infra/variables.tf`).
+- **Choix de la source** : `Documents:SourceLinguistique` = `Http` (défaut, et valeur en local) ou `Projection`. Terraform injecte `DOCUMENTS__SOURCELINGUISTIQUE` : `Http` pour l'instance standard, `Projection` pour une instance d'une zone sensible. Une autre valeur empêche le démarrage. La valeur n'est lue qu'avec `Documents:Adaptateurs:SourceLinguistique=Reel` ; le simulateur reste prioritaire.
+- **Repli** : un affilié ou une personne absent de la projection laisse la langue indéterminée ; la règle NF-41 se rabat sur les autres éléments, à défaut le **français** (motif « régime inconnu : français par défaut »).
+- **Rattrapage** : la projection ne voit que les événements publiés après sa mise en service. Les affiliés et les personnes existants restent inconnus jusqu'à leur prochaine modification. Le rattrapage initial est suivi par **#369** ; tant qu'il n'est pas fait, les documents de l'instance médicale peuvent être produits en français par défaut.
 
 ## API (`/api/v1`)
 

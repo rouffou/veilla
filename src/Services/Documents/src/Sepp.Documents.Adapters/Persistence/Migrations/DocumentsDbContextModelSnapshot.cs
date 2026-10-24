@@ -356,6 +356,37 @@ namespace Sepp.Documents.Adapters.Persistence.Migrations
                     b.ToTable("signature", (string)null);
                 });
 
+            modelBuilder.Entity("Sepp.Documents.Domain.Langues.ContexteLinguistiqueProjete", b =>
+                {
+                    b.Property<string>("Sujet")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("sujet");
+
+                    b.Property<Guid>("SujetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sujet_id");
+
+                    b.Property<DateTimeOffset>("EvenementDu")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("evenement_du");
+
+                    b.Property<string>("Langue")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("langue");
+
+                    b.Property<string>("Regime")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("regime");
+
+                    b.HasKey("Sujet", "SujetId")
+                        .HasName("pk_contexte_linguistique");
+
+                    b.ToTable("contexte_linguistique", (string)null);
+                });
+
             modelBuilder.Entity("Sepp.Documents.Domain.Modeles.ChampModele", b =>
                 {
                     b.Property<Guid>("Id")

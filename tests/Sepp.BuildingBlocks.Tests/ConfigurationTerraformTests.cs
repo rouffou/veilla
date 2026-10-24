@@ -29,7 +29,8 @@ public sealed partial class ConfigurationTerraformTests
     /// <summary>Clés que Terraform fournit à chaque instance du service Documents, quelle que soit sa zone.</summary>
     private static readonly string[] ClesInstanceDocuments =
     [
-        "Documents:BlobEndpoint", "Documents:Zones", "Documents:Enveloppe:Type", "Documents:Enveloppe:CleKek", "ServiceBus:SubscriptionName",
+        "Documents:BlobEndpoint", "Documents:Zones", "Documents:Enveloppe:Type", "Documents:Enveloppe:CleKek", "Documents:SourceLinguistique",
+        "ServiceBus:SubscriptionName",
     ];
 
     /// <summary>
@@ -376,7 +377,7 @@ public sealed partial class ConfigurationTerraformTests
         manquantes.ShouldBeEmpty("Clés obligatoires de documents-medicale non fournies par Terraform : " + string.Join(", ", manquantes));
 
         // Valeurs injectées par main.tf pour une instance : zone servie, clé racine, stockage et subscription propres.
-        foreach (var variable in new[] { "DOCUMENTS__ZONES", "DOCUMENTS__ENVELOPPE__TYPE", "DOCUMENTS__ENVELOPPE__CLEKEK", "DOCUMENTS__BLOBENDPOINT", "SERVICEBUS__SUBSCRIPTIONNAME" })
+        foreach (var variable in new[] { "DOCUMENTS__ZONES", "DOCUMENTS__ENVELOPPE__TYPE", "DOCUMENTS__ENVELOPPE__CLEKEK", "DOCUMENTS__BLOBENDPOINT", "DOCUMENTS__SOURCELINGUISTIQUE", "SERVICEBUS__SUBSCRIPTIONNAME" })
         {
             terraform.Main.ShouldContain(variable, Case.Sensitive, $"main.tf n'injecte pas {variable}.");
         }
@@ -384,6 +385,9 @@ public sealed partial class ConfigurationTerraformTests
         Regex.IsMatch(terraform.Main, @"DOCUMENTS__ZONES\s*=\s*s\.zone").ShouldBeTrue("Documents:Zones doit valoir la zone de l'instance.");
         Regex.IsMatch(terraform.Main, @"DOCUMENTS__ENVELOPPE__CLEKEK\s*=\s*module\.keyvault\[s\.zone\]\.documents_kek_uri").ShouldBeTrue("La clé racine est celle du coffre de la zone de l'instance.");
         Regex.IsMatch(terraform.Main, @"DOCUMENTS__ENVELOPPE__TYPE\s*=\s*""KeyVault""").ShouldBeTrue("En Azure, la clé racine est une clé de coffre (adaptateur KeyVault, ARC-44).");
+        // Lot 7 (#366) : une instance de zone sensible lit la langue dans la projection alimentée par événements.
+        Regex.IsMatch(terraform.Main, @"DOCUMENTS__SOURCELINGUISTIQUE\s*=\s*s\.zone\s*==\s*""standard""\s*\?\s*""Http""\s*:\s*""Projection""")
+            .ShouldBeTrue("documents-medicale doit lire la projection linguistique (Projection), l'instance standard les API (Http).");
         Regex.IsMatch(terraform.Main, @"SERVICEBUS__SUBSCRIPTIONNAME\s*=\s*n\b").ShouldBeTrue("La subscription porte le nom de l'instance.");
         Regex.IsMatch(terraform.Main, @"coalesce\(each\.value\.instance_de, each\.key\)").ShouldBeTrue("L'image d'une instance est celle du service d'origine.");
         Regex.IsMatch(terraform.Main, @"""\$\{s\.instance_de\}\.\$\{n\}"" => \{ topic = s\.instance_de").ShouldBeTrue("Une instance publie sur le topic du service d'origine (émetteur partagé).");
@@ -393,9 +397,16 @@ public sealed partial class ConfigurationTerraformTests
         terraform.Services[service].CompteTechnique.ShouldBe("Documents__CompteTechnique");
         terraform.Services["documents"].InternalServices.ShouldNotContain("Documents__ServicesInternes__SurveillanceMedicale");
         terraform.Services[service].PublishesEvents.ShouldBeFalse();
-        terraform.Services[service].SubscribesTo.ShouldBe(new[] { "surveillance-medicale" });
+        terraform.Services[service].SubscribesTo.ShouldBe(new[] { "surveillance-medicale", "affilies", "personnes" });
         terraform.Services["documents"].SubjectsOf("surveillance-medicale").ShouldBe(new[] { "surveillance-medicale.decision-emise.v1" });
         terraform.Services[service].SubjectsOf("surveillance-medicale").Count.ShouldBe(3);
+
+        // Projection linguistique (NF-41, ADR 0009) : seuls les contrats qui portent la langue ou le régime sont reçus.
+        foreach (var instance in new[] { "documents", service })
+        {
+            terraform.Services[instance].SubjectsOf("affilies").ShouldBe(new[] { "affilies.affilie-cree.v1", "affilies.affilie-modifie.v1" });
+            terraform.Services[instance].SubjectsOf("personnes").ShouldBe(new[] { "personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1" });
+        }
 
         // Aucun secret Documents__Chiffrement__* : les clés racines sont des clés de coffre, plus des secrets exportables.
         terraform.Variables.ShouldNotContain("Documents__Chiffrement", Case.Sensitive);
@@ -589,6 +600,7 @@ public sealed partial class ConfigurationTerraformTests
                 Ajouter(fournies, _main.Contains("DOCUMENTS__ZONES", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__Zones");
                 Ajouter(fournies, _main.Contains("DOCUMENTS__ENVELOPPE__CLEKEK", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__Enveloppe__CleKek");
                 Ajouter(fournies, _main.Contains("DOCUMENTS__ENVELOPPE__TYPE", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__Enveloppe__Type");
+                Ajouter(fournies, _main.Contains("DOCUMENTS__SOURCELINGUISTIQUE", StringComparison.Ordinal) && Fusionne("documents_environment"), "Documents__SourceLinguistique");
             }
 
             // Clés propres au service déclarées dans le catalogue.

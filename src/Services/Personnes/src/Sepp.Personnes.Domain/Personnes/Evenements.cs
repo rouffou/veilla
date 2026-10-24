@@ -2,7 +2,11 @@ using Sepp.BuildingBlocks.Domain;
 
 namespace Sepp.Personnes.Domain.Personnes;
 
-public sealed record OccupationEnregistree(Guid PersonneId, Guid OccupationId, Guid AffilieId, DateOnly DateDebut, DateTimeOffset OccurredAt) : IDomainEvent;
+/// <summary>Occupation enregistrée ; <c>Langue</c> est la langue de la personne à ce moment (NF-41, projection de Documents).</summary>
+public sealed record OccupationEnregistree(Guid PersonneId, Guid OccupationId, Guid AffilieId, DateOnly DateDebut, DateTimeOffset OccurredAt, Language Langue) : IDomainEvent;
+
+/// <summary>NF-41 : la langue d'une personne déjà connue a changé (correction de l'identité, mutation du registre national).</summary>
+public sealed record LangueChangee(Guid PersonneId, Language Langue, DateTimeOffset OccurredAt) : IDomainEvent;
 
 public sealed record OccupationCloturee(Guid PersonneId, Guid OccupationId, Guid AffilieId, DateOnly DateFin, DateTimeOffset OccurredAt) : IDomainEvent;
 

@@ -156,7 +156,8 @@ public static class EvenementsIntegration
         {
             IntegrationEvent? integration = evenement switch
             {
-                OccupationEnregistree e => new OccupationDebutee(e.OccupationId, e.PersonneId, e.AffilieId, e.DateDebut),
+                OccupationEnregistree e => new OccupationDebutee(e.OccupationId, e.PersonneId, e.AffilieId, e.DateDebut, e.Langue.ToString()),
+                LangueChangee e => new LangueModifiee(e.PersonneId, e.Langue.ToString()),
                 OccupationCloturee e => new OccupationTerminee(e.OccupationId, e.PersonneId, e.AffilieId, e.DateFin),
                 AffectationHistorisee e => new AffectationModifiee(e.AffectationId, e.PersonneId, e.PosteId, e.Validite.ValidFrom, e.Validite.ValidTo),
                 EtatParticulierEnregistre e => new EtatParticulierDeclare(e.EtatParticulierId, e.PersonneId, Categorie(e.Type), e.DateDebut, e.DateFin),

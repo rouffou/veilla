@@ -82,6 +82,7 @@ public class UseCasesTests
         var evt = _store.Published.ShouldHaveSingleItem().ShouldBeOfType<OccupationDebutee>();
         evt.PersonneId.ShouldBe(result.Value.PersonneId);
         evt.AffilieId.ShouldBe(Affilie);
+        evt.Langue.ShouldBe("Fr");
         AucunNissNiEtatEnClairDansLesEvenements(Niss(42));
     }
 
@@ -188,11 +189,31 @@ public class UseCasesTests
         var gestionnaire = Comme(Roles.GestionnaireDossiers);
         var nouvelle = Identite() with { Prenom = "Marie-Claire" };
 
-        (await new ModifierIdentiteHandler(employeur.Acces, employeur.Perimetre, _store).HandleAsync(new ModifierIdentite(id, nouvelle), _ct))
+        _store.Published.Clear();
+
+        (await new ModifierIdentiteHandler(employeur.Acces, employeur.Perimetre, _store, _store).HandleAsync(new ModifierIdentite(id, nouvelle), _ct))
             .Error!.Kind.ShouldBe(ErrorKind.Forbidden);
-        (await new ModifierIdentiteHandler(gestionnaire.Acces, gestionnaire.Perimetre, _store).HandleAsync(new ModifierIdentite(id, nouvelle), _ct))
+        (await new ModifierIdentiteHandler(gestionnaire.Acces, gestionnaire.Perimetre, _store, _store).HandleAsync(new ModifierIdentite(id, nouvelle), _ct))
             .IsSuccess.ShouldBeTrue();
         _store.Personnes.Single().Prenom.ShouldBe("Marie-Claire");
+        _store.Published.ShouldBeEmpty("La langue n'a pas changé : rien à publier.");
+    }
+
+    [Fact]
+    public async Task Changer_la_langue_publie_LangueModifiee_sans_autre_donnee_d_identite()
+    {
+        var id = await CreerTravailleur();
+        _store.Published.Clear();
+        var gestionnaire = Comme(Roles.GestionnaireDossiers);
+
+        (await new ModifierIdentiteHandler(gestionnaire.Acces, gestionnaire.Perimetre, _store, _store)
+                .HandleAsync(new ModifierIdentite(id, Identite() with { Langue = Language.Nl }), _ct))
+            .IsSuccess.ShouldBeTrue();
+
+        var evt = _store.Published.ShouldHaveSingleItem().ShouldBeOfType<LangueModifiee>();
+        evt.PersonneId.ShouldBe(id);
+        evt.Langue.ShouldBe("Nl");
+        AucunNissNiEtatEnClairDansLesEvenements(Niss(42), "Dupont", "Marie");
     }
 
     private EnregistrerEntreeDimonaHandler Dimona(Contexte c) =>
