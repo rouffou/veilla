@@ -46,7 +46,7 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
             b.UseSetting("ServicesAval:Personnes", $"http://{ServicesAvalSimules.Personnes}");
             b.UseSetting("ServicesAval:PostesRisques", $"http://{ServicesAvalSimules.PostesRisques}");
             b.UseSetting("ServicesAval:Obligations", $"http://{ServicesAvalSimules.Obligations}");
-            b.UseSetting("Cors:Origines:0", "http://localhost:4201");
+            b.UseSetting("Cors:OriginesAutorisees:0", "http://localhost:4201");
             b.ConfigureTestServices(s =>
             {
                 // Jetons signés par une clé de test : même validation (émetteur, audience sepp-api, signature, expiration).
@@ -513,5 +513,33 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
         var response = await _factory.CreateClient().SendAsync(requete, Ct);
 
         response.Headers.GetValues("Access-Control-Allow-Origin").ShouldBe(["http://localhost:4201"]);
+        response.Headers.Contains("Access-Control-Allow-Credentials").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Une_origine_inconnue_ne_recoit_aucun_en_tete_CORS()
+    {
+        using var requete = new HttpRequestMessage(HttpMethod.Options, "/api/v1/affilies");
+        requete.Headers.Add("Origin", "https://intrus.example.org");
+        requete.Headers.Add("Access-Control-Request-Method", "GET");
+        requete.Headers.Add("Access-Control-Request-Headers", "authorization");
+
+        var response = await _factory.CreateClient().SendAsync(requete, Ct);
+
+        response.Headers.Contains("Access-Control-Allow-Origin").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Le_preflight_n_autorise_que_les_methodes_du_portail()
+    {
+        using var requete = new HttpRequestMessage(HttpMethod.Options, "/api/v1/affilies");
+        requete.Headers.Add("Origin", "http://localhost:4201");
+        requete.Headers.Add("Access-Control-Request-Method", "DELETE");
+
+        var response = await _factory.CreateClient().SendAsync(requete, Ct);
+
+        var methodes = response.Headers.TryGetValues("Access-Control-Allow-Methods", out var valeurs) ? string.Join(',', valeurs) : string.Empty;
+        methodes.ShouldNotContain("DELETE");
+        methodes.ShouldNotContain("*");
     }
 }

@@ -42,6 +42,13 @@ managed_hsm_admin_object_ids = ["00000000-0000-0000-0000-000000000000"]
 # (identifiants publics, pas des secrets) ; les secrets des comptes techniques sont dans le Key Vault de la zone.
 entra_tenant_id         = "00000000-0000-0000-0000-000000000000"
 authentication_audience = "api://sepp-preprod"
+
+# CORS des BFF (#358) : origines exactes des portails (domaines publics APIM / Application Gateway), https, sans joker.
+# Valeurs d exemple à remplacer par les domaines réels de l environnement.
+portal_origins = {
+  "bff-employeur"   = ["https://employeur.preprod.sepp.example.be"]
+  "bff-travailleur" = ["https://travailleur.preprod.sepp.example.be"]
+}
 technical_account_client_ids = {
   affilies           = "00000000-0000-0000-0000-000000000000"
   communications     = "00000000-0000-0000-0000-000000000000"

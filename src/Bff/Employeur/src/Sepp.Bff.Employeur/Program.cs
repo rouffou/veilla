@@ -19,13 +19,9 @@ builder.Services.AddHealthChecks().AddCheck("bff", () => HealthCheckResult.Healt
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(PerimetreEmployeur.Politique, p => p.RequireAuthenticatedUser().RequireClaim("roles", PerimetreEmployeur.RolesAutorises));
 
-// Le portail est servi depuis une autre origine que le BFF : origines autorisées explicites (aucun joker).
-var origines = builder.Configuration.GetSection("Cors:Origines").Get<string[]>() ?? [];
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
-    .WithOrigins(origines)
-    .WithMethods("GET", "POST")
-    .WithHeaders("Authorization", "Content-Type", "Accept-Language", CorrelationIdMiddleware.Header)
-    .WithExposedHeaders("Content-Disposition", CorrelationIdMiddleware.Header)));
+// Le portail est servi depuis une autre origine que le BFF : origines exactes (Cors:OriginesAutorisees), aucun joker,
+// pas de credentials (jeton porteur). Configuration invalide hors Development/Test : le démarrage échoue.
+builder.AddSeppPortailCors("GET", "POST");
 
 builder.Services.AddServicesAval(builder.Configuration);
 builder.Services.AddScoped<EcransEmployeur>();

@@ -257,6 +257,17 @@ Le service Documents d'une zone ne lit jamais le coffre d'une autre zone (ARC-04
 inter-zones (`additional_key_vault_zones`) sont supprimées et la validation de `services` refuse `encryption` vers une
 autre zone.
 
+### CORS des BFF de portail (#358)
+
+`var.portal_origins` (obligatoire, par environnement dans `terraform.tfvars`) liste les origines des portails autorisées sur
+chaque BFF : `bff-employeur` et `bff-travailleur`. Chaque origine est de la forme `https://hôte[:port]` (domaine public servi
+par l'Application Gateway ou APIM, ou domaine du portail), sans chemin, sans barre finale ni joker. La validation Terraform
+refuse `*`, toute origine non https, une liste vide et un nom de BFF inconnu. Les origines sont injectées en
+`CORS__ORIGINESAUTORISEES__0`, `__1`… sur le BFF concerné seulement (un BFF n'accepte pas le portail de l'autre). Au démarrage,
+hors Development et Test, le BFF refuse une liste vide ou une origine invalide (`PortailCors` dans
+`Sepp.BuildingBlocks.Web`). La politique n'autorise ni credentials (jeton porteur, pas de cookie) ni méthode autre que GET et
+POST. Les valeurs des `terraform.tfvars` sont des exemples (`*.sepp.example.be`) à remplacer.
+
 ### Adaptateurs externes : simulateurs hors production
 
 `var.adapter_mode` (`Simulateur` par défaut) fixe le choix `Reel` ou `Simulateur` de chaque adaptateur déclaré dans
@@ -285,7 +296,8 @@ ressource) et les tests .NET : aucun `plan` ni `apply` réel n'a été exécuté
 - les adresses internes `https://ca-<service>.<domaine>` résolvent depuis les environnements appelants et les restrictions d'IP d'entrée les autorisent ;
 - la migration des schémas (`Database:MigrateOnStartup` vaut `false` par défaut) est assurée par la chaîne de déploiement ;
 - les valeurs d'exemple des `terraform.tfvars` (`entra_tenant_id`, `technical_account_client_ids`, `authentication_audience`) sont remplacées ;
-- les origines CORS des BFF (`Cors__Origines__*`) et l'authentification des portails externes (fédération CSAM, ADR 0005) ne sont pas encore injectées.
+- l'authentification des portails externes (fédération CSAM, ADR 0005) n'est pas encore injectée ;
+- les origines de `portal_origins` correspondent aux domaines réellement exposés (Application Gateway, APIM ou domaine du portail), et un préflight `OPTIONS` depuis chaque portail reçoit `Access-Control-Allow-Origin` à l'identique alors qu'une autre origine n'en reçoit pas.
 
 ## Correspondance avec les exigences
 

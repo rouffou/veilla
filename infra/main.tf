@@ -165,6 +165,10 @@ locals {
     }
   }
   bff_environment = { for n, s in var.services : n => local.service_urls if s.zone == "platform" }
+  # CORS des BFF de portail (#358) : une variable CORS__ORIGINESAUTORISEES__<i> par origine autorisée.
+  cors_environment = {
+    for n, origines in var.portal_origins : n => { for i, o in origines : "CORS__ORIGINESAUTORISEES__${i}" => o }
+  }
 
   app_environment = {
     for n in keys(var.services) : n => merge(
@@ -172,6 +176,7 @@ locals {
       try(local.postgres_environment[n], {}),
       try(local.documents_environment[n], {}),
       try(local.bff_environment[n], {}),
+      try(local.cors_environment[n], {}),
       local.authentication_environment,
       local.internal_services_environment[n],
       try(local.technical_account_environment[n], {}),

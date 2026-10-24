@@ -33,7 +33,7 @@ Backend for frontend du **portail employeur** (§10.1, Lot 1 « portail employeu
   périmètre est refusée (403 `perimetre.interdit`) **avant tout appel aval**. Un poste ou une liste d'un autre affilié
   est traité comme inconnu (404).
 - Aucun NISS n'est relayé, même masqué (DAT-06, minimisation) ; l'export CSV non plus.
-- CORS : origines explicites (`Cors:Origines`), méthodes GET/POST, en-têtes exposés `Content-Disposition` et
+- CORS (#358, ARC-42, NF-03) : origines exactes (`Cors:OriginesAutorisees`, jamais de joker ni `AllowAnyOrigin`), méthodes GET/POST, sans credentials (jeton porteur, pas de cookie), en-têtes exposés `Content-Disposition` et
   `X-Correlation-Id`.
 
 ## Endpoints (`/api/v1`)
@@ -104,7 +104,7 @@ modifier ni annuler (`reprise:gerer`).
 |---|---|
 | `Authentication:Authority`, `MetadataAddress`, `ValidIssuer`, `Audience` (`sepp-api`) | validation du jeton (socle) |
 | `ServicesAval:Affilies`, `:Personnes`, `:PostesRisques`, `:Obligations` | URL des services (obligatoires, vérifiées au démarrage ; Obligations en local : `http://localhost:5116`) ; à défaut `SEPP__SERVICES__AFFILIES`, `…__PERSONNES`, `…__POSTES_RISQUES`, `…__OBLIGATIONS` injectées par Terraform |
-| `Cors:Origines` | origines du portail |
+| `Cors:OriginesAutorisees` | origines du portail, https://hôte[:port] sans chemin ni joker ; obligatoire hors Development/Test (le démarrage échoue si la liste est vide ou invalide) ; en Azure `CORS__ORIGINESAUTORISEES__0`, `__1`… injectées par Terraform (`portal_origins`) ; en local `http://localhost:8082` et `:4201` |
 
 En compose (`deploy/local/compose.yaml`, service `bff-employeur`), les services sont joints par leur nom de conteneur
 (`http://affilies:8080`…).

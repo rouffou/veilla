@@ -130,6 +130,11 @@ variable "authentication_audience" {
   type        = string
 }
 
+variable "portal_origins" {
+  description = "Origines CORS autorisées sur les BFF de portail (bff-employeur, bff-travailleur), https uniquement, sans joker."
+  type        = map(list(string))
+}
+
 variable "technical_account_client_ids" {
   description = "Identifiant client (public) du compte technique OIDC de chaque service concerné."
   type        = map(string)
