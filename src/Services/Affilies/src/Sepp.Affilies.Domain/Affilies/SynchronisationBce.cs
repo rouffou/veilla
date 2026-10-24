@@ -27,6 +27,19 @@ public static class CodesEcartBce
     public const string UniteFermee = "unite-fermee";
     public const string UniteAbsente = "unite-absente";
     public const string UnitesAbsentes = "unites-absentes";
+
+    /// <summary>
+    /// Informatif (décision #315 : la BCE fait foi) : une valeur saisie à la main (dénomination, forme juridique, NACE) a été remplacée
+    /// par celle de la BCE. Ne bloque rien, n'est pas clos automatiquement : seul le gestionnaire de dossiers le clôture.
+    /// </summary>
+    public const string ValeurManuelleRemplacee = "valeur-manuelle-remplacee";
+
+    public const string ReferenceDenomination = "denomination";
+    public const string ReferenceFormeJuridique = "forme-juridique";
+    public const string ReferenceCodeNace = "code-nace";
+
+    /// <summary>Un écart informatif est une information au gestionnaire, pas une anomalie à corriger : il subsiste jusqu'à sa clôture.</summary>
+    public static bool EstInformatif(string code) => code == ValeurManuelleRemplacee;
 }
 
 /// <summary>
@@ -69,9 +82,38 @@ public sealed partial class Affilie
         try
         {
             var fiche = new DonneesFiche(donnees.Denomination, donnees.FormeJuridique, donnees.CodeNace, CommissionParitaire, CategorieTarifaire, Langue, RegimeLinguistique);
+
+            // La BCE fait foi (#315) : ses valeurs remplacent les saisies manuelles. Une valeur est « manuelle » quand elle diffère
+            // de la dernière valeur reçue de la BCE (ou qu'aucune n'a encore été reçue) : le gestionnaire en est informé,
+            // sans que la valeur remplacée (ni la nouvelle) figure dans l'écart.
+            var remplacees = new List<(string Reference, string Libelle)>();
+            if (fiche.Denomination != Denomination && Denomination != DenominationBce)
+            {
+                remplacees.Add((CodesEcartBce.ReferenceDenomination, "La dénomination"));
+            }
+
+            if (fiche.FormeJuridique != FormeJuridique && FormeJuridique != FormeJuridiqueBce)
+            {
+                remplacees.Add((CodesEcartBce.ReferenceFormeJuridique, "La forme juridique"));
+            }
+
+            if (fiche.CodeNace != CodeNace && CodeNace != CodeNaceBce)
+            {
+                remplacees.Add((CodesEcartBce.ReferenceCodeNace, "Le code NACE"));
+            }
+
             if (fiche.Denomination != Denomination || fiche.FormeJuridique != FormeJuridique || fiche.CodeNace != CodeNace)
             {
                 ModifierFiche(fiche, GroupeId);
+            }
+
+            DenominationBce = fiche.Denomination;
+            FormeJuridiqueBce = fiche.FormeJuridique;
+            CodeNaceBce = fiche.CodeNace;
+            foreach (var (reference, libelle) in remplacees)
+            {
+                ecarts.Add(new EcartBce(CodesEcartBce.ValeurManuelleRemplacee, reference,
+                    $"{libelle} saisi(e) manuellement a été remplacé(e) par la valeur reçue de la BCE (la BCE fait foi) : l'ancienne valeur figure dans l'historique de la fiche."));
             }
         }
         catch (DomainException ex)

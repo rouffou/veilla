@@ -24,6 +24,8 @@ public class SynchronisationBceTests
     private static DonneesBce Donnees(string denomination = "Boulangerie Dupont SRL", string forme = "SRL", string nace = "10.711", params UniteBce[] unites) =>
         new(denomination, forme, nace, unites);
 
+    private static IEnumerable<EcartBce> Anomalies(IEnumerable<EcartBce> ecarts) => ecarts.Where(e => !CodesEcartBce.EstInformatif(e.Code));
+
     [Fact]
     public void La_fiche_prend_la_denomination_la_forme_et_le_NACE_de_la_BCE_sans_toucher_au_reste()
     {
@@ -31,7 +33,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees("Dupont & Fils SA", "SA", "47.110"), Extraction, AucuneAutre);
 
-        ecarts.ShouldBeEmpty();
+        Anomalies(ecarts).ShouldBeEmpty();
         _affilie.Denomination.ShouldBe("Dupont & Fils SA");
         _affilie.FormeJuridique.ShouldBe("SA");
         _affilie.CodeNace.ShouldBe("47.110");
@@ -50,7 +52,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees("Dupont SRL", "SRL", "10.711", unite), Extraction.AddDays(1), AucuneAutre);
 
-        ecarts.ShouldBeEmpty();
+        Anomalies(ecarts).ShouldBeEmpty();
         _affilie.NumeroVersion.ShouldBe(version);
         _affilie.UnitesEtablissement.ShouldHaveSingleItem();
     }
@@ -61,7 +63,7 @@ public class SynchronisationBceTests
         var avecDebut = Unite(NumeroUnite("21234567"), debut: new DateOnly(2012, 3, 1));
         var sansDebut = avecDebut with { Numero = NumeroUnite("21234568"), DateDebut = null };
 
-        _affilie.AppliquerDonneesBce(Donnees(unites: [avecDebut, sansDebut]), Extraction, AucuneAutre).ShouldBeEmpty();
+        _affilie.AppliquerDonneesBce(Donnees(unites: [avecDebut, sansDebut]), Extraction, AucuneAutre).Where(e => !CodesEcartBce.EstInformatif(e.Code)).ShouldBeEmpty();
 
         _affilie.UnitesEtablissement.Count.ShouldBe(2);
         _affilie.UnitesEtablissement.Single(u => u.Numero.Value == avecDebut.Numero).Validite.ValidFrom.ShouldBe(new DateOnly(2012, 3, 1));
@@ -78,7 +80,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees(unites: [Unite(numero, "Nouveau siège", "Avenue Louise", "1050")]), Extraction.AddDays(1), AucuneAutre);
 
-        ecarts.ShouldBeEmpty();
+        Anomalies(ecarts).ShouldBeEmpty();
         var unite = _affilie.UnitesEtablissement.ShouldHaveSingleItem();
         unite.Id.ShouldBe(idUnite);
         unite.Nom.ShouldBe("Nouveau siège");
@@ -96,7 +98,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees(unites: [gardee]), Extraction.AddDays(30), AucuneAutre);
 
-        ecarts.ShouldBeEmpty();
+        Anomalies(ecarts).ShouldBeEmpty();
         _affilie.UnitesEtablissement.Count.ShouldBe(2);
         var fermee = _affilie.UnitesEtablissement.Single(u => u.Numero.Value == disparue.Numero);
         fermee.Validite.ValidTo.ShouldBe(Extraction.AddDays(30));
@@ -113,7 +115,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees(unites: [autre]), Extraction.AddDays(5), AucuneAutre);
 
-        var ecart = ecarts.ShouldHaveSingleItem();
+        var ecart = Anomalies(ecarts).ShouldHaveSingleItem();
         ecart.Code.ShouldBe(CodesEcartBce.UniteAbsente);
         ecart.Reference.ShouldBe(numero);
         _affilie.UnitesEtablissement.Single(u => u.Numero.Value == numero).Validite.IsOpen.ShouldBeTrue();
@@ -126,7 +128,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees(), Extraction.AddDays(1), AucuneAutre);
 
-        ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.UnitesAbsentes);
+        Anomalies(ecarts).ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.UnitesAbsentes);
         _affilie.UnitesEtablissement.ShouldHaveSingleItem().Validite.IsOpen.ShouldBeTrue();
     }
 
@@ -137,7 +139,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(new DonneesBce("Dupont SRL", "SRL", "10.711", null), Extraction.AddDays(1), AucuneAutre);
 
-        ecarts.ShouldBeEmpty();
+        Anomalies(ecarts).ShouldBeEmpty();
         _affilie.UnitesEtablissement.ShouldHaveSingleItem().Validite.IsOpen.ShouldBeTrue();
     }
 
@@ -149,7 +151,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees(unites: [Unite(prise), libre]), Extraction, new HashSet<string> { prise });
 
-        var ecart = ecarts.ShouldHaveSingleItem();
+        var ecart = Anomalies(ecarts).ShouldHaveSingleItem();
         ecart.Code.ShouldBe(CodesEcartBce.UniteAutreAffilie);
         ecart.Reference.ShouldBe(prise);
         _affilie.UnitesEtablissement.ShouldHaveSingleItem().Numero.Value.ShouldBe(libre.Numero);
@@ -164,7 +166,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees(unites: [Unite(numero), Unite(NumeroUnite("21234568"))]), Extraction.AddDays(20), AucuneAutre);
 
-        ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.UniteFermee);
+        Anomalies(ecarts).ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.UniteFermee);
         _affilie.UnitesEtablissement.Single(u => u.Numero.Value == numero).Validite.IsOpen.ShouldBeFalse();
     }
 
@@ -177,7 +179,7 @@ public class SynchronisationBceTests
 
         var ecarts = _affilie.AppliquerDonneesBce(Donnees("Dupont & Fils SA", "SA", "47.110", valide, invalide, sansRue), Extraction, AucuneAutre);
 
-        ecarts.Select(e => e.Code).ShouldBe([CodesEcartBce.UniteInvalide, CodesEcartBce.UniteInvalide]);
+        Anomalies(ecarts).Select(e => e.Code).ShouldBe([CodesEcartBce.UniteInvalide, CodesEcartBce.UniteInvalide]);
         _affilie.UnitesEtablissement.ShouldHaveSingleItem().Numero.Value.ShouldBe(valide.Numero);
         _affilie.Denomination.ShouldBe("Dupont & Fils SA");
     }
@@ -187,7 +189,7 @@ public class SynchronisationBceTests
     {
         var ecarts = _affilie.AppliquerDonneesBce(Donnees("Dupont SRL", "SRL", "pas-un-code"), Extraction, AucuneAutre);
 
-        ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.FicheInvalide);
+        Anomalies(ecarts).ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.FicheInvalide);
         _affilie.Denomination.ShouldBe("Boulangerie Dupont");
         _affilie.CodeNace.ShouldBe("10.711");
     }
@@ -202,7 +204,7 @@ public class SynchronisationBceTests
             _affilie.Resilier(new DateOnly(2025, 12, 31));
         }
 
-        _affilie.AppliquerDonneesBce(Donnees("Nouvelle dénomination"), Extraction, AucuneAutre).ShouldBeEmpty();
+        _affilie.AppliquerDonneesBce(Donnees("Nouvelle dénomination"), Extraction, AucuneAutre).Where(e => !CodesEcartBce.EstInformatif(e.Code)).ShouldBeEmpty();
 
         _affilie.Denomination.ShouldBe("Nouvelle dénomination");
         _affilie.Statut.ShouldBe(statut);
@@ -221,5 +223,58 @@ public class SynchronisationBceTests
         ecarts.ShouldHaveSingleItem().Code.ShouldBe(CodesEcartBce.AffilieCloture);
         _affilie.Denomination.ShouldBe("Boulangerie Dupont");
         _affilie.NumeroVersion.ShouldBe(version);
+    }
+
+    [Fact]
+    public void Une_valeur_saisie_a_la_main_remplacee_par_la_BCE_est_signalee_sans_en_reveler_les_valeurs()
+    {
+        var ancienne = _affilie.Denomination;
+
+        var ecarts = _affilie.AppliquerDonneesBce(Donnees("Dupont & Fils SA", "SA", "47.110"), Extraction, AucuneAutre);
+
+        _affilie.Denomination.ShouldBe("Dupont & Fils SA");
+        ecarts.Select(e => e.Reference).Order().ShouldBe(["code-nace", "denomination", "forme-juridique"]);
+        ecarts.ShouldAllBe(e => e.Code == CodesEcartBce.ValeurManuelleRemplacee);
+        ecarts.ShouldAllBe(e => !e.Detail.Contains(ancienne) && !e.Detail.Contains("Dupont & Fils SA") && !e.Detail.Contains("47.110"));
+    }
+
+    [Fact]
+    public void Seules_les_valeurs_differentes_de_la_BCE_sont_signalees()
+    {
+        var ecarts = _affilie.AppliquerDonneesBce(Donnees("Dupont & Fils SA", _affilie.FormeJuridique, _affilie.CodeNace), Extraction, AucuneAutre);
+
+        ecarts.ShouldHaveSingleItem().Reference.ShouldBe("denomination");
+    }
+
+    [Fact]
+    public void Un_changement_venu_de_la_BCE_puis_un_autre_ne_sont_pas_des_remplacements_de_saisie_manuelle()
+    {
+        _affilie.AppliquerDonneesBce(Donnees("Dupont & Fils SA", "SA", "47.110"), Extraction, AucuneAutre);
+
+        var ecarts = _affilie.AppliquerDonneesBce(Donnees("Dupont Frères SA", "SA", "47.111"), Extraction.AddDays(1), AucuneAutre);
+
+        ecarts.ShouldBeEmpty();
+        _affilie.Denomination.ShouldBe("Dupont Frères SA");
+        _affilie.CodeNace.ShouldBe("47.111");
+    }
+
+    [Fact]
+    public void Une_saisie_manuelle_posterieure_a_la_BCE_est_remplacee_et_signalee_a_la_reception_suivante()
+    {
+        _affilie.AppliquerDonneesBce(Donnees("Dupont & Fils SA", "SA", "47.110"), Extraction, AucuneAutre);
+        _affilie.ModifierFiche(new DonneesFiche("Saisie du gestionnaire", "SA", "47.110", _affilie.CommissionParitaire, _affilie.CategorieTarifaire, _affilie.Langue, _affilie.RegimeLinguistique), null);
+
+        var ecarts = _affilie.AppliquerDonneesBce(Donnees("Dupont & Fils SA", "SA", "47.110"), Extraction.AddDays(1), AucuneAutre);
+
+        _affilie.Denomination.ShouldBe("Dupont & Fils SA");
+        ecarts.ShouldHaveSingleItem().Reference.ShouldBe("denomination");
+    }
+
+    [Fact]
+    public void Des_valeurs_manuelles_identiques_a_la_BCE_ne_donnent_aucun_ecart()
+    {
+        var ecarts = _affilie.AppliquerDonneesBce(Donnees(_affilie.Denomination, _affilie.FormeJuridique, _affilie.CodeNace), Extraction, AucuneAutre);
+
+        ecarts.ShouldBeEmpty();
     }
 }

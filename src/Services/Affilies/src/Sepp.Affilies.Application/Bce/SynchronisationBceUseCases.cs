@@ -125,7 +125,8 @@ public sealed class DonneesBceRecuesHandler(
             }
         }
 
-        foreach (var disparu in ouverts.Where(o => !rencontres.Contains(o.Id)))
+        // Un écart informatif reste ouvert jusqu'à sa clôture par le gestionnaire (il ne se représente pas de lui-même).
+        foreach (var disparu in ouverts.Where(o => !rencontres.Contains(o.Id) && !CodesEcartBce.EstInformatif(o.Code)))
         {
             disparu.Resoudre("system", maintenant);
         }
@@ -146,10 +147,11 @@ public sealed record EcartBceDto(
     DateTimeOffset DerniereDetectionLe,
     StatutEcart Statut,
     DateTimeOffset? ResoluLe,
-    string? ResoluPar)
+    string? ResoluPar,
+    bool Informatif)
 {
     public static EcartBceDto De(EcartSynchronisation e) =>
-        new(e.Id, e.NumeroBce, e.AffilieId, e.Code, e.Reference, e.Detail, e.DateExtraction, e.DetecteLe, e.DerniereDetectionLe, e.Statut, e.ResoluLe, e.ResoluPar);
+        new(e.Id, e.NumeroBce, e.AffilieId, e.Code, e.Reference, e.Detail, e.DateExtraction, e.DetecteLe, e.DerniereDetectionLe, e.Statut, e.ResoluLe, e.ResoluPar, CodesEcartBce.EstInformatif(e.Code));
 }
 
 /// <summary>Écarts de synchronisation BCE, les plus récents d'abord ; ouverts seulement par défaut.</summary>

@@ -45,6 +45,9 @@ public sealed class AffiliesDbContext(DbContextOptions<AffiliesDbContext> option
             b.HasIndex(a => a.Denomination);
             b.Property(a => a.FormeJuridique).HasMaxLength(50);
             b.Property(a => a.CodeNace).HasMaxLength(10);
+            b.Property(a => a.DenominationBce).HasMaxLength(200);
+            b.Property(a => a.FormeJuridiqueBce).HasMaxLength(50);
+            b.Property(a => a.CodeNaceBce).HasMaxLength(10);
             b.Property(a => a.CommissionParitaire).HasMaxLength(10);
             b.Property(a => a.CategorieTarifaire).HasConversion<string>().HasMaxLength(1);
             b.Property(a => a.Langue).HasConversion<string>().HasMaxLength(2);

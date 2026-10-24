@@ -41,6 +41,11 @@ namespace Sepp.Affilies.Adapters.Persistence.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("code_nace");
 
+                    b.Property<string>("CodeNaceBce")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("code_nace_bce");
+
                     b.Property<string>("CommissionParitaire")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -61,11 +66,21 @@ namespace Sepp.Affilies.Adapters.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("denomination");
 
+                    b.Property<string>("DenominationBce")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("denomination_bce");
+
                     b.Property<string>("FormeJuridique")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("forme_juridique");
+
+                    b.Property<string>("FormeJuridiqueBce")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("forme_juridique_bce");
 
                     b.Property<Guid?>("GroupeId")
                         .HasColumnType("uuid")
