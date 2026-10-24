@@ -157,6 +157,19 @@
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Domain.Tests/Sepp.Referentiels.Domain.Tests.csproj" />
     <Project Path="src/Services/Referentiels/tests/Sepp.Referentiels.Integration.Tests/Sepp.Referentiels.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Reintegration/" />
+  <Folder Name="/src/Services/Reintegration/src/">
+    <Project Path="src/Services/Reintegration/src/Sepp.Reintegration.Adapters/Sepp.Reintegration.Adapters.csproj" />
+    <Project Path="src/Services/Reintegration/src/Sepp.Reintegration.Application/Sepp.Reintegration.Application.csproj" />
+    <Project Path="src/Services/Reintegration/src/Sepp.Reintegration.Domain/Sepp.Reintegration.Domain.csproj" />
+    <Project Path="src/Services/Reintegration/src/Sepp.Reintegration.Infrastructure/Sepp.Reintegration.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Reintegration/tests/">
+    <Project Path="src/Services/Reintegration/tests/Sepp.Reintegration.Application.Tests/Sepp.Reintegration.Application.Tests.csproj" />
+    <Project Path="src/Services/Reintegration/tests/Sepp.Reintegration.Architecture.Tests/Sepp.Reintegration.Architecture.Tests.csproj" />
+    <Project Path="src/Services/Reintegration/tests/Sepp.Reintegration.Domain.Tests/Sepp.Reintegration.Domain.Tests.csproj" />
+    <Project Path="src/Services/Reintegration/tests/Sepp.Reintegration.Integration.Tests/Sepp.Reintegration.Integration.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Services/SurveillanceMedicale/" />
   <Folder Name="/src/Services/SurveillanceMedicale/src/">
     <Project Path="src/Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Adapters/Sepp.SurveillanceMedicale.Adapters.csproj" />

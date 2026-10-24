@@ -213,6 +213,26 @@ internal sealed class FakePersonnes : IPersonnesClient
     }
 
     public OccupationDimona Occupation(string reference) => _occupations[reference];
+
+    /// <summary>Personnes suivies, par NISS (SAN-60 : identification sans lecture de la fiche).</summary>
+    public Dictionary<string, Guid> Suivies { get; } = [];
+
+    public Func<ResultatAppel<Guid?>?>? ReponseIdentification { get; set; }
+
+    public Task<ResultatAppel<Guid?>> IdentifierAsync(string niss, CancellationToken cancellationToken) =>
+        Task.FromResult(ReponseIdentification?.Invoke()
+            ?? ResultatAppel<Guid?>.Succes(Suivies.TryGetValue(niss, out var id) ? id : null));
+}
+
+/// <summary>Flux eHealth des incapacités simulé : un lot puis plus rien.</summary>
+internal sealed class FakeIncapacites : IFluxIncapacites
+{
+    public List<NotificationIncapacite> Lot { get; } = [];
+
+    public Task<LotFlux<NotificationIncapacite>> RecupererNotificationsAsync(string? position, CancellationToken cancellationToken) =>
+        Task.FromResult(position == "fin"
+            ? new LotFlux<NotificationIncapacite>([], "fin")
+            : new LotFlux<NotificationIncapacite>([.. Lot], "fin"));
 }
 
 internal static class Identites

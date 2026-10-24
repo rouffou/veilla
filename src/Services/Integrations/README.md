@@ -16,6 +16,7 @@ Base `integrations`, port local 5115, espace de noms `Sepp.Integrations`.
 | AFF-20 DIMONA / DmfA via la BCSS | Entrées et sorties → identité au registre national → `POST /api/v1/dimona/entrees` et `POST /api/v1/dimona/{reference}/sortie` du service Personnes (HTTP interne, idempotent sur la référence DIMONA) |
 | BCSS identification et mutations | Port `IRegistreNational` + simulateur ; mutation (adresse, nom, prénom, langue, décès) → `IPersonnesClient.AppliquerMutationAsync` → `POST /api/v1/registre-national/mutations` du service Personnes, idempotent sur la référence de mutation |
 | BCE | Données d'entreprise et unités d'établissement → table `entreprise_bce` et événement `integrations.donnees-bce-recues.v1` vers Affiliés |
+| SAN-60 incapacités (eHealth) | Port `IFluxIncapacites` + `SimulateurIncapacites` + squelette `IncapacitesEHealthAdaptateurReel` ; notification → employeur (correspondance BCE), personne (`POST /api/v1/identifications` de Personnes) → `integrations.incapacite-notifiee.v1` vers Réintégration et Obligations (voir *Notifications d'incapacité*) |
 | INT-02 tableau de suivi | Table `journal_flux` ; API volumes par flux et par jour, erreurs et rejets, détail, relance manuelle |
 | INT-03 / INT-04 autorisations et certificats | Ci-dessous ; adaptateurs réels en squelette documenté |
 | §15.3 correspondances d'identifiants | Table `correspondance_identifiant` : numéro BCE ↔ `affilie_id`, référence DIMONA ↔ `occupation_id` ; jamais de NISS |
@@ -88,7 +89,7 @@ organisme ──▶ adaptateur (Simulateur… | …AdaptateurReel) ──▶ for
 
 ## Événements
 
-- **Publié** : `integrations.donnees-bce-recues.v1` (voir `docs/architecture/evenements.md`). Les adresses ne voyagent
+- **Publiés** : `integrations.donnees-bce-recues.v1` et `integrations.incapacite-notifiee.v1` (voir `docs/architecture/evenements.md`). Les adresses ne voyagent
   pas dans l'événement (ARC-06) ; le consommateur les lit par `GET /api/v1/bce/entreprises/{numeroBce}`.
 - **Consommés** : `affilies.affilie-cree.v1` et `affilies.affilie-modifie.v1` (correspondance numéro BCE ↔ affilié,
   abonnement `integrations` déjà prévu dans `infra/variables.tf`).
@@ -134,6 +135,27 @@ service Personnes (même compte technique `integrations` que DIMONA, permission 
   simulateur DIMONA (adresse, nom, prénom et langue du salarié, décès de l'étudiant le 15 juillet 2026), plus un changement
   de nom pour une personne que Personnes ne suit pas. Lancer le flux DIMONA avant le flux registre national.
 - **Adaptateur réel** : `RegistreNationalAdaptateurReel` reste un squelette (`NotImplementedException` documentée, INT-04).
+
+## Notifications d'incapacité (SAN-60, eHealth)
+
+Le flux `incapacites` récupère les notifications d'incapacité de travail (employeur ou médecin-conseil) par
+`IFluxIncapacites.RecupererNotificationsAsync`, les journalise (clé `incapacite:<référence>:<empreinte>`, charge utile
+chiffrée) puis les traite :
+
+- **Format canonique** `NotificationIncapacite` : référence de l'incapacité à la source, NISS, numéro BCE de l'employeur,
+  émetteur (`Employeur`, `MedecinConseil`), date de début et date de fin prévue. Aucun diagnostic ni motif : l'adaptateur réel
+  ne doit retenir que ces champs (ARC-06, minimisation).
+- **Traduction** : employeur par la correspondance numéro BCE ↔ affilié (rejet si inconnu) ; personne par
+  `POST /api/v1/identifications` du service Personnes (NISS dans le corps, permission `personne:identifier` du rôle technique
+  `integrations`, qui ne rend que `personne_id`) — rejet `integrations.personne-inconnue` si Personnes ne la suit pas.
+- **Identifiant stable** : correspondance `ReferenceIncapacite` ↔ `Incapacite` ; une prolongation (même référence, autre fin
+  prévue) ou une relance republie le même `IncapaciteId` (état courant, consommateurs idempotents).
+- **Simulateur** : pour les trois premiers affiliés connus, incapacité du salarié DIMONA simulé notifiée par l'employeur puis
+  prolongée, incapacité de l'étudiant notifiée par le médecin-conseil, une personne non suivie ; plus un employeur non affilié.
+- **Adaptateur réel** : squelette (`NotImplementedException` documentée, INT-04) ; la saisie manuelle d'une incapacité
+  reçue hors flux se fait dans le service Réintégration.
+- Configuration `Integrations:Adaptateurs:Incapacites` = `Simulateur` | `Reel` (obligatoire) ; le flux fait partie des flux
+  planifiés par défaut et se lance à la demande par `POST /api/v1/flux/incapacites/executions`.
 
 ## INT-03 — Autorisations et certificats à obtenir
 

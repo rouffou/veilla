@@ -26,7 +26,7 @@ internal sealed class Contexte
         Utilisateur = new FakeUser(roles.Length == 0 ? [Roles.GestionnaireDossiers] : roles);
         Registre = new RegistreCorrespondances(Store);
         Traitement = new TraitementEchanges(Store, Registre, Store, RegistreNational, Personnes, Store, Store, Horloge);
-        Execution = new ExecutionFlux(Store, Store, Store, Bce, Dimona, RegistreNational, Traitement, Store, Horloge);
+        Execution = new ExecutionFlux(Store, Store, Store, Bce, Dimona, RegistreNational, Incapacites, Traitement, Store, Horloge);
         RegistreNational.Identites[Niss] = Identites.Dupont;
     }
 
@@ -41,6 +41,8 @@ internal sealed class Contexte
     public FakeRegistreNational RegistreNational { get; } = new();
 
     public FakePersonnes Personnes { get; } = new();
+
+    public FakeIncapacites Incapacites { get; } = new();
 
     public FakeUser Utilisateur { get; }
 

@@ -22,6 +22,10 @@
   <Project Path="../Services/Planification/src/Sepp.Planification.Application/Sepp.Planification.Application.csproj" />
   <Project Path="../Services/Planification/src/Sepp.Planification.Domain/Sepp.Planification.Domain.csproj" />
   <Project Path="../Services/Planification/src/Sepp.Planification.Infrastructure/Sepp.Planification.Infrastructure.csproj" />
+  <Project Path="../Services/Reintegration/src/Sepp.Reintegration.Adapters/Sepp.Reintegration.Adapters.csproj" />
+  <Project Path="../Services/Reintegration/src/Sepp.Reintegration.Application/Sepp.Reintegration.Application.csproj" />
+  <Project Path="../Services/Reintegration/src/Sepp.Reintegration.Domain/Sepp.Reintegration.Domain.csproj" />
+  <Project Path="../Services/Reintegration/src/Sepp.Reintegration.Infrastructure/Sepp.Reintegration.Infrastructure.csproj" />
   <Project Path="../Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Adapters/Sepp.SurveillanceMedicale.Adapters.csproj" />
   <Project Path="../Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Application/Sepp.SurveillanceMedicale.Application.csproj" />
   <Project Path="../Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Domain/Sepp.SurveillanceMedicale.Domain.csproj" />

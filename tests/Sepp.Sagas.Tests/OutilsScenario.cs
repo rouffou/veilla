@@ -290,6 +290,45 @@ public sealed partial class OutilsScenario(PlateformeSaga plateforme)
         }
     }
 
+    // --- Réintégration (zone médicale) -----------------------------------------------------------------------------
+
+    /// <summary>Incapacité saisie par le CPMT (gestionnaire du dossier) et trajet demandé par le travailleur.</summary>
+    public async Task<(Guid Trajet, Guid Incapacite)> DemanderTrajetAsync(Travailleur travailleur, DateOnly debutIncapacite, DateOnly dateDemande)
+    {
+        var cpmt = plateforme.Reintegration.Client(Roles.Cpmt, "cpmt-1");
+        var incapacite = await CreerAsync(cpmt, "/api/v1/incapacites",
+            new { personneId = travailleur.Personne, affilieId = travailleur.Affilie, dateDebut = Format(debutIncapacite) });
+        var trajet = await CreerAsync(cpmt, "/api/v1/trajets", new { incapaciteId = incapacite, initiateur = "Travailleur", dateDemande = Format(dateDemande) });
+        return (trajet, incapacite);
+    }
+
+    public async Task<JsonElement> TrajetAsync(Guid trajet) =>
+        await plateforme.Reintegration.Client(Roles.Cpmt, "cpmt-1").GetFromJsonAsync<JsonElement>($"/api/v1/trajets/{trajet}", Json, Ct);
+
+    /// <summary>Étape du trajet par le CPMT gestionnaire (<c>invitation</c>, <c>evaluation</c>, <c>annulation</c>…).</summary>
+    public async Task EtapeTrajetAsync(Guid trajet, string etape, object corps)
+    {
+        var reponse = await plateforme.Reintegration.Client(Roles.Cpmt, "cpmt-1").PostAsJsonAsync($"/api/v1/trajets/{trajet}/{etape}", corps, Json, Ct);
+        reponse.StatusCode.ShouldBe(HttpStatusCode.NoContent, $"{etape} : {await reponse.Content.ReadAsStringAsync(Ct)}");
+    }
+
+    public async Task<List<JsonElement>> ObligationsDeTypeAsync(Guid personne, string type)
+    {
+        var obligations = await plateforme.Obligations.Client(Roles.Cpmt, "cpmt-1").GetFromJsonAsync<JsonElement>($"/api/v1/personnes/{personne}/obligations", Json, Ct);
+        return [.. obligations.EnumerateArray().Where(o => o.GetProperty("type").GetString() == type)];
+    }
+
+    public async Task<JsonElement> ObligationDeTypeAsync(Guid personne, string type) => (await ObligationsDeTypeAsync(personne, type)).Single();
+
+    public async Task<object?> ScalaireReintegrationAsync(string sql, Guid personne)
+    {
+        await using var connexion = new Npgsql.NpgsqlConnection(plateforme.ChaineConnexion("reintegration"));
+        await connexion.OpenAsync(Ct);
+        await using var commande = new Npgsql.NpgsqlCommand(sql, connexion);
+        commande.Parameters.AddWithValue("p", personne);
+        return await commande.ExecuteScalarAsync(Ct);
+    }
+
     // --- Utilitaires ----------------------------------------------------------------------------------------------
 
     private static async Task<Guid> CreerAsync(HttpClient client, string url, object corps)

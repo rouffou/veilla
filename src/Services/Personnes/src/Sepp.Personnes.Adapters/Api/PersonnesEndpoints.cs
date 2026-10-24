@@ -49,6 +49,15 @@ public static class PersonnesEndpoints
 
         // AFF-20, AFF-22 : mutations du registre national, même compte technique et mêmes garanties (NISS dans le corps uniquement).
         MapRegistreNational(app.MapGroup("/api/v1/registre-national").WithTags("Interne : mutations du registre national (service Intégrations)").RequirePermission(Permissions.PersonneEcrire));
+
+        // SAN-60 : identification par NISS (corps du POST) pour le compte technique d'Intégrations (flux des incapacités) ;
+        // ne rend que personne_id, sans lecture de la fiche.
+        app.MapPost("/api/v1/identifications", async (IdentifierPersonne body, IQueryHandler<IdentifierPersonne, IdentificationDto> handler, CancellationToken ct) =>
+                (await handler.HandleAsync(body, ct)).ToHttpResult())
+            .RequirePermission(Permissions.PersonneIdentifier)
+            .WithTags("Interne : identification (service Intégrations)")
+            .WithName("IdentifierPersonne")
+            .WithSummary("SAN-60 : identifiant interne d'une personne désignée par son NISS (dans le corps) ; aucune donnée de la fiche n'est rendue.");
         return app;
     }
 

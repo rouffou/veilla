@@ -127,6 +127,38 @@ public partial class ContractRulesTests
     }
 
     [Fact]
+    public void Une_charge_v1_de_IncapaciteNotifiee_sans_DateFinPrevue_est_lisible()
+    {
+        const string json = """
+            {"incapaciteId":"0198a1f0-0000-7000-8000-000000000001","personneId":"0198a1f0-0000-7000-8000-000000000002",
+             "affilieId":"0198a1f0-0000-7000-8000-000000000003","dateDebut":"2026-03-02","source":"EMPLOYEUR",
+             "eventId":"0198a1f0-0000-7000-8000-000000000004","occurredAt":"2026-09-28T08:00:00+00:00"}
+            """;
+
+        var incapacite = JsonSerializer.Deserialize<Integrations.IncapaciteNotifiee>(json, JsonSerializerOptions.Web);
+
+        incapacite.ShouldNotBeNull();
+        incapacite.DateFinPrevue.ShouldBeNull();
+        incapacite.Source.ShouldBe(Reintegration.CodesReintegration.SourcesIncapacite.Employeur);
+    }
+
+    [Fact]
+    public void Les_codes_de_reintegration_respectent_le_format_et_sont_uniques()
+    {
+        foreach (var codes in new[]
+                 {
+                     Reintegration.CodesReintegration.SourcesIncapacite.Connus,
+                     Reintegration.CodesReintegration.InitiateursTrajet.Connus,
+                     Reintegration.CodesReintegration.StatutsFinTrajet.Connus,
+                 })
+        {
+            codes.ShouldNotBeEmpty();
+            codes.ShouldBeUnique();
+            codes.ShouldAllBe(c => ExamCode().IsMatch(c));
+        }
+    }
+
+    [Fact]
     public void Les_codes_de_type_d_examen_respectent_le_format_et_sont_uniques()
     {
         TypesExamen.Connus.ShouldNotBeEmpty();

@@ -103,14 +103,15 @@ public static class IntegrationsEndpoints
             .WithSummary("Crée ou met à jour une correspondance (reprise de données) ; idempotent.");
     }
 
-    /// <summary>Flux désigné en kebab-case dans l'API : <c>bce</c>, <c>dimona</c>, <c>registre-national</c>.</summary>
+    /// <summary>Flux désigné en kebab-case dans l'API : <c>bce</c>, <c>dimona</c>, <c>registre-national</c>, <c>incapacites</c>.</summary>
     private static Result<TypeFlux?> LireFlux(string? valeur) => valeur?.Trim().ToLowerInvariant() switch
     {
         null or "" => (TypeFlux?)null,
         "bce" => TypeFlux.Bce,
         "dimona" => TypeFlux.Dimona,
         "registre-national" or "registrenational" => TypeFlux.RegistreNational,
-        _ => Error.Validation("flux.inconnu", $"Flux inconnu : '{valeur}' (attendu : bce, dimona, registre-national)."),
+        "incapacites" => TypeFlux.Incapacites,
+        _ => Error.Validation("flux.inconnu", $"Flux inconnu : '{valeur}' (attendu : bce, dimona, registre-national, incapacites)."),
     };
 
     public sealed record DemandeConsultationBce(string NumeroBce);

@@ -107,6 +107,37 @@ public sealed record MutationRegistreNational(
     public override string ToString() => $"MutationRegistreNational {{ ReferenceMutation = {ReferenceMutation}, Type = {Type}, Niss = masqué }}";
 }
 
+/// <summary>Émetteur d'une notification d'incapacité (SAN-60) ; traduit en code partagé <c>CodesReintegration.SourcesIncapacite</c>.</summary>
+public enum EmetteurIncapacite
+{
+    Employeur,
+    MedecinConseil,
+}
+
+/// <summary>
+/// Notification d'incapacité de travail reçue par eHealth (format canonique interne, SAN-60) : le travailleur est désigné
+/// par son NISS et son employeur par son numéro BCE, traduits en <c>personne_id</c> (service Personnes) et en
+/// <c>affilie_id</c> (correspondance d'identifiants). <see cref="ReferenceIncapacite"/> identifie l'incapacité à la source :
+/// une prolongation (nouvelle date de fin prévue) porte la même référence. Ni diagnostic ni motif : l'adaptateur réel ne
+/// doit retenir que ces champs (minimisation, ARC-06).
+/// </summary>
+public sealed record NotificationIncapacite(
+    string ReferenceIncapacite,
+    string Niss,
+    string NumeroBceEmployeur,
+    EmetteurIncapacite Emetteur,
+    DateOnly DateDebut,
+    DateOnly? DateFinPrevue)
+{
+    public override string ToString() => $"NotificationIncapacite {{ ReferenceIncapacite = {ReferenceIncapacite}, Emetteur = {Emetteur}, Niss = masqué }}";
+}
+
+/// <summary>Flux eHealth des notifications d'incapacité (SAN-60, Lot 3) : lots ordonnés et position de reprise.</summary>
+public interface IFluxIncapacites
+{
+    Task<LotFlux<NotificationIncapacite>> RecupererNotificationsAsync(string? position, CancellationToken cancellationToken);
+}
+
 /// <summary>Flux BCE : données d'une entreprise et de ses unités d'établissement.</summary>
 public interface IRegistreBce
 {
@@ -182,4 +213,10 @@ public interface IPersonnesClient
     /// (dans le corps de l'appel uniquement). Idempotent sur la référence de la mutation.
     /// </summary>
     Task<ResultatAppel<MutationPersonnes>> AppliquerMutationAsync(MutationRegistreNational mutation, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// SAN-60 : identifiant interne de la personne désignée par son NISS (dans le corps de l'appel uniquement), sans lecture de
+    /// sa fiche ; <c>null</c> si Personnes ne la connaît pas.
+    /// </summary>
+    Task<ResultatAppel<Guid?>> IdentifierAsync(string niss, CancellationToken cancellationToken);
 }

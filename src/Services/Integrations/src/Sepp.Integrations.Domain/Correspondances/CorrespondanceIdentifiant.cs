@@ -13,6 +13,9 @@ public enum TypeIdentifiantExterne
 
     /// <summary>Référence d'une déclaration DIMONA.</summary>
     ReferenceDimona,
+
+    /// <summary>Référence d'une incapacité de travail à la source (flux eHealth, SAN-60).</summary>
+    ReferenceIncapacite,
 }
 
 /// <summary>Objet interne (identifiant UUID du service propriétaire, DAT-02).</summary>
@@ -20,6 +23,9 @@ public enum TypeObjetInterne
 {
     Affilie,
     Occupation,
+
+    /// <summary>Incapacité publiée (<c>IncapaciteId</c> de <c>integrations.incapacite-notifiee</c>, SAN-60).</summary>
+    Incapacite,
 }
 
 /// <summary>
@@ -72,6 +78,11 @@ public sealed class CorrespondanceIdentifiant : AggregateRoot
             throw new DomainException("Une référence DIMONA correspond à une occupation.");
         }
 
+        if (typeExterne == TypeIdentifiantExterne.ReferenceIncapacite && typeInterne != TypeObjetInterne.Incapacite)
+        {
+            throw new DomainException("Une référence d'incapacité correspond à une incapacité.");
+        }
+
         return new CorrespondanceIdentifiant(NewId(), typeExterne, Normaliser(typeExterne, valeurExterne), typeInterne, identifiantInterne);
     }
 
@@ -80,6 +91,7 @@ public sealed class CorrespondanceIdentifiant : AggregateRoot
     {
         TypeIdentifiantExterne.NumeroBce => NumerosBce.Entreprise(valeur),
         TypeIdentifiantExterne.ReferenceDimona => Texte.Obligatoire(valeur, "La référence DIMONA", 50).ToUpperInvariant(),
+        TypeIdentifiantExterne.ReferenceIncapacite => Texte.Obligatoire(valeur, "La référence d'incapacité", 100).ToUpperInvariant(),
         _ => throw new DomainException($"Type d'identifiant externe inconnu : {typeExterne}."),
     };
 

@@ -20,6 +20,7 @@ public static class DependencyInjection
 
         services.AddScoped<ICommandHandler<CreerPersonne, PersonneEnregistreeDto>, CreerPersonneHandler>();
         services.AddScoped<IQueryHandler<RechercherParNiss, PersonneResumeDto>, RechercherParNissHandler>();
+        services.AddScoped<IQueryHandler<IdentifierPersonne, IdentificationDto>, IdentifierPersonneHandler>();
         services.AddScoped<IQueryHandler<ObtenirPersonne, PersonneDto>, ObtenirPersonneHandler>();
         services.AddScoped<IQueryHandler<ListerTravailleurs, IReadOnlyList<PersonneResumeDto>>, ListerTravailleursHandler>();
         services.AddScoped<ICommandHandler<ModifierIdentite, Unit>, ModifierIdentiteHandler>();

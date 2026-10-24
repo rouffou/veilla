@@ -2,6 +2,7 @@ extern alias CommunicationsHote;
 extern alias DocumentsHote;
 extern alias ObligationsHote;
 extern alias PlanificationHote;
+extern alias ReintegrationHote;
 extern alias SurveillanceMedicaleHote;
 
 using System.Net;
@@ -16,6 +17,7 @@ using Sepp.Communications.Adapters.Persistence;
 using Sepp.Documents.Adapters.Persistence;
 using Sepp.Obligations.Adapters.Persistence;
 using Sepp.Planification.Adapters.Persistence;
+using Sepp.Reintegration.Adapters.Persistence;
 using Sepp.SurveillanceMedicale.Adapters.Persistence;
 
 using Shouldly;
@@ -26,6 +28,7 @@ using CommunicationsProgram = CommunicationsHote::Program;
 using DocumentsProgram = DocumentsHote::Program;
 using ObligationsProgram = ObligationsHote::Program;
 using PlanificationProgram = PlanificationHote::Program;
+using ReintegrationProgram = ReintegrationHote::Program;
 using SurveillanceMedicaleProgram = SurveillanceMedicaleHote::Program;
 
 namespace Sepp.Sagas.Tests.Plateforme;
@@ -56,12 +59,15 @@ public sealed class PlateformeSaga : IAsyncLifetime
 
     public HoteService Documents { get; private set; } = null!;
 
+    /// <summary>Trajet de réintégration (ADR 0008, SAN-62) : zone médicale, canal eHealth simulé, traitements d'arrière-plan arrêtés.</summary>
+    public HoteService Reintegration { get; private set; } = null!;
+
     public string ChaineConnexion(string base_) => new NpgsqlConnectionStringBuilder(_postgres.GetConnectionString()) { Database = base_ }.ConnectionString;
 
     public async ValueTask InitializeAsync()
     {
         await _postgres.StartAsync();
-        foreach (var nom in new[] { "obligations", "planification", "surveillance_medicale", "communications", "documents" })
+        foreach (var nom in new[] { "obligations", "planification", "surveillance_medicale", "communications", "documents", "reintegration" })
         {
             await using var connexion = new NpgsqlConnection(_postgres.GetConnectionString());
             await connexion.OpenAsync();
@@ -115,6 +121,13 @@ public sealed class PlateformeSaga : IAsyncLifetime
         }
 
         Documents = Demarrer<DocumentsProgram, DocumentsDbContext>("documents", "Documents", "documents", documents);
+        Reintegration = Demarrer<ReintegrationProgram, ReintegrationDbContext>("reintegration", "Reintegration", "reintegration", new Dictionary<string, string>
+        {
+            ["ZoneMedicale:Encryption:CurrentKeyId"] = "test-medical",
+            ["ZoneMedicale:Encryption:Keys:test-medical"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
+            ["Reintegration:Adaptateurs:EHealth"] = "Simulateur",
+            ["Reintegration:Traitement:Actif"] = "false",
+        });
 
         // Préparation : les modèles de départ de Documents sont en brouillon ; sans modèle publié, DecisionEmise échoue.
         await PublierModelesDocumentsAsync(CancellationToken.None);

@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sepp.Reintegration.Adapters/Sepp.Reintegration.Adapters.csproj" />
+    <Project Path="src/Sepp.Reintegration.Application/Sepp.Reintegration.Application.csproj" />
+    <Project Path="src/Sepp.Reintegration.Domain/Sepp.Reintegration.Domain.csproj" />
+    <Project Path="src/Sepp.Reintegration.Infrastructure/Sepp.Reintegration.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sepp.Reintegration.Application.Tests/Sepp.Reintegration.Application.Tests.csproj" />
+    <Project Path="tests/Sepp.Reintegration.Architecture.Tests/Sepp.Reintegration.Architecture.Tests.csproj" />
+    <Project Path="tests/Sepp.Reintegration.Domain.Tests/Sepp.Reintegration.Domain.Tests.csproj" />
+    <Project Path="tests/Sepp.Reintegration.Integration.Tests/Sepp.Reintegration.Integration.Tests.csproj" />
+  </Folder>
+  <Project Path="../../../tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Application/Sepp.BuildingBlocks.Application.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Domain/Sepp.BuildingBlocks.Domain.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Infrastructure/Sepp.BuildingBlocks.Infrastructure.csproj" />
+  <Project Path="../../BuildingBlocks/Sepp.BuildingBlocks.Web/Sepp.BuildingBlocks.Web.csproj" />
+  <Project Path="../../Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
+</Solution>

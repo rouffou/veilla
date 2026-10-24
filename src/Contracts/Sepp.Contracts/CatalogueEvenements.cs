@@ -72,18 +72,29 @@ namespace Sepp.Contracts.SurveillanceMedicale
 
 namespace Sepp.Contracts.Reintegration
 {
+    /// <summary>
+    /// SAN-62 : un trajet de réintégration est demandé. <c>Initiateur</c> : code de <see cref="CodesReintegration.InitiateursTrajet"/>.
+    /// Identifiants, dates et codes seulement : ni motif médical, ni contenu de l'évaluation (ARC-06).
+    /// </summary>
     [EventContract("reintegration.trajet-demarre", 1)]
     public sealed record TrajetDemarre(Guid TrajetId, Guid PersonneId, Guid AffilieId, string Initiateur, DateOnly DateDemande) : IntegrationEvent;
 
+    /// <summary>SAN-62 : fin du trajet. <c>Statut</c> : code de <see cref="CodesReintegration.StatutsFinTrajet"/>.</summary>
     [EventContract("reintegration.trajet-termine", 1)]
     public sealed record TrajetTermine(Guid TrajetId, Guid PersonneId, Guid AffilieId, string Statut, DateOnly DateFin) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.Integrations
 {
-    /// <summary>Notification d'incapacité reçue de l'employeur ou du médecin-conseil (SAN-60).</summary>
+    /// <summary>
+    /// Notification d'incapacité reçue de l'employeur ou du médecin-conseil (SAN-60), par le flux eHealth du service
+    /// Intégrations. <c>Source</c> : code de <see cref="Reintegration.CodesReintegration.SourcesIncapacite"/>. Republiée avec le
+    /// même <c>IncapaciteId</c> quand l'incapacité est prolongée (état courant, idempotent). <c>DateFinPrevue</c> (fin prévue,
+    /// dernier jour inclus) est ajouté de façon compatible (ARC-34) : facultatif, <c>null</c> pour un producteur antérieur,
+    /// ignoré par les consommateurs antérieurs. Jamais de diagnostic ni de motif médical (ARC-06).
+    /// </summary>
     [EventContract("integrations.incapacite-notifiee", 1)]
-    public sealed record IncapaciteNotifiee(Guid IncapaciteId, Guid PersonneId, Guid AffilieId, DateOnly DateDebut, string Source) : IntegrationEvent;
+    public sealed record IncapaciteNotifiee(Guid IncapaciteId, Guid PersonneId, Guid AffilieId, DateOnly DateDebut, string Source, DateOnly? DateFinPrevue = null) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.BffEmployeur
