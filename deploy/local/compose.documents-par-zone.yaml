@@ -6,3 +6,7 @@ services:
     environment:
       Documents__Zones__1: ""
       Documents__Zones__2: ""
+  # Le BFF travailleur interroge aussi l instance médicale (clé facultative ServicesAval:DocumentsMedicale).
+  bff-travailleur:
+    environment:
+      ServicesAval__DocumentsMedicale: http://documents-medicale:8080
