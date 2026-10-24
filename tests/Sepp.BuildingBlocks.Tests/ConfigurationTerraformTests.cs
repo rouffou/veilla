@@ -73,8 +73,8 @@ public sealed partial class ConfigurationTerraformTests
         ["referentiels"] = [.. Authentification, .. BasePostgres],
         ["reintegration"] = [.. Authentification, .. BasePostgres, .. Chiffrement("ZoneMedicale:Encryption"), .. Adaptateurs("Reintegration", "EHealth")],
         ["surveillance-medicale"] = [.. Authentification, .. BasePostgres, .. Chiffrement("ZoneMedicale:Encryption")],
-        ["bff-employeur"] = [.. Authentification, "Sepp:Services:Affilies", "Sepp:Services:Personnes", "Sepp:Services:Postes_Risques", "Sepp:Services:Obligations"],
-        ["bff-travailleur"] = [.. Authentification, "Sepp:Services:Planification", "Sepp:Services:Surveillance_Medicale", "Sepp:Services:Obligations", "Sepp:Services:Documents", "Sepp:Services:Documents_Medicale"],
+        ["bff-employeur"] = [.. Authentification, "Cors:OriginesAutorisees:0", "Sepp:Services:Affilies", "Sepp:Services:Personnes", "Sepp:Services:Postes_Risques", "Sepp:Services:Obligations"],
+        ["bff-travailleur"] = [.. Authentification, "Cors:OriginesAutorisees:0", "Sepp:Services:Planification", "Sepp:Services:Surveillance_Medicale", "Sepp:Services:Obligations", "Sepp:Services:Documents", "Sepp:Services:Documents_Medicale"],
     };
 
     /// <summary>
@@ -106,7 +106,7 @@ public sealed partial class ConfigurationTerraformTests
         ["ConnectionStrings"] = "Local",
         ["Database"] = "Defaut",
         ["Outbox"] = "Defaut",
-        ["Cors"] = "Defaut",
+        ["Cors"] = "Terraform",
         ["Audit"] = "Defaut",
         ["Obligations"] = "Defaut",
         ["SurveillanceMedicale"] = "Defaut",
@@ -235,6 +235,61 @@ public sealed partial class ConfigurationTerraformTests
             {
                 terraform.Services[instance].SubscribesTo.ShouldNotBeEmpty($"{instance} : subscription configurée mais aucun subscribes_to dans Terraform.");
                 terraform.CleFournies(instance).ShouldContain(Normaliser("ServiceBus:SubscriptionName"), $"{instance} : Terraform n'injecte pas SERVICEBUS__SUBSCRIPTIONNAME = nom de l'instance.");
+            }
+        }
+
+        ecarts.ShouldBeEmpty(string.Join(Environment.NewLine, ecarts));
+    }
+
+    [Fact]
+    public void La_variable_portal_origins_refuse_le_joker_et_ce_qui_n_est_pas_https()
+    {
+        var variables = Terraform.Lire().Variables;
+        var debut = variables.IndexOf("variable \"portal_origins\"", StringComparison.Ordinal);
+        debut.ShouldBeGreaterThanOrEqualTo(0, "variable \"portal_origins\" absente de infra/variables.tf.");
+        var bloc = variables[debut..];
+
+        bloc.ShouldContain("strcontains(o, \"*\")", Case.Sensitive, "portal_origins doit refuser le joker *.");
+        bloc.ShouldContain("^https://", Case.Sensitive, "portal_origins doit n'accepter que des origines https.");
+        bloc.ShouldContain("length(l) > 0", Case.Sensitive, "portal_origins doit refuser une liste vide.");
+    }
+
+    [Fact]
+    public void Chaque_environnement_fournit_des_origines_https_sans_joker_aux_deux_BFF()
+    {
+        var racine = Terraform.RacineDepot();
+        var environnements = Directory.GetDirectories(Path.Combine(racine, "infra", "environments"));
+        environnements.ShouldNotBeEmpty();
+
+        var ecarts = new List<string>();
+        foreach (var dossier in environnements)
+        {
+            var env = Path.GetFileName(dossier);
+            Regex.IsMatch(File.ReadAllText(Path.Combine(dossier, "main.tf")), @"portal_origins\s*=\s*var\.portal_origins").ShouldBeTrue($"{env} : main.tf ne transmet pas portal_origins.");
+            File.ReadAllText(Path.Combine(dossier, "variables.tf")).ShouldContain("variable \"portal_origins\"", Case.Sensitive, $"{env} : variables.tf ne déclare pas portal_origins.");
+
+            var tfvars = Terraform.SansCommentaires(File.ReadAllText(Path.Combine(dossier, "terraform.tfvars")));
+            var bloc = Regex.Match(tfvars, @"portal_origins\s*=\s*\{(?<v>[^}]*)\}");
+            if (!bloc.Success)
+            {
+                ecarts.Add($"{env} : portal_origins absent de terraform.tfvars.");
+                continue;
+            }
+
+            foreach (var bff in new[] { "bff-employeur", "bff-travailleur" })
+            {
+                var liste = Regex.Match(bloc.Groups["v"].Value, "\"" + bff + "\"\\s*=\\s*\\[(?<l>[^\\]]*)\\]");
+                var origines = liste.Success
+                    ? Regex.Matches(liste.Groups["l"].Value, "\"([^\"]*)\"").Select(m => m.Groups[1].Value).ToList()
+                    : [];
+                if (origines.Count == 0)
+                {
+                    ecarts.Add($"{env} : {bff} sans origines.");
+                }
+
+                ecarts.AddRange(origines
+                    .Where(o => o.Contains('*', StringComparison.Ordinal) || !Regex.IsMatch(o, "^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?$"))
+                    .Select(o => $"{env} : {bff} origine invalide « {o} »."));
             }
         }
 
@@ -577,6 +632,13 @@ public sealed partial class ConfigurationTerraformTests
                 {
                     Ajouter(fournies, _main.Contains("SEPP__SERVICES__", StringComparison.Ordinal) && Fusionne("bff_environment"), $"Sepp__Services__{cible.Replace('-', '_')}");
                 }
+            }
+
+            // CORS des BFF de portail (#358) : origines des portails par environnement, une variable par origine.
+            if (service is "bff-employeur" or "bff-travailleur")
+            {
+                Ajouter(fournies, _main.Contains("CORS__ORIGINESAUTORISEES__", StringComparison.Ordinal) && Fusionne("cors_environment")
+                    && Variables.Contains("variable \"portal_origins\"", StringComparison.Ordinal), "Cors__OriginesAutorisees__0");
             }
 
             // Variables communes à tous les services abonnés : la subscription porte le nom du service ou de l'instance.

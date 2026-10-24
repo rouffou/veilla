@@ -227,8 +227,8 @@ services:
       ServicesAval__Personnes: http://personnes:8080
       ServicesAval__PostesRisques: http://postes-risques:8080
       ServicesAval__Obligations: http://obligations:8080
-      Cors__Origines__0: http://localhost:8082
-      Cors__Origines__1: http://localhost:4201
+      Cors__OriginesAutorisees__0: http://localhost:8082
+      Cors__OriginesAutorisees__1: http://localhost:4201
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
     ports:
       - "5200:8080"
@@ -263,8 +263,8 @@ services:
       ServicesAval__Affilies: http://affilies:8080
       ServicesAval__Obligations: http://obligations:8080
       ServicesAval__Documents: http://documents:8080
-      Cors__Origines__0: http://localhost:8083
-      Cors__Origines__1: http://localhost:4202
+      Cors__OriginesAutorisees__0: http://localhost:8083
+      Cors__OriginesAutorisees__1: http://localhost:4202
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
     ports:
       - "5201:8080"

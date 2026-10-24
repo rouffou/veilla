@@ -38,7 +38,7 @@ portail en local). Projet `Sepp.Bff.Travailleur`, sans base de données ni domai
   personne n'est lu **que** dans le jeton : aucune route, requête ou corps ne le contient, et celui d'un corps est ignoré.
 - Défense en profondeur côté BFF : rendez-vous et documents d'une autre personne sont écartés ; le contenu d'un document dont le
   destinataire n'est pas la personne du jeton (ou non publié) est traité comme inconnu (404) **avant** toute lecture.
-- Aucun NISS n'est relayé. CORS : origines explicites (`Cors:Origines`), méthodes GET/POST.
+- Aucun NISS n'est relayé. CORS (#358, ARC-42, NF-03) : origines exactes (`Cors:OriginesAutorisees`, jamais de joker ni `AllowAnyOrigin`), méthodes GET/POST, sans credentials (jeton porteur, pas de cookie).
 
 ## Endpoints (`/api/v1`)
 
@@ -106,7 +106,7 @@ claim dans le courtier ou un service Identité.
 | `Authentication:Authority`, `MetadataAddress`, `ValidIssuer`, `Audience` (`sepp-api`) | validation du jeton (socle) |
 | `ServicesAval:Planification`, `:SurveillanceMedicale`, `:Personnes`, `:Affilies`, `:Obligations`, `:Documents` | URL des services (obligatoires, vérifiées au démarrage) ; en local `http://localhost:5117`, `5118`, `5112`, `5111`, `5116`, `5119` ; à défaut `SEPP__SERVICES__PLANIFICATION`, `…__SURVEILLANCE_MEDICALE`, `…__PERSONNES`, `…__AFFILIES`, `…__OBLIGATIONS`, `…__DOCUMENTS` (et, facultative, `…__DOCUMENTS_MEDICALE`) injectées par Terraform |
 | `ServicesAval:DocumentsMedicale` | instance Documents de la zone médicale (décision #356), **facultative** : sans valeur en local (`SEPP__SERVICES__DOCUMENTS_MEDICALE` injectée par Terraform), une seule instance sert toutes les zones |
-| `Cors:Origines` | origines du portail |
+| `Cors:OriginesAutorisees` | origines du portail, https://hôte[:port] sans chemin ni joker ; obligatoire hors Development/Test (le démarrage échoue si la liste est vide ou invalide) ; en Azure `CORS__ORIGINESAUTORISEES__0`, `__1`… injectées par Terraform (`portal_origins`) ; en local `http://localhost:8083` et `:4202` |
 
 En compose (`deploy/local/compose.yaml`, service `bff-travailleur`, port **5201**), les services sont joints par leur nom de
 conteneur (`http://planification:8080`…). Image publiée par la matrice de `.github/workflows/service-images.yml`.

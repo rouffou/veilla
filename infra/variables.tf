@@ -572,6 +572,31 @@ variable "authentication_audience" {
   }
 }
 
+variable "portal_origins" {
+  description = "Origines CORS autorisées sur chaque BFF de portail (#358, ARC-42, ARC-43), par nom de service : bff-employeur et bff-travailleur. Une origine = https://hôte[:port] des domaines publics (APIM, Application Gateway ou domaine du portail) ; ni joker, ni http, ni chemin. Injectées en CORS__ORIGINESAUTORISEES__<i> ; au démarrage, le BFF refuse une liste vide ou invalide."
+  type        = map(list(string))
+
+  validation {
+    condition     = alltrue([for n in ["bff-employeur", "bff-travailleur"] : contains(keys(var.portal_origins), n)]) && alltrue([for n in keys(var.portal_origins) : contains(["bff-employeur", "bff-travailleur"], n)])
+    error_message = "portal_origins doit définir exactement bff-employeur et bff-travailleur."
+  }
+
+  validation {
+    condition     = alltrue([for n, l in var.portal_origins : length(l) > 0])
+    error_message = "portal_origins : au moins une origine par BFF (une liste vide empêche le démarrage du BFF)."
+  }
+
+  validation {
+    condition     = alltrue([for n, l in var.portal_origins : alltrue([for o in l : !strcontains(o, "*")])])
+    error_message = "portal_origins : le joker * est interdit, les origines doivent être explicites (NF-03)."
+  }
+
+  validation {
+    condition     = alltrue([for n, l in var.portal_origins : alltrue([for o in l : can(regex("^https://[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:[0-9]{1,5})?$", o))])])
+    error_message = "portal_origins : chaque origine doit être de la forme https://hôte[:port], sans chemin, sans barre finale ni identifiants (https obligatoire)."
+  }
+}
+
 variable "technical_account_client_ids" {
   description = "Identifiant client (public) du compte technique OIDC de chaque service qui en déclare un (compte_technique), par nom de service. Le secret du compte est dans le Key Vault de la zone, jamais ici."
   type        = map(string)

@@ -74,6 +74,7 @@ module "sepp" {
   encryption_key_ids                    = var.encryption_key_ids
   entra_tenant_id                       = var.entra_tenant_id
   authentication_audience               = var.authentication_audience
+  portal_origins                        = var.portal_origins
   technical_account_client_ids          = var.technical_account_client_ids
   adapter_mode                          = var.adapter_mode
   log_retention_days                    = var.log_retention_days
