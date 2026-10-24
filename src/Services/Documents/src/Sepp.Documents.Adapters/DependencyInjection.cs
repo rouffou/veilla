@@ -106,7 +106,7 @@ public static class DependencyInjection
         // En Azure, Terraform injecte SEPP__SERVICES__<NOM> (infra/main.tf, service_urls) : repli sur cette clé.
         adresses.SurveillanceMedicale ??= Uri.TryCreate(configuration["Sepp:Services:Surveillance_Medicale"], UriKind.Absolute, out var sm) ? sm : null;
 
-        switch (Choix(configuration, "SourceLinguistique"))
+        switch (Choix(configuration, "SourceLinguistique", reelImplemente: true))
         {
             case Simulateur:
                 services.AddSingleton<ISourceLinguistique, SourceLinguistiqueSimulee>();
@@ -119,9 +119,10 @@ public static class DependencyInjection
         AdaptateursExternes.AjouterSourceDossierSante(services, adresses, compte);
     }
 
-    private static string Choix(IConfiguration configuration, string port)
+    private static string Choix(IConfiguration configuration, string port, bool reelImplemente = false)
     {
         var valeur = configuration[$"Documents:Adaptateurs:{port}"];
+        GardeAdaptateurs.RefuserReelNonImplementeHorsProduction(configuration, $"Documents:Adaptateurs:{port}", valeur, reelImplemente);
         return valeur switch
         {
             Simulateur or Reel => valeur,

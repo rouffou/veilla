@@ -57,21 +57,22 @@ public static class DependencyInjection
         services.AddSingleton<BoiteEnvoiSimulee>();
         services.Configure<OptionsSmtp>(configuration.GetSection("Communications:Smtp"));
 
-        Canal<IPortailNotifications, PortailNotificationsSimule, PortailNotifications>(services, configuration, "Portail");
-        Canal<IEnvoiEmail, EnvoiEmailSimule, EnvoiEmailSmtp>(services, configuration, "Email");
-        Canal<IEnvoiSms, EnvoiSmsSimule, EnvoiSmsNonRaccorde>(services, configuration, "Sms");
-        Canal<IEnvoiCourrier, EnvoiCourrierSimule, EnvoiCourrierNonRaccorde>(services, configuration, "Courrier");
-        Canal<IEnvoiRecommandeElectronique, EnvoiRecommandeElectroniqueSimule, EnvoiRecommandeElectroniqueNonRaccorde>(services, configuration, "RecommandeElectronique");
-        Canal<IEBoxEntreprise, EBoxEntrepriseSimulee, EBoxEntrepriseNonRaccordee>(services, configuration, "EBoxEntreprise");
-        Canal<IEBoxCitoyen, EBoxCitoyenSimulee, EBoxCitoyenNonRaccordee>(services, configuration, "EBoxCitoyen");
+        Canal<IPortailNotifications, PortailNotificationsSimule, PortailNotifications>(services, configuration, "Portail", reelImplemente: true);
+        Canal<IEnvoiEmail, EnvoiEmailSimule, EnvoiEmailSmtp>(services, configuration, "Email", reelImplemente: true);
+        Canal<IEnvoiSms, EnvoiSmsSimule, EnvoiSmsNonRaccorde>(services, configuration, "Sms", reelImplemente: false);
+        Canal<IEnvoiCourrier, EnvoiCourrierSimule, EnvoiCourrierNonRaccorde>(services, configuration, "Courrier", reelImplemente: false);
+        Canal<IEnvoiRecommandeElectronique, EnvoiRecommandeElectroniqueSimule, EnvoiRecommandeElectroniqueNonRaccorde>(services, configuration, "RecommandeElectronique", reelImplemente: false);
+        Canal<IEBoxEntreprise, EBoxEntrepriseSimulee, EBoxEntrepriseNonRaccordee>(services, configuration, "EBoxEntreprise", reelImplemente: false);
+        Canal<IEBoxCitoyen, EBoxCitoyenSimulee, EBoxCitoyenNonRaccordee>(services, configuration, "EBoxCitoyen", reelImplemente: false);
     }
 
-    private static void Canal<TPort, TSimulateur, TReel>(IServiceCollection services, IConfiguration configuration, string nom)
+    private static void Canal<TPort, TSimulateur, TReel>(IServiceCollection services, IConfiguration configuration, string nom, bool reelImplemente)
         where TPort : class, ICanalEnvoi
         where TSimulateur : class, TPort
         where TReel : class, TPort
     {
         var choix = configuration[$"Communications:Adaptateurs:{nom}"];
+        GardeAdaptateurs.RefuserReelNonImplementeHorsProduction(configuration, $"Communications:Adaptateurs:{nom}", choix, reelImplemente);
         switch (choix)
         {
             case Simulateur:

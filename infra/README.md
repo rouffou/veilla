@@ -122,6 +122,102 @@ Idem pour `personnes` / `postes-risques` (`personnes.affectation-modifiee.v1`). 
 plan` d'un nouvel environnement n'a pu être validé que par `terraform validate` (pas
 d'accès Azure en CI) : contrôler le résultat réel par la commande ci-dessus.
 
+## Configuration injectée dans les Container Apps (CTR-05, CTR-16)
+
+Aucune configuration ne figure dans l'image : `main.tf` compose, par service, les variables d'environnement
+(`local.app_environment`) et les références Key Vault (`local.service_key_vault_secrets`). Un test
+(`tests/Sepp.BuildingBlocks.Tests/ConfigurationTerraformTests.cs`) échoue si une clé obligatoire lue par le code n'est
+pas fournie par Terraform.
+
+| Clés | Source | Services |
+|---|---|---|
+| `SEPP__SERVICE`, `SEPP__ZONE`, `SEPP__ENVIRONNEMENT`, `AZURE_CLIENT_ID`, `KEYVAULT__URI`, `SERVICEBUS__FULLYQUALIFIEDNAMESPACE` | racine | tous |
+| `POSTGRES__HOST`, `POSTGRES__DATABASE`, `POSTGRES__USER` | module `postgres` et identité du service | services avec base |
+| `Authentication__Authority`, `Authentication__Audience` | `var.entra_tenant_id` (émetteur `https://login.microsoftonline.com/<tenant>/v2.0`), `var.authentication_audience` | tous |
+| `SEPP__SERVICES__<SERVICE>` | adresses internes `https://ca-<service>.<domaine de la zone>` | BFF |
+| `<Section>__ServicesInternes__*` | attribut `internal_services` du catalogue | affilies, communications, documents, integrations |
+| `<Préfixe>__TokenEndpoint`, `__ClientId`, `__Scope` ; secret `__ClientSecret` | attribut `compte_technique`, `var.technical_account_client_ids`, Key Vault de la zone | affilies, communications, documents, integrations |
+| `<Préfixe>__CurrentKeyId` ; secrets `<Préfixe>__Keys__<id>` | attribut `encryption`, `var.encryption_key_ids`, Key Vault de la zone | personnes, integrations, documents, surveillance-medicale |
+| `BLINDINDEX__KEY` | `key_vault_secrets` du catalogue (secret `blindindex--key`) | personnes |
+| `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, integrations, planification |
+
+Un secret est exposé au conteneur sous le nom du secret en majuscules, `-` devenant `_` : le secret
+`documents--chiffrement--medicale--encryption--keys--k1` devient `DOCUMENTS__CHIFFREMENT__MEDICALE__ENCRYPTION__KEYS__K1`,
+soit la clé `Documents:Chiffrement:medicale:Encryption:Keys:K1` de la configuration .NET.
+
+### PostgreSQL par identité managée
+
+Le serveur n'accepte aucun mot de passe (`password_auth_enabled = false`). Au démarrage, `AddSeppPersistence` lit
+`ConnectionStrings:<service>` (développement local, tests) ou, à défaut, `POSTGRES__HOST`, `POSTGRES__DATABASE` et
+`POSTGRES__USER` ; le mot de passe est un jeton Entra (portée `https://ossrdbms-aad.database.windows.net/.default`) obtenu
+par `DefaultAzureCredential` (identité de `AZURE_CLIENT_ID`) et renouvelé toutes les 25 minutes. TLS est obligatoire
+(`SslMode=Require`). `POSTGRES__USER` est le nom de l'identité managée (`id-sepp-<env>-<service>`), qui doit exister comme rôle
+PostgreSQL (étape 3 de l'amorçage).
+
+### Secrets applicatifs (créés hors du dépôt)
+
+Terraform ne contient **aucune valeur secrète** et ne crée pas les secrets : il les référence (`key_vault_secret_id` sans
+version, lus avec l'identité du service). Les secrets doivent exister **avant** le déploiement des Container Apps (une
+référence vers un secret absent fait échouer l'`apply`). Les Key Vault n'ayant aucun accès public, les créer depuis un
+agent relié au VNet, avec le rôle *Key Vault Secrets Officer* sur le coffre de la zone. Valeurs :
+
+- clé de chiffrement : 256 bits aléatoires en base64 (`openssl rand -base64 32`), **distincte par zone** (Documents refuse
+  de démarrer si deux zones partagent une clé) ;
+- clé de l'index aveugle du NISS : idem, 256 bits en base64 ;
+- secret d'un compte technique : le secret client de l'application Entra du service.
+
+```bash
+# <id> = identifiant de var.encryption_key_ids en minuscules (par défaut k1)
+az keyvault secret set --vault-name <kv-standard> --name personnes--encryption--keys--<id> --value "$(openssl rand -base64 32)" >/dev/null
+```
+
+| Secret | Coffre | Service |
+|---|---|---|
+| `personnes--encryption--keys--<id>` | standard | personnes |
+| `integrations--encryption--keys--<id>` | standard | integrations |
+| `blindindex--key` | standard | personnes |
+| `surveillance-medicale--zonemedicale--encryption--keys--<id>` | médicale | surveillance-medicale |
+| `documents--chiffrement--<zone>--encryption--keys--<id>` | coffre de chaque zone (`standard`, `medicale`, `psychosociale`) | documents |
+| `affilies--comptetechnique--clientsecret`, `communications--comptetechnique--clientsecret`, `documents--comptetechnique--clientsecret`, `integrations--personnes--clientsecret` | standard | affilies, communications, documents, integrations |
+
+Le secret Key Vault d'une clé de chiffrement est préfixé par le nom du service (une clé par service) ; la variable
+d'environnement injectée reste `ENCRYPTION__KEYS__<ID>` (ou le préfixe propre au service).
+
+Rotation : ajouter le nouvel identifiant **en tête** de `encryption_key_ids` (la clé courante) en conservant les anciens
+(déchiffrement), après avoir créé les nouveaux secrets ; retirer un identifiant seulement quand plus aucune donnée ne
+l'utilise (`FieldEncryptor.NeedsRotation`). Les identifiants sont en majuscules et chiffres (`K1`, `K2`), les variables
+d'environnement étant en majuscules.
+
+Documents lit les clés des trois zones (clés distinctes, §14.3) : son identité reçoit donc *Key Vault Secrets User* sur les
+coffres des zones médicale et psychosociale (`additional_key_vault_zones`). C'est un élargissement volontaire de l'accès
+d'un service standard (ARC-04) **à valider** ; il suppose aussi que l'environnement Container Apps standard puisse joindre ces
+coffres (NSG, voir ci-dessous).
+
+### Adaptateurs externes : simulateurs hors production
+
+`var.adapter_mode` (`Simulateur` par défaut) fixe le choix `Reel` ou `Simulateur` de chaque adaptateur déclaré dans
+`adapters` ; `Reel` n'est accepté par la validation Terraform qu'en production. Les `appsettings.json` choisissent
+`Simulateur` par défaut. Au démarrage, un adaptateur `Reel` encore à l'état de squelette fait échouer le service avec un
+message clair hors production (`SEPP__ENVIRONNEMENT` différent de `prod` ou absent) : `GardeAdaptateurs` dans
+`Sepp.BuildingBlocks.Infrastructure`. En production, `Reel` reste à implémenter avant le premier déploiement (README des
+services Intégrations, Documents, Planification, Communications). Surveillance médicale n'a pas d'adaptateur réel : son choix
+`Simulateur` est fixe.
+
+### À vérifier sur Azure (#282)
+
+Ce câblage n'a été validé que par `terraform fmt` / `validate`, un `terraform apply` des seules expressions locales (sans
+ressource) et les tests .NET : aucun `plan` ni `apply` réel n'a été exécuté.
+
+- les secrets de chaque zone sont créés avant l'`apply` et les noms correspondent (`az keyvault secret list`) ;
+- le rôle PostgreSQL de chaque identité existe et la connexion par jeton aboutit (`/health/ready` vert) ;
+- l'émetteur et l'audience des jetons correspondent aux applications Entra (v2.0 : `iss` = `Authority`, `aud` = `Audience`) ;
+- les comptes techniques obtiennent un jeton (`<audience>/.default`) portant le rôle attendu (`affilies`, `communications`, `documents`, `integrations`) ;
+- le service Documents lit les secrets des coffres médical et psychosocial : rôle RBAC propagé et flux réseau (point privé de la zone cible depuis l'environnement standard, aujourd'hui refusé par la segmentation NSG des zones) ;
+- les adresses internes `https://ca-<service>.<domaine>` résolvent depuis les environnements appelants et les restrictions d'IP d'entrée les autorisent ;
+- la migration des schémas (`Database:MigrateOnStartup` vaut `false` par défaut) est assurée par la chaîne de déploiement ;
+- les valeurs d'exemple des `terraform.tfvars` (`entra_tenant_id`, `technical_account_client_ids`, `authentication_audience`) sont remplacées ;
+- les origines CORS des BFF (`Cors__Origines__*`) et l'authentification des portails externes (fédération CSAM, ADR 0005) ne sont pas encore injectées.
+
 ## Correspondance avec les exigences
 
 | Exigence | Mise en œuvre |
@@ -212,10 +308,13 @@ Les Container Apps référencent des images qui doivent déjà exister dans l'AC
 3. Créer les rôles PostgreSQL des identités managées (une fois par base, avec le groupe
    administrateur Entra) : `select * from pgaadauth_create_principal('id-sepp-<env>-<service>', false, false);`
    puis accorder les droits sur la base du service uniquement (ARC-02).
-4. Importer le certificat TLS public dans le Key Vault plateforme puis renseigner
+4. Créer les secrets applicatifs dans les Key Vault de zone (clés de chiffrement, clé de l'index aveugle, secrets des
+   comptes techniques : voir « Secrets applicatifs ») et renseigner dans `terraform.tfvars` le tenant Entra,
+   l'audience et les identifiants clients des comptes techniques.
+5. Importer le certificat TLS public dans le Key Vault plateforme puis renseigner
    `appgw_ssl_certificate_secret_id` (obligatoire en préproduction et production : un
    avertissement `check` le signale).
-5. `terraform apply` (avec `deploy_container_apps = true`).
+6. `terraform apply` (avec `deploy_container_apps = true`).
 
 Les déploiements applicatifs suivants (nouvelle image, répartition du trafic entre
 révisions) sont faits par la CI/CD (`az containerapp update` / `revision`), Terraform

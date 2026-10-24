@@ -36,6 +36,23 @@ document_immutability_locked = false
 managed_hsm_enabled          = false
 managed_hsm_admin_object_ids = []
 
+# Identité (ARC-40) : tenant Entra et audience des jetons de l'environnement. Valeurs d'exemple à remplacer
+# (identifiants publics, pas des secrets) ; les secrets des comptes techniques sont dans le Key Vault de la zone.
+entra_tenant_id         = "00000000-0000-0000-0000-000000000000"
+authentication_audience = "api://sepp-dev"
+technical_account_client_ids = {
+  affilies       = "00000000-0000-0000-0000-000000000000"
+  communications = "00000000-0000-0000-0000-000000000000"
+  documents      = "00000000-0000-0000-0000-000000000000"
+  integrations   = "00000000-0000-0000-0000-000000000000"
+}
+
+# Adaptateurs externes : Simulateur hors production (ARC-05, NF-14).
+adapter_mode = "Simulateur"
+
+# Chiffrement applicatif (ARC-45) : identifiant de la clé courante en premier, anciennes clés ensuite (rotation).
+encryption_key_ids = ["K1"]
+
 # Observabilité
 log_retention_days = 30
 alert_email        = null

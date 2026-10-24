@@ -59,11 +59,71 @@ locals {
     for z in local.zones : z => z == "platform" ? local.platform_callers : [module.network.subnet_prefixes["cae-platform"], module.network.subnet_prefixes["cae-${z}"]]
   }
 
-  # URL internes des services, communiquées aux BFF (ARC-30).
-  service_urls = {
+  # URL internes des services (ARC-30), communiquées aux BFF (SEPP__SERVICES__*) et aux services appelants
+  # (internal_services du catalogue).
+  service_url_by_name = {
     for n, s in var.services :
-    "SEPP__SERVICES__${upper(replace(n, "-", "_"))}" => "https://ca-${n}.${module.container_apps_env[s.zone].default_domain}"
+    n => "https://ca-${n}.${module.container_apps_env[s.zone].default_domain}"
     if s.zone != "platform"
+  }
+  service_urls = { for n, url in local.service_url_by_name : "SEPP__SERVICES__${upper(replace(n, "-", "_"))}" => url }
+
+  # --- Authentification des jetons (ARC-40, ADR 0005) : chaque service valide émetteur et audience ---
+  authentication_authority = "https://login.microsoftonline.com/${var.entra_tenant_id}/v2.0"
+  technical_token_endpoint = "https://login.microsoftonline.com/${var.entra_tenant_id}/oauth2/v2.0/token"
+  technical_scope          = "${var.authentication_audience}/.default"
+  authentication_environment = {
+    Authentication__Authority = local.authentication_authority
+    Authentication__Audience  = var.authentication_audience
+  }
+
+  # --- Appels entre services : adresses internes et comptes techniques (secret par référence Key Vault) ---
+  internal_services_environment = {
+    for n, s in var.services : n => { for cle, cible in s.internal_services : cle => local.service_url_by_name[cible] }
+  }
+  technical_account_environment = {
+    for n, s in var.services : n => {
+      "${s.compte_technique}__TokenEndpoint" = local.technical_token_endpoint
+      "${s.compte_technique}__ClientId"      = var.technical_account_client_ids[n]
+      "${s.compte_technique}__Scope"         = local.technical_scope
+    } if s.compte_technique != null
+  }
+
+  # --- Adaptateurs externes : Simulateur partout hors production (ARC-05, NF-14) ---
+  adapters_environment = {
+    for n, s in var.services : n => { for cle in s.adapters : cle => var.adapter_mode }
+  }
+
+  # --- Chiffrement applicatif (ARC-45) : clé courante en clair (identifiant), clés en secrets Key Vault ---
+  encryption_environment = {
+    for n, s in var.services : n => { for prefixe in keys(s.encryption) : "${prefixe}__CurrentKeyId" => var.encryption_key_ids[0] }
+  }
+
+  # --- Secrets Key Vault (références, jamais de valeur dans Terraform ni dans l'état) : la clé de chaque entrée est le
+  # nom du secret de l'application, dont la variable d'environnement est le nom en majuscules, « - » devenant « _ »
+  # (module containerapp). Le secret Key Vault d'une clé de chiffrement est préfixé par le nom du service (une clé par
+  # service, même quand deux services lisent la même section Encryption). Les secrets sont créés hors du dépôt
+  # (infra/README.md, « Secrets applicatifs »). ---
+  secret_name_prefix = {
+    for n, s in var.services : n => { for prefixe in keys(s.encryption) : prefixe => lower(replace(prefixe, "_", "-")) }
+  }
+  service_key_vault_secrets = {
+    for n, s in var.services : n => merge(
+      { for k, v in s.key_vault_secrets : k => "${module.keyvault[s.zone].key_vault_uri}secrets/${v}" },
+      s.compte_technique == null ? {} : {
+        "${lower(replace(s.compte_technique, "_", "-"))}--clientsecret" = "${module.keyvault[s.zone].key_vault_uri}secrets/${lower(replace(s.compte_technique, "_", "-"))}--clientsecret"
+      },
+      merge({}, [
+        for prefixe, zone in s.encryption : {
+          for id in var.encryption_key_ids :
+          "${local.secret_name_prefix[n][prefixe]}--keys--${lower(id)}" => "${module.keyvault[zone].key_vault_uri}secrets/${startswith(local.secret_name_prefix[n][prefixe], "${n}--") ? "" : "${n}--"}${local.secret_name_prefix[n][prefixe]}--keys--${lower(id)}"
+        }
+      ]...),
+    )
+  }
+  # Zones dont un service lit un Key Vault autre que le sien (clés de chiffrement par zone de Documents).
+  additional_key_vault_zones = {
+    for n, s in var.services : n => sort(tolist(setsubtract(toset(values(s.encryption)), toset([s.zone]))))
   }
 
   # Variables d'environnement injectées dans chaque conteneur (CTR-05 : rien dans l'image).
@@ -94,6 +154,11 @@ locals {
       try(local.postgres_environment[n], {}),
       try(local.documents_environment[n], {}),
       try(local.bff_environment[n], {}),
+      local.authentication_environment,
+      local.internal_services_environment[n],
+      try(local.technical_account_environment[n], {}),
+      local.adapters_environment[n],
+      local.encryption_environment[n],
     )
   }
 }
@@ -215,10 +280,11 @@ module "identity" {
       resource_group_name = azurerm_resource_group.zone[s.zone].name
     }
   }
-  container_registry_id = module.registry.id
-  key_vault_ids         = { for z, kv in module.keyvault : z => kv.key_vault_id }
-  crypto_zones          = local.data_zones
-  tags                  = local.tags
+  container_registry_id      = module.registry.id
+  key_vault_ids              = { for z, kv in module.keyvault : z => kv.key_vault_id }
+  crypto_zones               = local.data_zones
+  additional_key_vault_zones = local.additional_key_vault_zones
+  tags                       = local.tags
 }
 
 module "servicebus" {
@@ -295,7 +361,7 @@ module "container_app" {
   servicebus_message_count       = each.value.message_count
   allowed_source_prefixes        = local.allowed_source_prefixes[each.value.zone]
   environment_variables          = local.app_environment[each.key]
-  key_vault_secrets              = { for k, v in each.value.key_vault_secrets : k => "${module.keyvault[each.value.zone].key_vault_uri}secrets/${v}" }
+  key_vault_secrets              = local.service_key_vault_secrets[each.key]
   app_insights_connection_string = module.monitoring.application_insights_connection_string
   tags                           = merge(local.tags, { zone = each.value.zone, service = each.key })
 

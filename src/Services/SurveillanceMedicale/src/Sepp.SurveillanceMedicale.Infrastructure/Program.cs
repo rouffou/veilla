@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
+using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Web;
 using Sepp.SurveillanceMedicale.Adapters;
 using Sepp.SurveillanceMedicale.Adapters.Api;
@@ -15,7 +16,7 @@ builder.Services.AddSurveillanceMedicaleApplication(
     builder.Configuration.GetSection("SurveillanceMedicale").Get<OptionsSurveillanceMedicale>() ?? new OptionsSurveillanceMedicale());
 builder.Services.AddSurveillanceMedicaleAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
-    .AddNpgSql(builder.Configuration.GetConnectionString(Sepp.SurveillanceMedicale.Adapters.DependencyInjection.ConnectionStringName)!, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
+    .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.SurveillanceMedicale.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
 var app = builder.Build();
 

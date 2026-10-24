@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+
+using Npgsql;
 
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Auditing;
@@ -19,18 +22,37 @@ public static class DependencyInjection
 {
     /// <summary>
     /// Enregistre le contexte EF Core du service (PostgreSQL, snake_case — DAT-09), l'unité de travail,
-    /// l'outbox et son processeur de publication.
+    /// l'outbox et son processeur de publication. La connexion vient de <c>ConnectionStrings:&lt;nom&gt;</c> (développement
+    /// local, tests) ; à défaut, en Azure, de <c>POSTGRES__HOST</c>, <c>POSTGRES__DATABASE</c> et <c>POSTGRES__USER</c>
+    /// avec un jeton Entra de l'identité managée comme mot de passe (<see cref="PostgresIdentiteManagee"/>, CTR-16).
     /// </summary>
     public static IServiceCollection AddSeppPersistence<TContext>(this IServiceCollection services, IConfiguration configuration, string connectionStringName)
         where TContext : SeppDbContext
     {
-        var connectionString = configuration.GetConnectionString(connectionStringName)
-            ?? throw new InvalidOperationException($"Chaîne de connexion '{connectionStringName}' absente de la configuration.");
+        var connectionString = configuration.GetConnectionString(connectionStringName);
 
         services.TryAddSingleton(TimeProvider.System);
-        services.AddDbContext<TContext>(options => options
-            .UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure())
-            .UseSnakeCaseNamingConvention());
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            services.AddDbContext<TContext>(options => options
+                .UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure())
+                .UseSnakeCaseNamingConvention());
+        }
+        else if (PostgresIdentiteManagee.EstConfiguree(configuration))
+        {
+            // Valide la configuration dès l'enregistrement : le démarrage échoue avec un message clair.
+            _ = PostgresIdentiteManagee.ConstruireConnexion(configuration);
+            services.TryAddSingleton(_ => PostgresIdentiteManagee.ConstruireSourceDeDonnees(configuration));
+            services.AddDbContext<TContext>((sp, options) => options
+                .UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>(), npgsql => npgsql.EnableRetryOnFailure())
+                .UseSnakeCaseNamingConvention());
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Connexion PostgreSQL absente : renseigner ConnectionStrings:{connectionStringName} (local) ou POSTGRES__HOST, POSTGRES__DATABASE et POSTGRES__USER (Azure, identité managée).");
+        }
+
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<TContext>());
         services.AddScoped<IIntegrationEventOutbox>(sp => sp.GetRequiredService<TContext>());
         services.AddScoped<InboxGuard<TContext>>();
@@ -38,6 +60,18 @@ public static class DependencyInjection
         services.AddOptions<OutboxOptions>().Bind(configuration.GetSection("Outbox"));
         services.AddHostedService<OutboxProcessor<TContext>>();
         return services;
+    }
+
+    /// <summary>
+    /// Sonde de disponibilité PostgreSQL du service : chaîne de connexion locale ou, en Azure, source de données à
+    /// jeton Entra partagée avec le contexte EF Core (<see cref="AddSeppPersistence{TContext}"/>).
+    /// </summary>
+    public static IHealthChecksBuilder AddSeppPostgresHealthCheck(this IHealthChecksBuilder builder, IConfiguration configuration, string connectionStringName, string name, IEnumerable<string>? tags = null)
+    {
+        var connectionString = configuration.GetConnectionString(connectionStringName);
+        return !string.IsNullOrWhiteSpace(connectionString)
+            ? builder.AddNpgSql(connectionString, name: name, tags: tags)
+            : builder.AddNpgSql(sp => sp.GetRequiredService<NpgsqlDataSource>(), name: name, tags: tags);
     }
 
     /// <summary>

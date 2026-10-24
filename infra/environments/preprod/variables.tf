@@ -115,6 +115,31 @@ variable "managed_hsm_admin_object_ids" {
   type        = list(string)
 }
 
+variable "encryption_key_ids" {
+  description = "Identifiants des clés de chiffrement applicatif : la première est la clé courante (ARC-45)."
+  type        = list(string)
+}
+
+variable "entra_tenant_id" {
+  description = "Tenant Microsoft Entra de l'environnement (émetteur des jetons, ARC-40)."
+  type        = string
+}
+
+variable "authentication_audience" {
+  description = "Audience des jetons acceptés par les services de l'environnement."
+  type        = string
+}
+
+variable "technical_account_client_ids" {
+  description = "Identifiant client (public) du compte technique OIDC de chaque service concerné."
+  type        = map(string)
+}
+
+variable "adapter_mode" {
+  description = "Adaptateurs externes : Simulateur hors production, Reel en production."
+  type        = string
+}
+
 variable "log_retention_days" {
   description = "Rétention Log Analytics (jours)."
   type        = number
