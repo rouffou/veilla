@@ -712,8 +712,9 @@ public sealed class IncapaciteLocale
     /// <summary>
     /// SAN-02 : une incapacité reçue par eHealth et saisie à la main dans Réintégration n'ouvre qu'une estimation. Clé
     /// métier : (personne, affilié, date de début), la source exclue (par définition, les deux canaux diffèrent). Parmi les
-    /// lignes de même clé, la première enregistrée l'emporte (puis le plus petit identifiant) : l'obligation déjà ouverte
-    /// garde sa clé, sans annulation ni recréation à l'arrivée du second canal, quel que soit l'ordre de réception.
+    /// lignes de même clé, la première enregistrée l'emporte : horodatages strictement croissants sous verrou (voir
+    /// <c>ProjectionIncapacite</c>) ; le plus petit identifiant ne départage que des lignes antérieures à cette règle.
+    /// L'obligation déjà ouverte garde sa clé, sans annulation ni recréation à l'arrivée du second canal, quel que soit l'ordre.
     /// </summary>
     public static IEnumerable<IncapaciteLocale> SansDoublons(IEnumerable<IncapaciteLocale> incapacites) =>
         incapacites

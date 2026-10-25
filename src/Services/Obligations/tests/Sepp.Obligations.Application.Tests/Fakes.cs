@@ -206,6 +206,14 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IObl
 
     public void Add(RepriseLocale reprise) => Reprises.Add(reprise);
 
+    public int VerrousIncapacites { get; private set; }
+
+    public Task VerrouillerIncapacitesAsync(Guid personneId, CancellationToken cancellationToken)
+    {
+        VerrousIncapacites++;
+        return Task.CompletedTask;
+    }
+
     public Task<IncapaciteLocale?> GetIncapaciteAsync(Guid incapaciteId, CancellationToken cancellationToken) =>
         Task.FromResult(Incapacites.SingleOrDefault(i => i.IncapaciteId == incapaciteId));
 

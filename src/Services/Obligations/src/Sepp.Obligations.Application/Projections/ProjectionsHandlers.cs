@@ -365,17 +365,29 @@ public sealed class IncapaciteSaisieHandler(IProjectionRepository projections, M
             integrationEvent.DateDebut, integrationEvent.Source, cancellationToken);
 }
 
-/// <summary>Projection commune aux deux canaux d'incapacité : une ligne par identifiant reçu (état courant, idempotent).</summary>
+/// <summary>
+/// Projection commune aux deux canaux d'incapacité : une ligne par identifiant reçu (état courant, idempotent). Le traitement
+/// des incapacités d'un travailleur est sérialisé (verrou transactionnel) et chaque nouvelle ligne reçoit un horodatage
+/// d'enregistrement strictement postérieur à celui des lignes de même clé métier : l'ordre « première enregistrée » qui
+/// départage les doublons (<see cref="IncapaciteLocale.SansDoublons"/>) est total et stable, même à horloge figée ou si les deux
+/// canaux arrivent au même instant.
+/// </summary>
 internal static class ProjectionIncapacite
 {
+    private static readonly TimeSpan Microseconde = TimeSpan.FromTicks(TimeSpan.TicksPerMicrosecond);
+
     public static async Task AppliquerAsync(
         IProjectionRepository projections, MiseAJourProjection miseAJour, TimeProvider horloge, Guid incapaciteId, Guid personneId, Guid affilieId,
         DateOnly dateDebut, string source, CancellationToken cancellationToken)
     {
+        await projections.VerrouillerIncapacitesAsync(personneId, cancellationToken);
         var incapacite = await projections.GetIncapaciteAsync(incapaciteId, cancellationToken);
         if (incapacite is null)
         {
-            projections.Add(new IncapaciteLocale(incapaciteId, personneId, affilieId, dateDebut, source, horloge.GetUtcNow()));
+            var existantes = await projections.IncapacitesDeAsync(personneId, cancellationToken);
+            var cle = (personneId, affilieId, dateDebut);
+            projections.Add(new IncapaciteLocale(incapaciteId, personneId, affilieId, dateDebut, source,
+                Enregistrement(horloge.GetUtcNow(), existantes.Where(i => i.CleMetier == cle).Select(i => i.EnregistreeLe))));
         }
         else
         {
@@ -383,6 +395,14 @@ internal static class ProjectionIncapacite
         }
 
         await miseAJour.TerminerAsync([personneId], cancellationToken);
+    }
+
+    /// <summary>Maintenant, à la microseconde (précision de PostgreSQL), et après toute ligne déjà enregistrée de même clé.</summary>
+    internal static DateTimeOffset Enregistrement(DateTimeOffset maintenant, IEnumerable<DateTimeOffset> precedents)
+    {
+        var tronque = new DateTimeOffset(maintenant.UtcTicks - (maintenant.UtcTicks % TimeSpan.TicksPerMicrosecond), TimeSpan.Zero);
+        var dernier = precedents.DefaultIfEmpty(DateTimeOffset.MinValue).Max();
+        return tronque > dernier ? tronque : dernier + Microseconde;
     }
 }
 

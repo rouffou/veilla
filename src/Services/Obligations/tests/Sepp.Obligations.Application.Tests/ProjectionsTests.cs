@@ -338,39 +338,49 @@ public class ProjectionsTests
         Store.Publies<ObligationCreee>().ShouldHaveSingleItem();
     }
 
+    /// <summary>
+    /// Horloge figée (les deux canaux au même instant) et identifiants défavorables (le second arrivé a le plus petit) : la
+    /// première ligne enregistrée l'emporte quand même, l'obligation ouverte n'est ni annulée ni recréée.
+    /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task La_meme_incapacite_saisie_puis_recue_par_ehealth_ou_l_inverse_n_ouvre_qu_une_estimation(bool saisieDAbord)
     {
         var debut = new DateOnly(2026, 4, 15);
-        var saisie = new IncapaciteSaisie(Guid.CreateVersion7(), _banc.Personne, _banc.Affilie, debut, CodesReintegration.SourcesIncapacite.SaisieManuelle, null);
-        var notification = new IncapaciteNotifiee(Guid.CreateVersion7(), _banc.Personne, _banc.Affilie, debut, CodesReintegration.SourcesIncapacite.Employeur, new DateOnly(2026, 7, 31));
+        var ids = new[] { Guid.CreateVersion7(), Guid.CreateVersion7() }.Order().ToArray();
+        var (idSaisie, idEHealth) = saisieDAbord ? (ids[1], ids[0]) : (ids[0], ids[1]);
+        var saisie = new IncapaciteSaisie(idSaisie, _banc.Personne, _banc.Affilie, debut, CodesReintegration.SourcesIncapacite.SaisieManuelle, null);
+        var notification = new IncapaciteNotifiee(idEHealth, _banc.Personne, _banc.Affilie, debut, CodesReintegration.SourcesIncapacite.Employeur, new DateOnly(2026, 7, 31));
         var parSaisie = new IncapaciteSaisieHandler(Store, _banc.MiseAJour, _banc.Clock);
         var parEHealth = new IncapaciteNotifieeHandler(Store, _banc.MiseAJour, _banc.Clock);
 
         if (saisieDAbord)
         {
             await parSaisie.HandleAsync(saisie, Ct);
-            _banc.Clock.Advance(TimeSpan.FromHours(2));
             await parEHealth.HandleAsync(notification, Ct);
         }
         else
         {
             await parEHealth.HandleAsync(notification, Ct);
-            _banc.Clock.Advance(TimeSpan.FromHours(2));
             await parSaisie.HandleAsync(saisie, Ct);
         }
 
+        var premiere = saisieDAbord ? idSaisie : idEHealth;
+        var estimation = Store.Obligations.ShouldHaveSingleItem();
+
         // Rejeu et prolongation eHealth : toujours une seule estimation, jamais annulée puis recréée.
-        await parEHealth.HandleAsync(notification, Ct);
+        await parEHealth.HandleAsync(notification with { DateFinPrevue = new DateOnly(2026, 9, 30) }, Ct);
         await parSaisie.HandleAsync(saisie, Ct);
 
         Store.Incapacites.Count.ShouldBe(2);
-        var estimation = Store.Obligations.ShouldHaveSingleItem();
+        Store.Incapacites.Single(i => i.IncapaciteId == premiere).EnregistreeLe
+            .ShouldBeLessThan(Store.Incapacites.Single(i => i.IncapaciteId != premiere).EnregistreeLe);
+        Store.Obligations.ShouldHaveSingleItem().Id.ShouldBe(estimation.Id);
         estimation.Statut.ShouldNotBe(StatutObligation.Annule);
         Store.Publies<ObligationCreee>().ShouldHaveSingleItem();
         Store.Publies<ObligationCloturee>().ShouldBeEmpty();
+        Store.VerrousIncapacites.ShouldBe(4);
     }
 
     [Fact]

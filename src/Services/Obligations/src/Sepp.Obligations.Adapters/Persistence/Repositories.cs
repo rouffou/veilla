@@ -167,6 +167,29 @@ internal sealed class ProjectionRepository(ObligationsDbContext db) : IProjectio
 
     public void Add(RepriseLocale reprise) => db.Reprises.Add(reprise);
 
+    /// <summary>Espace de clés des verrous consultatifs d'Obligations (« OBLI ») : premier argument de <c>pg_advisory_xact_lock</c>.</summary>
+    public const int EspaceVerrouIncapacites = 0x4F42_4C49;
+
+    /// <summary>Second argument du verrou : empreinte stable du travailleur (une collision ne coûte qu'une attente inutile).</summary>
+    public static int CleVerrouIncapacites(Guid personneId)
+    {
+        Span<byte> octets = stackalloc byte[16];
+        personneId.TryWriteBytes(octets);
+        return BitConverter.ToInt32(octets[..4]) ^ BitConverter.ToInt32(octets[4..8]) ^ BitConverter.ToInt32(octets[8..12]) ^ BitConverter.ToInt32(octets[12..]);
+    }
+
+    public async Task VerrouillerIncapacitesAsync(Guid personneId, CancellationToken cancellationToken)
+    {
+        if (db.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException("Le dédoublonnage des incapacités exige une transaction (inbox).");
+        }
+
+        // Verrou transactionnel : libéré au commit ou à l'annulation. La transaction suivante relit ensuite les lignes validées.
+        await db.Database.ExecuteSqlAsync(
+            $"SELECT pg_advisory_xact_lock({EspaceVerrouIncapacites}, {CleVerrouIncapacites(personneId)})", cancellationToken);
+    }
+
     public Task<IncapaciteLocale?> GetIncapaciteAsync(Guid incapaciteId, CancellationToken cancellationToken) =>
         db.Incapacites.SingleOrDefaultAsync(i => i.IncapaciteId == incapaciteId, cancellationToken);
 

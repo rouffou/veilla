@@ -345,6 +345,42 @@ public sealed partial class ObligationsApiTests : IAsyncLifetime
         creees.Count(p => p.Contains(personne.ToString(), StringComparison.Ordinal)).ShouldBe(1);
     }
 
+    /// <summary>
+    /// SAN-02, concurrence : la saisie (rubrique reintegration) et la notification eHealth (rubrique integrations) de la même
+    /// incapacité traitées au même instant par deux consommateurs. Le verrou transactionnel sur le travailleur fait attendre
+    /// la seconde transaction, qui relit la ligne de la première : une seule obligation créée et publiée par travailleur.
+    /// </summary>
+    [Fact]
+    public async Task La_meme_incapacite_recue_simultanement_par_les_deux_canaux_n_ouvre_qu_une_estimation()
+    {
+        var debut = new DateOnly(2026, 4, 15);
+        var personnes = Enumerable.Range(0, 12).Select(_ => Guid.CreateVersion7()).ToList();
+        using var depart = new SemaphoreSlim(0);
+        var livraisons = personnes.SelectMany(personne => new Func<Task<int>>[]
+        {
+            () => Livrer(Guid.CreateVersion7(), new IncapaciteSaisie(Guid.CreateVersion7(), personne, _affilie, debut, CodesReintegration.SourcesIncapacite.SaisieManuelle, null)),
+            () => Livrer(Guid.CreateVersion7(), new IncapaciteNotifiee(Guid.CreateVersion7(), personne, _affilie, debut, CodesReintegration.SourcesIncapacite.Employeur, null)),
+        }).Select(async livrer =>
+        {
+            await depart.WaitAsync(Ct);
+            return await livrer();
+        }).ToList();
+        depart.Release(livraisons.Count);
+
+        (await Task.WhenAll(livraisons)).ShouldAllBe(n => n == 1);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ObligationsDbContext>();
+        var creees = await db.OutboxMessages.Where(m => m.EventType == "obligations.obligation-creee.v1").Select(m => m.Payload).ToListAsync(Ct);
+        foreach (var personne in personnes)
+        {
+            var obligations = await Obligations(personne);
+            obligations.ShouldHaveSingleItem($"Travailleur {personne} : une seule estimation attendue.").Statut.ShouldNotBe("Annule");
+            creees.Count(p => p.Contains(personne.ToString(), StringComparison.Ordinal)).ShouldBe(1);
+            (await db.Incapacites.CountAsync(i => i.PersonneId == personne, Ct)).ShouldBe(2);
+        }
+    }
+
     [Fact]
     public async Task La_reprise_annoncee_et_les_parametres_de_referentiels_donnent_l_examen_de_reprise_et_ses_alertes()
     {
