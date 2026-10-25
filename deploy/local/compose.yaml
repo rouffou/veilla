@@ -284,6 +284,41 @@ services:
       documents:
         condition: service_started
 
+  bff-interne:
+    # BFF de l'application interne (ARC-43, ADR 0013) : relais vers la liste fermée des services (/{service}/api/v1/...) et
+    # écrans composites (/api/v1/ecrans/...), réservé aux profils internes ; sans base ; propage le jeton de l'utilisateur.
+    <<: *service-defaults
+    build:
+      context: ../..
+      dockerfile: src/Bff/Interne/Dockerfile
+    image: sepp/bff-interne:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Authentication__Authority: http://localhost:8180/realms/veilla
+      Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
+      Authentication__ValidIssuer: http://localhost:8180/realms/veilla
+      Authentication__RequireHttpsMetadata: "false"
+      ServicesAval__Referentiels: http://referentiels:8080
+      ServicesAval__Audit: http://audit:8080
+      ServicesAval__Affilies: http://affilies:8080
+      ServicesAval__Personnes: http://personnes:8080
+      ServicesAval__PostesRisques: http://postes-risques:8080
+      ServicesAval__Obligations: http://obligations:8080
+      ServicesAval__Integrations: http://integrations:8080
+      ServicesAval__SurveillanceMedicale: http://surveillance-medicale:8080
+      ServicesAval__Planification: http://planification:8080
+      ServicesAval__Documents: http://documents:8080
+      ServicesAval__Communications: http://communications:8080
+      ServicesAval__Reintegration: http://reintegration:8080
+      Cors__OriginesAutorisees__0: http://localhost:8081
+      Cors__OriginesAutorisees__1: http://localhost:4200
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-dashboard:18889
+    ports:
+      - "5100:8080"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
   integrations:
     # Couche anti-corruption vers les organismes (§12). En local : simulateurs (données fictives) et traitements
     # planifiés désactivés ; flux lancés par l'API d'administration (appsettings.Development.json).

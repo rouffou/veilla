@@ -415,13 +415,13 @@ autre zone.
 ### CORS des BFF de portail (#358)
 
 `var.portal_origins` (obligatoire, par environnement dans `terraform.tfvars`) liste les origines des portails autorisées sur
-chaque BFF : `bff-employeur` et `bff-travailleur`. Chaque origine est de la forme `https://hôte[:port]` (domaine public servi
+chaque BFF : `bff-interne` (application interne, ADR 0013), `bff-employeur` et `bff-travailleur`. Chaque origine est de la forme `https://hôte[:port]` (domaine public servi
 par l'Application Gateway ou APIM, ou domaine du portail), sans chemin, sans barre finale ni joker. La validation Terraform
 refuse `*`, toute origine non https, une liste vide et un nom de BFF inconnu. Les origines sont injectées en
 `CORS__ORIGINESAUTORISEES__0`, `__1`… sur le BFF concerné seulement (un BFF n'accepte pas le portail de l'autre). Au démarrage,
 hors Development et Test, le BFF refuse une liste vide ou une origine invalide (`PortailCors` dans
-`Sepp.BuildingBlocks.Web`). La politique n'autorise ni credentials (jeton porteur, pas de cookie) ni méthode autre que GET et
-POST. Les valeurs des `terraform.tfvars` sont des exemples (`*.sepp.example.be`) à remplacer.
+`Sepp.BuildingBlocks.Web`). La politique n'autorise pas de credentials (jeton porteur, pas de cookie) ; les BFF de portail n'acceptent que GET et POST,
+le BFF interne aussi PUT et DELETE et les en-têtes `X-Motif-Acces` et `X-Bris-De-Glace`. Les valeurs des `terraform.tfvars` sont des exemples (`*.sepp.example.be`) à remplacer.
 
 ### Adaptateurs externes : simulateurs hors production
 

@@ -153,6 +153,13 @@ jobs:
                 "paths": "src/Bff/Travailleur/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
               },
               {
+                "name": "bff-interne",
+                "context": ".",
+                "dockerfile": "src/Bff/Interne/Dockerfile",
+                "build_args": "",
+                "paths": "src/Bff/Interne/ src/BuildingBlocks/ src/Contracts/ Directory.Build.props Directory.Packages.props global.json"
+              },
+              {
                 "name": "integrations",
                 "context": ".",
                 "dockerfile": "src/Services/Integrations/Dockerfile",

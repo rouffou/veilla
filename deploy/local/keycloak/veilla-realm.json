@@ -426,8 +426,8 @@
       "username": "cpmt",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Camille",
-      "lastName": "Médecin",
+      "firstName": "Anne",
+      "lastName": "Martin",
       "email": "cpmt@veilla.test",
       "credentials": [
         {
@@ -445,8 +445,8 @@
       "username": "cpmt.dirigeant",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Dominique",
-      "lastName": "Dirigeant",
+      "firstName": "Marc",
+      "lastName": "Dubois",
       "email": "cpmt.dirigeant@veilla.test",
       "credentials": [
         {
@@ -465,8 +465,8 @@
       "username": "infirmier",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Ines",
-      "lastName": "Infirmière",
+      "firstName": "Sophie",
+      "lastName": "Lambert",
       "email": "infirmier@veilla.test",
       "credentials": [
         {
@@ -481,11 +481,30 @@
       ]
     },
     {
+      "username": "assistant",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Laura",
+      "lastName": "Maes",
+      "email": "assistant@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "assistant-medical",
+        "offline_access"
+      ]
+    },
+    {
       "username": "cpap",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Paul",
-      "lastName": "Psychologue",
+      "firstName": "Thomas",
+      "lastName": "Janssens",
       "email": "cpap@veilla.test",
       "credentials": [
         {
@@ -503,8 +522,8 @@
       "username": "securite",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Sacha",
-      "lastName": "Sécurité",
+      "firstName": "Karim",
+      "lastName": "Benali",
       "email": "securite@veilla.test",
       "credentials": [
         {
@@ -522,8 +541,8 @@
       "username": "gestionnaire",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Gaelle",
-      "lastName": "Gestion",
+      "firstName": "Julie",
+      "lastName": "Peeters",
       "email": "gestionnaire@veilla.test",
       "credentials": [
         {
@@ -541,8 +560,8 @@
       "username": "planificateur",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Pierre",
-      "lastName": "Planning",
+      "firstName": "Nicolas",
+      "lastName": "Lemaire",
       "email": "planificateur@veilla.test",
       "credentials": [
         {
@@ -557,11 +576,30 @@
       ]
     },
     {
+      "username": "responsable",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Philippe",
+      "lastName": "Simon",
+      "email": "responsable@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "responsable-centre",
+        "offline_access"
+      ]
+    },
+    {
       "username": "admin",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Alex",
-      "lastName": "Admin",
+      "firstName": "Claire",
+      "lastName": "Dupont",
       "email": "admin@veilla.test",
       "credentials": [
         {
@@ -579,8 +617,8 @@
       "username": "exploitant",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Eli",
-      "lastName": "Exploitation",
+      "firstName": "Lucas",
+      "lastName": "Wouters",
       "email": "exploitant@veilla.test",
       "credentials": [
         {
@@ -598,8 +636,8 @@
       "username": "dpo",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Dana",
-      "lastName": "Protection",
+      "firstName": "Isabelle",
+      "lastName": "Renard",
       "email": "dpo@veilla.test",
       "credentials": [
         {
@@ -618,7 +656,7 @@
       "enabled": true,
       "emailVerified": true,
       "firstName": "Eva",
-      "lastName": "Employeur",
+      "lastName": "Claes",
       "email": "employeur@veilla.test",
       "credentials": [
         {
@@ -641,8 +679,8 @@
       "username": "travailleur",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Theo",
-      "lastName": "Travailleur",
+      "firstName": "Théo",
+      "lastName": "Mertens",
       "email": "travailleur@veilla.test",
       "credentials": [
         {

@@ -604,12 +604,12 @@ variable "authentication_audience" {
 }
 
 variable "portal_origins" {
-  description = "Origines CORS autorisées sur chaque BFF de portail (#358, ARC-42, ARC-43), par nom de service : bff-employeur et bff-travailleur. Une origine = https://hôte[:port] des domaines publics (APIM, Application Gateway ou domaine du portail) ; ni joker, ni http, ni chemin. Injectées en CORS__ORIGINESAUTORISEES__<i> ; au démarrage, le BFF refuse une liste vide ou invalide."
+  description = "Origines CORS autorisées sur chaque BFF (#358, ARC-42, ARC-43, ADR 0013), par nom de service : bff-interne (application interne), bff-employeur et bff-travailleur. Une origine = https://hôte[:port] des domaines publics (APIM, Application Gateway ou domaine du portail) ; ni joker, ni http, ni chemin. Injectées en CORS__ORIGINESAUTORISEES__<i> ; au démarrage, le BFF refuse une liste vide ou invalide."
   type        = map(list(string))
 
   validation {
-    condition     = alltrue([for n in ["bff-employeur", "bff-travailleur"] : contains(keys(var.portal_origins), n)]) && alltrue([for n in keys(var.portal_origins) : contains(["bff-employeur", "bff-travailleur"], n)])
-    error_message = "portal_origins doit définir exactement bff-employeur et bff-travailleur."
+    condition     = alltrue([for n in ["bff-interne", "bff-employeur", "bff-travailleur"] : contains(keys(var.portal_origins), n)]) && alltrue([for n in keys(var.portal_origins) : contains(["bff-interne", "bff-employeur", "bff-travailleur"], n)])
+    error_message = "portal_origins doit définir exactement bff-interne, bff-employeur et bff-travailleur."
   }
 
   validation {
