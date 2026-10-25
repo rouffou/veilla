@@ -63,7 +63,7 @@ encryption_key_ids = ["K1"]
 
 # Observabilité
 log_retention_days = 30
-alert_email        = null
+alert_email        = "exploitation-dev@sepp.example.be"
 
 # Passerelle
 apim_sku_name                   = "Developer_1"

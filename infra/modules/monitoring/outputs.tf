@@ -15,6 +15,6 @@ output "application_insights_connection_string" {
 }
 
 output "action_group_id" {
-  description = "Identifiant du groupe d'actions d'exploitation (null si non créé)."
-  value       = one(azurerm_monitor_action_group.ops[*].id)
+  description = "Identifiant du groupe d'actions d'exploitation."
+  value       = azurerm_monitor_action_group.ops.id
 }
