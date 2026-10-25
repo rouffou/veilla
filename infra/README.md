@@ -223,9 +223,8 @@ Effets de ces commandes :
 
 #### Déploiement d'une nouvelle version (ARC-50)
 
-Aucun workflow de déploiement applicatif n'existe encore (`service-images.yml` publie et signe les images, sans les
-déployer). La chaîne de déploiement, ou l'exploitant depuis un poste relié au VNet, enchaîne **migration → révision →
-trafic** pour chaque service touché :
+Le workflow `deploy.yml` automatise cet enchaînement (voir « Déploiement progressif »). Procédure manuelle équivalente,
+pour l'exploitant depuis un poste relié au VNet : **migration → révision → trafic** pour chaque service touché :
 
 ```bash
 rg=rg-sepp-<env>-<zone>; svc=<service>; suffixe=<suffixe-de-revision>   # minuscules, chiffres et tirets
@@ -523,8 +522,94 @@ Les Container Apps référencent des images qui doivent déjà exister dans l'AC
    appliqués avant.
 
 Les déploiements applicatifs suivants (nouvelle image, répartition du trafic entre
-révisions) sont faits par la CI/CD (`az containerapp update` / `revision`), Terraform
-ignorant ces attributs. Le job de migration passe toujours avant la nouvelle révision (voir « Migrations de schéma »).
+révisions) sont faits par le workflow `deploy.yml` (voir « Déploiement progressif »), Terraform
+ignorant ces attributs (image, suffixe de révision, poids de trafic). Le job de migration passe toujours avant la
+nouvelle révision (voir « Migrations de schéma »).
+
+### Déploiement progressif (ARC-50)
+
+Le workflow `.github/workflows/deploy.yml` déploie **un service dans un environnement** : il se lance à la main
+(*Actions → Déploiement → Run workflow*) ou par `workflow_call` depuis un autre workflow (`secrets: inherit`). Il ne se
+déclenche pas sur push vers `main` tant qu'aucun environnement n'existe. La logique est dans `tools/deploy/*.sh`
+(testée par `tools/deploy/tests/deployer-service.test.sh` avec une CLI `az` simulée ; workflow `deploiement-scripts.yml`).
+
+| Entrée | Rôle |
+| --- | --- |
+| `environnement` | `dev`, `test`, `recette`, `preprod` ou `prod` ; c'est aussi le nom de l'environnement GitHub |
+| `service` | nom de la Container App sans `ca-` (ex. `personnes`, `documents-medicale`) |
+| `reference` | étiquette de l'image (`<version>-build.<n>.<sha>`) ou empreinte `sha256:…` |
+| `image` | nom de l'image si différent du service (instances : `documents-medicale` → `documents`) |
+| `seuil_5xx_pourcent` | taux maximal de réponses 5xx de la nouvelle révision (défaut 1 %, **à valider**) |
+| `paliers` | paliers de trafic (défaut `10 50 100`) ; `attente_palier_secondes` : attente avant chaque contrôle (défaut 180) |
+
+#### Prérequis (actions manuelles, hors dépôt)
+
+1. **Identité fédérée (OIDC, sans secret client)** : une identité (application Entra ou identité managée affectée par
+   l'utilisateur) de déploiement, avec une *federated credential* par environnement GitHub, de sujet
+   `repo:rouffou/veilla:environment:<env>` et d'émetteur `https://token.actions.githubusercontent.com`. Le workflow
+   d'images (`service-images.yml`) continue d'utiliser le sujet de la branche `main`.
+2. **Rôles Azure** de cette identité, au niveau des groupes de ressources `rg-sepp-<env>-*` :
+   *Contributor* sur les groupes de zone (mise à jour de la Container App et du job de migration, démarrage du job),
+   *Log Analytics Reader* sur l'espace `log-sepp-<env>` (contrôle du taux de 5xx), *AcrPull*/*Reader* sur l'ACR (résolution
+   de l'empreinte, `az acr login`). Un rôle plus étroit que *Contributor* (`Microsoft.App/containerApps/*`,
+   `Microsoft.App/jobs/*`) est possible : à valider. Les identités d'exécution et de migration des services ne changent pas.
+3. **Environnements GitHub** (*Settings → Environments*) `dev`, `test`, `recette`, `preprod`, `prod` :
+   - `preprod` et `prod` : **Required reviewers** (au moins un approbateur autre que l'auteur du lancement,
+     *Prevent self-review*) ; `prod` : restreindre aux branches/étiquettes protégées (*Deployment branches and tags*) ;
+   - variables (ou secrets) `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` propres à l'environnement,
+     `ACR_LOGIN_SERVER` (déjà utilisé par le workflow d'images ; peut rester au niveau du dépôt) et, facultatif,
+     `LOG_ANALYTICS_WORKSPACE_ID` (identifiant `customerId` ; à défaut, le script cherche `log-sepp-<env>` dans
+     `rg-sepp-<env>-platform`).
+4. **Accès réseau** : l'ACR n'a pas d'accès public ; la vérification cosign et `az acr login` exigent un runner qui
+   l'atteint (runner auto-hébergé dans le VNet, comme pour la publication d'images). Le plan de contrôle
+   (`az containerapp`) et Log Analytics sont joignables sans accès au VNet.
+5. **Application Insights** : le contrôle du taux d'erreur lit la table `AppRequests` (espace Log Analytics) et suppose que
+   `AppRoleInstance` d'une requête commence par le nom de la révision (le nom des répliques). **À vérifier** en
+   préproduction ; sans télémétrie, un palier est validé avec un avertissement (0 requête).
+
+#### Déroulé
+
+1. **Résolution** de `reference` en empreinte (`image@sha256:…`) ; tout le reste porte sur l'empreinte.
+2. **Vérification cosign** (`cosign verify` et `verify-attestation --type spdxjson`, mode sans clé) avec l'identité du
+   workflow d'images (`…/.github/workflows/service-images.yml@refs/heads/main`) : échec si la signature ou l'attestation
+   SBOM est absente ou invalide, avant tout changement.
+3. **Migration** (ADR 0010) : trafic figé à 100 % sur la révision courante, puis mise à jour et démarrage du job
+   `mig-<service>` (s'il existe) et attente de `Succeeded` ; tout autre état arrête le déploiement, sans révision créée.
+4. **Nouvelle révision** `ca-<service>--r<aammjjhhmmss>` à 0 % de trafic, puis attente des sondes (état de la révision
+   *Running* et *Healthy*, sondes CTR-12), 10 minutes au plus.
+5. **Paliers** 10, 50, 100 % : après chaque répartition, attente, puis requête Log Analytics (requêtes de la révision sur la
+   fenêtre du palier) ; échec si le taux de 5xx dépasse le seuil. Un déploiement refuse de démarrer si plusieurs
+   révisions reçoivent déjà du trafic (déploiement précédent inachevé). Premier déploiement sans révision précédente :
+   100 % direct après les sondes.
+6. **Fin** : l'ancienne révision est désactivée (réactivable) et le résumé du déroulé est écrit dans
+   `GITHUB_STEP_SUMMARY`.
+7. **Retour arrière automatique** si une étape échoue après la création de la révision (sondes, requête, seuil) : trafic
+   remis à 100 % sur l'ancienne révision, puis nouvelle révision désactivée. Les deux actions sont consignées dans le
+   résumé ; un échec du retour arrière lui-même est signalé comme intervention manuelle. Les migrations restent en place
+   (expand/contract, aucun `Down`).
+
+#### Retour arrière manuel
+
+Après un déploiement réussi, l'ancienne révision est inactive. Pour revenir en arrière :
+
+```bash
+rg=rg-sepp-<env>-<zone>; app=ca-<service>
+az containerapp revision list -g "$rg" -n "$app" -o table                      # repérer l'ancienne révision
+az containerapp revision activate -g "$rg" -n "$app" --revision <ancienne>
+az containerapp ingress traffic set -g "$rg" -n "$app" --revision-weight <ancienne>=100
+az containerapp revision deactivate -g "$rg" -n "$app" --revision <nouvelle>
+```
+
+`max_inactive_revisions` (10) borne l'historique disponible. Une base corrompue se restaure par PITR (voir « Retour arrière »
+dans « Migrations de schéma »). Le schéma n'est jamais annulé : la révision précédente doit rester compatible avec lui.
+
+#### Liens avec les ADR
+
+- **ADR 0010 (migrations)** : le workflow joue le job `mig-<service>` avant toute révision et s'arrête sur échec ; Terraform
+  ignore l'image du job, mise à jour par le workflow (même empreinte que la révision).
+- **ADR 0011 (rattrapage des projections)** : le déploiement d'un nouveau consommateur d'événements n'alimente pas ses
+  projections avec l'historique. Une fois la révision à 100 %, l'exploitation (rôle `exploitation`, permission
+  `plateforme:republier`) lance les républications des producteurs concernés ; cette étape n'est pas automatisée.
 
 ### Managed HSM (ARC-44)
 

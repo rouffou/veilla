@@ -1,0 +1,140 @@
+# Déploiement progressif d'un service sur Azure Container Apps (ARC-50, ADR 0010 et 0011).
+#   résolution de l'image en empreinte -> vérification cosign (signature + attestation SBOM, identité du workflow
+#   d'images) -> migration (job mig-<service>) -> révision à 0 % -> sondes -> paliers 10/50/100 % avec contrôle du
+#   taux de 5xx -> retour arrière automatique en cas d'échec.
+# La logique est dans tools/deploy/*.sh (testée par tools/deploy/tests, voir deploiement-scripts.yml).
+#
+# Aucun déclenchement sur push vers main tant qu'aucun environnement n'existe : lancement manuel
+# (workflow_dispatch) ou appel depuis un autre workflow (workflow_call, avec « secrets: inherit »).
+# Les environnements GitHub preprod et prod portent les règles d'approbation (infra/README.md, « Déploiement progressif »).
+name: Déploiement
+
+on:
+  workflow_dispatch:
+    inputs:
+      environnement:
+        description: "Environnement cible (environnement GitHub du même nom)"
+        type: choice
+        options: [dev, test, recette, preprod, prod]
+        required: true
+      service:
+        description: "Service à déployer (nom de la Container App sans « ca- »), ex. personnes"
+        type: string
+        required: true
+      reference:
+        description: "Étiquette (ex. 0.1.0-build.12.abc123def456) ou empreinte (sha256:…) de l'image"
+        type: string
+        required: true
+      image:
+        description: "Nom de l'image si différent du service (instance : documents-medicale -> documents)"
+        type: string
+        required: false
+        default: ""
+      seuil_5xx_pourcent:
+        description: "Taux maximal de réponses 5xx de la révision, en %"
+        type: string
+        default: "1"
+      paliers:
+        description: "Paliers de trafic successifs (le dernier vaut 100)"
+        type: string
+        default: "10 50 100"
+      attente_palier_secondes:
+        description: "Attente avant chaque contrôle de palier, en secondes"
+        type: string
+        default: "180"
+  workflow_call:
+    inputs:
+      environnement:
+        type: string
+        required: true
+      service:
+        type: string
+        required: true
+      reference:
+        type: string
+        required: true
+      image:
+        type: string
+        required: false
+        default: ""
+      seuil_5xx_pourcent:
+        type: string
+        default: "1"
+      paliers:
+        type: string
+        default: "10 50 100"
+      attente_palier_secondes:
+        type: string
+        default: "180"
+
+permissions:
+  contents: read
+
+# Un seul déploiement à la fois par service et par environnement ; jamais interrompu en cours de route.
+concurrency:
+  group: deploiement-${{ inputs.environnement }}-${{ inputs.service }}
+  cancel-in-progress: false
+
+jobs:
+  deploiement:
+    name: Déploiement ${{ inputs.service }} (${{ inputs.environnement }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # Règles d'approbation configurées sur l'environnement GitHub (preprod, prod).
+    environment: ${{ inputs.environnement }}
+    permissions:
+      contents: read
+      id-token: write # connexion Azure OIDC (identité fédérée, sans secret client)
+    env:
+      ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER || vars.ACR_LOGIN_SERVER }}
+    steps:
+      - name: Récupération des scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Contrôle des paramètres
+        run: |
+          if [ -z "$ACR_LOGIN_SERVER" ]; then
+            echo "::error::ACR_LOGIN_SERVER absent (secret ou variable de dépôt/d'environnement)."
+            exit 1
+          fi
+
+      - name: Connexion Azure (OIDC)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Résolution de l'image
+        id: image
+        env:
+          IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX || 'sepp' }}
+          IMAGE: ${{ inputs.image || inputs.service }}
+          REFERENCE: ${{ inputs.reference }}
+        run: bash tools/deploy/resoudre-image.sh
+
+      - name: Connexion au registre
+        run: az acr login --name "${ACR_LOGIN_SERVER%%.*}"
+
+      - name: Installation de cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Vérification de la signature et de l'attestation (cosign)
+        env:
+          IMAGE_PAR_EMPREINTE: ${{ steps.image.outputs.reference }}
+        run: bash tools/deploy/verifier-image.sh
+
+      - name: Déploiement progressif
+        env:
+          ENVIRONNEMENT: ${{ inputs.environnement }}
+          SERVICE: ${{ inputs.service }}
+          IMAGE_PAR_EMPREINTE: ${{ steps.image.outputs.reference }}
+          SEUIL_5XX_POURCENT: ${{ inputs.seuil_5xx_pourcent }}
+          PALIERS: ${{ inputs.paliers }}
+          ATTENTE_PALIER_S: ${{ inputs.attente_palier_secondes }}
+          WORKSPACE_ID: ${{ vars.LOG_ANALYTICS_WORKSPACE_ID }}
+          AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
+          AZURE_EXTENSION_DYNAMIC_INSTALL_ALLOW_PREVIEW: "true"
+        run: bash tools/deploy/deployer-service.sh

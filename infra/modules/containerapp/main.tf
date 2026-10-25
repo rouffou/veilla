@@ -168,10 +168,12 @@ resource "azurerm_container_app" "this" {
   }
 
   lifecycle {
-    # Les nouvelles versions d'image et la répartition du trafic entre révisions
-    # sont pilotées par la chaîne CI/CD (ARC-50), pas par Terraform.
+    # Les nouvelles versions d'image, le suffixe des révisions et la répartition du trafic
+    # entre révisions sont pilotés par le workflow de déploiement (ARC-50, deploy.yml),
+    # pas par Terraform : sans cela, un « apply » reprendrait le trafic ou l'image.
     ignore_changes = [
       template[0].container[0].image,
+      template[0].revision_suffix,
       ingress[0].traffic_weight,
     ]
   }
