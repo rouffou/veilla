@@ -8,6 +8,7 @@ using Sepp.Affilies.Domain.Historique;
 using Sepp.Affilies.Domain.Occupations;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
+using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
 
 namespace Sepp.Affilies.Adapters.Persistence;
@@ -190,6 +191,9 @@ public sealed class AffiliesDbContext(DbContextOptions<AffiliesDbContext> option
             b.HasIndex(e => new { e.NumeroBce, e.Code, e.Reference }).IsUnique().HasFilter("statut = 'Ouvert'");
             b.HasIndex(e => e.Statut);
         });
+
+        // ADR 0011 : republication de l'état courant (rattrapage des projections des consommateurs).
+        modelBuilder.AjouterRepublications();
     }
 
     private static void Adresse(ComplexPropertyBuilder<Adresse> b)

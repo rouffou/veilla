@@ -50,4 +50,30 @@ public sealed class OccupationLocale
         FinRecueDu = evenementDu;
         return true;
     }
+
+    /// <summary>
+    /// Rattrapage (ADR 0011) : applique l'état courant republié par Personnes (<c>personnes.occupation-instantanee</c>), daté
+    /// de <paramref name="etatDu"/>. Une fin reçue plus récente que l'instantané est conservée (seul un début manquant est
+    /// complété) : un instantané n'écrase jamais un état plus récent.
+    /// </summary>
+    /// <returns><c>false</c> si rien n'a changé.</returns>
+    public bool AppliquerInstantane(DateOnly dateDebut, DateOnly? dateFin, DateTimeOffset etatDu)
+    {
+        if (FinRecueDu is { } connue && etatDu < connue)
+        {
+            if (DateDebut is not null)
+            {
+                return false;
+            }
+
+            DateDebut = dateDebut;
+            return true;
+        }
+
+        var change = DateDebut != dateDebut || DateFin != dateFin || FinRecueDu != etatDu;
+        DateDebut = dateDebut;
+        DateFin = dateFin;
+        FinRecueDu = etatDu;
+        return change;
+    }
 }

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Personnes.Domain.Personnes;
@@ -132,5 +133,8 @@ public sealed class PersonnesDbContext(
                 .HasColumnName("type_chiffre")
                 .HasMaxLength(200);
         });
+
+        // ADR 0011 : republication de l'état courant (rattrapage des projections des consommateurs).
+        modelBuilder.AjouterRepublications();
     }
 }

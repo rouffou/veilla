@@ -13,6 +13,16 @@ namespace Sepp.Contracts.Affilies
     /// <summary>Fiche de l'affilié modifiée. <c>RegimeLinguistique</c> et <c>Langue</c> : voir <see cref="AffilieCree"/>.</summary>
     [EventContract("affilies.affilie-modifie", 1)]
     public sealed record AffilieModifie(Guid AffilieId, string NumeroBce, string CategorieTarifaire, string Statut, string? RegimeLinguistique = null, string? Langue = null) : IntegrationEvent;
+
+    /// <summary>
+    /// Rattrapage des projections (ARC-31, ARC-34, ADR 0011) : état courant d'un affilié, republié à la demande de
+    /// l'exploitant (<c>POST /api/v1/admin/republications</c>, type <c>affilies</c>). Ce n'est pas un fait métier : un
+    /// consommateur l'applique comme une écriture par clé, sans effet de bord, et l'ignore si son état est plus récent que
+    /// <c>EtatDu</c> (horodatage de la dernière modification de l'affilié chez le producteur). <c>CorrelationId</c> porte
+    /// l'identifiant de la republication. Mêmes champs que <see cref="AffilieModifie"/>, aucune donnée sensible (ARC-06).
+    /// </summary>
+    [EventContract("affilies.affilie-instantane", 1)]
+    public sealed record AffilieInstantane(Guid AffilieId, string NumeroBce, string CategorieTarifaire, string Statut, string RegimeLinguistique, string Langue, DateTimeOffset EtatDu) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.Personnes
@@ -48,6 +58,24 @@ namespace Sepp.Contracts.Personnes
     /// </summary>
     [EventContract("personnes.langue-modifiee", 1)]
     public sealed record LangueModifiee(Guid PersonneId, string Langue) : IntegrationEvent;
+
+    /// <summary>
+    /// Rattrapage des projections (ARC-31, ARC-34, ADR 0011) : langue courante d'une personne, republiée à la demande de
+    /// l'exploitant (type <c>personnes</c>). Langue uniquement, comme <see cref="LangueModifiee"/> : aucune donnée d'identité
+    /// ni de santé (ARC-06). Écriture par clé, ignorée si l'état du consommateur est plus récent que <c>EtatDu</c>
+    /// (dernière modification de la personne chez le producteur).
+    /// </summary>
+    [EventContract("personnes.personne-instantanee", 1)]
+    public sealed record PersonneInstantanee(Guid PersonneId, string Langue, DateTimeOffset EtatDu) : IntegrationEvent;
+
+    /// <summary>
+    /// Rattrapage des projections (ARC-31, ARC-34, ADR 0011) : état courant d'une occupation (type <c>occupations</c>), qui
+    /// réunit <see cref="OccupationDebutee"/> et <see cref="OccupationTerminee"/>. <c>DateFin</c> : dernier jour inclus,
+    /// <c>null</c> pour une occupation en cours. Identifiants et dates seulement (ARC-06). Écriture par clé, ignorée si
+    /// l'état du consommateur est plus récent que <c>EtatDu</c> (dernière modification de l'occupation chez le producteur).
+    /// </summary>
+    [EventContract("personnes.occupation-instantanee", 1)]
+    public sealed record OccupationInstantanee(Guid OccupationId, Guid PersonneId, Guid AffilieId, DateOnly DateDebut, DateOnly? DateFin, DateTimeOffset EtatDu) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.PostesRisques

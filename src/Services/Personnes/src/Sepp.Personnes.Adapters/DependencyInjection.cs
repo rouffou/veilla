@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Personnes.Adapters.Persistence;
+using Sepp.Personnes.Adapters.Rattrapage;
 using Sepp.Personnes.Adapters.Security;
 using Sepp.Personnes.Application;
 
@@ -33,6 +34,11 @@ public static class DependencyInjection
         services.AddScoped<IPersonneRepository, PersonneRepository>();
         services.AddScoped<IContexteAffilie, ContexteAffilieJeton>();
         services.AddScoped<IContextePersonne, ContextePersonneJeton>();
+
+        // ADR 0011 : rattrapage des projections (langue des personnes, occupations), déclenché par l'exploitation.
+        services.AddSeppRepublication<PersonnesDbContext>(configuration);
+        services.AddRepublicationSource<RepublicationPersonnes>();
+        services.AddRepublicationSource<RepublicationOccupations>();
 
         // Énumérations lisibles dans l'API (« Interimaire », « Grossesse »…).
         services.Configure<JsonOptions>(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

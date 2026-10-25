@@ -56,6 +56,11 @@ public static class Roles
     // Affiliés — rôle technique du compte de service du service Affiliés (client credentials OIDC), jamais attribué à une
     // personne : lecture des données d'entreprise de la BCE chez Intégrations pour mettre l'affilié à jour (AFF-01, AFF-02).
     public const string Affilies = "affilies";
+
+    // Exploitation de la plateforme (ADR 0011) — rôle technique d'une personne de l'équipe d'exploitation, sans aucun droit
+    // métier : il ne lit ni ne modifie aucune donnée, il ne fait que déclencher et suivre la republication de l'état courant
+    // des producteurs pour rattraper les projections locales (mise en service, nouveau consommateur).
+    public const string Exploitation = "exploitation";
 }
 
 /// <summary>
@@ -176,6 +181,11 @@ public static class Permissions
     public const string ReintegrationPlanDeposer = "reintegration-plan:deposer";
     public const string ReintegrationReponseEnregistrer = "reintegration-reponse:enregistrer";
     public const string PersonneIdentifier = "personne:identifier";
+
+    // Plateforme (ADR 0011, ARC-31) : republication de l'état courant d'un producteur sous forme d'instantanés, pour le
+    // rattrapage des projections. Droit d'exploitation distinct de tout droit métier : il ne donne accès à aucune donnée
+    // (la réponse ne contient que le type, le statut et des compteurs).
+    public const string PlateformeRepublier = "plateforme:republier";
 }
 
 public static class RolePermissions
@@ -473,6 +483,10 @@ public static class RolePermissions
 
         Grant(Roles.Travailleur, Permissions.ReintegrationReponseEnregistrer);
         Grant(Roles.Integrations, Permissions.PersonneIdentifier);
+
+        // Rattrapage des projections (ADR 0011) : seul le rôle d'exploitation republie, et il n'a que ce droit. Aucun profil
+        // métier ne le reçoit, l'administrateur fonctionnel compris.
+        Grant(Roles.Exploitation, Permissions.PlateformeRepublier);
 
         return map;
     }

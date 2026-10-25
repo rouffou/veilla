@@ -27,6 +27,7 @@ if (await app.MigrerSchemaAsync<AffiliesDbContext>() is { } codeSortie)
 
 app.MapSeppServiceDefaults();
 app.MapAffiliesEndpoints();
+app.MapSeppRepublications();
 
 await app.RunAsync();
 

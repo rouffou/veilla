@@ -85,6 +85,9 @@
       },
       {
         "name": "affilies"
+      },
+      {
+        "name": "exploitation"
       }
     ]
   },
@@ -569,6 +572,25 @@
       ],
       "realmRoles": [
         "admin-fonctionnel",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "exploitant",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Eli",
+      "lastName": "Exploitation",
+      "email": "exploitant@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "exploitation",
         "offline_access"
       ]
     },

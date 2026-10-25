@@ -18,10 +18,74 @@ namespace Sepp.Personnes.Adapters.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("Sepp.BuildingBlocks.Infrastructure.Messaging.DemandeRepublication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Curseur")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("curseur");
+
+                    b.Property<DateTimeOffset>("DemandeeLe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("demandee_le");
+
+                    b.Property<string>("DemandeePar")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("demandee_par");
+
+                    b.Property<string>("Erreur")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("erreur");
+
+                    b.Property<int>("Lots")
+                        .HasColumnType("integer")
+                        .HasColumnName("lots");
+
+                    b.Property<int>("Publies")
+                        .HasColumnType("integer")
+                        .HasColumnName("publies");
+
+                    b.Property<string>("Statut")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("statut");
+
+                    b.Property<DateTimeOffset?>("TermineeLe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("terminee_le");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_republication");
+
+                    b.HasIndex("DemandeeLe")
+                        .HasDatabaseName("ix_republication_demandee_le");
+
+                    b.HasIndex("Type")
+                        .IsUnique()
+                        .HasDatabaseName("ix_republication_type")
+                        .HasFilter("statut = 'EnCours'");
+
+                    b.ToTable("republication", (string)null);
+                });
 
             modelBuilder.Entity("Sepp.BuildingBlocks.Infrastructure.Messaging.InboxMessage", b =>
                 {

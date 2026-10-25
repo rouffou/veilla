@@ -77,3 +77,28 @@ public sealed class OccupationTermineeHandler(IOccupationRepository occupations,
         }
     }
 }
+
+/// <summary>
+/// Rattrapage de la projection (ADR 0011) : état courant d'une occupation republié par Personnes
+/// (<c>personnes.occupation-instantanee.v1</c>). Écriture par clé, idempotente (inbox, ARC-31) ; un état local plus récent
+/// que l'instantané n'est pas écrasé.
+/// </summary>
+public sealed class OccupationInstantaneeHandler(IOccupationRepository occupations, IUnitOfWork unitOfWork)
+    : IIntegrationEventHandler<OccupationInstantanee>
+{
+    public async Task HandleAsync(OccupationInstantanee integrationEvent, CancellationToken cancellationToken)
+    {
+        var e = integrationEvent;
+        var occupation = await occupations.GetAsync(e.OccupationId, cancellationToken);
+        if (occupation is null)
+        {
+            occupation = new OccupationLocale(e.OccupationId, e.PersonneId, e.AffilieId);
+            occupations.Add(occupation);
+        }
+
+        if (occupation.AppliquerInstantane(e.DateDebut, e.DateFin, e.EtatDu))
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+    }
+}

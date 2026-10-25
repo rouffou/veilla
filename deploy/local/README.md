@@ -26,7 +26,7 @@ docker compose -f deploy/local/compose.yaml up -d --build
 ## Utilisateurs de test
 
 Définis dans [`keycloak/veilla-realm.json`](keycloak/veilla-realm.json), mot de passe commun `veilla-dev` :
-`cpmt`, `cpmt.dirigeant`, `infirmier`, `cpap`, `securite`, `gestionnaire`, `planificateur`, `admin` (administrateur fonctionnel), `dpo`, `employeur`, `travailleur`.
+`cpmt`, `cpmt.dirigeant`, `infirmier`, `cpap`, `securite`, `gestionnaire`, `planificateur`, `admin` (administrateur fonctionnel), `dpo`, `employeur`, `travailleur`, `exploitant` (rôle `exploitation` : republication des producteurs, aucun droit métier, voir [rattrapage des projections](../../docs/architecture/rattrapage-projections.md)).
 
 Les rôles de la matrice §3.3 sont émis dans le claim `roles` et l'audience `sepp-api` est ajoutée au jeton, comme en production.
 

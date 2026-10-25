@@ -13,12 +13,17 @@ namespace Sepp.Documents.Application.Langues;
 /// connu (<c>OccurredAt</c>). Un événement sans ces champs (producteur antérieur) ou avec une valeur inconnue ne change rien.
 /// Enregistré par chaque instance (abonnements <c>affilies</c> et <c>personnes</c> dans <c>infra/variables.tf</c>), qu'elle lise
 /// la projection ou non (<c>Documents:SourceLinguistique</c>) : la table est prête si l'instance bascule.
+/// Rattrapage (ADR 0011) : les instantanés <c>affilies.affilie-instantane</c> et <c>personnes.personne-instantanee</c>, republiés
+/// à la mise en service, suivent la même règle, datés de l'état chez le producteur (<c>EtatDu</c>) : ils remplissent la
+/// projection sans jamais écraser un état plus récent.
 /// </summary>
 public sealed class ProjectionLinguistiqueHandler(IContexteLinguistiqueRepository contextes, IUnitOfWork unitOfWork)
     : IIntegrationEventHandler<AffilieCree>,
       IIntegrationEventHandler<AffilieModifie>,
       IIntegrationEventHandler<OccupationDebutee>,
-      IIntegrationEventHandler<LangueModifiee>
+      IIntegrationEventHandler<LangueModifiee>,
+      IIntegrationEventHandler<AffilieInstantane>,
+      IIntegrationEventHandler<PersonneInstantanee>
 {
     public Task HandleAsync(AffilieCree integrationEvent, CancellationToken cancellationToken) =>
         AffilieAsync(integrationEvent.AffilieId, integrationEvent.RegimeLinguistique, integrationEvent.Langue, integrationEvent.OccurredAt, cancellationToken);
@@ -31,6 +36,12 @@ public sealed class ProjectionLinguistiqueHandler(IContexteLinguistiqueRepositor
 
     public Task HandleAsync(LangueModifiee integrationEvent, CancellationToken cancellationToken) =>
         PersonneAsync(integrationEvent.PersonneId, integrationEvent.Langue, integrationEvent.OccurredAt, cancellationToken);
+
+    public Task HandleAsync(AffilieInstantane integrationEvent, CancellationToken cancellationToken) =>
+        AffilieAsync(integrationEvent.AffilieId, integrationEvent.RegimeLinguistique, integrationEvent.Langue, integrationEvent.EtatDu, cancellationToken);
+
+    public Task HandleAsync(PersonneInstantanee integrationEvent, CancellationToken cancellationToken) =>
+        PersonneAsync(integrationEvent.PersonneId, integrationEvent.Langue, integrationEvent.EtatDu, cancellationToken);
 
     private async Task AffilieAsync(Guid affilieId, string? regimeCode, string? langueCode, DateTimeOffset du, CancellationToken cancellationToken)
     {

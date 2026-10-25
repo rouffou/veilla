@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Sepp.Affilies.Adapters.Externe;
 using Sepp.Affilies.Adapters.Persistence;
+using Sepp.Affilies.Adapters.Rattrapage;
 using Sepp.Affilies.Adapters.Securite;
 using Sepp.Affilies.Application;
 using Sepp.Affilies.Application.Bce;
@@ -31,6 +32,10 @@ public static class DependencyInjection
         services.AddScoped<IPerimetreUtilisateur, PerimetreJeton>();
         services.AddScoped<IContextePersonne, ContextePersonneJeton>();
 
+        // ADR 0011 : rattrapage des projections des consommateurs (état courant des affiliés), déclenché par l'exploitation.
+        services.AddSeppRepublication<AffiliesDbContext>(configuration);
+        services.AddRepublicationSource<RepublicationAffilies>();
+
         // AFF-01, AFF-02, INT-04 : données d'entreprise lues chez Intégrations avec le compte technique du service (rôle affilies).
         ClientsInternes.Ajouter(
             services,
@@ -43,6 +48,8 @@ public static class DependencyInjection
         // (abonnement affilies <- personnes, filtré sur ces deux sujets dans infra/variables.tf).
         services.AddIntegrationEventHandler<OccupationDebutee, OccupationDebuteeHandler>();
         services.AddIntegrationEventHandler<OccupationTerminee, OccupationTermineeHandler>();
+        // ADR 0011 : rattrapage de cette projection par les instantanés d'occupation republiés par Personnes.
+        services.AddIntegrationEventHandler<OccupationInstantanee, OccupationInstantaneeHandler>();
         services.AddSeppConsumer<AffiliesDbContext>(configuration);
 
         // Énumérations métier échangées par leur nom (« A », « ComitePpt »…) dans l'API.

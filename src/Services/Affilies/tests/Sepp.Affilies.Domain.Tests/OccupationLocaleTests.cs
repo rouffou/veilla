@@ -65,4 +65,58 @@ public class OccupationLocaleTests
 
         occupation.DateFin.ShouldBe(Jour.AddDays(20));
     }
+
+    [Fact]
+    public void Un_instantane_remplit_une_occupation_inconnue()
+    {
+        var occupation = Occupation();
+
+        occupation.AppliquerInstantane(Jour, Jour.AddDays(30), DateTimeOffset.UtcNow).ShouldBeTrue();
+
+        occupation.DateDebut.ShouldBe(Jour);
+        occupation.DateFin.ShouldBe(Jour.AddDays(30));
+        occupation.EstActiveAu(Jour.AddDays(31)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Un_instantane_rejoue_ne_change_rien()
+    {
+        var occupation = Occupation();
+        var etatDu = DateTimeOffset.UtcNow;
+        occupation.AppliquerInstantane(Jour, null, etatDu);
+
+        occupation.AppliquerInstantane(Jour, null, etatDu).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Un_instantane_plus_ancien_qu_une_fin_recue_ne_l_ecrase_pas()
+    {
+        var occupation = Occupation();
+        var maintenant = DateTimeOffset.UtcNow;
+        occupation.Terminer(Jour.AddDays(10), maintenant);
+
+        // L'instantané date d'avant la fin : seul le début manquant est complété.
+        occupation.AppliquerInstantane(Jour, null, maintenant.AddMinutes(-5)).ShouldBeTrue();
+        occupation.DateDebut.ShouldBe(Jour);
+        occupation.DateFin.ShouldBe(Jour.AddDays(10));
+
+        occupation.AppliquerInstantane(Jour.AddDays(-3), null, maintenant.AddMinutes(-5)).ShouldBeFalse();
+        occupation.DateDebut.ShouldBe(Jour);
+    }
+
+    [Fact]
+    public void Un_instantane_plus_recent_remplace_l_etat_connu_et_protege_contre_une_fin_perimee()
+    {
+        var occupation = Occupation();
+        var maintenant = DateTimeOffset.UtcNow;
+        occupation.Debuter(Jour);
+        occupation.Terminer(Jour.AddDays(10), maintenant);
+
+        // La fin a été annulée chez Personnes après coup : l'instantané le reflète.
+        occupation.AppliquerInstantane(Jour, null, maintenant.AddMinutes(5)).ShouldBeTrue();
+        occupation.DateFin.ShouldBeNull();
+
+        occupation.Terminer(Jour.AddDays(10), maintenant).ShouldBeFalse();
+        occupation.DateFin.ShouldBeNull();
+    }
 }

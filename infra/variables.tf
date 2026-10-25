@@ -137,14 +137,15 @@ variable "services" {
     # reprise, ARC-33). Personnes et referentiels n'ont pas encore de consommateur : leurs abonnements sont
     # ceux prévus pour leur écriture.
     # affilies : integrations.donnees-bce-recues.v1 (DonneesBceRecuesHandler, AFF-01, AFF-02, INT-04) et les occupations de
-    # Personnes (OccupationDebuteeHandler, OccupationTermineeHandler : employeurs du travailleur connecté, POR-11, #340).
+    # Personnes (OccupationDebuteeHandler, OccupationTermineeHandler : employeurs du travailleur connecté, POR-11, #340), avec
+    # leur instantané de rattrapage (OccupationInstantaneeHandler, ADR 0011).
     "affilies" = {
       zone          = "standard"
       database      = true
       subscribes_to = ["integrations", "personnes"]
       subject_filters = {
         integrations = ["integrations.donnees-bce-recues.v1"]
-        personnes    = ["personnes.occupation-debutee.v1", "personnes.occupation-terminee.v1"]
+        personnes    = ["personnes.occupation-debutee.v1", "personnes.occupation-terminee.v1", "personnes.occupation-instantanee.v1"]
       }
       # AFF-01, AFF-02, INT-04 : lecture des données d'entreprise chez Intégrations avec le compte technique du service.
       compte_technique  = "Affilies__CompteTechnique"
@@ -193,11 +194,12 @@ variable "services" {
       # encore écrits. La copie du dossier et le carnet de vaccination sont traités par documents-medicale.
       # affilies, personnes : projection du contexte linguistique (ProjectionLinguistiqueHandler, NF-41, ADR 0009), tenue
       # par chaque instance ; l'instance standard la tient prête mais lit la langue par HTTP (DOCUMENTS__SOURCELINGUISTIQUE).
+      # Les instantanés affilie-instantane et personne-instantanee la rattrapent à la mise en service (ADR 0011).
       subscribes_to = ["surveillance-medicale", "reintegration", "psychosocial", "prevention", "affilies", "personnes"]
       subject_filters = {
         surveillance-medicale = ["surveillance-medicale.decision-emise.v1"]
-        affilies              = ["affilies.affilie-cree.v1", "affilies.affilie-modifie.v1"]
-        personnes             = ["personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1"]
+        affilies              = ["affilies.affilie-cree.v1", "affilies.affilie-modifie.v1", "affilies.affilie-instantane.v1"]
+        personnes             = ["personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1", "personnes.personne-instantanee.v1"]
       }
       # NF-41 : langue des documents lue chez Affiliés et Personnes (compte technique). Aucun appel à la zone médicale.
       compte_technique = "Documents__CompteTechnique"
@@ -224,15 +226,16 @@ variable "services" {
       publishes_events = false # publie sur le topic « documents » par l'émetteur partagé
       subscribes_to    = ["surveillance-medicale", "affilies", "personnes"]
       # Contrats de la Surveillance médicale qui ont un gestionnaire dans l'instance médicale (SAN-30, SAN-43, SAN-50) et
-      # contrats qui alimentent la projection linguistique (ProjectionLinguistiqueHandler).
+      # contrats qui alimentent la projection linguistique (ProjectionLinguistiqueHandler), instantanés de rattrapage compris
+      # (ADR 0011 : sans eux, les affiliés et personnes antérieurs à la mise en service n'ont pas de langue projetée).
       subject_filters = {
         surveillance-medicale = [
           "surveillance-medicale.decision-emise.v1",
           "surveillance-medicale.copie-dossier-validee.v1",
           "surveillance-medicale.vaccination-administree.v1",
         ]
-        affilies  = ["affilies.affilie-cree.v1", "affilies.affilie-modifie.v1"]
-        personnes = ["personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1"]
+        affilies  = ["affilies.affilie-cree.v1", "affilies.affilie-modifie.v1", "affilies.affilie-instantane.v1"]
+        personnes = ["personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1", "personnes.personne-instantanee.v1"]
       }
       # Contenu clinique lu chez Surveillance médicale (intra-zone) avec le compte technique de l'instance.
       compte_technique = "Documents__CompteTechnique"

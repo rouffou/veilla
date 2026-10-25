@@ -127,6 +127,37 @@ public sealed class ProjectionLinguistiqueTests
     public void Les_codes_sont_lus_sans_tenir_compte_de_la_casse_et_les_valeurs_numeriques_sont_refusees(string? code, Language? attendu) =>
         ProjectionLinguistiqueHandler.Enumeration<Language>(code).ShouldBe(attendu);
 
+    [Fact]
+    public async Task Les_instantanes_de_rattrapage_remplissent_la_projection_datee_de_l_etat()
+    {
+        var affilie = Guid.CreateVersion7();
+        var personne = Guid.CreateVersion7();
+
+        await Handler.HandleAsync(new AffilieInstantane(affilie, "0202239951", "B", "Actif", "Allemand", "De", T0) { OccurredAt = T0.AddDays(30) }, _ct);
+        await Handler.HandleAsync(new PersonneInstantanee(personne, "Nl", T0), _ct);
+
+        var contexteAffilie = _contextes.Lignes.Single(c => c.Sujet == SujetLinguistique.Affilie);
+        contexteAffilie.Regime.ShouldBe(RegimeLinguistique.Allemand);
+        contexteAffilie.Langue.ShouldBe(Language.De);
+        contexteAffilie.EvenementDu.ShouldBe(T0, "un instantané est daté de l'état chez le producteur, pas de sa republication.");
+        _contextes.Lignes.Single(c => c.Sujet == SujetLinguistique.Personne).Langue.ShouldBe(Language.Nl);
+    }
+
+    [Fact]
+    public async Task Un_instantane_n_ecrase_pas_un_etat_plus_recent_et_son_rejeu_ne_cree_pas_de_doublon()
+    {
+        var personne = Guid.CreateVersion7();
+        await Handler.HandleAsync(new LangueModifiee(personne, "De") { OccurredAt = T0.AddMinutes(10) }, _ct);
+
+        // Instantané lu avant le changement de langue et livré après lui.
+        await Handler.HandleAsync(new PersonneInstantanee(personne, "Fr", T0), _ct);
+        await Handler.HandleAsync(new PersonneInstantanee(personne, "Fr", T0), _ct);
+
+        var contexte = _contextes.Lignes.ShouldHaveSingleItem();
+        contexte.Langue.ShouldBe(Language.De);
+        contexte.EvenementDu.ShouldBe(T0.AddMinutes(10));
+    }
+
     private sealed class ContextesEnMemoire : IContexteLinguistiqueRepository, IUnitOfWork
     {
         public List<ContexteLinguistiqueProjete> Lignes { get; } = [];

@@ -641,6 +641,59 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
         cree!.Nom.ShouldBe("Van Damme; dit JC");
     }
 
+    [Fact]
+    public async Task L_exploitation_republie_les_langues_et_les_occupations_sans_donnee_d_identite()
+    {
+        var niss = NouveauNiss();
+        var creees = new[] { await Creer(niss), await Creer(NouveauNiss()), await Creer(NouveauNiss()) };
+        var exploitant = fixture.Client(Roles.Exploitation);
+
+        // Droit d'exploitation distinct des droits métier, et réciproquement (ADR 0011).
+        (await fixture.Client(Roles.GestionnaireDossiers).PostAsJsonAsync("/api/v1/admin/republications", new { type = "personnes" }, _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await exploitant.GetAsync($"/api/v1/personnes/{creees[0].PersonneId}", _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await exploitant.GetFromJsonAsync<string[]>("/api/v1/admin/republications/types", _ct)).ShouldBe(["occupations", "personnes"]);
+        (await exploitant.PostAsJsonAsync("/api/v1/admin/republications", new { type = "inconnu" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        foreach (var type in new[] { "personnes", "occupations" })
+        {
+            var reponse = await exploitant.PostAsJsonAsync("/api/v1/admin/republications", new { type }, _ct);
+            reponse.StatusCode.ShouldBe(HttpStatusCode.Accepted, await reponse.Content.ReadAsStringAsync(_ct));
+            var suivi = reponse.Headers.Location!.ToString();
+            var termine = await exploitant.GetFromJsonAsync<JsonElement>(suivi, _ct);
+            for (var i = 0; i < 50 && termine.GetProperty("statut").GetString() != "Terminee"; i++)
+            {
+                await Task.Delay(100, _ct);
+                termine = await exploitant.GetFromJsonAsync<JsonElement>(suivi, _ct);
+            }
+
+            termine.GetProperty("statut").GetString().ShouldBe("Terminee");
+            termine.GetProperty("publies").GetInt32().ShouldBeGreaterThanOrEqualTo(3);
+            termine.GetProperty("demandeePar").GetString().ShouldBe("test-user");
+        }
+
+        var publisher = (InMemoryMessagePublisher)fixture.Factory.Services.GetRequiredService<IMessagePublisher>();
+        foreach (var creee in creees)
+        {
+            await Eventually(() => publisher.Published.Any(m => m.EventType == "personnes.personne-instantanee.v1" && m.Payload.Contains(creee.PersonneId.ToString()))
+                && publisher.Published.Any(m => m.EventType == "personnes.occupation-instantanee.v1" && m.Payload.Contains(creee.OccupationId!.Value.ToString())));
+        }
+
+        var instantanes = publisher.Published.Where(m => m.EventType.EndsWith("-instantanee.v1", StringComparison.Ordinal)).ToList();
+        var langue = instantanes.First(m => m.EventType == "personnes.personne-instantanee.v1" && m.Payload.Contains(creees[0].PersonneId.ToString()));
+        using (var charge = JsonDocument.Parse(langue.Payload))
+        {
+            charge.RootElement.GetProperty("langue").GetString().ShouldBe("Fr");
+            charge.RootElement.TryGetProperty("etatDu", out _).ShouldBeTrue();
+        }
+
+        instantanes.ShouldAllBe(m => m.CorrelationId != null && !m.Payload.Contains(niss) && !m.Payload.Contains("Dupont") && !m.Payload.Contains("Marie"));
+
+        // Une seconde demande du même type, une fois la première terminée, est acceptée (rejeu idempotent chez les consommateurs).
+        (await exploitant.PostAsJsonAsync("/api/v1/admin/republications", new { type = "personnes" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        (await exploitant.GetFromJsonAsync<JsonElement>("/api/v1/admin/republications", _ct)).GetArrayLength().ShouldBeGreaterThanOrEqualTo(3);
+    }
+
     private static async Task<long> OccurrencesEnBase(NpgsqlConnection connexion, string valeur)
     {
         // Liste fermée des tables : un test échoue si une nouvelle table n'est pas ajoutée à la vérification.
@@ -648,7 +701,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
                          "SELECT string_agg(table_name, ',' ORDER BY table_name) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'",
                          connexion))
         {
-            ((string)(await tables.ExecuteScalarAsync())!).ShouldBe("__EFMigrationsHistory,affectation,etat_particulier,inbox_message,mutation_registre_national,occupation,outbox_message,personne");
+            ((string)(await tables.ExecuteScalarAsync())!).ShouldBe("__EFMigrationsHistory,affectation,etat_particulier,inbox_message,mutation_registre_national,occupation,outbox_message,personne,republication");
         }
 
         await using var commande = new NpgsqlCommand(
@@ -660,6 +713,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
                  + (SELECT count(*) FROM mutation_registre_national t WHERE t::text LIKE @motif)
                  + (SELECT count(*) FROM outbox_message t WHERE t::text LIKE @motif)
                  + (SELECT count(*) FROM inbox_message t WHERE t::text LIKE @motif)
+                 + (SELECT count(*) FROM republication t WHERE t::text LIKE @motif)
             """,
             connexion);
         commande.Parameters.AddWithValue("motif", $"%{valeur}%");
