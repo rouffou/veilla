@@ -22,6 +22,23 @@
     "title": "Funktion in Vorbereitung",
     "notYetAvailable": "Diese Funktion ist noch nicht verfügbar."
   },
+  "ui": {
+    "loading": "Wird geladen…",
+    "retry": "Erneut versuchen"
+  },
+  "errors": {
+    "indisponible": "Dieser Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es in einigen Augenblicken erneut.",
+    "interdit": "Sie haben keinen Zugriff auf diese Informationen.",
+    "introuvable": "Das angeforderte Element wurde nicht gefunden.",
+    "invalide": "Die Anfrage konnte nicht angenommen werden. Prüfen Sie die eingegebenen Angaben.",
+    "reseau": "Keine Verbindung zum Server. Prüfen Sie Ihre Internetverbindung.",
+    "inattendue": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut."
+  },
+  "accessDenied": {
+    "title": "Zugriff verweigert",
+    "text": "Ihr Profil gewährt keinen Zugriff auf diese Seite.",
+    "home": "Zurück zur Startseite"
+  },
   "a11y": {
     "title": "Erklärung zur Barrierefreiheit",
     "statementLink": "Barrierefreiheit",

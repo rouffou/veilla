@@ -1,10 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { LanguageService } from '@veilla/shared';
-import { BffTravailleurService, ErreurApi, versErreurApi } from '../api/bff-travailleur.service';
-import { chargeable } from '../ui/chargeable';
-import { DateLocalePipe } from '../ui/date-locale.pipe';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
+import { chargeable, Chargement, DateLocalePipe, ErreurApi, ErreurApiMessage, LanguageService, versErreurApi } from '@veilla/shared';
+import { BffTravailleurService } from '../api/bff-travailleur.service';
 
 /**
  * POR-13, SAN-43 : demande de copie du dossier de santé et suivi de la demande (§3.3 « copie sur demande »). Le portail ne
@@ -29,16 +26,16 @@ import { Chargement, ErreurApiMessage } from '../ui/etats';
           @if (e.code === 'demande-copie.en-cours') {
             <p role="alert">{{ t('documents.copy.inProgress') }}</p>
           } @else {
-            <app-erreur-api [erreur]="e" />
+            <vl-erreur-api [erreur]="e" />
           }
         }
         @let etat = demandes.etat();
         @switch (etat.statut) {
           @case ('chargement') {
-            <app-chargement />
+            <vl-chargement />
           }
           @case ('erreur') {
-            <app-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="demandes.recharger()" />
+            <vl-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="demandes.recharger()" />
           }
           @case ('ok') {
             @if (enCours()) {

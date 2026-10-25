@@ -22,6 +22,23 @@
     "title": "Fonctionnalité à venir",
     "notYetAvailable": "Cette fonctionnalité n'est pas encore disponible."
   },
+  "ui": {
+    "loading": "Chargement en cours…",
+    "retry": "Réessayer"
+  },
+  "errors": {
+    "indisponible": "Ce service est momentanément indisponible. Veuillez réessayer dans quelques instants.",
+    "interdit": "Vous n'avez pas accès à ces informations.",
+    "introuvable": "L'élément demandé est introuvable.",
+    "invalide": "La demande n'a pas pu être acceptée. Vérifiez les informations saisies.",
+    "reseau": "Connexion au serveur impossible. Vérifiez votre connexion Internet.",
+    "inattendue": "Une erreur inattendue est survenue. Veuillez réessayer plus tard."
+  },
+  "accessDenied": {
+    "title": "Accès refusé",
+    "text": "Votre profil ne donne pas accès à cette page.",
+    "home": "Retour à l'accueil"
+  },
   "a11y": {
     "title": "Déclaration d'accessibilité",
     "statementLink": "Accessibilité",

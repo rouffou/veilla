@@ -4,7 +4,15 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "search": "Zoeken"
+    "search": "Zoeken",
+    "travailleurs": "Werknemers",
+    "affilies": "Aangeslotenen",
+    "planification": "Planning",
+    "consultation": "Raadpleging",
+    "vaccinations": "Vaccinaties",
+    "reintegration": "Re-integratie",
+    "travail": "Werklijst",
+    "admin": "Beheer"
   },
   "dashboard": {
     "title": "Dashboard",

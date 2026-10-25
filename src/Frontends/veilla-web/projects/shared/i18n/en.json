@@ -22,6 +22,23 @@
     "title": "Coming soon",
     "notYetAvailable": "This feature is not available yet."
   },
+  "ui": {
+    "loading": "Loading…",
+    "retry": "Try again"
+  },
+  "errors": {
+    "indisponible": "This service is temporarily unavailable. Please try again in a few moments.",
+    "interdit": "You do not have access to this information.",
+    "introuvable": "The requested item was not found.",
+    "invalide": "The request could not be accepted. Check the information entered.",
+    "reseau": "Cannot connect to the server. Check your Internet connection.",
+    "inattendue": "An unexpected error occurred. Please try again later."
+  },
+  "accessDenied": {
+    "title": "Access denied",
+    "text": "Your profile does not give access to this page.",
+    "home": "Back to the home page"
+  },
   "a11y": {
     "title": "Accessibility statement",
     "statementLink": "Accessibility",

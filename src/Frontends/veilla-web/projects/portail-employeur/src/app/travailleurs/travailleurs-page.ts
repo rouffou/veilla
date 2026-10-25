@@ -1,11 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { LanguageService } from '@veilla/shared';
+import { Chargement, DateLocalePipe, ErreurApiMessage, LanguageService } from '@veilla/shared';
 import { AffilieContext } from '../affilie/affilie-context';
 import { EtatAffilie } from '../affilie/affilie-selector';
 import { BffEmployeurService } from '../api/bff-employeur.service';
-import { DateLocalePipe } from '../ui/date-locale.pipe';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
 import { parAffilie } from '../ui/par-affilie';
 
 export const TAILLE_PAGE = 20;
@@ -42,10 +40,10 @@ export const TAILLE_PAGE = 20;
         @let etat = travailleurs.etat();
         @switch (etat.statut) {
           @case ('chargement') {
-            <app-chargement />
+            <vl-chargement />
           }
           @case ('erreur') {
-            <app-erreur-api
+            <vl-erreur-api
               [erreur]="etat.erreur"
               [reessayable]="true"
               (reessayer)="travailleurs.recharger()"

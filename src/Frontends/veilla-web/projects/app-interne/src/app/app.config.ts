@@ -4,11 +4,13 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import {
   apiAuthInterceptor,
   INTERNAL_LANGS,
+  provideCodesErreurApi,
   provideRuntimeConfig,
   provideVeillaAuth,
   provideVeillaI18n,
   VeillaRuntimeConfig,
 } from '@veilla/shared';
+import { CODES_ERREUR_INTERNE } from './api/codes-erreur';
 import { routes } from './app.routes';
 
 export function buildAppConfig(runtimeConfig: VeillaRuntimeConfig): ApplicationConfig {
@@ -24,6 +26,7 @@ export function buildAppConfig(runtimeConfig: VeillaRuntimeConfig): ApplicationC
       provideRuntimeConfig(runtimeConfig),
       provideVeillaAuth(runtimeConfig),
       provideVeillaI18n({ langs: INTERNAL_LANGS }),
+      provideCodesErreurApi(CODES_ERREUR_INTERNE),
     ],
   };
 }

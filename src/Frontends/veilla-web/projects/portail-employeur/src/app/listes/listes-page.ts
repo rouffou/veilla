@@ -2,13 +2,11 @@ import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { LanguageService } from '@veilla/shared';
+import { Chargement, DateLocalePipe, ErreurApi, ErreurApiMessage, LanguageService, versErreurApi } from '@veilla/shared';
 import { AffilieContext } from '../affilie/affilie-context';
 import { EtatAffilie } from '../affilie/affilie-selector';
 import { Fichier, ListeNominative } from '../api/bff-employeur.models';
-import { BffEmployeurService, ErreurApi, versErreurApi } from '../api/bff-employeur.service';
-import { DateLocalePipe } from '../ui/date-locale.pipe';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
+import { BffEmployeurService } from '../api/bff-employeur.service';
 import { parAffilie } from '../ui/par-affilie';
 
 /** Enregistre un fichier reçu du BFF via un lien temporaire (aucune ouverture de fenêtre). */
@@ -51,15 +49,15 @@ export function enregistrer(document: Document, fichier: Fichier): void {
           }
         </div>
         @if (erreurTelechargement(); as e) {
-          <app-erreur-api [erreur]="e" />
+          <vl-erreur-api [erreur]="e" />
         }
         @let etat = listes.etat();
         @switch (etat.statut) {
           @case ('chargement') {
-            <app-chargement />
+            <vl-chargement />
           }
           @case ('erreur') {
-            <app-erreur-api
+            <vl-erreur-api
               [erreur]="etat.erreur"
               [reessayable]="true"
               (reessayer)="listes.recharger()"

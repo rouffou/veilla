@@ -2,7 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, of, toArray } from 'rxjs';
 import { AFFILIE, bff, BFF, providePortailTesting } from '../testing/bff.testing';
-import { BffEmployeurService, charger, nomDeFichier, versErreurApi } from './bff-employeur.service';
+import { BffEmployeurService, nomDeFichier } from './bff-employeur.service';
+import { charger, versErreurApi } from '@veilla/shared';
 
 describe('BffEmployeurService', () => {
   let api: BffEmployeurService;

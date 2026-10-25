@@ -1,11 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { DashboardCard, LanguageService } from '@veilla/shared';
+import { chargeable, Chargement, DashboardCard, DateLocalePipe, ErreurApiMessage, LanguageService } from '@veilla/shared';
 import { BffTravailleurService } from '../api/bff-travailleur.service';
-import { chargeable } from '../ui/chargeable';
-import { DateLocalePipe } from '../ui/date-locale.pipe';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
 
 /**
  * Accueil du travailleur (POR-11 à POR-13) : écran composite du BFF. Une section dont le service est indisponible est
@@ -21,9 +18,9 @@ import { Chargement, ErreurApiMessage } from '../ui/etats';
       <p>{{ t('dashboard.intro') }}</p>
       @let etat = donnees.etat();
       @if (etat.statut === 'chargement') {
-        <app-chargement />
+        <vl-chargement />
       } @else if (etat.statut === 'erreur') {
-        <app-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="donnees.recharger()" />
+        <vl-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="donnees.recharger()" />
       } @else {
         @let a = etat.valeur;
         <div class="vl-dashboard">

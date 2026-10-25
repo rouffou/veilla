@@ -18,14 +18,13 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { LanguageService } from '@veilla/shared';
+import { Chargement, ErreurApi, ErreurApiMessage, LanguageService, versErreurApi } from '@veilla/shared';
 import { combineLatest } from 'rxjs';
 import { AffilieContext } from '../affilie/affilie-context';
 import { EtatAffilie } from '../affilie/affilie-selector';
 import { PropositionSoumise, TypeModification } from '../api/bff-employeur.models';
-import { BffEmployeurService, ErreurApi, versErreurApi } from '../api/bff-employeur.service';
+import { BffEmployeurService } from '../api/bff-employeur.service';
 import { TYPES_MODIFICATION } from '../postes/proposition-poste';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
 import { parAffilie } from '../ui/par-affilie';
 
 /** Nombre de travailleurs proposés dans le formulaire (taille maximale d'une page du BFF). */
@@ -63,10 +62,10 @@ type LigneForm = FormGroup<{
         @let etat = donnees.etat();
         @switch (etat.statut) {
           @case ('chargement') {
-            <app-chargement />
+            <vl-chargement />
           }
           @case ('erreur') {
-            <app-erreur-api
+            <vl-erreur-api
               [erreur]="etat.erreur"
               [reessayable]="true"
               (reessayer)="donnees.recharger()"
@@ -106,7 +105,7 @@ type LigneForm = FormGroup<{
                 </div>
               }
               @if (erreurEnvoi(); as e) {
-                <app-erreur-api [erreur]="e" />
+                <vl-erreur-api [erreur]="e" />
               }
               <form [formGroup]="formulaire" (ngSubmit)="soumettre()" novalidate class="app-form">
                 <div class="app-champ">

@@ -1,11 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { LanguageService } from '@veilla/shared';
+import { Chargement, DateLocalePipe, ErreurApiMessage, LanguageService } from '@veilla/shared';
 import { AffilieContext } from '../affilie/affilie-context';
 import { EtatAffilie } from '../affilie/affilie-selector';
 import { BffEmployeurService } from '../api/bff-employeur.service';
-import { DateLocalePipe } from '../ui/date-locale.pipe';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
 import { parAffilie } from '../ui/par-affilie';
 
 /** POR-03 : suivi des propositions soumises au CPMT (soumise, validée, refusée avec motif). */
@@ -22,10 +20,10 @@ import { parAffilie } from '../ui/par-affilie';
         @let etat = propositions.etat();
         @switch (etat.statut) {
           @case ('chargement') {
-            <app-chargement />
+            <vl-chargement />
           }
           @case ('erreur') {
-            <app-erreur-api
+            <vl-erreur-api
               [erreur]="etat.erreur"
               [reessayable]="true"
               (reessayer)="propositions.recharger()"

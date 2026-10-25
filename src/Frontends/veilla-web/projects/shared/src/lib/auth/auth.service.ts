@@ -2,7 +2,8 @@ import { computed, inject, Injectable } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { OidcSecurityService } from 'angular-auth-oidc-client';
-import { catchError, map, Observable, of, shareReplay } from 'rxjs';
+import { catchError, combineLatest, map, Observable, of, shareReplay, switchMap, take } from 'rxjs';
+import { extraireRoles, possedeUnRole } from './roles';
 
 export type AuthStatus = 'authenticated' | 'anonymous' | 'error';
 
@@ -29,6 +30,32 @@ export class AuthService {
     const name = data?.['name'] ?? data?.['preferred_username'];
     return typeof name === 'string' ? name : null;
   });
+
+  /** Rôles de l'utilisateur : union du claim `roles` du jeton d'accès et de celui de userinfo / jeton d'identité. */
+  private readonly rolesObservable$: Observable<readonly string[]> = this.oidc.isAuthenticated$.pipe(
+    switchMap((result) =>
+      result.isAuthenticated
+        ? combineLatest([
+            this.oidc.userData$.pipe(map((r) => extraireRoles(r.userData))),
+            this.oidc.getPayloadFromAccessToken().pipe(
+              map((payload) => extraireRoles(payload)),
+              catchError(() => of<readonly string[]>([])),
+            ),
+          ]).pipe(map(([profil, jeton]) => [...new Set([...profil, ...jeton])]))
+        : of<readonly string[]>([]),
+    ),
+  );
+
+  readonly roles = toSignal(this.rolesObservable$, { initialValue: [] as readonly string[] });
+
+  hasAnyRole(...exiges: readonly string[]): boolean {
+    return possedeUnRole(this.roles(), exiges);
+  }
+
+  /** Rôles une fois la session vérifiée (pour les gardes de route). */
+  rolesApresVerification(): Observable<readonly string[]> {
+    return this.checkStatus().pipe(switchMap(() => this.rolesObservable$.pipe(take(1))));
+  }
 
   /** Vérification unique de la session (traite aussi le retour du fournisseur d'identité). */
   private readonly status$: Observable<AuthStatus> = this.oidc.checkAuth().pipe(

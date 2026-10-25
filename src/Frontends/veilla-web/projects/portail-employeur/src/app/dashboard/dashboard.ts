@@ -1,11 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { DashboardCard } from '@veilla/shared';
+import { Chargement, DashboardCard, ErreurApiMessage } from '@veilla/shared';
 import { AffilieContext } from '../affilie/affilie-context';
 import { EtatAffilie } from '../affilie/affilie-selector';
 import { Indicateur } from '../api/bff-employeur.models';
 import { BffEmployeurService } from '../api/bff-employeur.service';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
 import { parAffilie } from '../ui/par-affilie';
 
 /** Libellé de chaque indicateur POR-02 renvoyé par le BFF. */
@@ -39,11 +38,11 @@ const TITRES: Record<string, string> = {
       @if (contexte.affilieId()) {
         @switch (tableau.etat().statut) {
           @case ('chargement') {
-            <app-chargement />
+            <vl-chargement />
           }
           @case ('erreur') {
             @if (erreur(); as e) {
-              <app-erreur-api [erreur]="e" [reessayable]="true" (reessayer)="tableau.recharger()" />
+              <vl-erreur-api [erreur]="e" [reessayable]="true" (reessayer)="tableau.recharger()" />
             }
           }
           @case ('ok') {

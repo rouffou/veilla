@@ -1,10 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, input, signal, viewChild } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { TYPES_DEMANDE, TypeDemande } from '../api/bff-travailleur.models';
-import { BffTravailleurService, ErreurApi, versErreurApi } from '../api/bff-travailleur.service';
+import { BffTravailleurService } from '../api/bff-travailleur.service';
 import { affiliesConnus, denominationsConnues } from '../ui/affilies';
-import { chargeable } from '../ui/chargeable';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
+import { chargeable, Chargement, ErreurApi, ErreurApiMessage, versErreurApi } from '@veilla/shared';
 
 /**
  * POR-12 : demande de consultation spontanée ou de visite de pré-reprise, sans passer par l'employeur. Le motif n'est ni
@@ -25,15 +24,15 @@ import { Chargement, ErreurApiMessage } from '../ui/etats';
         </div>
       }
       @if (erreurEnvoi(); as e) {
-        <app-erreur-api [erreur]="e" />
+        <vl-erreur-api [erreur]="e" />
       }
       @let etat = rendezVous.etat();
       @switch (etat.statut) {
         @case ('chargement') {
-          <app-chargement />
+          <vl-chargement />
         }
         @case ('erreur') {
-          <app-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="rendezVous.recharger()" />
+          <vl-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="rendezVous.recharger()" />
         }
         @case ('ok') {
           @if (affilies().length === 0) {

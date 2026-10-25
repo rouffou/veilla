@@ -4,11 +4,13 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import {
   apiAuthInterceptor,
   PORTAL_LANGS,
+  provideCodesErreurApi,
   provideRuntimeConfig,
   provideVeillaAuth,
   provideVeillaI18n,
   VeillaRuntimeConfig,
 } from '@veilla/shared';
+import { CODES_ERREUR_TRAVAILLEUR } from './api/codes-erreur';
 import { routes } from './app.routes';
 
 export function buildAppConfig(runtimeConfig: VeillaRuntimeConfig): ApplicationConfig {
@@ -24,6 +26,8 @@ export function buildAppConfig(runtimeConfig: VeillaRuntimeConfig): ApplicationC
       provideRuntimeConfig(runtimeConfig),
       provideVeillaAuth(runtimeConfig),
       provideVeillaI18n({ langs: PORTAL_LANGS }),
+      // Codes fonctionnels dont le message est traduit (le reste affiche le détail du service).
+      provideCodesErreurApi(CODES_ERREUR_TRAVAILLEUR),
     ],
   };
 }
