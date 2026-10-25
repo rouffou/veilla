@@ -1,0 +1,235 @@
+{
+  "appRoles": [
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Évaluations de santé, décisions, dossier de santé, réintégration (§3.1).",
+      "displayName": "CPMT (médecin du travail)",
+      "id": "cde6283f-d0f4-5e45-b2f2-546b20bb9f3e",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "cpmt"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Responsable du traitement : validation des protocoles et destruction des dossiers, accès à la zone médicale de l'audit (§3.1).",
+      "displayName": "CPMT dirigeant",
+      "id": "915de15e-2265-51a8-8522-590e134fb962",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "cpmt-dirigeant"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Actes médicaux supplémentaires, entretiens, vaccinations, estimations du potentiel de travail (§3.1).",
+      "displayName": "Infirmier(ère)",
+      "id": "e42d02ec-75e3-543d-accb-b0e259e2c8aa",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "infirmier"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Accueil, préparation des examens, mesures biométriques (§3.1).",
+      "displayName": "Assistant(e) médical(e)",
+      "id": "1cf6c81e-2b7d-50bc-b195-4529629630dc",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "assistant-medical"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Visites, analyses de risques, enquêtes accidents (§3.1).",
+      "displayName": "Conseiller en prévention sécurité",
+      "id": "91383129-ddaf-5e93-8417-3c5a3ea0ddce",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "cp-securite"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Analyses de postes, recommandations (§3.1).",
+      "displayName": "Conseiller en prévention ergonome",
+      "id": "1b43d3e2-1909-579b-ba99-cef38ee98e01",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "cp-ergonome"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Stratégies de mesurage, mesures, interprétation (§3.1).",
+      "displayName": "Conseiller en prévention hygiéniste",
+      "id": "85f21b36-38de-5638-8baa-317c2eb3c12c",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "cp-hygieniste"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Demandes d'intervention, analyses de risques psychosociaux (§3.1).",
+      "displayName": "Conseiller en prévention aspects psychosociaux",
+      "id": "9092f0ec-dafa-5a69-9dcc-a96c84783c24",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "cpap"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Responsable de la zone psychosociale, accès à la zone psychosociale de l'audit (§3.1).",
+      "displayName": "CPAP dirigeant",
+      "id": "d53065cd-e78b-54ff-ac4f-5c6c8ccec26b",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "cpap-dirigeant"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Données de l'affilié, listes, suivi des prestations (§3.1).",
+      "displayName": "Gestionnaire de dossiers affiliés",
+      "id": "59d2dd5e-caab-52e8-ab38-dbd6f32f1d7d",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "gestionnaire"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Agendas, convocations, tournées des unités mobiles (§3.1).",
+      "displayName": "Planificateur(rice)",
+      "id": "310cfb4a-743f-526c-a3e3-34aa6e55e95a",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "planificateur"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Pilotage opérationnel, affectation des ressources (§3.1).",
+      "displayName": "Responsable de centre / de région",
+      "id": "c27e9b15-1330-5ac8-aecc-061f1f4c6bbd",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "responsable-centre"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Tableaux de bord agrégés, rapports légaux (§3.1).",
+      "displayName": "Direction",
+      "id": "c61f7b92-0bb0-55f0-b2af-ca9e9b18f59f",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "direction"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Paramètres, référentiels, modèles de documents (§3.1).",
+      "displayName": "Administrateur fonctionnel",
+      "id": "6db684bc-bc90-5870-b477-aaf19edcea81",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "admin-fonctionnel"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Registre des traitements, journal des accès, demandes RGPD (§3.1).",
+      "displayName": "DPO",
+      "id": "5e66bd19-4342-5338-8e15-51d6459cfaed",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "dpo"
+    },
+    {
+      "allowedMemberTypes": [
+        "User"
+      ],
+      "description": "Republication de l'état courant des producteurs (ADR 0011). Aucun droit métier.",
+      "displayName": "Exploitation de la plateforme",
+      "id": "668aa994-3c0f-53d6-86e1-7e2a59029367",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "exploitation"
+    },
+    {
+      "allowedMemberTypes": [
+        "Application"
+      ],
+      "description": "Alimentation DIMONA du service Personnes (AFF-20).",
+      "displayName": "Compte de service Intégrations",
+      "id": "5e8debe5-a4dc-57a3-98b7-4346d6e6a28a",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "integrations"
+    },
+    {
+      "allowedMemberTypes": [
+        "Application"
+      ],
+      "description": "Lecture de la langue de l'affilié et du travailleur (NF-41).",
+      "displayName": "Compte de service Documents",
+      "id": "f316aacf-147a-565e-84db-9f315e60c5df",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "documents"
+    },
+    {
+      "allowedMemberTypes": [
+        "Application"
+      ],
+      "description": "Lecture du contenu de la copie du dossier et du carnet de vaccination (SAN-43, SAN-50).",
+      "displayName": "Compte de service Documents, zone médicale",
+      "id": "09144084-e03e-5074-8496-52487f195988",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "documents-medicale"
+    },
+    {
+      "allowedMemberTypes": [
+        "Application"
+      ],
+      "description": "Résolution des coordonnées et des préférences de canal (DOC-03, SAN-10).",
+      "displayName": "Compte de service Communications",
+      "id": "e3d73a1a-6f1b-5bfa-b795-ac53403f6082",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "communications"
+    },
+    {
+      "allowedMemberTypes": [
+        "Application"
+      ],
+      "description": "Lecture des données d'entreprise de la BCE chez Intégrations (AFF-01, AFF-02).",
+      "displayName": "Compte de service Affiliés",
+      "id": "bb4122ca-2b5b-5c91-9b55-b44cfc2476e3",
+      "isEnabled": true,
+      "origin": "Application",
+      "value": "affilies"
+    }
+  ]
+}

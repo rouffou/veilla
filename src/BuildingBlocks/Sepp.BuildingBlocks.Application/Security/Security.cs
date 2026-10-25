@@ -198,6 +198,13 @@ public static class RolePermissions
     public static IReadOnlySet<string> For(IEnumerable<string> roles) =>
         roles.SelectMany(r => Map.TryGetValue(r, out var p) ? p : []).ToHashSet(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Matrice complète rôle → permissions, en lecture seule : sert à l'export de la revue trimestrielle des droits
+    /// (NF-02) et au test de non-régression contre <c>docs/securite/matrice-droits.csv</c>.
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlySet<string>> Matrice() =>
+        Map.ToDictionary(e => e.Key, e => (IReadOnlySet<string>)e.Value, StringComparer.Ordinal);
+
     private static Dictionary<string, HashSet<string>> Build()
     {
         var map = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using Sepp.Audit.Adapters.Api;
 using Sepp.Audit.Adapters.Persistence;
 using Sepp.Audit.Application.Journal;
 using Sepp.BuildingBlocks.Application.Security;
@@ -152,4 +153,20 @@ public sealed class AuditApiTests : AuditServiceTestBase
         (await Client(Roles.CpapDirigeant).GetFromJsonAsync<EntreeAuditDto>($"/api/v1/audit/entrees/{entree.Id}", Ct))!.Empreinte.ShouldBe(entree.Empreinte);
         (await Client(Roles.CpmtDirigeant).GetAsync($"/api/v1/audit/entrees/{entree.Id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task La_matrice_des_droits_est_exportable_par_le_dpo_en_json_et_en_csv()
+    {
+        var json = await Client(Roles.Dpo).GetFromJsonAsync<List<RoleDroitsDto>>("/api/v1/audit/droits/matrice", Ct);
+        json!.Select(r => r.Role).ShouldContain(Roles.Dpo);
+        json!.Single(r => r.Role == Roles.Dpo).Permissions.ShouldContain(Permissions.AuditLire);
+
+        var csv = await Client(Roles.Dpo).GetStringAsync("/api/v1/audit/droits/matrice?format=csv", Ct);
+        csv.ShouldStartWith("role;permission\n");
+        csv.ShouldContain($"{Roles.Dpo};{Permissions.AuditLire}\n");
+    }
+
+    [Fact]
+    public async Task La_matrice_des_droits_est_refusee_sans_audit_lire() =>
+        (await Client(Roles.Direction).GetAsync("/api/v1/audit/droits/matrice", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 }
