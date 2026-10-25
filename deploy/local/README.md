@@ -14,9 +14,10 @@ docker compose -f deploy/local/compose.yaml up -d --build
 | Service Postes et risques | http://localhost:5113 | idem |
 | Service Audit | http://localhost:5114 | idem |
 | Service Intégrations | http://localhost:5115 | simulateurs BCE, DIMONA, registre national ; flux lancés par `POST /api/v1/flux/{flux}/executions` |
+| BFF interne | http://localhost:5100 | relais de l'application interne vers les services (`/{service}/api/v1/…`) et écrans composites (`/api/v1/ecrans/…`) ; voir [src/Bff/Interne/README.md](../../src/Bff/Interne/README.md) |
 | BFF employeur | http://localhost:5200 | API du portail employeur ; voir [src/Bff/Employeur/README.md](../../src/Bff/Employeur/README.md) |
 | BFF travailleur | http://localhost:5201 | API du portail travailleur ; voir [src/Bff/Travailleur/README.md](../../src/Bff/Travailleur/README.md) |
-| Application interne | http://localhost:8081 | |
+| Application interne | http://localhost:8081 | appelle le BFF interne (`VEILLA_API_BASE_URL` = http://localhost:5100) |
 | Portail employeur | http://localhost:8082 | |
 | Portail travailleur | http://localhost:8083 | |
 | Keycloak (realm `veilla`) | http://localhost:8180 | console d'administration : `admin` / `admin-local-dev` |
@@ -25,8 +26,26 @@ docker compose -f deploy/local/compose.yaml up -d --build
 
 ## Utilisateurs de test
 
-Définis dans [`keycloak/veilla-realm.json`](keycloak/veilla-realm.json), mot de passe commun `veilla-dev` :
-`cpmt`, `cpmt.dirigeant`, `infirmier`, `cpap`, `securite`, `gestionnaire`, `planificateur`, `admin` (administrateur fonctionnel), `dpo`, `employeur`, `travailleur`, `exploitant` (rôle `exploitation` : republication des producteurs, aucun droit métier, voir [rattrapage des projections](../../docs/architecture/rattrapage-projections.md)).
+Définis dans [`keycloak/veilla-realm.json`](keycloak/veilla-realm.json), mot de passe commun `veilla-dev`. Les noms sont fictifs.
+
+| Utilisateur | Nom affiché | Rôle |
+|---|---|---|
+| `cpmt` | Anne Martin | `cpmt` (conseiller en prévention-médecin du travail) |
+| `cpmt.dirigeant` | Marc Dubois | `cpmt`, `cpmt-dirigeant` |
+| `infirmier` | Sophie Lambert | `infirmier` |
+| `assistant` | Laura Maes | `assistant-medical` (accueil, salle d'attente, questionnaire sur tablette) |
+| `cpap` | Thomas Janssens | `cpap` |
+| `securite` | Karim Benali | `cp-securite` |
+| `gestionnaire` | Julie Peeters | `gestionnaire` |
+| `planificateur` | Nicolas Lemaire | `planificateur` |
+| `responsable` | Philippe Simon | `responsable-centre` (ressources, lieux et congés du centre) |
+| `admin` | Claire Dupont | `admin-fonctionnel` (administrateur fonctionnel) |
+| `dpo` | Isabelle Renard | `dpo` |
+| `exploitant` | Lucas Wouters | `exploitation` : republication des producteurs, aucun droit métier, voir [rattrapage des projections](../../docs/architecture/rattrapage-projections.md) |
+| `employeur` | Eva Claes | `employeur` (portail employeur) |
+| `travailleur` | Théo Mertens | `travailleur` (portail travailleur) |
+
+Seuls les profils internes passent par le BFF interne : un jeton `employeur`, `sipp`, `travailleur`, technique ou `exploitation` y reçoit 403.
 
 Les rôles de la matrice §3.3 sont émis dans le claim `roles` et l'audience `sepp-api` est ajoutée au jeton, comme en production.
 
@@ -44,6 +63,17 @@ TOKEN=$(curl -s -X POST http://localhost:8180/realms/veilla/protocol/openid-conn
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:5110/api/v1/parametres-legaux?langue=nl"
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:5110/api/v1/calendrier/echeance?depart=2026-05-01&joursOuvrables=10"
 ```
+
+Les mêmes appels passent par le BFF interne en préfixant le chemin par le nom du service (liste fermée : `referentiels`, `audit`,
+`affilies`, `personnes`, `postes-risques`, `obligations`, `integrations`, `surveillance-medicale`, `planification`,
+`documents`, `communications`, `reintegration`) :
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5100/referentiels/api/v1/parametres-legaux?langue=nl"
+```
+
+Le realm n'est importé qu'à la création du conteneur Keycloak (sans volume) : après une modification de
+`veilla-realm.json`, recréez-le (`docker compose -f deploy/local/compose.yaml up -d --force-recreate keycloak`).
 
 ## Bus d'événements
 

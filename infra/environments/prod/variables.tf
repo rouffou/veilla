@@ -137,7 +137,7 @@ variable "authentication_audience" {
 }
 
 variable "portal_origins" {
-  description = "Origines CORS autorisées sur les BFF de portail (bff-employeur, bff-travailleur), https uniquement, sans joker."
+  description = "Origines CORS autorisées sur les BFF (bff-interne, bff-employeur, bff-travailleur), https uniquement, sans joker."
   type        = map(list(string))
 }
 

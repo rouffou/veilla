@@ -76,6 +76,14 @@ public sealed partial class ConfigurationTerraformTests
         ["referentiels"] = [.. Authentification, .. BasePostgres],
         ["reintegration"] = [.. Authentification, .. BasePostgres, .. Chiffrement("ZoneMedicale:Encryption"), .. Adaptateurs("Reintegration", "EHealth")],
         ["surveillance-medicale"] = [.. Authentification, .. BasePostgres, .. Chiffrement("ZoneMedicale:Encryption")],
+        // BFF interne (ADR 0013) : relais vers la liste fermée des douze services métier, toutes obligatoires au démarrage.
+        ["bff-interne"] =
+        [
+            .. Authentification, "Cors:OriginesAutorisees:0", "Sepp:Services:Referentiels", "Sepp:Services:Audit", "Sepp:Services:Affilies",
+            "Sepp:Services:Personnes", "Sepp:Services:Postes_Risques", "Sepp:Services:Obligations", "Sepp:Services:Integrations",
+            "Sepp:Services:Surveillance_Medicale", "Sepp:Services:Planification", "Sepp:Services:Documents", "Sepp:Services:Communications",
+            "Sepp:Services:Reintegration",
+        ],
         ["bff-employeur"] = [.. Authentification, "Cors:OriginesAutorisees:0", "Sepp:Services:Affilies", "Sepp:Services:Personnes", "Sepp:Services:Postes_Risques", "Sepp:Services:Obligations"],
         ["bff-travailleur"] = [.. Authentification, "Cors:OriginesAutorisees:0", "Sepp:Services:Planification", "Sepp:Services:Surveillance_Medicale", "Sepp:Services:Obligations", "Sepp:Services:Documents", "Sepp:Services:Documents_Medicale"],
     };
@@ -158,7 +166,7 @@ public sealed partial class ConfigurationTerraformTests
 
     /// <summary>Services du catalogue Terraform dont le code n'existe pas encore dans le dépôt (aucune configuration à vérifier).</summary>
     private static readonly string[] ServicesSansCode =
-        ["bff-interne", "identite", "prestations", "prevention", "psychosocial", "reporting"];
+        ["identite", "prestations", "prevention", "psychosocial", "reporting"];
 
     [Fact]
     public void Chaque_adaptateur_declare_dans_appsettings_est_injecte_par_terraform_et_aucun_ne_vaut_Reel_par_defaut()
@@ -261,7 +269,7 @@ public sealed partial class ConfigurationTerraformTests
     }
 
     [Fact]
-    public void Chaque_environnement_fournit_des_origines_https_sans_joker_aux_deux_BFF()
+    public void Chaque_environnement_fournit_des_origines_https_sans_joker_aux_trois_BFF()
     {
         var racine = Terraform.RacineDepot();
         var environnements = Directory.GetDirectories(Path.Combine(racine, "infra", "environments"));
@@ -282,7 +290,7 @@ public sealed partial class ConfigurationTerraformTests
                 continue;
             }
 
-            foreach (var bff in new[] { "bff-employeur", "bff-travailleur" })
+            foreach (var bff in new[] { "bff-interne", "bff-employeur", "bff-travailleur" })
             {
                 var liste = Regex.Match(bloc.Groups["v"].Value, "\"" + bff + "\"\\s*=\\s*\\[(?<l>[^\\]]*)\\]");
                 var origines = liste.Success
@@ -697,7 +705,7 @@ public sealed partial class ConfigurationTerraformTests
             }
 
             // CORS des BFF de portail (#358) : origines des portails par environnement, une variable par origine.
-            if (service is "bff-employeur" or "bff-travailleur")
+            if (service is "bff-interne" or "bff-employeur" or "bff-travailleur")
             {
                 Ajouter(fournies, _main.Contains("CORS__ORIGINESAUTORISEES__", StringComparison.Ordinal) && Fusionne("cors_environment")
                     && Variables.Contains("variable \"portal_origins\"", StringComparison.Ordinal), "Cors__OriginesAutorisees__0");

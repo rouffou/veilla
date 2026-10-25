@@ -39,6 +39,7 @@ authentication_audience = "api://sepp-recette"
 # CORS des BFF (#358) : origines exactes des portails (domaines publics APIM / Application Gateway), https, sans joker.
 # Valeurs d exemple à remplacer par les domaines réels de l environnement.
 portal_origins = {
+  "bff-interne"     = ["https://interne.recette.sepp.example.be"]
   "bff-employeur"   = ["https://employeur.recette.sepp.example.be"]
   "bff-travailleur" = ["https://travailleur.recette.sepp.example.be"]
 }

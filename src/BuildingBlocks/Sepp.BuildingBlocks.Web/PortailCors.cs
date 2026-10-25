@@ -95,12 +95,29 @@ public static class PortailCors
     /// </summary>
     /// <param name="builder">Hôte du BFF.</param>
     /// <param name="methodes">Méthodes HTTP utilisées par le portail.</param>
-    public static WebApplicationBuilder AddSeppPortailCors(this WebApplicationBuilder builder, params string[] methodes)
+    public static WebApplicationBuilder AddSeppPortailCors(this WebApplicationBuilder builder, params string[] methodes) =>
+        AddSeppPortailCors(builder, methodes, []);
+
+    /// <summary>
+    /// Variante pour un canal qui envoie des en-têtes de requête propres en plus des en-têtes communs, par exemple le motif
+    /// d'accès et le bris de glace de l'application interne (ADR 0013). Mêmes règles d'origine que la surcharge simple.
+    /// </summary>
+    /// <param name="builder">Hôte du BFF.</param>
+    /// <param name="methodes">Méthodes HTTP utilisées par le canal.</param>
+    /// <param name="entetesSupplementaires">En-têtes de requête autorisés en plus des en-têtes communs (noms exacts, sans joker).</param>
+    public static WebApplicationBuilder AddSeppPortailCors(this WebApplicationBuilder builder, string[] methodes, string[] entetesSupplementaires)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(methodes);
+        ArgumentNullException.ThrowIfNull(entetesSupplementaires);
+        if (entetesSupplementaires.Any(e => string.IsNullOrWhiteSpace(e) || e.Contains('*', StringComparison.Ordinal)))
+        {
+            throw new ArgumentException("En-têtes CORS supplémentaires : noms exacts attendus, sans joker.", nameof(entetesSupplementaires));
+        }
 
         var hors = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Test") || builder.Environment.IsEnvironment("Testing");
         var origines = ValiderOrigines(builder.Configuration.GetSection(Section).Get<string[]>(), production: !hors);
+        string[] entetes = [.. EnTetesAutorises.Concat(entetesSupplementaires).Distinct(StringComparer.OrdinalIgnoreCase)];
 
         builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
         {
@@ -110,7 +127,7 @@ public static class PortailCors
             }
 
             p.WithMethods(methodes)
-                .WithHeaders(EnTetesAutorises)
+                .WithHeaders(entetes)
                 .WithExposedHeaders(EnTetesExposes)
                 .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
         }));

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!--
+    BFF de l'application interne (ARC-43, ADR 0013) : relais vers une liste fermée de services et écrans composites,
+    sans logique métier ni base de données. Il ne référence aucun projet de service (vérifié par un test d'architecture) :
+    les contrats HTTP utiles aux écrans composites sont recopiés localement (Aval/ContratsAval.cs).
+  -->
+  <PropertyGroup>
+    <AssemblyName>Sepp.Bff.Interne</AssemblyName>
+    <RootNamespace>Sepp.Bff.Interne</RootNamespace>
+    <UserSecretsId>sepp-bff-interne</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Yarp.ReverseProxy" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\BuildingBlocks\Sepp.BuildingBlocks.Web\Sepp.BuildingBlocks.Web.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sepp.Bff.Interne.Tests" />
+    <InternalsVisibleTo Include="Sepp.Bff.Interne.Integration.Tests" />
+  </ItemGroup>
+</Project>

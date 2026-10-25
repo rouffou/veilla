@@ -1,3 +1,8 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
 using Sepp.BuildingBlocks.Web;
 
 using Shouldly;
@@ -64,5 +69,49 @@ public class PortailCorsTests
     public void Un_joker_parmi_des_origines_valides_fait_echouer_la_liste()
     {
         Should.Throw<InvalidOperationException>(() => PortailCors.ValiderOrigines(["https://portail.example.be", "*"], production: true));
+    }
+
+    private static CorsPolicy Politique(Action<WebApplicationBuilder> cors)
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
+        builder.Configuration["Cors:OriginesAutorisees:0"] = "http://localhost:8081";
+        cors(builder);
+        using var app = builder.Build();
+        var options = app.Services.GetRequiredService<IOptions<CorsOptions>>().Value;
+        return options.GetPolicy(options.DefaultPolicyName)!;
+    }
+
+    [Fact]
+    public void La_surcharge_simple_garde_les_en_tetes_communs_des_portails()
+    {
+        var politique = Politique(b => b.AddSeppPortailCors("GET", "POST"));
+
+        politique.Methods.ShouldBe(["GET", "POST"]);
+        politique.Headers.ShouldBe(["Authorization", "Content-Type", "Accept-Language", "X-Correlation-Id"]);
+        politique.ExposedHeaders.ShouldBe(["Content-Disposition", "X-Correlation-Id"]);
+        politique.Origins.ShouldBe(["http://localhost:8081"]);
+        politique.SupportsCredentials.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void La_surcharge_avec_en_tetes_supplementaires_les_ajoute_aux_en_tetes_communs()
+    {
+        var politique = Politique(b => b.AddSeppPortailCors(["GET", "POST", "PUT", "DELETE"], ["X-Motif-Acces", "X-Bris-De-Glace", "authorization"]));
+
+        politique.Methods.ShouldBe(["GET", "POST", "PUT", "DELETE"]);
+        politique.Headers.ShouldBe(["Authorization", "Content-Type", "Accept-Language", "X-Correlation-Id", "X-Motif-Acces", "X-Bris-De-Glace"]);
+        politique.Origins.ShouldBe(["http://localhost:8081"]);
+        politique.SupportsCredentials.ShouldBeFalse();
+        politique.AllowAnyHeader.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("*")]
+    [InlineData("")]
+    public void Un_en_tete_supplementaire_joker_ou_vide_est_refuse(string entete)
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
+
+        Should.Throw<ArgumentException>(() => builder.AddSeppPortailCors(["GET"], [entete]));
     }
 }
