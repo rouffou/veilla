@@ -38,12 +38,6 @@ public static class DependencyInjection
         services.AddScoped<IProjectionRepository, ProjectionRepository>();
         services.AddScoped<IPerimetreAffilies, HttpPerimetreAffilies>();
 
-        // AFF-31 : durée de conservation par défaut tant que le paramètre légal n'a pas été reçu (5 ans).
-        services.AddSingleton(new ConservationListesOptions
-        {
-            AnneesParDefaut = configuration.GetValue("ListesNominatives:ConservationAnnees", 5),
-        });
-
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
         return services;
     }

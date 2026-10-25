@@ -58,7 +58,7 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
 | SAN-31 | Décisions apte, apte avec mesures, inaptitude temporaire, inaptitude définitive, mutation, écartement (maternité), avec validité et règles de cohérence |
 | SAN-32 | Port `ISignatureQualifiee` + `SignatureSimulee` ; la demande ne porte que l'empreinte SHA-256 du formulaire. **eID / itsme réel hors périmètre** (prestataire de signature qualifiée à distance à choisir) |
 | SAN-33 | La signature émet `DecisionEmise` (catégorie, mesures codées, validité, `ExamenId` de l'examen d'origine — jamais le motif médical) ; voies de concertation et de recours fournies au formulaire |
-| SAN-34 | Concertation et recours auprès du médecin-inspecteur social : délais d'introduction et d'issue en jours ouvrables (paramètres `SurveillanceMedicale:DelaisRecours`, à valider ; jours fériés légaux et supplémentaires reçus par `JoursFeriesModifies`), signalement des introductions tardives, issue ; une décision réformée est retransmise (`DecisionEmise`, même `DecisionId` et même `ExamenId`) |
+| SAN-34 | Concertation et recours auprès du médecin-inspecteur social : délais d'introduction et d'issue en jours ouvrables (paramètres légaux `SANTE.CONCERTATION.INTRODUCTION_DELAI`, `SANTE.CONCERTATION.ISSUE_DELAI`, `SANTE.RECOURS.INTRODUCTION_DELAI` et `SANTE.RECOURS.DECISION_DELAI` de Référentiels (ARC-21), valeurs initiales 5, 14, 7 et 31 jours ouvrables dans `ParametresLegauxParDefaut`, à valider ; jours fériés légaux et supplémentaires reçus par `JoursFeriesModifies`), signalement des introductions tardives, issue ; une décision réformée est retransmise (`DecisionEmise`, même `DecisionId` et même `ExamenId`) |
 | SAN-40 | Dossier unique par `personne_id` (index unique), transversal aux employeurs ; parties art. I.4-85 à I.4-87 ; **expositions** alimentées par `MesurageEnregistre` pour les personnes rattachées au groupe d'exposition (`POST /dossiers/{id}/groupes-exposition`), ou saisies |
 | SAN-41 | Pièces jointes (référence `document_id` du service Documents, métadonnées chiffrées) |
 | SAN-42 | Transferts sortants (demande → export chiffré + empreinte → transmission) et entrants (contrôle d'intégrité, intégration) ; port `ICanalTransfertDossier` + simulateur — **canal réel à confirmer** (eHealthBox ou équivalent) |
@@ -79,7 +79,7 @@ de la zone), indicateur « résultat inhabituel » (alertes SAN-23).
   sujet Terraform).
 - **Consommés** (projections idempotentes : inbox + écriture par clé) : `obligations.obligation-creee`,
   `planification.rendez-vous-planifie`, `personnes.affectation-modifiee`, `postes-risques.profil-risque-poste-modifie`,
-  `prevention.mesurage-enregistre`, `referentiels.parametre-legal-modifie` (`SANTE.DOSSIER.CONSERVATION_MINIMUM`),
+  `prevention.mesurage-enregistre`, `referentiels.parametre-legal-modifie` (`SANTE.DOSSIER.CONSERVATION_MINIMUM`, délais de concertation et de recours),
   `obligations.obligation-cloturee` (retrait des examens dus annulés ou sans objet ; idempotent, ordre d'arrivée sans effet),
   `referentiels.jours-feries-modifies` (jours fériés supplémentaires des délais de recours, DAT-08).
 - **Codes de type d'examen** : constantes partagées `Sepp.Contracts.Examens.TypesExamen` (le domaine ne déclare plus ses

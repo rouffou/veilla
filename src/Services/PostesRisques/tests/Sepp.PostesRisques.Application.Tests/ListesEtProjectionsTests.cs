@@ -60,11 +60,11 @@ public class ListesEtProjectionsTests
             .HandleAsync(new ExamenCloture(examen ?? Guid.CreateVersion7(), personne, affilie ?? _affilie, "EVALUATION_PERIODIQUE", date), _ct);
 
     private GenererListeNominativeHandler Generateur(ICurrentUser user, IPerimetreAffilies perimetre) =>
-        new(new CalculListesNominatives(_store, _store, _store), _store, new PolitiqueConservationListes(_store, new ConservationListesOptions()),
+        new(new CalculListesNominatives(_store, _store, _store), _store, new PolitiqueConservationListes(_store),
             _store, _store, user, perimetre, _clock);
 
     private ValiderPropositionListeHandler Validateur(ICurrentUser user) =>
-        new(_store, _store, new CalculListesNominatives(_store, _store, _store), new PolitiqueConservationListes(_store, new ConservationListesOptions()),
+        new(_store, _store, new CalculListesNominatives(_store, _store, _store), new PolitiqueConservationListes(_store),
             _store, _store, user, _clock);
 
     [Fact]
@@ -244,7 +244,7 @@ public class ListesEtProjectionsTests
         await handler.HandleAsync(evt, _ct);
 
         _store.Parametres.ShouldHaveSingleItem().Valeur.ShouldBe(6);
-        (await new PolitiqueConservationListes(_store, new ConservationListesOptions()).AnneesAsync(new DateOnly(2026, 12, 31), _ct)).ShouldBe(5);
-        (await new PolitiqueConservationListes(_store, new ConservationListesOptions()).AnneesAsync(new DateOnly(2027, 1, 1), _ct)).ShouldBe(6);
+        (await new PolitiqueConservationListes(_store).AnneesAsync(new DateOnly(2026, 12, 31), _ct)).ShouldBe(5);
+        (await new PolitiqueConservationListes(_store).AnneesAsync(new DateOnly(2027, 1, 1), _ct)).ShouldBe(6);
     }
 }

@@ -6,6 +6,7 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.BuildingBlocks.Domain.Calendar;
 using Sepp.Contracts;
+using Sepp.Contracts.Referentiels;
 using Sepp.Contracts.Reintegration;
 using Sepp.Reintegration.Domain;
 using Sepp.Reintegration.Domain.Incapacites;
@@ -160,28 +161,6 @@ public sealed class AccesSuivi(ICurrentUser user, IContexteAcces contexte)
     public bool EstLeTravailleur(Guid personneId) => user.Roles.Contains(Roles.Travailleur) && contexte.PersonneIdJeton == personneId;
 }
 
-/// <summary>Paramètres légaux par défaut, tant que le service Référentiels n'a pas publié <c>REINTEGRATION.*</c>.</summary>
-/// <remarks>
-/// Valeurs identiques au catalogue initial de Référentiels et au §2.1 du cahier des charges (réforme du 1er janvier 2026) :
-/// elles ne remplacent pas les paramètres publiés et restent <b>à valider</b> par le département juridique.
-/// </remarks>
-public sealed class DelaisParDefaut
-{
-    public int InformationTravailleurSemaines { get; set; } = 4;
-
-    public int EstimationPotentielSemaines { get; set; } = 8;
-
-    public int TrajetObligatoireMois { get; set; } = 6;
-
-    public int SeuilTravailleurs { get; set; } = 20;
-
-    public int AbsencesMedecinConseil { get; set; } = 2;
-
-    public int InvitationJoursCalendrier { get; set; } = 49;
-
-    public int ReponsePlanJoursCalendrier { get; set; } = 14;
-}
-
 /// <summary>Réglages d'organisation du suivi (pas des valeurs légales) : section <c>Reintegration:Suivi</c>, tous <b>à valider</b>.</summary>
 public sealed class ReglagesSuivi
 {
@@ -197,21 +176,19 @@ public sealed class ReglagesSuivi
 
 public sealed class OptionsReintegration
 {
-    public DelaisParDefaut DelaisParDefaut { get; set; } = new();
-
     public ReglagesSuivi Suivi { get; set; } = new();
 }
 
 /// <summary>Politique légale en vigueur à une date : paramètres de Référentiels (ARC-21) et calendrier belge (DAT-08).</summary>
 public sealed class ParametresReintegration(IProjectionRepository projections, OptionsReintegration options)
 {
-    public const string InformationTravailleur = "REINTEGRATION.INFORMATION_TRAVAILLEUR";
-    public const string EstimationPotentiel = "REINTEGRATION.ESTIMATION_POTENTIEL";
-    public const string TrajetObligatoire = "REINTEGRATION.TRAJET_OBLIGATOIRE";
-    public const string SeuilTravailleurs = "REINTEGRATION.SEUIL_TRAVAILLEURS";
-    public const string AbsencesMedecinConseil = "REINTEGRATION.ABSENCES_MEDECIN_CONSEIL";
-    public const string Invitation = "REINTEGRATION.INVITATION.DELAI";
-    public const string ReponsePlan = "REINTEGRATION.REPONSE_PLAN.DELAI";
+    public const string InformationTravailleur = CodesParametresLegaux.ReintegrationInformationTravailleur;
+    public const string EstimationPotentiel = CodesParametresLegaux.ReintegrationEstimationPotentiel;
+    public const string TrajetObligatoire = CodesParametresLegaux.ReintegrationTrajetObligatoire;
+    public const string SeuilTravailleurs = CodesParametresLegaux.ReintegrationSeuilTravailleurs;
+    public const string AbsencesMedecinConseil = CodesParametresLegaux.ReintegrationAbsencesMedecinConseil;
+    public const string Invitation = CodesParametresLegaux.ReintegrationInvitationDelai;
+    public const string ReponsePlan = CodesParametresLegaux.ReintegrationReponsePlanDelai;
 
     public static readonly IReadOnlySet<string> Suivis = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -229,24 +206,33 @@ public sealed class ParametresReintegration(IProjectionRepository projections, O
             return connue;
         }
 
-        var d = options.DelaisParDefaut;
         var (debut, fin) = (date.Year - 1, date.Year + 2);
         var supplementaires = await projections.ListerCalendriersAsync(debut, fin, cancellationToken);
         var calendrier = new BusinessCalendar(Enumerable.Range(debut, fin - debut + 1).SelectMany(BelgianPublicHolidays.For).Select(h => h.Date)
             .Concat(supplementaires.SelectMany(c => c.JoursSupplementaires)));
         var politique = new PolitiqueReintegration(
-            await DureeAsync(InformationTravailleur, date, new(d.InformationTravailleurSemaines, UniteDelai.Semaines), cancellationToken),
-            await DureeAsync(EstimationPotentiel, date, new(d.EstimationPotentielSemaines, UniteDelai.Semaines), cancellationToken),
-            await DureeAsync(TrajetObligatoire, date, new(d.TrajetObligatoireMois, UniteDelai.Mois), cancellationToken),
-            await NombreAsync(SeuilTravailleurs, date, d.SeuilTravailleurs, cancellationToken),
-            await NombreAsync(AbsencesMedecinConseil, date, d.AbsencesMedecinConseil, cancellationToken),
-            await DureeAsync(Invitation, date, new(d.InvitationJoursCalendrier, UniteDelai.JoursCalendrier), cancellationToken),
-            await DureeAsync(ReponsePlan, date, new(d.ReponsePlanJoursCalendrier, UniteDelai.JoursCalendrier), cancellationToken),
+            await DureeAsync(InformationTravailleur, date, Defaut(InformationTravailleur), cancellationToken),
+            await DureeAsync(EstimationPotentiel, date, Defaut(EstimationPotentiel), cancellationToken),
+            await DureeAsync(TrajetObligatoire, date, Defaut(TrajetObligatoire), cancellationToken),
+            await NombreAsync(SeuilTravailleurs, date, Defaut(SeuilTravailleurs).Valeur, cancellationToken),
+            await NombreAsync(AbsencesMedecinConseil, date, Defaut(AbsencesMedecinConseil).Valeur, cancellationToken),
+            await DureeAsync(Invitation, date, Defaut(Invitation), cancellationToken),
+            await DureeAsync(ReponsePlan, date, Defaut(ReponsePlan), cancellationToken),
             options.Suivi.DelaiPlanEmployeurJoursCalendrier is { } plan ? new DureeLegale(plan, UniteDelai.JoursCalendrier) : null,
             Math.Max(options.Suivi.AlerteAvantEcheanceJoursOuvrables, 0),
             calendrier);
         _cache[date] = politique;
         return politique;
+    }
+
+    /// <summary>
+    /// Valeur initiale du paramètre, tant que Référentiels n'a pas publié <c>REINTEGRATION.*</c> : source unique
+    /// <see cref="ParametresLegauxParDefaut"/> du contrat (identique au catalogue initial, à valider par le département juridique).
+    /// </summary>
+    private static DureeLegale Defaut(string code)
+    {
+        var valeur = ParametresLegauxParDefaut.Obtenir(code);
+        return new DureeLegale(valeur.Valeur, Enum.TryParse<UniteDelai>(valeur.Unite, out var unite) ? unite : default);
     }
 
     private async Task<DureeLegale> DureeAsync(string code, DateOnly date, DureeLegale defaut, CancellationToken cancellationToken)

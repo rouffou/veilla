@@ -70,7 +70,7 @@ public sealed class RecalculObligations(
     public async Task<(PolitiquesLegales Politiques, Sepp.BuildingBlocks.Domain.Calendar.BusinessCalendar Calendrier)> ReferentielsAsync(
         DateOnly aujourdHui, CancellationToken cancellationToken)
     {
-        var politiques = new PolitiquesLegales(await projections.ParametresAsync(cancellationToken));
+        var politiques = new PolitiquesLegales(await projections.ParametresAsync(cancellationToken), PolitiquesLegalesParDefaut.Defauts);
         var calendrier = CalendrierOuvrable.Construire(await projections.CalendriersAsync(cancellationToken), aujourdHui.Year - 30, aujourdHui.Year + 5);
         return (politiques, calendrier);
     }

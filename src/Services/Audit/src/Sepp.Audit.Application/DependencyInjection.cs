@@ -12,6 +12,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<RechercherEntrees, PageDto<EntreeAuditDto>>, RechercherEntreesHandler>();
         services.AddScoped<IQueryHandler<ObtenirEntree, EntreeAuditDto>, ObtenirEntreeHandler>();
         services.AddScoped<IQueryHandler<VerifierIntegrite, IntegriteDto>, VerifierIntegriteHandler>();
+        services.AddScoped<ConservationApplicable>();
         services.AddScoped<ICommandHandler<PurgerJournal, ResultatPurge>, PurgerJournalHandler>();
         return services;
     }

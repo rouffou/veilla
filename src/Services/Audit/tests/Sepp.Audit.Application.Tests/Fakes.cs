@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
 
+using Sepp.Audit.Application.Journal;
 using Sepp.Audit.Domain.Journal;
+using Sepp.Audit.Domain.Parametres;
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Contracts;
@@ -8,7 +10,7 @@ using Sepp.Contracts;
 namespace Sepp.Audit.Application.Tests;
 
 /// <summary>Adaptateurs en mémoire : la couche application est testée sans infrastructure (ARC-23).</summary>
-internal sealed class InMemoryJournal : IJournalAuditRepository, IIntegrationEventOutbox
+internal sealed class InMemoryJournal : IJournalAuditRepository, IIntegrationEventOutbox, IParametreLegalRepository
 {
     public List<EntreeAudit> Entrees { get; } = [];
 
@@ -17,6 +19,18 @@ internal sealed class InMemoryJournal : IJournalAuditRepository, IIntegrationEve
     public List<IntegrationEvent> Evenements { get; } = [];
 
     public List<(Zone Zone, DateTimeOffset Limite)> Purges { get; } = [];
+
+    public List<ParametreLegalLocal> Parametres { get; } = [];
+
+    public Task<ParametreLegalLocal?> GetAsync(string code, DateOnly valideDu, CancellationToken cancellationToken) =>
+        Task.FromResult(Parametres.SingleOrDefault(p => p.Code == code && p.ValideDu == valideDu));
+
+    public Task<ParametreLegalLocal?> ApplicableAsync(string code, DateOnly date, CancellationToken cancellationToken) =>
+        Task.FromResult(Parametres
+            .Where(p => p.Code == code && p.ValideDu <= date && (p.ValideJusquAu is null || date < p.ValideJusquAu))
+            .MaxBy(p => p.ValideDu));
+
+    public void Add(ParametreLegalLocal parametre) => Parametres.Add(parametre);
 
     public void Add(IntegrationEvent integrationEvent) => Evenements.Add(integrationEvent);
 

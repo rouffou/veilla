@@ -4,17 +4,16 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Sepp.Audit.Application.Journal;
-using Sepp.Audit.Domain.Journal;
 using Sepp.BuildingBlocks.Application;
 
 namespace Sepp.Audit.Adapters.Persistence;
 
-/// <summary>Conservation du journal d'audit (NF-04) : section <c>Audit:Conservation</c>.</summary>
+/// <summary>
+/// Purge du journal d'audit (NF-04) : section <c>Audit:Conservation</c>. La durée de conservation n'est pas configurée ici :
+/// elle vient du paramètre légal <c>AUDIT.CONSERVATION</c> de Référentiels (ARC-21).
+/// </summary>
 public sealed class ConservationOptions
 {
-    /// <summary>Durée de conservation en années, au moins <see cref="PolitiqueConservation.MinimumAnnees"/>.</summary>
-    public int Annees { get; set; } = PolitiqueConservation.MinimumAnnees;
-
     public bool PurgeActive { get; set; } = true;
 
     public TimeSpan IntervallePurge { get; set; } = TimeSpan.FromDays(1);
@@ -41,7 +40,7 @@ public sealed partial class PurgeJournalService(
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<PurgerJournal, ResultatPurge>>();
-                var resultat = await handler.HandleAsync(new PurgerJournal(options.Value.Annees), stoppingToken);
+                var resultat = await handler.HandleAsync(new PurgerJournal(), stoppingToken);
                 if (resultat.IsSuccess && resultat.Value.EntreesPurgeesParZone.Values.Sum() > 0)
                 {
                     LogPurge(logger, string.Join(", ", resultat.Value.EntreesPurgeesParZone.Select(kv => $"{kv.Key}={kv.Value}")));

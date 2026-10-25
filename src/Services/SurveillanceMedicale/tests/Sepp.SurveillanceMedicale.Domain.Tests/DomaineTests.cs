@@ -173,7 +173,7 @@ public sealed class DecisionTests
     private static Decision Rediger(ContenuDecision contenu) =>
         Decision.Rediger(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), EvaluationPeriodique, Jour, "cpmt-1", contenu);
 
-    private static PolitiqueRecours Politique => new(BusinessCalendar.Belgian(2026), new DelaisRecours());
+    private static PolitiqueRecours Politique => new(BusinessCalendar.Belgian(2026), new DelaisRecours(5, 14, 7, 31));
 
     [Theory]
     [InlineData(CategorieDecision.Apte, "PROTECTION_AUDITIVE", null)]

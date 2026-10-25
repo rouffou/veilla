@@ -141,7 +141,7 @@ internal sealed class Scenario
         new(Personne, Affectations, Profils, Regles, Surcharges, Occupations, Etats, Examens, Reprises, Incapacites, Trajets, Demandes);
 
     public MoteurEcheances Moteur(OptionsCalcul? options = null) =>
-        new(new PolitiquesLegales(Parametres), CalendrierOuvrable.Construire(Calendriers, 2020, 2035), options ?? new OptionsCalcul());
+        new(new PolitiquesLegales(Parametres, DefautsDeTest.Valeurs), CalendrierOuvrable.Construire(Calendriers, 2020, 2035), options ?? new OptionsCalcul());
 
     public ResultatCalcul Calculer(DateOnly? date = null, OptionsCalcul? options = null) => Moteur(options).Calculer(Situation(), date ?? Aujourdhui);
 }

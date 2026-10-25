@@ -47,7 +47,7 @@ internal sealed class Monde
 
     public GardeDossier Garde => new(Store, Store, Utilisateur, Contexte, Audit, Store);
 
-    public ParametresMedicaux Parametres => new(Store, new OptionsSurveillanceMedicale());
+    public ParametresMedicaux Parametres => new(Store);
 
     public AccesExamens AccesExamens => new(Store, Garde);
 
@@ -458,6 +458,27 @@ public sealed class PurgeEtProjectionsTests
 
         _monde.Store.Calendriers.Single().JoursSupplementaires.ShouldBe([new DateOnly(2026, 3, 5)]);
         (await _monde.Parametres.PolitiqueRecoursAsync(remise, _ct)).DateLimiteIntroduction(TypeRecours.RecoursMedecinInspecteur, remise).ShouldBe(new DateOnly(2026, 3, 13));
+    }
+
+    [Fact]
+    public async Task Les_delais_de_recours_viennent_de_referentiels_sinon_de_leurs_valeurs_initiales()
+    {
+        var date = new DateOnly(2026, 3, 3);
+        var initiaux = await _monde.Parametres.DelaisRecoursAsync(date, _ct);
+        initiaux.ShouldBe(new DelaisRecours(
+            ParametresLegauxParDefaut.Obtenir(CodesParametresLegaux.ConcertationIntroductionDelai).Valeur,
+            ParametresLegauxParDefaut.Obtenir(CodesParametresLegaux.ConcertationIssueDelai).Valeur,
+            ParametresLegauxParDefaut.Obtenir(CodesParametresLegaux.RecoursIntroductionDelai).Valeur,
+            ParametresLegauxParDefaut.Obtenir(CodesParametresLegaux.RecoursDecisionDelai).Valeur));
+
+        var handler = new ParametreLegalModifieHandler(_monde.Store, _monde.Store);
+        await handler.HandleAsync(new ParametreLegalModifie(CodesParametresLegaux.RecoursIntroductionDelai, 10, UnitesParametreLegal.JoursOuvrables, new DateOnly(2026, 1, 1), null), _ct);
+        await handler.HandleAsync(new ParametreLegalModifie(CodesParametresLegaux.RecoursDecisionDelai, 40, UnitesParametreLegal.Semaines, new DateOnly(2026, 1, 1), null), _ct);
+
+        var recus = await _monde.Parametres.DelaisRecoursAsync(date, _ct);
+        recus.IntroductionRecours.ShouldBe(10);
+        recus.DecisionMedecinInspecteur.ShouldBe(initiaux.DecisionMedecinInspecteur); // unité inattendue : valeur initiale conservée
+        (await _monde.Parametres.PolitiqueRecoursAsync(date, _ct)).DateLimiteIntroduction(TypeRecours.RecoursMedecinInspecteur, date).ShouldBe(new DateOnly(2026, 3, 17));
     }
 
     /// <summary>

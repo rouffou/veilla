@@ -61,8 +61,9 @@ migration `Initial` versionnée (DAT-09).
 ## Paramètres légaux et réglages
 
 - Délais légaux : paramètres `REINTEGRATION.*` reçus par `referentiels.parametre-legal-modifie` (ARC-21). À défaut,
-  `Reintegration:DelaisParDefaut` (mêmes valeurs que le catalogue de Référentiels et le §2.1 : 4 semaines, 8 semaines, 6 mois,
-  20 travailleurs, 2 absences, 49 et 14 jours calendrier) — **à valider** par le département juridique.
+  valeurs initiales de `ParametresLegauxParDefaut` (Sepp.Contracts, source unique partagée avec le catalogue de Référentiels et
+  le §2.1 : 4 semaines, 8 semaines, 6 mois, 20 travailleurs, 2 absences, 49 et 14 jours calendrier) — **à valider** par le
+  département juridique. Ces valeurs ne se configurent plus par service.
 - Réglages d'organisation (`Reintegration:Suivi`, **à valider**) : alerte 5 jours ouvrables avant échéance, délai du plan de
   l'employeur non suivi (non fixé par le cahier), 5 tentatives d'envoi eHealth.
 - `Reintegration:Adaptateurs:EHealth` = `Simulateur` | `Reel` (obligatoire) ; `Reintegration:Traitement` (`Actif`, `Intervalle`).
