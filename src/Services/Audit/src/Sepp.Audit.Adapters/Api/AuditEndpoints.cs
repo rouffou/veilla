@@ -41,6 +41,29 @@ public static class AuditEndpoints
             .WithName("VerifierIntegriteJournal")
             .WithSummary("Vérifie la chaîne d'empreintes d'une zone : détecte toute ligne modifiée ou supprimée (NF-04).");
 
+        api.MapGet("/droits/matrice", (string? format) =>
+            {
+                var matrice = RolePermissions.Matrice()
+                    .OrderBy(e => e.Key, StringComparer.Ordinal)
+                    .Select(e => new RoleDroitsDto(e.Key, [.. e.Value.Order(StringComparer.Ordinal)]))
+                    .ToList();
+
+                if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
+                {
+                    var lignes = matrice.SelectMany(r => r.Permissions.Select(p => $"{r.Role};{p}"));
+                    var csv = string.Join('\n', lignes.Prepend("role;permission")) + "\n";
+                    return Results.Text(csv, "text/csv; charset=utf-8");
+                }
+
+                return Results.Ok(matrice);
+            })
+            .WithName("ExporterMatriceDroits")
+            .WithSummary("Matrice rôle → permissions en vigueur, pour la revue trimestrielle des droits (NF-02). Les attributions d'utilisateurs viennent de l'annuaire (Entra ID).");
+
         return app;
     }
 }
+
+/// <summary>Permissions accordées à un rôle (export de la revue des droits, NF-02).</summary>
+public sealed record RoleDroitsDto(string Role, IReadOnlyList<string> Permissions);
+
