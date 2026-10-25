@@ -14,6 +14,13 @@ public sealed class ServiceBusConsumerOptions
     public string SubscriptionName { get; set; } = string.Empty;
 
     public int MaxConcurrentCalls { get; set; } = 4;
+
+    /// <summary>
+    /// Rubrique → sujets acceptés (noms versionnés de contrats), copie des <c>subject_filters</c> de <c>infra/variables.tf</c>.
+    /// Lu par le seul bus de développement (<see cref="PostgresBusConsumer{TContext}"/>) : sur Azure, Terraform pose le filtre
+    /// sur l'abonnement lui-même. Rubrique absente = tous les messages ; les entrées vides sont ignorées.
+    /// </summary>
+    public Dictionary<string, string[]> SubjectFilters { get; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>

@@ -6,6 +6,9 @@ services:
     environment:
       Documents__Zones__1: ""
       Documents__Zones__2: ""
+      # Filtre de la seule zone standard (subject_filters de documents dans infra/variables.tf).
+      ServiceBus__SubjectFilters__surveillance-medicale__1: ""
+      ServiceBus__SubjectFilters__surveillance-medicale__2: ""
   # Le BFF travailleur interroge aussi l instance médicale (clé facultative ServicesAval:DocumentsMedicale).
   bff-travailleur:
     environment:

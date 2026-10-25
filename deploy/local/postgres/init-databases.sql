@@ -13,3 +13,5 @@ CREATE DATABASE documents;
 CREATE DATABASE documents_medicale;
 CREATE DATABASE communications;
 CREATE DATABASE reintegration;
+-- Bus d'événements de développement (ADR 0004) : jamais hors poste de développement et tests.
+CREATE DATABASE bus;

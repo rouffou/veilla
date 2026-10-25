@@ -47,7 +47,21 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:5110/api/v1/calendrier/
 
 ## Bus d'événements
 
-Sans configuration de bus, l'outbox publie en mémoire (ADR 0004). L'émulateur Azure Service Bus n'est pas inclus par défaut : il impose l'acceptation des licences de l'émulateur et de SQL Server, à faire explicitement par chaque développeur.
+Les services du `compose.yaml` publient et consomment leurs événements par le **bus de développement PostgreSQL** (ADR 0004, amendement #391) : base `bus` du conteneur `postgres`, publication par l'outbox, consommation par curseur et par abonnement.
+
+- Chaque service doté d'une base reçoit `ConnectionStrings__BusDeveloppement` ; chaque service abonné reçoit `ServiceBus__SubscriptionName` (son nom dans le catalogue Terraform) et ses `ServiceBus__SubjectFilters__<rubrique>__<n>` (les `subject_filters` de `infra/variables.tf`). Un test (`ConfigurationTerraformTests`) vérifie cet alignement : un nouvel abonnement ou filtre Terraform doit être reporté ici.
+- L'instance unique `documents` sert localement les trois zones : ses filtres réunissent ceux de `documents` et de `documents-medicale`. `compose.documents-par-zone.yaml` rétablit le filtre de la seule zone standard.
+- Le bus est **refusé hors des environnements Development, Test et Testing** : un service configuré autrement ne démarre pas.
+- Un message en échec est retenté à chaque passe (1 s), puis mis en lettre morte après 5 tentatives (`BusDeveloppement__MaxAttempts`) ; l'abonnement continue. Pour inspecter le bus :
+
+```bash
+docker compose -f deploy/local/compose.yaml exec postgres psql -U sepp -d bus   -c "select subscription, topic, seq from bus_curseur order by 1, 2"   -c "select subscription, subject, tentatives, erreur from bus_lettre_morte"
+```
+
+- Un volume créé avant l'ajout de la base `bus` reste utilisable : la base est créée au premier démarrage. `docker compose down -v` vide le bus avec les autres bases.
+- Un service lancé hors conteneur (`dotnet run`) n'utilise le bus que si l'on renseigne `ConnectionStrings__BusDeveloppement` (`Host=localhost;Database=bus;Username=sepp;Password=sepp-local-dev`) et `ServiceBus__SubscriptionName` ; sinon il publie en mémoire.
+
+L'émulateur Azure Service Bus n'est pas utilisé : il impose l'acceptation des licences de l'émulateur et de SQL Edge.
 
 ## Lancer un service hors conteneur
 
