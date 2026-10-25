@@ -516,6 +516,11 @@ Les Container Apps référencent des images qui doivent déjà exister dans l'AC
 7. Exécuter le job de migration de chaque service (`az containerapp job start -n mig-<service>`, sortie `migration_jobs`).
    À faire avant d'ouvrir le trafic : sans schéma, les révisions démarrent (`/health/ready` ne vérifie que la connexion),
    mais leurs requêtes échouent.
+8. Rattraper les projections locales des consommateurs (ADR 0011) : avec le rôle `exploitation`, demander à chaque
+   producteur la republication de son état courant (`POST /api/v1/admin/republications`), puis contrôler le résultat.
+   Procédure, ordre et contrôles : [docs/architecture/rattrapage-projections.md](../docs/architecture/rattrapage-projections.md).
+   À refaire quand un service s'abonne à un nouveau contrat ; les filtres de sujets (`subject_filters`) doivent être
+   appliqués avant.
 
 Les déploiements applicatifs suivants (nouvelle image, répartition du trafic entre
 révisions) sont faits par la CI/CD (`az containerapp update` / `revision`), Terraform

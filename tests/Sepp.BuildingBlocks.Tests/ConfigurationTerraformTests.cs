@@ -107,6 +107,7 @@ public sealed partial class ConfigurationTerraformTests
         ["ConnectionStrings"] = "Local",
         ["Database"] = "Defaut",
         ["Outbox"] = "Defaut",
+        ["Republication"] = "Defaut",
         ["Cors"] = "Terraform",
         ["Audit"] = "Defaut",
         ["Obligations"] = "Defaut",
@@ -459,8 +460,8 @@ public sealed partial class ConfigurationTerraformTests
         // Projection linguistique (NF-41, ADR 0009) : seuls les contrats qui portent la langue ou le régime sont reçus.
         foreach (var instance in new[] { "documents", service })
         {
-            terraform.Services[instance].SubjectsOf("affilies").ShouldBe(new[] { "affilies.affilie-cree.v1", "affilies.affilie-modifie.v1" });
-            terraform.Services[instance].SubjectsOf("personnes").ShouldBe(new[] { "personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1" });
+            terraform.Services[instance].SubjectsOf("affilies").ShouldBe(new[] { "affilies.affilie-cree.v1", "affilies.affilie-modifie.v1", "affilies.affilie-instantane.v1" });
+            terraform.Services[instance].SubjectsOf("personnes").ShouldBe(new[] { "personnes.occupation-debutee.v1", "personnes.langue-modifiee.v1", "personnes.personne-instantanee.v1" });
         }
 
         // Aucun secret Documents__Chiffrement__* : les clés racines sont des clés de coffre, plus des secrets exportables.

@@ -74,6 +74,9 @@ public static class DependencyInjection
         services.AddIntegrationEventHandler<AffilieModifie, ProjectionLinguistiqueHandler>();
         services.AddIntegrationEventHandler<OccupationDebutee, ProjectionLinguistiqueHandler>();
         services.AddIntegrationEventHandler<LangueModifiee, ProjectionLinguistiqueHandler>();
+        // ADR 0011 : rattrapage de la projection par les instantanés republiés par Affiliés et Personnes (mise en service).
+        services.AddIntegrationEventHandler<AffilieInstantane, ProjectionLinguistiqueHandler>();
+        services.AddIntegrationEventHandler<PersonneInstantanee, ProjectionLinguistiqueHandler>();
 
         // POR-13 : copie du dossier validée par le CPMT (SAN-43) et carnet de vaccination après chaque dose (SAN-50),
         // publiés au travailleur en zone médicale ; contenu lu auprès de la Surveillance médicale (compte technique).

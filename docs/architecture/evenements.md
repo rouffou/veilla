@@ -13,6 +13,7 @@ Règles :
 | Producteur | Contrat | Classe | Champs | Consommateurs (§15.4) |
 |---|---|---|---|---|
 | affilies | `affilies.affilie-cree.v1` | AffilieCree | AffilieId, NumeroBce, CategorieTarifaire, RegimeLinguistique (facultatif), Langue (facultatif) | Postes et risques, Prestations, Reporting, Documents (projection linguistique, NF-41) |
+| affilies | `affilies.affilie-instantane.v1` | AffilieInstantane | AffilieId, NumeroBce, CategorieTarifaire, Statut, RegimeLinguistique, Langue, EtatDu | Rattrapage (ADR 0011) : Documents (projection linguistique) ; voir note « Instantanés » |
 | affilies | `affilies.affilie-modifie.v1` | AffilieModifie | AffilieId, NumeroBce, CategorieTarifaire, Statut, RegimeLinguistique (facultatif), Langue (facultatif) | Postes et risques, Prestations, Reporting, Documents (projection linguistique, NF-41) |
 | affilies | `affilies.operation-affilie-modifiee.v1` | OperationAffilieModifiee | OperationId, AffilieId, TypeOperation, Statut, DateEffet, AffilieAbsorbantId, AffiliesBeneficiaires, SeppContrepartie | Surveillance médicale (transfert des dossiers, SAN-42), Postes et risques, Prestations, Reporting (AFF-06) |
 | audit (tous les services) | `audit.acces-donnee-sensible.v1` | AccesDonneeSensible | Service, Zone, UtilisateurId, Role, Action, ObjetType, ObjetId, Motif, BrisDeGlace (horodatage = `occurredAt`) | Audit (journal infalsifiable NF-04) |
@@ -32,7 +33,9 @@ Règles :
 | personnes | `personnes.etat-particulier-declare.v1` | EtatParticulierDeclare | EtatParticulierId, PersonneId, Categorie, DateDebut, DateFin | Obligations (voir note ARC-06 ci-dessous) |
 | personnes | `personnes.langue-modifiee.v1` | LangueModifiee | PersonneId, Langue | Documents (projection linguistique, NF-41) |
 | personnes | `personnes.occupation-debutee.v1` | OccupationDebutee | OccupationId, PersonneId, AffilieId, DateDebut, Langue (facultatif) | Affiliés, Obligations, Planification, Reporting, Documents (projection linguistique, NF-41) |
+| personnes | `personnes.occupation-instantanee.v1` | OccupationInstantanee | OccupationId, PersonneId, AffilieId, DateDebut, DateFin?, EtatDu | Rattrapage (ADR 0011) : Affiliés (occupations projetées) ; voir note « Instantanés » |
 | personnes | `personnes.occupation-terminee.v1` | OccupationTerminee | OccupationId, PersonneId, AffilieId, DateFin | Affiliés, Obligations, Planification, Reporting |
+| personnes | `personnes.personne-instantanee.v1` | PersonneInstantanee | PersonneId, Langue, EtatDu | Rattrapage (ADR 0011) : Documents (projection linguistique) ; voir note « Instantanés » |
 | planification | `planification.absence-rendez-vous-constatee.v1` | AbsenceRendezVousConstatee | RendezVousId, PersonneId, AffilieId, Debut, ObligationIds | Obligations (les obligations redeviennent à planifier), Communications (SAN-13), Réintégration (compteur d'absences du trajet, SAN-63) |
 | planification | `planification.convocation-emise.v1` | ConvocationEmise | ConvocationId, RendezVousId, PersonneId, AffilieId, LieuId, TypeActe, Debut, Canal, Recommande, TypeConvocation, LotId | Communications (envoi, SAN-10, SAN-11) |
 | planification | `planification.convocation-envoyee.v1` | ConvocationEnvoyee | ConvocationId, RendezVousId, PersonneId, AffilieId, ObligationIds, Canal, Recommande, DateEnvoi | Obligations (obligations « convoquées »), Reporting |
@@ -60,6 +63,19 @@ Règles :
 | surveillance-medicale | `surveillance-medicale.vaccination-administree.v1` | VaccinationAdministree | VaccinationId, PersonneId, CodeVaccin, Dose, Date | Intégrations, Obligations, Documents (carnet de vaccination, SAN-50) |
 
 ## Notes par contrat
+
+### Instantanés de rattrapage : `*-instantane(e).v1` (ADR 0011, ARC-31, ARC-34)
+
+Un instantané n'est pas un fait métier : c'est l'**état courant** d'un objet, republié par son producteur à la demande de
+l'exploitation (`POST /api/v1/admin/republications`) pour remplir les projections locales d'un consommateur mis en service
+après le producteur. Règles :
+
+- contrat dédié, distinct des événements v1 : un consommateur ne le reçoit que s'il s'y abonne (gestionnaire et
+  `subject_filters`), donc aucun effet de bord involontaire (convocation, calcul d'obligation, appel externe) ;
+- consommateur : écriture par clé, sans effet métier, idempotente (inbox) ; il ignore l'instantané si son propre état est
+  plus récent que `EtatDu` (horodatage de la dernière modification de l'objet chez le producteur) ;
+- `correlationId` = identifiant de la republication ; `occurredAt` = heure d'écriture dans l'outbox ;
+- mêmes restrictions qu'un événement v1 (ARC-06) : `personne-instantanee` ne porte que la langue.
 
 ### `personnes.etat-particulier-declare.v1` (AFF-23, AFF-24, ARC-06)
 

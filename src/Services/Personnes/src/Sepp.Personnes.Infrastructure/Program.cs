@@ -33,6 +33,7 @@ _ = app.Services.GetRequiredService<BlindIndex>();
 
 app.MapSeppServiceDefaults();
 app.MapPersonnesEndpoints();
+app.MapSeppRepublications();
 
 await app.RunAsync();
 

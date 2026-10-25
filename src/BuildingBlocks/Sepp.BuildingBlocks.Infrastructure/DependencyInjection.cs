@@ -11,6 +11,7 @@ using Npgsql;
 
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Auditing;
+using Sepp.BuildingBlocks.Application.Republication;
 using Sepp.BuildingBlocks.Infrastructure.Auditing;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
@@ -134,6 +135,30 @@ public static class DependencyInjection
 
         subscriptions.Add(typeof(TEvent), typeof(THandler));
         services.TryAddScoped<THandler>();
+        return services;
+    }
+
+    /// <summary>
+    /// Rattrapage des projections côté producteur (ADR 0011) : demandes de republication (<see cref="IRepublications"/>) et
+    /// écriture des instantanés par lots dans l'outbox (<see cref="RepublicationProcessor{TContext}"/>, section
+    /// <c>Republication</c>). Le contexte doit appeler <see cref="RepublicationModel.AjouterRepublications"/> et chaque type
+    /// d'état est ajouté par <see cref="AddRepublicationSource{TSource}"/>. À combiner avec <see cref="AddSeppPersistence{TContext}"/>.
+    /// </summary>
+    public static IServiceCollection AddSeppRepublication<TContext>(this IServiceCollection services, IConfiguration configuration)
+        where TContext : SeppDbContext
+    {
+        services.AddOptions<RepublicationOptions>().Bind(configuration.GetSection("Republication"));
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<IRepublications, Republications<TContext>>();
+        services.AddHostedService<RepublicationProcessor<TContext>>();
+        return services;
+    }
+
+    /// <summary>Type d'état republiable par le service (une source par type, ADR 0011).</summary>
+    public static IServiceCollection AddRepublicationSource<TSource>(this IServiceCollection services)
+        where TSource : class, ISourceRepublication
+    {
+        services.AddScoped<ISourceRepublication, TSource>();
         return services;
     }
 

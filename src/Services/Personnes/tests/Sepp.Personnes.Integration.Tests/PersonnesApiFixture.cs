@@ -38,6 +38,8 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
             b.UseSetting("ConnectionStrings:Personnes", _postgres.GetConnectionString());
             b.UseSetting("Database:MigrateOnStartup", "true");
             b.UseSetting("Outbox:PollingInterval", "00:00:00.200");
+            b.UseSetting("Republication:Intervalle", "00:00:00.100");
+            b.UseSetting("Republication:TailleLot", "2");
             b.UseSetting("Encryption:CurrentKeyId", "test");
             b.UseSetting("Encryption:Keys:test", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
             b.UseSetting("BlindIndex:Key", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));

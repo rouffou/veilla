@@ -6,6 +6,10 @@
   <Project Path="../BuildingBlocks/Sepp.BuildingBlocks.Infrastructure/Sepp.BuildingBlocks.Infrastructure.csproj" />
   <Project Path="../BuildingBlocks/Sepp.BuildingBlocks.Web/Sepp.BuildingBlocks.Web.csproj" />
   <Project Path="../Contracts/Sepp.Contracts/Sepp.Contracts.csproj" />
+  <Project Path="../Services/Affilies/src/Sepp.Affilies.Adapters/Sepp.Affilies.Adapters.csproj" />
+  <Project Path="../Services/Affilies/src/Sepp.Affilies.Application/Sepp.Affilies.Application.csproj" />
+  <Project Path="../Services/Affilies/src/Sepp.Affilies.Domain/Sepp.Affilies.Domain.csproj" />
+  <Project Path="../Services/Affilies/src/Sepp.Affilies.Infrastructure/Sepp.Affilies.Infrastructure.csproj" />
   <Project Path="../Services/Communications/src/Sepp.Communications.Adapters/Sepp.Communications.Adapters.csproj" />
   <Project Path="../Services/Communications/src/Sepp.Communications.Application/Sepp.Communications.Application.csproj" />
   <Project Path="../Services/Communications/src/Sepp.Communications.Domain/Sepp.Communications.Domain.csproj" />
@@ -18,6 +22,10 @@
   <Project Path="../Services/Obligations/src/Sepp.Obligations.Application/Sepp.Obligations.Application.csproj" />
   <Project Path="../Services/Obligations/src/Sepp.Obligations.Domain/Sepp.Obligations.Domain.csproj" />
   <Project Path="../Services/Obligations/src/Sepp.Obligations.Infrastructure/Sepp.Obligations.Infrastructure.csproj" />
+  <Project Path="../Services/Personnes/src/Sepp.Personnes.Adapters/Sepp.Personnes.Adapters.csproj" />
+  <Project Path="../Services/Personnes/src/Sepp.Personnes.Application/Sepp.Personnes.Application.csproj" />
+  <Project Path="../Services/Personnes/src/Sepp.Personnes.Domain/Sepp.Personnes.Domain.csproj" />
+  <Project Path="../Services/Personnes/src/Sepp.Personnes.Infrastructure/Sepp.Personnes.Infrastructure.csproj" />
   <Project Path="../Services/Planification/src/Sepp.Planification.Adapters/Sepp.Planification.Adapters.csproj" />
   <Project Path="../Services/Planification/src/Sepp.Planification.Application/Sepp.Planification.Application.csproj" />
   <Project Path="../Services/Planification/src/Sepp.Planification.Domain/Sepp.Planification.Domain.csproj" />
