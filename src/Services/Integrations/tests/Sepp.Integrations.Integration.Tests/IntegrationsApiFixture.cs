@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Integrations.Adapters.External.Personnes;
 
 using Testcontainers.PostgreSql;
@@ -49,8 +50,12 @@ public sealed class IntegrationsApiFixture : IAsyncLifetime
             b.UseSetting("ConnectionStrings:Integrations", _postgres.GetConnectionString());
             b.UseSetting("Database:MigrateOnStartup", "true");
             b.UseSetting("Outbox:PollingInterval", "00:00:00.200");
-            b.UseSetting("Encryption:CurrentKeyId", "test");
-            b.UseSetting("Encryption:Keys:test", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+            // ADR 0012 : DEK enveloppée par une clé racine locale de test.
+            foreach (var (cle, valeur) in ChiffrementChamps.ConfigurationLocale("Encryption", "test"))
+            {
+                b.UseSetting(cle, valeur);
+            }
+
             b.UseSetting("Integrations:Adaptateurs:Bce", "Simulateur");
             b.UseSetting("Integrations:Adaptateurs:Dimona", "Simulateur");
             b.UseSetting("Integrations:Adaptateurs:RegistreNational", "Simulateur");

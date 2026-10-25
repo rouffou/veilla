@@ -108,4 +108,4 @@ déploiement, pas sur le découpage : il n'y a toujours qu'un service Documents,
   en service de la projection est suivi par #369.
 - **Développement local** : une instance unique peut servir les trois zones. Le compose propose aussi `documents-medicale`.
 - **Suites** : appliquer le même principe à `FieldEncryptor` (clés de données enveloppées par la clé racine HSM de la
-  zone), et contrôler la relation de soin par l'instance médicale (appel intra-zone à Surveillance médicale).
+  zone ; traité par l'ADR 0012, qui factorise aussi le port et les adaptateurs d'enveloppe dans le socle commun), et contrôler la relation de soin par l'instance médicale (appel intra-zone à Surveillance médicale).

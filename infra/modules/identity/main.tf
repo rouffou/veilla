@@ -4,10 +4,10 @@
 #   ARC-04 : droits distincts par zone (chaque service n'accède qu'au Key Vault
 #            de sa propre zone).
 # Rôles attribués ici : AcrPull (registre) et Key Vault Secrets User (coffre de
-# la zone, jamais celui d'une autre zone) ; Key Vault Crypto User pour le
-# chiffrement applicatif (ARC-45) des seuls services concernés ; rôle de
-# wrapKey/unwrapKey porté sur la clé racine documents-kek des instances
-# Documents. Les rôles Service Bus et Blob sont attribués par les modules
+# la zone, jamais celui d'une autre zone) ; rôle de wrapKey/unwrapKey porté
+# sur la clé racine documents-kek des instances Documents et sur la clé racine
+# <service>-fields-kek des services qui chiffrent des champs (ARC-44, ARC-45,
+# ADR 0012), jamais sur le coffre. Les rôles Service Bus et Blob sont attribués par les modules
 # servicebus et storage, au plus près des ressources.
 # Identité de migration distincte par service doté d'une base (ADR 0010) :
 # AcrPull seulement, droits DDL portés par son rôle PostgreSQL.
@@ -51,16 +51,8 @@ resource "azurerm_role_assignment" "key_vault_secrets_user" {
 }
 
 # Aucun service ne lit le coffre d'une autre zone (ARC-04, ARC-06) : pas de rôle inter-zones.
-# Key Vault Crypto User au niveau du coffre de la zone : uniquement les services qui en ont besoin (chiffrement
-# applicatif, ARC-45). Les instances Documents n'ont pas ce rôle : voir « documents_kek » ci-dessous.
-resource "azurerm_role_assignment" "key_vault_crypto_user" {
-  for_each = { for k, s in var.services : k => s if contains(var.crypto_services, k) }
-
-  scope                = var.key_vault_ids[each.value.zone]
-  role_definition_name = "Key Vault Crypto User"
-  principal_id         = azurerm_user_assigned_identity.this[each.key].principal_id
-  principal_type       = "ServicePrincipal"
-}
+# Aucun rôle cryptographique au niveau du coffre (l'ancien « Key Vault Crypto User » des services qui chiffrent des champs
+# est retiré, ADR 0012) : chaque rôle d'enveloppement est porté sur la seule clé racine du service (voir ci-dessous).
 
 # Clé racine de Documents (décision #356) : l'instance de la zone n'a que le droit d'enveloppement et de déballage
 # (wrapKey, unwrapKey) et de lecture des métadonnées, porté sur la clé documents-kek et non sur le coffre.
@@ -92,6 +84,35 @@ resource "azurerm_key_vault_managed_hardware_security_module_role_assignment" "d
   managed_hsm_id     = each.value.managed_hsm_id
   scope              = "/keys/${each.value.key_name}"
   role_definition_id = data.azurerm_key_vault_managed_hardware_security_module_role_definition.crypto_service_encryption[each.key].resource_manager_id
+  principal_id       = azurerm_user_assigned_identity.this[each.key].principal_id
+}
+
+# Clé racine du chiffrement des champs (<service>-fields-kek, ADR 0012) : même modèle que documents-kek. Le service n'a
+# que wrapKey/unwrapKey et la lecture des métadonnées, sur sa seule clé ; un autre service de la zone ne peut pas déballer
+# ses clés de données.
+resource "azurerm_role_assignment" "field_kek" {
+  for_each = { for n, a in var.field_kek_assignments : n => a if !a.managed_hsm }
+
+  scope                = each.value.key_id
+  role_definition_name = "Key Vault Crypto Service Encryption User"
+  principal_id         = azurerm_user_assigned_identity.this[each.key].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+data "azurerm_key_vault_managed_hardware_security_module_role_definition" "field_kek" {
+  for_each = { for n, a in var.field_kek_assignments : n => a if a.managed_hsm }
+
+  managed_hsm_id = each.value.managed_hsm_id
+  name           = "33413926-3206-4cdd-b39a-83574fe37a17"
+}
+
+resource "azurerm_key_vault_managed_hardware_security_module_role_assignment" "field_kek" {
+  for_each = { for n, a in var.field_kek_assignments : n => a if a.managed_hsm }
+
+  name               = uuidv5("dns", "${each.key}/${each.value.key_name}")
+  managed_hsm_id     = each.value.managed_hsm_id
+  scope              = "/keys/${each.value.key_name}"
+  role_definition_id = data.azurerm_key_vault_managed_hardware_security_module_role_definition.field_kek[each.key].resource_manager_id
   principal_id       = azurerm_user_assigned_identity.this[each.key].principal_id
 }
 

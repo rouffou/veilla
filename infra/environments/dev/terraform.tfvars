@@ -58,8 +58,12 @@ technical_account_client_ids = {
 # Adaptateurs externes : Simulateur hors production (ARC-05, NF-14).
 adapter_mode = "Simulateur"
 
-# Chiffrement applicatif (ARC-45) : identifiant de la clé courante en premier, anciennes clés ensuite (rotation).
-encryption_key_ids = ["K1"]
+# Chiffrement des champs par enveloppe (ARC-44, ARC-45, ADR 0012) : DEK courante en premier, anciennes DEK ensuite
+# (rotation). Secrets <service>--<préfixe>--deks--d1 à créer avant l'apply (infra/README.md).
+encryption_key_ids = ["D1"]
+# Anciennes clés AES du format v1 (secrets <service>--<préfixe>--keys--k1), en lecture seule : à vider une fois toutes
+# les valeurs v1 rechiffrées, ou dès l'origine pour un environnement sans données antérieures (à valider par environnement).
+encryption_legacy_key_ids = ["K1"]
 
 # Observabilité
 log_retention_days = 30

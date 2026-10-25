@@ -146,7 +146,7 @@ public sealed class ReintegrationApiTests(ReintegrationFixture fixture) : IClass
 
         // SQL brut : colonnes chiffrées avec la clé de la zone médicale, aucune valeur médicale en clair, nulle part.
         ((string)(await fixture.ScalaireAsync("SELECT note_evaluation_chiffre FROM trajet WHERE id = @id", _ct, ("id", trajet)))!)
-            .ShouldStartWith($"v1:{ReintegrationFixture.CleTest}:");
+            .ShouldStartWith($"v2:{ReintegrationFixture.CleTest}:");
         foreach (var medical in new[] { "Zorglub", "Bidulon", "Machinchose" })
         {
             (await fixture.OccurrencesEnBaseAsync(medical, _ct)).ShouldBe(0, $"« {medical} » trouvé en clair en base");

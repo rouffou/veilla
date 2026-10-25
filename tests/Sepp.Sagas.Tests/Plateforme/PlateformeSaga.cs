@@ -13,6 +13,7 @@ using System.Text.Json;
 using Npgsql;
 
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Communications.Adapters.Persistence;
 using Sepp.Documents.Adapters.Persistence;
 using Sepp.Obligations.Adapters.Persistence;
@@ -88,11 +89,9 @@ public sealed class PlateformeSaga : IAsyncLifetime
             ["Planification:Adaptateurs:AgendaExterne"] = "Simulateur",
             ["Planification:Taches:Actif"] = "false",
         });
-        SurveillanceMedicale = Demarrer<SurveillanceMedicaleProgram, SurveillanceMedicaleDbContext>("surveillance-medicale", "SurveillanceMedicale", "surveillance_medicale", new Dictionary<string, string>
-        {
-            ["ZoneMedicale:Encryption:CurrentKeyId"] = "test-medical",
-            ["ZoneMedicale:Encryption:Keys:test-medical"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
-        });
+        // ADR 0012 : DEK enveloppée par une clé racine locale de test, propre à chaque service.
+        SurveillanceMedicale = Demarrer<SurveillanceMedicaleProgram, SurveillanceMedicaleDbContext>("surveillance-medicale", "SurveillanceMedicale", "surveillance_medicale",
+            ChiffrementChamps.ConfigurationLocale("ZoneMedicale:Encryption", "test-medical"));
 
         var communications = new Dictionary<string, string>
         {
@@ -125,13 +124,10 @@ public sealed class PlateformeSaga : IAsyncLifetime
         }
 
         Documents = Demarrer<DocumentsProgram, DocumentsDbContext>("documents", "Documents", "documents", documents);
-        Reintegration = Demarrer<ReintegrationProgram, ReintegrationDbContext>("reintegration", "Reintegration", "reintegration", new Dictionary<string, string>
-        {
-            ["ZoneMedicale:Encryption:CurrentKeyId"] = "test-medical",
-            ["ZoneMedicale:Encryption:Keys:test-medical"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
-            ["Reintegration:Adaptateurs:EHealth"] = "Simulateur",
-            ["Reintegration:Traitement:Actif"] = "false",
-        });
+        var reintegration = ChiffrementChamps.ConfigurationLocale("ZoneMedicale:Encryption", "test-medical");
+        reintegration["Reintegration:Adaptateurs:EHealth"] = "Simulateur";
+        reintegration["Reintegration:Traitement:Actif"] = "false";
+        Reintegration = Demarrer<ReintegrationProgram, ReintegrationDbContext>("reintegration", "Reintegration", "reintegration", reintegration);
 
         // Préparation : les modèles de départ de Documents sont en brouillon ; sans modèle publié, DecisionEmise échoue.
         await PublierModelesDocumentsAsync(CancellationToken.None);

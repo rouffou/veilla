@@ -132,7 +132,7 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
             (await lecteur.ReadAsync(_ct)).ShouldBeTrue();
             var chiffre = lecteur.GetString(0);
             var hash = lecteur.GetString(1);
-            chiffre.ShouldStartWith("v1:test:");
+            chiffre.ShouldStartWith("v2:test:");
             chiffre.ShouldNotContain(niss);
             hash.Length.ShouldBe(64);
             hash.ShouldNotContain(niss);
@@ -429,8 +429,8 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
             while (await lecteur.ReadAsync(_ct))
             {
                 lignes++;
-                lecteur.GetString(2).ShouldStartWith("v1:test:");
-                lecteur.GetString(3).ShouldStartWith("v1:test:");
+                lecteur.GetString(2).ShouldStartWith("v2:test:");
+                lecteur.GetString(3).ShouldStartWith("v2:test:");
                 lecteur.GetString(4).ShouldBe("test-user");
             }
 
@@ -525,8 +525,8 @@ public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixtu
         while (await lecteur.ReadAsync(_ct))
         {
             lignes.Add((lecteur.GetString(0), lecteur.GetInt32(1)));
-            lecteur.GetString(2).ShouldStartWith("v1:test:");
-            lecteur.GetString(3).ShouldStartWith("v1:test:");
+            lecteur.GetString(2).ShouldStartWith("v2:test:");
+            lecteur.GetString(3).ShouldStartWith("v2:test:");
         }
 
         lignes.ShouldBe([($"{prefixe}-2", 1), ($"{prefixe}-1", 2), ($"{prefixe}-3", 3)]);

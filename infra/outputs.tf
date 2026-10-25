@@ -48,6 +48,11 @@ output "documents_kek_uris" {
   value       = { for z in local.documents_zones : z => module.keyvault[z].documents_kek_uri }
 }
 
+output "field_kek_uris" {
+  description = "URI (sans version) de la clé racine <service>-fields-kek de chaque service qui chiffre des champs (ADR 0012)."
+  value       = { for n, s in var.services : n => module.keyvault[s.zone].field_kek_uris["${n}-fields-kek"] if length(s.encryption) > 0 }
+}
+
 output "gateway_public_ip" {
   description = "Adresse IP publique de l'Application Gateway WAF (enregistrement DNS public à créer)."
   value       = module.gateway.public_ip_address

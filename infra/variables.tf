@@ -90,16 +90,19 @@ variable "tags" {
 #   publishes_events = false) et l'appsettings correspondant. Exemple : documents-medicale est une instance de documents ;
 # - key_vault_secrets : variables alimentées par des secrets du Key Vault de la zone, nom -> nom du secret (CTR-16).
 #   Le nom de la variable d'environnement est le nom de l'application en majuscules, « - » devenant « _ »
-#   (ex. blindindex--key -> BLINDINDEX__KEY) ;
+#   (ex. blindindex--cleenveloppee -> BLINDINDEX__CLEENVELOPPEE) ;
 # - compte_technique : préfixe de configuration du compte technique OIDC du service (client credentials), par ex.
 #   Affilies__CompteTechnique. Terraform injecte <préfixe>__TokenEndpoint, __ClientId (var.technical_account_client_ids)
 #   et __Scope, et référence le secret <préfixe>__ClientSecret du Key Vault de la zone (secret à créer hors dépôt) ;
 # - internal_services : clé de configuration -> service appelé ; la valeur injectée est l'adresse interne du service ;
-# - encryption : préfixe de configuration d'un jeu de clés de chiffrement applicatif (ARC-45) -> zone du Key Vault qui
-#   porte les clés. Terraform injecte <préfixe>__CurrentKeyId et référence un secret <préfixe>__Keys__<id> par
-#   identifiant de var.encryption_key_ids (secrets à créer hors dépôt). Un service ne référence que le coffre de sa propre
-#   zone (ARC-04) : la validation refuse toute autre zone. Les clés racines de Documents (documents-kek) ne passent pas par
-#   cet attribut : ce sont des clés de coffre créées par le module keyvault, jamais des secrets ;
+# - encryption : préfixe de configuration d'un jeu de clés de chiffrement des champs (ARC-44, ARC-45, ADR 0012) -> zone
+#   du Key Vault qui porte les clés. Terraform crée la clé racine non exportable <service>-fields-kek dans le coffre de la
+#   zone (rôle d'enveloppement porté sur la clé), injecte <préfixe>__Enveloppe__Type (KeyVault), <préfixe>__Enveloppe__CleKek
+#   (URI sans version) et <préfixe>__CurrentKeyId, et référence un secret <préfixe>__Deks__<id> (DEK enveloppée) par
+#   identifiant de var.encryption_key_ids, plus <préfixe>__Keys__<id> (anciennes clés AES du format v1, lecture seule) par
+#   identifiant de var.encryption_legacy_key_ids (secrets à créer hors dépôt). Un service ne référence que le coffre de sa
+#   propre zone (ARC-04) : la validation refuse toute autre zone. Les clés racines de Documents (documents-kek) ne passent
+#   pas par cet attribut ;
 # - adapters : clés de configuration <Section>__Adaptateurs__<Port> du choix Reel / Simulateur ; la valeur injectée est
 #   var.adapter_mode (Simulateur partout hors production, ARC-05, NF-14).
 variable "services" {
@@ -155,9 +158,10 @@ variable "services" {
       zone          = "standard"
       database      = true
       subscribes_to = ["integrations", "affilies"]
-      # ARC-45, DAT-06 : clés de chiffrement des champs sensibles et clé de l'index aveugle du NISS.
+      # ARC-45, DAT-06 : clés de chiffrement des champs sensibles et clé de l'index aveugle du NISS, toutes deux
+      # enveloppées par la clé racine personnes-fields-kek (ADR 0012).
       encryption        = { Encryption = "standard" }
-      key_vault_secrets = { "blindindex--key" = "blindindex--key" }
+      key_vault_secrets = { "blindindex--cleenveloppee" = "blindindex--cleenveloppee" }
     }
     "postes-risques" = {
       zone          = "standard"
@@ -554,13 +558,24 @@ variable "managed_hsm_admin_object_ids" {
 }
 
 variable "encryption_key_ids" {
-  description = "Identifiants des clés de chiffrement applicatif (ARC-45) : le premier est la clé courante (CurrentKeyId), les suivants sont les anciennes clés conservées pour déchiffrer pendant la rotation. Un secret Key Vault <préfixe>--keys--<id en minuscules> doit exister dans chaque zone concernée (infra/README.md). Identifiants en majuscules et chiffres : les variables d'environnement sont en majuscules."
+  description = "Identifiants des clés de données (DEK) du chiffrement des champs (ARC-44, ARC-45, ADR 0012) : le premier est la DEK courante (CurrentKeyId), les suivants sont les anciennes DEK conservées pour déchiffrer pendant la rotation. Un secret Key Vault <service>--<préfixe>--deks--<id en minuscules>, valeur « <kid>|<DEK enveloppée en base64> » produite avec la clé racine du service, doit exister dans le coffre de sa zone (infra/README.md). Identifiants en majuscules et chiffres : les variables d'environnement sont en majuscules."
   type        = list(string)
-  default     = ["K1"]
+  default     = ["D1"]
 
   validation {
     condition     = length(var.encryption_key_ids) > 0 && alltrue([for id in var.encryption_key_ids : can(regex("^[A-Z0-9]{1,16}$", id))])
     error_message = "encryption_key_ids doit contenir au moins un identifiant de 1 à 16 caractères parmi A-Z et 0-9."
+  }
+}
+
+variable "encryption_legacy_key_ids" {
+  description = "Identifiants des anciennes clés AES du format v1 (secrets <service>--<préfixe>--keys--<id>, antérieurs à l'ADR 0012), injectées en lecture seule tant que des valeurs v1 subsistent ; elles ne chiffrent plus jamais. Vide pour un environnement sans données antérieures."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for id in var.encryption_legacy_key_ids : can(regex("^[A-Z0-9]{1,16}$", id)) && !contains(var.encryption_key_ids, id)])
+    error_message = "encryption_legacy_key_ids : identifiants de 1 à 16 caractères parmi A-Z et 0-9, distincts de encryption_key_ids."
   }
 }
 

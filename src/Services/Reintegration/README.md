@@ -31,8 +31,10 @@ Point de passage unique : `Application/Commun.cs` → `GardeReintegration`.
 
 ## Chiffrement applicatif (ARC-45)
 
-`FieldEncryptor` (AES-256-GCM), clés propres à la zone médicale, section `ZoneMedicale:Encryption` (`CurrentKeyId`,
-`Keys:<id>`). Colonnes chiffrées : `estimation_potentiel.commentaire_chiffre`, `trajet.note_evaluation_chiffre`,
+`FieldEncryptor` (AES-256-GCM, format `v2`), clés propres au service dans la zone médicale, section
+`ZoneMedicale:Encryption` : clé de données courante (`CurrentKeyId`) et clés de données enveloppées (`Deks:<id>`) par la
+clé racine RSA-HSM `reintegration-fields-kek` (`Enveloppe:Type`, `Enveloppe:CleKek`), déballées au démarrage ; anciennes
+clés du format `v1` en lecture seule (`Keys:<id>`). Voir ADR 0012. Colonnes chiffrées : `estimation_potentiel.commentaire_chiffre`, `trajet.note_evaluation_chiffre`,
 `echange_ehealth.contenu_chiffre`. Restent en clair : identifiants, dates, statuts et codes. Aucune donnée médicale dans les
 événements, les journaux (le service d'arrière-plan ne journalise que des compteurs et des types d'erreur) ni les erreurs
 (ARC-06) ; vérifié par les tests d'intégration (SQL brut, outbox, journaux capturés).

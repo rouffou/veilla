@@ -86,6 +86,23 @@ variable "documents_kek_rotation_period" {
   default     = "P12M"
 }
 
+variable "field_kek_names" {
+  description = "Noms des clés racines du chiffrement des champs (<service>-fields-kek, RSA 3072, wrapKey/unwrapKey) à créer dans le coffre ou le Managed HSM de la zone : une par service de la zone qui chiffre des champs (ADR 0012)."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for n in var.field_kek_names : can(regex("^[a-z0-9-]{1,127}$", n)) && n != var.documents_kek_name])
+    error_message = "Nom de clé racine invalide (minuscules, chiffres et tirets) ou confondu avec documents-kek."
+  }
+}
+
+variable "field_kek_rotation_period" {
+  description = "Délai (ISO 8601) après lequel Key Vault crée automatiquement une nouvelle version des clés racines du chiffrement des champs (12 mois). Les versions n'expirent jamais."
+  type        = string
+  default     = "P12M"
+}
+
 variable "log_analytics_workspace_id" {
   description = "Espace Log Analytics destinataire des journaux d'audit."
   type        = string

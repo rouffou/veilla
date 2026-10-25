@@ -5,6 +5,7 @@ using Azure;
 
 using Microsoft.Extensions.Configuration;
 
+using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Documents.Adapters.Chiffrement;
 using Sepp.Documents.Application;
 using Sepp.Documents.Domain.Commun;
@@ -51,8 +52,8 @@ public class EnveloppeKeyVaultTests
         /// <summary>Suppression (ou purge) d'une version de la clé racine.</summary>
         public void Supprimer(string version) => _versions.Remove(version);
 
-        public Task<CleEnveloppee> EnvelopperAsync(Uri cleSansVersion, byte[] cleDonnees, CancellationToken cancellationToken) =>
-            Task.FromResult(new CleEnveloppee($"{cleSansVersion.AbsoluteUri}/{Courante}", _versions[Courante].Encrypt(cleDonnees, RSAEncryptionPadding.OaepSHA256)));
+        public Task<CleDonneesEnveloppee> EnvelopperAsync(Uri cleSansVersion, byte[] cleDonnees, CancellationToken cancellationToken) =>
+            Task.FromResult(new CleDonneesEnveloppee($"{cleSansVersion.AbsoluteUri}/{Courante}", _versions[Courante].Encrypt(cleDonnees, RSAEncryptionPadding.OaepSHA256)));
 
         public Task<byte[]> DesenvelopperAsync(Uri kid, byte[] cleEnveloppee, CancellationToken cancellationToken)
         {
@@ -235,8 +236,8 @@ public class EnveloppeKeyVaultTests
 
     private sealed class CoffreDetourne : IOperationsCleRacine
     {
-        public Task<CleEnveloppee> EnvelopperAsync(Uri cleSansVersion, byte[] cleDonnees, CancellationToken cancellationToken) =>
-            Task.FromResult(new CleEnveloppee("https://kv-autre.vault.azure.net/keys/documents-kek/abc", [1, 2, 3]));
+        public Task<CleDonneesEnveloppee> EnvelopperAsync(Uri cleSansVersion, byte[] cleDonnees, CancellationToken cancellationToken) =>
+            Task.FromResult(new CleDonneesEnveloppee("https://kv-autre.vault.azure.net/keys/documents-kek/abc", [1, 2, 3]));
 
         public Task<byte[]> DesenvelopperAsync(Uri kid, byte[] cleEnveloppee, CancellationToken cancellationToken) => throw new NotSupportedException();
     }

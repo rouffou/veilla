@@ -169,3 +169,36 @@ resource "azapi_resource" "documents_kek" {
     }
   }
 }
+
+# --- Clés racines du chiffrement des champs (<service>-fields-kek), ADR 0012 ---------
+# Une clé par service qui chiffre des champs (attribut encryption du catalogue), dans le coffre de la zone du service :
+# elle enveloppe (wrapKey) les clés de données (DEK) du service, déballées au démarrage (unwrapKey) et gardées en mémoire.
+# Même modèle que documents-kek : RSA-HSM 3072 en zone sensible (Key Vault Premium ou Managed HSM), RSA 3072 en zone
+# standard, rotation automatique sans expiration des versions (les DEK enveloppées portent le kid versionné), création
+# par l'API ARM. La perte de la clé rend illisibles les champs chiffrés du service : protection contre la purge active.
+resource "azapi_resource" "field_kek" {
+  for_each = toset(var.field_kek_names)
+
+  type      = var.managed_hsm_enabled ? "Microsoft.KeyVault/managedHSMs/keys@2023-07-01" : "Microsoft.KeyVault/vaults/keys@2023-07-01"
+  name      = each.value
+  parent_id = local.documents_kek_parent
+
+  body = {
+    properties = {
+      kty     = local.documents_kek_kty
+      keySize = 3072
+      keyOps  = ["wrapKey", "unwrapKey"]
+      attributes = {
+        enabled = true
+      }
+      rotationPolicy = {
+        lifetimeActions = [
+          {
+            trigger = { timeAfterCreate = var.field_kek_rotation_period }
+            action  = { type = "rotate" }
+          }
+        ]
+      }
+    }
+  }
+}

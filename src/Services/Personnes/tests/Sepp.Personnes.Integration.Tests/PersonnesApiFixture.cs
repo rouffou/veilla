@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Sepp.BuildingBlocks.Infrastructure.Security;
+
 using Testcontainers.PostgreSql;
 
 namespace Sepp.Personnes.Integration.Tests;
@@ -40,9 +42,12 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
             b.UseSetting("Outbox:PollingInterval", "00:00:00.200");
             b.UseSetting("Republication:Intervalle", "00:00:00.100");
             b.UseSetting("Republication:TailleLot", "2");
-            b.UseSetting("Encryption:CurrentKeyId", "test");
-            b.UseSetting("Encryption:Keys:test", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
-            b.UseSetting("BlindIndex:Key", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+            // ADR 0012 : DEK et clé de l'index aveugle enveloppées par une clé racine locale de test.
+            foreach (var (cle, valeur) in ChiffrementChamps.ConfigurationLocale("Encryption", "test",
+                         new Dictionary<string, byte[]> { ["BlindIndex:CleEnveloppee"] = RandomNumberGenerator.GetBytes(32) }))
+            {
+                b.UseSetting(cle, valeur);
+            }
 
             // Journalisation détaillée : le test vérifie qu'aucun NISS n'apparaît, même au niveau Debug.
             b.UseSetting("Logging:LogLevel:Default", "Debug");

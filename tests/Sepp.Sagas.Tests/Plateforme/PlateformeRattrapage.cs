@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using Npgsql;
 
 using Sepp.Affilies.Adapters.Persistence;
+using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Documents.Adapters.Persistence;
 using Sepp.Personnes.Adapters.Persistence;
 
@@ -50,13 +51,11 @@ public sealed class PlateformeRattrapage : IAsyncLifetime
         }
 
         // Personnes ne consomme rien : il n'est pas abonné au bus de test.
-        Personnes = HoteService.Demarrer<PersonnesProgram, PersonnesDbContext>("personnes", "Personnes", Chaine("personnes"), new Dictionary<string, string>
-        {
-            ["Encryption:CurrentKeyId"] = "test",
-            ["Encryption:Keys:test"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
-            ["BlindIndex:Key"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
-            ["Republication:TailleLot"] = "2",
-        }, TimeProvider.System, Bus);
+        // ADR 0012 : DEK et clé de l'index aveugle enveloppées par une clé racine locale de test.
+        var personnes = ChiffrementChamps.ConfigurationLocale("Encryption", "test",
+            new Dictionary<string, byte[]> { ["BlindIndex:CleEnveloppee"] = RandomNumberGenerator.GetBytes(32) });
+        personnes["Republication:TailleLot"] = "2";
+        Personnes = HoteService.Demarrer<PersonnesProgram, PersonnesDbContext>("personnes", "Personnes", Chaine("personnes"), personnes, TimeProvider.System, Bus);
         _hotes.Add(Personnes);
 
         Affilies = Demarrer<AffiliesProgram, AffiliesDbContext>("affilies", "Affilies", new Dictionary<string, string> { ["Republication:TailleLot"] = "2" });

@@ -15,5 +15,6 @@ Les termes employés dans ces décisions (BFF, Outbox, saga, CQRS…) sont défi
 | [0009](0009-documents-instance-par-zone.md) | Documents : une instance par zone, clé racine HSM et chiffrement par enveloppe (écart au §14.3) | Acceptée (2026-10-24) | ARC-04, ARC-06, ARC-44, NF-03 |
 | [0010](0010-migrations-schema-azure.md) | Migrations de schéma sur Azure : job de migration par service, identité de migration dédiée (DDL), expand/contract | Proposée (à valider par l'architecte) | ARC-50, CTR-16, ARC-02, NF-33 |
 | [0011](0011-rattrapage-projections.md) | Rattrapage des projections : republication de l'état courant par les producteurs (instantanés dédiés, lots via l'outbox) | Proposée (à valider par l'architecte) | ARC-31, ARC-34, ARC-06, ARC-41 |
+| [0012](0012-chiffrement-champs-enveloppe.md) | Chiffrement des champs par enveloppe : clé racine non exportable par service, DEK déballées au démarrage, format v2 (prolonge la 0009) | Proposée (à valider par l'architecte) | ARC-44, ARC-45, ARC-04, NF-03, DAT-06 |
 
 Format : contexte, décision, alternatives, conséquences.

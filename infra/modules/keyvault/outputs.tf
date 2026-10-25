@@ -35,6 +35,23 @@ output "documents_kek_uri" {
   depends_on = [azapi_resource.documents_kek, azurerm_private_endpoint.key_vault, azurerm_private_endpoint.managed_hsm]
 }
 
+output "field_kek_ids" {
+  description = "Identifiant ARM de chaque clé racine du chiffrement des champs (nom -> id) : portée du rôle Key Vault Crypto Service Encryption User."
+  value       = { for n, k in azapi_resource.field_kek : n => k.id }
+}
+
+output "field_kek_uris" {
+  description = "URI sans version de chaque clé racine du chiffrement des champs (nom -> URI) : valeur de <Section>:Enveloppe:CleKek."
+  value = {
+    for n in var.field_kek_names : n => "${trimsuffix(
+      var.managed_hsm_enabled ? one(azurerm_key_vault_managed_hardware_security_module.this[*].hsm_uri) : azurerm_key_vault.this.vault_uri, "/"
+    )}/keys/${n}"
+  }
+
+  # L'application ne démarre qu'une fois la clé créée et le point privé en place.
+  depends_on = [azapi_resource.field_kek, azurerm_private_endpoint.key_vault, azurerm_private_endpoint.managed_hsm]
+}
+
 output "managed_hsm_id" {
   description = "Identifiant du Managed HSM (null si non créé)."
   value       = one(azurerm_key_vault_managed_hardware_security_module.this[*].id)

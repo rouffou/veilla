@@ -104,16 +104,27 @@ locals {
     for n, s in var.services : n => { for cle in s.adapters : cle => var.adapter_mode }
   }
 
-  # --- Chiffrement applicatif (ARC-45) : clé courante en clair (identifiant), clés en secrets Key Vault ---
+  # --- Chiffrement des champs par enveloppe (ARC-44, ARC-45, ADR 0012) : une clé racine <service>-fields-kek par service
+  # qui chiffre des champs, dans le coffre de sa zone (RSA-HSM en zone sensible). Le service reçoit l'URI de la clé sans
+  # version, l'identifiant de la DEK courante (en clair) et ses DEK enveloppées (secrets Key Vault, références). ---
+  field_kek_names = { for n, s in var.services : n => "${n}-fields-kek" if length(s.encryption) > 0 }
   encryption_environment = {
-    for n, s in var.services : n => { for prefixe in keys(s.encryption) : "${prefixe}__CurrentKeyId" => var.encryption_key_ids[0] }
+    for n, s in var.services : n => merge([
+      for prefixe in keys(s.encryption) : {
+        "${prefixe}__CurrentKeyId"      = var.encryption_key_ids[0]
+        "${prefixe}__Enveloppe__Type"   = "KeyVault"
+        "${prefixe}__Enveloppe__CleKek" = module.keyvault[s.zone].field_kek_uris[local.field_kek_names[n]]
+      }
+    ]...)
   }
 
   # --- Secrets Key Vault (références, jamais de valeur dans Terraform ni dans l'état) : la clé de chaque entrée est le
   # nom du secret de l'application, dont la variable d'environnement est le nom en majuscules, « - » devenant « _ »
   # (module containerapp). Le secret Key Vault d'une clé de chiffrement est préfixé par le nom du service (une clé par
   # service, même quand deux services lisent la même section Encryption). Les secrets sont créés hors du dépôt
-  # (infra/README.md, « Secrets applicatifs »). ---
+  # (infra/README.md, « Secrets applicatifs ») : <préfixe>--deks--<id> (DEK enveloppée par la clé racine du service,
+  # inutilisable hors du coffre) et, tant que des valeurs du format v1 subsistent, <préfixe>--keys--<id> (anciennes clés
+  # AES, lecture seule, var.encryption_legacy_key_ids). ---
   secret_name_prefix = {
     for n, s in var.services : n => { for prefixe in keys(s.encryption) : prefixe => lower(replace(prefixe, "_", "-")) }
   }
@@ -126,6 +137,12 @@ locals {
       merge({}, [
         for prefixe, zone in s.encryption : {
           for id in var.encryption_key_ids :
+          "${local.secret_name_prefix[n][prefixe]}--deks--${lower(id)}" => "${module.keyvault[zone].key_vault_uri}secrets/${startswith(local.secret_name_prefix[n][prefixe], "${n}--") ? "" : "${n}--"}${local.secret_name_prefix[n][prefixe]}--deks--${lower(id)}"
+        }
+      ]...),
+      merge({}, [
+        for prefixe, zone in s.encryption : {
+          for id in var.encryption_legacy_key_ids :
           "${local.secret_name_prefix[n][prefixe]}--keys--${lower(id)}" => "${module.keyvault[zone].key_vault_uri}secrets/${startswith(local.secret_name_prefix[n][prefixe], "${n}--") ? "" : "${n}--"}${local.secret_name_prefix[n][prefixe]}--keys--${lower(id)}"
         }
       ]...),
@@ -279,6 +296,7 @@ module "keyvault" {
   managed_hsm_admin_object_ids    = var.managed_hsm_admin_object_ids
   managed_hsm_private_dns_zone_id = module.network.private_dns_zone_ids["managedhsm"]
   documents_kek_enabled           = contains(local.documents_zones, each.value)
+  field_kek_names                 = [for n, cle in local.field_kek_names : cle if var.services[n].zone == each.value]
   log_analytics_workspace_id      = module.monitoring.log_analytics_workspace_id
   tags                            = merge(local.tags, { zone = each.value })
 }
@@ -321,9 +339,16 @@ module "identity" {
   }
   container_registry_id = module.registry.id
   key_vault_ids         = { for z, kv in module.keyvault : z => kv.key_vault_id }
-  # Chiffrement applicatif (ARC-45) : rôle Key Vault Crypto User au niveau du coffre pour les seuls services qui déclarent
-  # un jeu de clés (encryption), jamais pour les instances Documents (rôle porté sur la clé racine de leur zone).
-  crypto_services = [for n, s in var.services : n if length(s.encryption) > 0 && contains(local.data_zones, s.zone)]
+  # Chiffrement des champs (ARC-44, ARC-45, ADR 0012) : rôle d'enveloppement porté sur la clé racine du service
+  # (<service>-fields-kek, coffre de sa zone), jamais sur le coffre.
+  field_kek_assignments = {
+    for n, s in var.services : n => {
+      key_id         = module.keyvault[s.zone].field_kek_ids[local.field_kek_names[n]]
+      managed_hsm    = var.managed_hsm_enabled && contains(local.sensitive_zones, s.zone)
+      managed_hsm_id = module.keyvault[s.zone].managed_hsm_id
+      key_name       = local.field_kek_names[n]
+    } if length(s.encryption) > 0
+  }
   # Clé racine documents-kek de la zone de chaque instance Documents (wrapKey/unwrapKey, rôle porté sur la clé).
   documents_kek_assignments = {
     for n, s in local.documents_instances : n => {

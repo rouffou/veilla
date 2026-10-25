@@ -2,6 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using Sepp.BuildingBlocks.Infrastructure.Security;
+
 using Sepp.Documents.Application;
 using Sepp.Documents.Domain.Commun;
 
