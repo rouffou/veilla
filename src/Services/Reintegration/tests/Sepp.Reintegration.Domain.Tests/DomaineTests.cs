@@ -35,6 +35,19 @@ public sealed class IncapaciteTests
     }
 
     [Fact]
+    public void Seule_la_saisie_manuelle_leve_l_evenement_a_publier()
+    {
+        var personne = Guid.CreateVersion7();
+        var affilie = Guid.CreateVersion7();
+
+        var saisie = Incapacite.Saisir(personne, affilie, Debut, null, "cpmt-1", Politiques.Maintenant);
+
+        saisie.DomainEvents.OfType<IncapaciteSaisieManuellement>().ShouldHaveSingleItem()
+            .ShouldBe(new IncapaciteSaisieManuellement(saisie.Id, personne, affilie, Debut, null, Politiques.Maintenant));
+        Nouvelle().DomainEvents.OfType<IncapaciteSaisieManuellement>().ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Les_echeances_legales_suivent_le_debut_de_l_incapacite()
     {
         var echeances = Nouvelle().Echeances(Politiques.Defaut());

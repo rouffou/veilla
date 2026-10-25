@@ -306,7 +306,10 @@ public sealed class ScenariosSagaTests(PlateformeSaga plateforme) : IClassFixtur
         _o.PubliesPour("reintegration.trajet-demarre.v1", trajet).ShouldHaveSingleItem();
         var evaluation = await _o.ObligationDeTypeAsync(t.Personne, TypesExamen.EvaluationReintegration);
         evaluation.GetProperty("dateLimite").GetString().ShouldBe(OutilsScenario.Format(aujourdhui.AddDays(49)));
-        (await _o.ScalaireReintegrationAsync("SELECT count(*) FROM obligation_reintegration WHERE personne_id = @p", t.Personne)).ShouldBe(1L);
+        // L'incapacité saisie est publiée (#348) : Obligations ouvre aussi l'estimation du potentiel, que Réintégration suit de même.
+        (await _o.ScalaireReintegrationAsync("SELECT count(*) FROM obligation_reintegration WHERE personne_id = @p", t.Personne)).ShouldBe(2L);
+        (await _o.ScalaireReintegrationAsync(
+            $"SELECT count(*) FROM obligation_reintegration WHERE personne_id = @p AND type_examen = '{TypesExamen.EvaluationReintegration}'", t.Personne)).ShouldBe(1L);
         (await _o.TrajetAsync(trajet)).GetProperty("trajet").GetProperty("dateLimiteInvitation").GetString().ShouldBe(OutilsScenario.Format(aujourdhui.AddDays(49)));
 
         await _o.EtapeTrajetAsync(trajet, "invitation", new { date = OutilsScenario.Format(aujourdhui), recommandee = true });
@@ -320,5 +323,47 @@ public sealed class ScenariosSagaTests(PlateformeSaga plateforme) : IClassFixtur
         (await _o.TrajetAsync(trajet)).GetProperty("trajet").GetProperty("statut").GetString().ShouldBe("Annule");
         incapacite.ShouldNotBe(Guid.Empty);
         _o.VerifierCharges([.. Secrets, noteSecrete]);
+    }
+
+    /// <summary>
+    /// Incapacité saisie à la main puis reçue par eHealth (SAN-60, SAN-02) : la saisie dans Réintégration publie
+    /// <c>reintegration.incapacite-saisie</c>, Obligations ouvre l'estimation du potentiel de travail ; la même incapacité
+    /// notifiée ensuite par le flux eHealth (autre identifiant, même personne, affilié et date de début), livrée en double, n'en
+    /// ouvre pas d'autre. La reprise annoncée ensuite démarre la saga « examen de reprise » (ADR 0008) et retire l'unique
+    /// estimation devenue sans objet (reprise avant les huit semaines).
+    /// </summary>
+    [Fact]
+    public async Task Scenario_9_incapacite_saisie_puis_recue_par_ehealth_sans_double_traitement()
+    {
+        var t = _o.Demarrer(11);
+        await _o.EtablirOccupationAsync(t);
+
+        var saisie = await _o.SaisirIncapaciteAsync(t, t.DebutAbsence);
+        await _o.PomperAsync();
+
+        _o.PubliesPour("reintegration.incapacite-saisie.v1", saisie).ShouldHaveSingleItem().Charge.ShouldContain("SAISIE_MANUELLE");
+        var estimation = await _o.ObligationDeTypeAsync(t.Personne, TypesExamen.EstimationPotentielTravail);
+        estimation.GetProperty("dateDue").GetString().ShouldBe(OutilsScenario.Format(t.DebutAbsence.AddDays(56)));
+
+        _o.Plateforme.Bus.Chaos = true;
+        var notifiee = _o.NotifierIncapaciteEHealth(t, t.DebutAbsence);
+        await _o.PomperAsync();
+        _o.Plateforme.Bus.Chaos = false;
+
+        notifiee.ShouldNotBe(saisie);
+        var estimations = await _o.ObligationsDeTypeAsync(t.Personne, TypesExamen.EstimationPotentielTravail);
+        estimations.ShouldHaveSingleItem().GetProperty("id").GetGuid().ShouldBe(estimation.GetProperty("id").GetGuid());
+        estimations[0].GetProperty("statut").GetString().ShouldNotBe("Annule");
+        _o.PubliesPour("obligations.obligation-creee.v1", t.Personne)
+            .Count(m => m.Charge.Contains(TypesExamen.EstimationPotentielTravail, StringComparison.Ordinal)).ShouldBe(1);
+
+        var reprise = await _o.AnnoncerAsync(t);
+        await _o.PomperAsync();
+
+        (await _o.RepriseAsync(reprise)).GetProperty("id").GetGuid().ShouldBe(reprise);
+        (await _o.ObligationDeTypeAsync(t.Personne, TypesExamen.ExamenReprise)).GetProperty("statut").GetString().ShouldNotBe("Annule");
+        (await _o.ObligationsDeTypeAsync(t.Personne, TypesExamen.EstimationPotentielTravail))
+            .ShouldHaveSingleItem().GetProperty("statut").GetString().ShouldBe("Annule");
+        _o.VerifierCharges(Secrets);
     }
 }

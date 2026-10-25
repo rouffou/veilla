@@ -313,7 +313,7 @@ public class ProjectionsTests
     public async Task L_incapacite_notifiee_cree_l_estimation_du_potentiel_et_la_reprise_la_supprime_si_elle_est_anterieure()
     {
         var incapacite = new IncapaciteNotifiee(Guid.CreateVersion7(), _banc.Personne, _banc.Affilie, new DateOnly(2026, 4, 15), "MUTUALITE");
-        await new IncapaciteNotifieeHandler(Store, _banc.MiseAJour).HandleAsync(incapacite, Ct);
+        await new IncapaciteNotifieeHandler(Store, _banc.MiseAJour, _banc.Clock).HandleAsync(incapacite, Ct);
         var estimation = Store.Obligations.Single(o => o.Type == TypeObligation.EstimationPotentielTravail);
         estimation.DateDue.ShouldBe(new DateOnly(2026, 6, 10));
         estimation.DateLimite.ShouldBeNull();
@@ -323,6 +323,64 @@ public class ProjectionsTests
             new RepriseAnnoncee(_banc.Personne, _banc.Affilie, new DateOnly(2026, 5, 20), new DateOnly(2026, 4, 15)), Ct);
 
         estimation.Statut.ShouldBe(StatutObligation.Annule);
+    }
+
+    [Fact]
+    public async Task L_incapacite_saisie_dans_reintegration_cree_l_estimation_du_potentiel_comme_une_notification()
+    {
+        var saisie = new IncapaciteSaisie(Guid.CreateVersion7(), _banc.Personne, _banc.Affilie, new DateOnly(2026, 4, 15), CodesReintegration.SourcesIncapacite.SaisieManuelle, null);
+
+        await new IncapaciteSaisieHandler(Store, _banc.MiseAJour, _banc.Clock).HandleAsync(saisie, Ct);
+
+        var estimation = Store.Obligations.ShouldHaveSingleItem();
+        estimation.Type.ShouldBe(TypeObligation.EstimationPotentielTravail);
+        estimation.DateDue.ShouldBe(new DateOnly(2026, 6, 10));
+        Store.Publies<ObligationCreee>().ShouldHaveSingleItem();
+    }
+
+    /// <summary>
+    /// Horloge figée (les deux canaux au même instant) et identifiants défavorables (le second arrivé a le plus petit) : la
+    /// première ligne enregistrée l'emporte quand même, l'obligation ouverte n'est ni annulée ni recréée.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task La_meme_incapacite_saisie_puis_recue_par_ehealth_ou_l_inverse_n_ouvre_qu_une_estimation(bool saisieDAbord)
+    {
+        var debut = new DateOnly(2026, 4, 15);
+        var ids = new[] { Guid.CreateVersion7(), Guid.CreateVersion7() }.Order().ToArray();
+        var (idSaisie, idEHealth) = saisieDAbord ? (ids[1], ids[0]) : (ids[0], ids[1]);
+        var saisie = new IncapaciteSaisie(idSaisie, _banc.Personne, _banc.Affilie, debut, CodesReintegration.SourcesIncapacite.SaisieManuelle, null);
+        var notification = new IncapaciteNotifiee(idEHealth, _banc.Personne, _banc.Affilie, debut, CodesReintegration.SourcesIncapacite.Employeur, new DateOnly(2026, 7, 31));
+        var parSaisie = new IncapaciteSaisieHandler(Store, _banc.MiseAJour, _banc.Clock);
+        var parEHealth = new IncapaciteNotifieeHandler(Store, _banc.MiseAJour, _banc.Clock);
+
+        if (saisieDAbord)
+        {
+            await parSaisie.HandleAsync(saisie, Ct);
+            await parEHealth.HandleAsync(notification, Ct);
+        }
+        else
+        {
+            await parEHealth.HandleAsync(notification, Ct);
+            await parSaisie.HandleAsync(saisie, Ct);
+        }
+
+        var premiere = saisieDAbord ? idSaisie : idEHealth;
+        var estimation = Store.Obligations.ShouldHaveSingleItem();
+
+        // Rejeu et prolongation eHealth : toujours une seule estimation, jamais annulée puis recréée.
+        await parEHealth.HandleAsync(notification with { DateFinPrevue = new DateOnly(2026, 9, 30) }, Ct);
+        await parSaisie.HandleAsync(saisie, Ct);
+
+        Store.Incapacites.Count.ShouldBe(2);
+        Store.Incapacites.Single(i => i.IncapaciteId == premiere).EnregistreeLe
+            .ShouldBeLessThan(Store.Incapacites.Single(i => i.IncapaciteId != premiere).EnregistreeLe);
+        Store.Obligations.ShouldHaveSingleItem().Id.ShouldBe(estimation.Id);
+        estimation.Statut.ShouldNotBe(StatutObligation.Annule);
+        Store.Publies<ObligationCreee>().ShouldHaveSingleItem();
+        Store.Publies<ObligationCloturee>().ShouldBeEmpty();
+        Store.VerrousIncapacites.ShouldBe(4);
     }
 
     [Fact]

@@ -44,6 +44,12 @@ public enum ResultatEstimation
 
 public sealed record IncapaciteEnregistree(Guid IncapaciteId, Guid PersonneId, Guid AffilieId, DateTimeOffset OccurredAt) : IDomainEvent;
 
+/// <summary>
+/// SAN-60 : incapacité saisie à la main (hors flux eHealth), à publier pour Obligations (<c>reintegration.incapacite-saisie</c>).
+/// Identifiants et dates seulement : la saisie ne porte aucun contenu médical (ARC-06).
+/// </summary>
+public sealed record IncapaciteSaisieManuellement(Guid IncapaciteId, Guid PersonneId, Guid AffilieId, DateOnly DateDebut, DateOnly? DateFinPrevue, DateTimeOffset OccurredAt) : IDomainEvent;
+
 /// <summary>Compensation : l'incapacité est annulée, le trajet qui s'y rattache doit l'être aussi.</summary>
 public sealed record IncapaciteAnnulee(Guid IncapaciteId, Guid? TrajetId, DateTimeOffset OccurredAt) : IDomainEvent;
 
@@ -157,6 +163,7 @@ public sealed class Incapacite : ProcessusAEcheances
     {
         var incapacite = new Incapacite(NewId(), personneId, affilieId, debut, finPrevue, SourceIncapacite.SaisieManuelle, maintenant);
         incapacite.PrendreEnCharge(gestionnaireId);
+        incapacite.Raise(new IncapaciteSaisieManuellement(incapacite.Id, personneId, affilieId, incapacite.DateDebut, incapacite.DateFinPrevue, maintenant));
         return incapacite;
     }
 

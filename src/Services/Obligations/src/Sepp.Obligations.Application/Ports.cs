@@ -168,6 +168,13 @@ public interface IProjectionRepository
 
     void Add(RepriseLocale reprise);
 
+    /// <summary>
+    /// SAN-02 : sérialise, jusqu'à la fin de la transaction en cours (inbox), le traitement des incapacités d'un travailleur.
+    /// La même incapacité peut arriver au même instant par deux rubriques (eHealth et Réintégration) : sans ce verrou, chaque
+    /// transaction ne verrait pas la ligne de l'autre et ouvrirait sa propre estimation. Exige une transaction.
+    /// </summary>
+    Task VerrouillerIncapacitesAsync(Guid personneId, CancellationToken cancellationToken);
+
     Task<IncapaciteLocale?> GetIncapaciteAsync(Guid incapaciteId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<IncapaciteLocale>> IncapacitesDeAsync(Guid personneId, CancellationToken cancellationToken);

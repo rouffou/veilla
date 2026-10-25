@@ -144,6 +144,17 @@ namespace Sepp.Contracts.Reintegration
     /// <summary>SAN-62 : fin du trajet. <c>Statut</c> : code de <see cref="CodesReintegration.StatutsFinTrajet"/>.</summary>
     [EventContract("reintegration.trajet-termine", 1)]
     public sealed record TrajetTermine(Guid TrajetId, Guid PersonneId, Guid AffilieId, string Statut, DateOnly DateFin) : IntegrationEvent;
+
+    /// <summary>
+    /// SAN-60, SAN-02 : notification d'incapacité reçue hors flux eHealth (courrier, appel) et saisie à la main dans
+    /// Réintégration. Champs alignés sur <see cref="Integrations.IncapaciteNotifiee"/>, que les consommateurs traitent de la
+    /// même façon : identifiants, dates et catégorie seulement (<c>Source</c> = <see cref="CodesReintegration.SourcesIncapacite.SaisieManuelle"/>).
+    /// Jamais de diagnostic ni de motif médical (ARC-06). <c>IncapaciteId</c> est l'identifiant du dossier dans Réintégration,
+    /// distinct de celui du flux eHealth : la même incapacité reçue par les deux canaux est reconnue par sa clé métier
+    /// (personne, affilié, date de début ; voir <c>docs/architecture/evenements.md</c>).
+    /// </summary>
+    [EventContract("reintegration.incapacite-saisie", 1)]
+    public sealed record IncapaciteSaisie(Guid IncapaciteId, Guid PersonneId, Guid AffilieId, DateOnly DateDebut, string Source, DateOnly? DateFinPrevue) : IntegrationEvent;
 }
 
 namespace Sepp.Contracts.Integrations

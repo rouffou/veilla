@@ -10,7 +10,9 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.Contracts;
 using Sepp.Contracts.Examens;
+using Sepp.Contracts.Integrations;
 using Sepp.Contracts.Personnes;
+using Sepp.Contracts.Reintegration;
 using Sepp.Obligations.Adapters.Traitement;
 using Sepp.Sagas.Tests.Plateforme;
 
@@ -291,6 +293,24 @@ public sealed partial class OutilsScenario(PlateformeSaga plateforme)
     }
 
     // --- Réintégration (zone médicale) -----------------------------------------------------------------------------
+
+    /// <summary>Incapacité reçue hors flux et saisie à la main par le CPMT dans Réintégration (SAN-60).</summary>
+    public async Task<Guid> SaisirIncapaciteAsync(Travailleur travailleur, DateOnly debut) =>
+        await CreerAsync(plateforme.Reintegration.Client(Roles.Cpmt, "cpmt-1"), "/api/v1/incapacites",
+            new { personneId = travailleur.Personne, affilieId = travailleur.Affilie, dateDebut = Format(debut) });
+
+    /// <summary>
+    /// La même incapacité notifiée par le flux eHealth d'Intégrations (service non hébergé) : publiée sur la rubrique
+    /// <c>integrations</c> avec l'identifiant propre au flux, routée comme Terraform vers Obligations et Réintégration.
+    /// </summary>
+    public Guid NotifierIncapaciteEHealth(Travailleur travailleur, DateOnly debut)
+    {
+        var notification = new IncapaciteNotifiee(Guid.CreateVersion7(), travailleur.Personne, travailleur.Affilie, debut,
+            CodesReintegration.SourcesIncapacite.Employeur, debut.AddDays(90))
+        { OccurredAt = plateforme.Horloge.GetUtcNow() };
+        plateforme.Bus.Publier("integrations", OutboxMessage.From(notification));
+        return notification.IncapaciteId;
+    }
 
     /// <summary>Incapacité saisie par le CPMT (gestionnaire du dossier) et trajet demandé par le travailleur.</summary>
     public async Task<(Guid Trajet, Guid Incapacite)> DemanderTrajetAsync(Travailleur travailleur, DateOnly debutIncapacite, DateOnly dateDemande)

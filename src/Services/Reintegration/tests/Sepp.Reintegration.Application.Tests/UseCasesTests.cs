@@ -313,6 +313,52 @@ public sealed class DelaisTests
     }
 }
 
+/// <summary>SAN-60, SAN-02 : publication des incapacités saisies à la main (reintegration.incapacite-saisie, ARC-06).</summary>
+public sealed class PublicationIncapaciteTests
+{
+    [Fact]
+    public async Task Une_incapacite_saisie_a_la_main_est_publiee_avec_identifiants_dates_et_categorie()
+    {
+        var monde = new Monde();
+
+        var id = await monde.Ok(monde.Creer<SaisirIncapaciteHandler>(),
+            new SaisirIncapacite(monde.Personne, monde.Affilie, new DateOnly(2026, 3, 2), new DateOnly(2026, 4, 30)));
+
+        var publie = monde.Publies<IncapaciteSaisie>().ShouldHaveSingleItem();
+        publie.IncapaciteId.ShouldBe(id);
+        publie.PersonneId.ShouldBe(monde.Personne);
+        publie.AffilieId.ShouldBe(monde.Affilie);
+        publie.DateDebut.ShouldBe(new DateOnly(2026, 3, 2));
+        publie.DateFinPrevue.ShouldBe(new DateOnly(2026, 4, 30));
+        publie.Source.ShouldBe(CodesReintegration.SourcesIncapacite.SaisieManuelle);
+    }
+
+    [Fact]
+    public async Task Une_incapacite_recue_par_ehealth_n_est_pas_republiee_par_reintegration()
+    {
+        var monde = new Monde();
+
+        await monde.NotifierAsync();
+
+        monde.Publies<IncapaciteSaisie>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Une_saisie_refusee_ne_publie_rien()
+    {
+        var monde = new Monde();
+        monde.Agir("emp-1", Roles.Employeur);
+
+        (await monde.Creer<SaisirIncapaciteHandler>().HandleAsync(new SaisirIncapacite(monde.Personne, monde.Affilie, new DateOnly(2026, 3, 2), null), monde.Ct))
+            .IsSuccess.ShouldBeFalse();
+        monde.Agir("cpmt-1", Roles.Cpmt);
+        (await monde.Creer<SaisirIncapaciteHandler>().HandleAsync(new SaisirIncapacite(monde.Personne, monde.Affilie, new DateOnly(2026, 3, 2), new DateOnly(2026, 2, 1)), monde.Ct))
+            .IsSuccess.ShouldBeFalse();
+
+        monde.Publies<IncapaciteSaisie>().ShouldBeEmpty();
+    }
+}
+
 /// <summary>Accès à un gestionnaire de requête sans connaître son type concret (pour <see cref="Monde.Ok{TCommand,TResult}"/>).</summary>
 internal sealed class QueryAdapter<TQuery, TResult>(IQueryHandler<TQuery, TResult> handler) : ICommandHandler<TQuery, TResult>
 {

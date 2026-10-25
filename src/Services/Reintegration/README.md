@@ -48,7 +48,7 @@ migration `Initial` versionnée (DAT-09).
 
 | Exigence | Réalisation |
 |---|---|
-| SAN-60 | Consommation de `integrations.incapacite-notifiee` (publié par le flux eHealth d'Intégrations, idempotent, prolongation = même `IncapaciteId`) ; saisie manuelle `POST /incapacites` ; échéance « information du travailleur » (`REINTEGRATION.INFORMATION_TRAVAILLEUR`) avec alerte et enregistrement de l'information (`POST /incapacites/{id}/information-travailleur`) ; fin d'incapacité à la reprise (`obligations.reprise-enregistree`) |
+| SAN-60 | Consommation de `integrations.incapacite-notifiee` (publié par le flux eHealth d'Intégrations, idempotent, prolongation = même `IncapaciteId`) ; saisie manuelle `POST /incapacites`, publiée par `reintegration.incapacite-saisie` (#348) ; échéance « information du travailleur » (`REINTEGRATION.INFORMATION_TRAVAILLEUR`) avec alerte et enregistrement de l'information (`POST /incapacites/{id}/information-travailleur`) ; fin d'incapacité à la reprise (`obligations.reprise-enregistree`) |
 | SAN-61 | `POST /incapacites/{id}/estimations` (CPMT ou infirmier) : date, résultat, méthode standardisée (code), commentaire chiffré ; échéance `REINTEGRATION.ESTIMATION_POTENTIEL` |
 | SAN-62 | Saga persistante `Trajet` (ADR 0008) : demande → invitation recommandée → évaluation → formulaire → plan ou rapport motivé → acceptation ou refus (`REINTEGRATION.REPONSE_PLAN.DELAI`) → fin ; date limite d'invitation recopiée (`REINTEGRATION.INVITATION.DELAI`) ; publie `reintegration.trajet-demarre` / `trajet-termine` (Obligations ouvre puis clôt l'évaluation de réintégration) ; compensation par annulation (trajet, incapacité annulée, envois eHealth non effectués) |
 | SAN-63 | Compteur d'absences par trajet (`absence_rdv`) : saisie ou `planification.absence-rendez-vous-constatee` sur une obligation de réintégration (projection de `obligations.obligation-creee`), idempotent par rendez-vous ; au seuil `REINTEGRATION.ABSENCES_MEDECIN_CONSEIL`, information du médecin-conseil par eHealth (une fois par trajet) |
@@ -67,8 +67,11 @@ migration `Initial` versionnée (DAT-09).
 
 ## Événements
 
-- **Publiés** : `reintegration.trajet-demarre.v1`, `reintegration.trajet-termine.v1` (codes `CodesReintegration`), traces
-  `audit.acces-donnee-sensible.v1`.
+- **Publiés** : `reintegration.trajet-demarre.v1`, `reintegration.trajet-termine.v1`, `reintegration.incapacite-saisie.v1`
+  (codes `CodesReintegration`), traces `audit.acces-donnee-sensible.v1`. `incapacite-saisie` est publiée à la saisie manuelle
+  d'une incapacité (identifiants, dates, `Source` = `SAISIE_MANUELLE`, aucune donnée médicale) pour qu'Obligations ouvre
+  l'estimation due ; Obligations la dédoublonne avec la même incapacité reçue par eHealth (personne, affilié, date de début ;
+  voir `docs/architecture/evenements.md`).
 - **Consommés** : `integrations.incapacite-notifiee`, `obligations.obligation-creee` (types de réintégration),
   `obligations.reprise-enregistree`, `planification.absence-rendez-vous-constatee`, `referentiels.parametre-legal-modifie`,
   `referentiels.jours-feries-modifies` (abonnements et filtres de sujets dans `infra/variables.tf`).
@@ -78,7 +81,9 @@ migration `Initial` versionnée (DAT-09).
 - Codes des résultats d'estimation et de la conclusion du formulaire (réglementation 2026) : provisoires.
 - Information du travailleur : l'échéance et l'alerte sont gérées, l'envoi du courrier lui-même (Documents, Communications)
   n'est pas automatisé.
-- Une incapacité saisie manuellement n'est pas publiée : Obligations ne crée pas l'estimation due (nouveau contrat à prévoir).
+- Une incapacité saisie à la main puis reçue aussi par eHealth (ou l'inverse) donne deux dossiers dans Réintégration : seul
+  Obligations les dédoublonne. La fin et l'annulation d'une incapacité saisie ne sont pas publiées (l'estimation due reste
+  ouverte dans Obligations, comme pour une notification eHealth erronée).
 - Effectif de l'employeur (trajet obligatoire) saisi sur le dossier : aucune source automatique.
 - Exigence d'accord du travailleur pour le médecin-conseil et le coordinateur ; réouverture d'une incapacité après annulation de
   la reprise ; poursuite du trajet après la reprise du travail.

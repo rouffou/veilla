@@ -338,24 +338,71 @@ public sealed class RepriseAnnonceeHandler(EnregistrementReprise enregistrement)
     }
 }
 
-/// <summary>§5.1 : incapacité notifiée → estimation du potentiel de travail après huit semaines.</summary>
-public sealed class IncapaciteNotifieeHandler(IProjectionRepository projections, MiseAJourProjection miseAJour)
+/// <summary>
+/// §5.1, SAN-60 : incapacité notifiée par le flux eHealth (<c>integrations.incapacite-notifiee</c>) → estimation du potentiel
+/// de travail après huit semaines. Dédoublonnée avec la saisie manuelle de Réintégration (<see cref="IncapaciteLocale.SansDoublons"/>).
+/// </summary>
+public sealed class IncapaciteNotifieeHandler(IProjectionRepository projections, MiseAJourProjection miseAJour, TimeProvider horloge)
     : IIntegrationEventHandler<IncapaciteNotifiee>
 {
-    public async Task HandleAsync(IncapaciteNotifiee integrationEvent, CancellationToken cancellationToken)
+    public Task HandleAsync(IncapaciteNotifiee integrationEvent, CancellationToken cancellationToken) =>
+        ProjectionIncapacite.AppliquerAsync(
+            projections, miseAJour, horloge, integrationEvent.IncapaciteId, integrationEvent.PersonneId, integrationEvent.AffilieId,
+            integrationEvent.DateDebut, integrationEvent.Source, cancellationToken);
+}
+
+/// <summary>
+/// SAN-60, SAN-02 : incapacité saisie à la main dans Réintégration (<c>reintegration.incapacite-saisie</c>), traitée comme
+/// une <see cref="IncapaciteNotifiee"/>. Si la même incapacité arrive aussi par eHealth (même personne, même affilié, même
+/// date de début), une seule estimation est ouverte (<see cref="IncapaciteLocale.SansDoublons"/>).
+/// </summary>
+public sealed class IncapaciteSaisieHandler(IProjectionRepository projections, MiseAJourProjection miseAJour, TimeProvider horloge)
+    : IIntegrationEventHandler<IncapaciteSaisie>
+{
+    public Task HandleAsync(IncapaciteSaisie integrationEvent, CancellationToken cancellationToken) =>
+        ProjectionIncapacite.AppliquerAsync(
+            projections, miseAJour, horloge, integrationEvent.IncapaciteId, integrationEvent.PersonneId, integrationEvent.AffilieId,
+            integrationEvent.DateDebut, integrationEvent.Source, cancellationToken);
+}
+
+/// <summary>
+/// Projection commune aux deux canaux d'incapacité : une ligne par identifiant reçu (état courant, idempotent). Le traitement
+/// des incapacités d'un travailleur est sérialisé (verrou transactionnel) et chaque nouvelle ligne reçoit un horodatage
+/// d'enregistrement strictement postérieur à celui des lignes de même clé métier : l'ordre « première enregistrée » qui
+/// départage les doublons (<see cref="IncapaciteLocale.SansDoublons"/>) est total et stable, même à horloge figée ou si les deux
+/// canaux arrivent au même instant.
+/// </summary>
+internal static class ProjectionIncapacite
+{
+    private static readonly TimeSpan Microseconde = TimeSpan.FromTicks(TimeSpan.TicksPerMicrosecond);
+
+    public static async Task AppliquerAsync(
+        IProjectionRepository projections, MiseAJourProjection miseAJour, TimeProvider horloge, Guid incapaciteId, Guid personneId, Guid affilieId,
+        DateOnly dateDebut, string source, CancellationToken cancellationToken)
     {
-        var e = integrationEvent;
-        var incapacite = await projections.GetIncapaciteAsync(e.IncapaciteId, cancellationToken);
+        await projections.VerrouillerIncapacitesAsync(personneId, cancellationToken);
+        var incapacite = await projections.GetIncapaciteAsync(incapaciteId, cancellationToken);
         if (incapacite is null)
         {
-            projections.Add(new IncapaciteLocale(e.IncapaciteId, e.PersonneId, e.AffilieId, e.DateDebut, e.Source));
+            var existantes = await projections.IncapacitesDeAsync(personneId, cancellationToken);
+            var cle = (personneId, affilieId, dateDebut);
+            projections.Add(new IncapaciteLocale(incapaciteId, personneId, affilieId, dateDebut, source,
+                Enregistrement(horloge.GetUtcNow(), existantes.Where(i => i.CleMetier == cle).Select(i => i.EnregistreeLe))));
         }
         else
         {
-            incapacite.Appliquer(e.PersonneId, e.AffilieId, e.DateDebut, e.Source);
+            incapacite.Appliquer(personneId, affilieId, dateDebut, source);
         }
 
-        await miseAJour.TerminerAsync([e.PersonneId], cancellationToken);
+        await miseAJour.TerminerAsync([personneId], cancellationToken);
+    }
+
+    /// <summary>Maintenant, à la microseconde (précision de PostgreSQL), et après toute ligne déjà enregistrée de même clé.</summary>
+    internal static DateTimeOffset Enregistrement(DateTimeOffset maintenant, IEnumerable<DateTimeOffset> precedents)
+    {
+        var tronque = new DateTimeOffset(maintenant.UtcTicks - (maintenant.UtcTicks % TimeSpan.TicksPerMicrosecond), TimeSpan.Zero);
+        var dernier = precedents.DefaultIfEmpty(DateTimeOffset.MinValue).Max();
+        return tronque > dernier ? tronque : dernier + Microseconde;
     }
 }
 

@@ -50,11 +50,16 @@ public sealed class MinuteriesDossier(ParametresReintegration parametres)
         trajet.Reprogrammer(await parametres.PolitiqueAsync(trajet.DateDemande, cancellationToken));
 }
 
-/// <summary>SAN-60 : saisie manuelle d'une notification d'incapacité reçue hors flux eHealth ; le saisissant en devient gestionnaire.</summary>
+/// <summary>
+/// SAN-60 : saisie manuelle d'une notification d'incapacité reçue hors flux eHealth ; le saisissant en devient gestionnaire.
+/// La saisie est publiée (<c>reintegration.incapacite-saisie</c>, outbox, même transaction) pour qu'Obligations ouvre
+/// l'estimation du potentiel de travail (SAN-02) : identifiants, dates et catégorie seulement (ARC-06).
+/// </summary>
 public sealed record SaisirIncapacite(Guid PersonneId, Guid AffilieId, DateOnly DateDebut, DateOnly? DateFinPrevue);
 
 public sealed class SaisirIncapaciteHandler(
-    IIncapaciteRepository incapacites, GardeReintegration garde, MinuteriesDossier minuteries, IUnitOfWork unitOfWork, TimeProvider horloge)
+    IIncapaciteRepository incapacites, GardeReintegration garde, MinuteriesDossier minuteries, IIntegrationEventOutbox outbox, IUnitOfWork unitOfWork,
+    TimeProvider horloge)
     : ICommandHandler<SaisirIncapacite, Guid>
 {
     public async Task<Result<Guid>> HandleAsync(SaisirIncapacite command, CancellationToken cancellationToken)
@@ -74,6 +79,7 @@ public sealed class SaisirIncapaciteHandler(
         await minuteries.ReprogrammerAsync(saisie.Value, cancellationToken);
         incapacites.Add(saisie.Value);
         garde.Journaliser(ActionAudit.Creation, PartiesDossier.Incapacite, saisie.Value.Id);
+        EvenementsIntegration.Publier(saisie.Value, outbox);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return saisie.Value.Id;
     }

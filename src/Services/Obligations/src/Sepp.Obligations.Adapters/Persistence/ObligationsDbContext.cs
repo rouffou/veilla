@@ -261,6 +261,7 @@ public sealed class ObligationsDbContext(DbContextOptions<ObligationsDbContext> 
             b.Property(i => i.IncapaciteId).ValueGeneratedNever();
             b.HasIndex(i => i.PersonneId);
             b.Property(i => i.Source).HasMaxLength(EnumLength);
+            b.Ignore(i => i.CleMetier);
         });
 
         modelBuilder.Entity<TrajetLocal>(b =>

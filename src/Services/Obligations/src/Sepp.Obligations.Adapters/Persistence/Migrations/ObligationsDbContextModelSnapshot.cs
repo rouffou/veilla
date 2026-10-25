@@ -17,7 +17,7 @@ namespace Sepp.Obligations.Adapters.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -503,6 +503,10 @@ namespace Sepp.Obligations.Adapters.Persistence.Migrations
                     b.Property<DateOnly>("DateDebut")
                         .HasColumnType("date")
                         .HasColumnName("date_debut");
+
+                    b.Property<DateTimeOffset>("EnregistreeLe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enregistree_le");
 
                     b.Property<Guid>("PersonneId")
                         .HasColumnType("uuid")

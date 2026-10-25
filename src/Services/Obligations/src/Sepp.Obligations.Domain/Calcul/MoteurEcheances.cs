@@ -361,7 +361,8 @@ public sealed class MoteurEcheances(IPolitiquesLegales politiques, BusinessCalen
 
     private IEnumerable<EcheanceCalculee> EstimationsPotentiel(SituationTravailleur situation, IReadOnlyList<Examen> examens, Func<Guid, bool> sorti)
     {
-        foreach (var incapacite in situation.Incapacites.Where(i => i.PersonneId == situation.PersonneId))
+        // Une même incapacité reçue par eHealth et saisie dans Réintégration n'ouvre qu'une estimation (SAN-02).
+        foreach (var incapacite in IncapaciteLocale.SansDoublons(situation.Incapacites.Where(i => i.PersonneId == situation.PersonneId)))
         {
             var duree = politiques.Duree(CodesParametres.EstimationPotentiel, incapacite.DateDebut);
             var due = duree.AjouterA(incapacite.DateDebut, calendrier);
