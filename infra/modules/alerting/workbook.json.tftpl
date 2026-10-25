@@ -1,0 +1,150 @@
+{
+  "version": "Notebook/1.0",
+  "fallbackResourceIds": ["${workspace_id}"],
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## SEPP : supervision technique (NF-62)\nDisponibilité, débit, erreurs et latence par service (télémétrie OpenTelemetry, ARC-47), files Service Bus et PostgreSQL. Aucune donnée métier n'est affichée. Seuils d'alerte : erreurs 5xx ${error_rate_threshold} %, latence p95 ${latency_threshold_ms} ms."
+      }
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "a1b2c3d4-0001-4000-8000-000000000001",
+            "version": "KqlParameterItem/1.0",
+            "name": "Periode",
+            "label": "Période",
+            "type": 4,
+            "isRequired": true,
+            "value": { "durationMs": 86400000 },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 3600000 },
+                { "durationMs": 14400000 },
+                { "durationMs": 86400000 },
+                { "durationMs": 604800000 }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "title": "Disponibilité par service (% de réponses non 5xx)",
+        "query": "AppRequests | summarize Total = count(), Erreurs = countif(toint(ResultCode) >= 500) by AppRoleName | extend Disponibilite = round(100.0 * (Total - Erreurs) / Total, 3) | project Service = AppRoleName, Disponibilite, Total | order by Disponibilite asc",
+        "size": 1,
+        "timeContext": { "durationMs": 86400000 },
+        "timeContextFromParameter": "Periode",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": ["${workspace_id}"],
+        "visualization": "table"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "title": "Débit : requêtes par service",
+        "query": "AppRequests | summarize Requetes = count() by bin(TimeGenerated, 5m), AppRoleName | order by TimeGenerated asc",
+        "size": 0,
+        "timeContext": { "durationMs": 86400000 },
+        "timeContextFromParameter": "Periode",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": ["${workspace_id}"],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "title": "Erreurs 5xx par service",
+        "query": "AppRequests | where toint(ResultCode) >= 500 | summarize Erreurs = count() by bin(TimeGenerated, 5m), AppRoleName | order by TimeGenerated asc",
+        "size": 0,
+        "timeContext": { "durationMs": 86400000 },
+        "timeContextFromParameter": "Periode",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": ["${workspace_id}"],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "title": "Latence p95 par service (ms)",
+        "query": "AppRequests | summarize P95 = percentile(DurationMs, 95) by bin(TimeGenerated, 5m), AppRoleName | order by TimeGenerated asc",
+        "size": 0,
+        "timeContext": { "durationMs": 86400000 },
+        "timeContextFromParameter": "Periode",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": ["${workspace_id}"],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "title": "Erreurs d'exploitation journalisées (outbox, clé racine, migrations)",
+        "query": "AppTraces | where SeverityLevel >= 3 | summarize Erreurs = count() by AppRoleName, Message | order by Erreurs desc | take 50",
+        "size": 1,
+        "timeContext": { "durationMs": 86400000 },
+        "timeContextFromParameter": "Periode",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": ["${workspace_id}"],
+        "visualization": "table"
+      }
+    },
+    {
+      "type": 10,
+      "content": {
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "resourceType": "microsoft.servicebus/namespaces",
+        "metricScope": 0,
+        "resourceIds": ["${servicebus_id}"],
+        "timeContext": { "durationMs": 86400000 },
+        "timeContextFromParameter": "Periode",
+        "metrics": [
+          { "namespace": "microsoft.servicebus/namespaces", "metric": "microsoft.servicebus/namespaces--ActiveMessages", "aggregation": 4 },
+          { "namespace": "microsoft.servicebus/namespaces", "metric": "microsoft.servicebus/namespaces--DeadletteredMessages", "aggregation": 4 }
+        ],
+        "title": "Service Bus : messages actifs et en file morte"
+      }
+    },
+    {
+      "type": 10,
+      "content": {
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "resourceType": "microsoft.dbforpostgresql/flexibleservers",
+        "metricScope": 0,
+        "resourceIds": ${postgres_server_ids},
+        "timeContext": { "durationMs": 86400000 },
+        "timeContextFromParameter": "Periode",
+        "metrics": [
+          { "namespace": "microsoft.dbforpostgresql/flexibleservers", "metric": "microsoft.dbforpostgresql/flexibleservers--cpu_percent", "aggregation": 4 },
+          { "namespace": "microsoft.dbforpostgresql/flexibleservers", "metric": "microsoft.dbforpostgresql/flexibleservers--storage_percent", "aggregation": 4 },
+          { "namespace": "microsoft.dbforpostgresql/flexibleservers", "metric": "microsoft.dbforpostgresql/flexibleservers--active_connections", "aggregation": 4 }
+        ],
+        "title": "PostgreSQL : CPU, stockage et connexions"
+      }
+    }
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

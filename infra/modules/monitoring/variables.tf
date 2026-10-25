@@ -20,9 +20,13 @@ variable "retention_days" {
 }
 
 variable "alert_email" {
-  description = "Adresse de la liste d'exploitation destinataire des alertes (null = aucun groupe d'actions)."
+  description = "Adresse de la liste d'exploitation destinataire des alertes (obligatoire)."
   type        = string
-  default     = null
+
+  validation {
+    condition     = var.alert_email != null && can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.alert_email))
+    error_message = "alert_email est obligatoire et doit être une adresse e-mail valide."
+  }
 }
 
 variable "tags" {

@@ -151,7 +151,7 @@ variable "log_retention_days" {
 }
 
 variable "alert_email" {
-  description = "Liste de diffusion d'exploitation (null = pas de groupe d'actions)."
+  description = "Liste de diffusion d'exploitation destinataire des alertes (obligatoire, NF-62)."
   type        = string
 }
 

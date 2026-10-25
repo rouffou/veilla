@@ -69,6 +69,6 @@ output "migration_jobs" {
 }
 
 output "action_group_id" {
-  description = "Groupe d'actions d'exploitation (null si alert_email n'est pas renseigné)."
+  description = "Groupe d'actions d'exploitation ."
   value       = module.monitoring.action_group_id
 }

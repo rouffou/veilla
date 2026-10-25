@@ -69,7 +69,7 @@ adapter_mode = "Reel"
 encryption_key_ids = ["K1"]
 
 log_retention_days = 365
-alert_email        = "exploitation-sepp@example.be"
+alert_email        = "exploitation-prod@sepp.example.be"
 
 apim_sku_name = "Premium_3"
 apim_zones    = ["1", "2", "3"]

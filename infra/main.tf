@@ -473,6 +473,22 @@ module "gateway" {
 # -----------------------------------------------------------------------------
 # Gouvernance : Azure Policy (CTR-17, NF-13)
 # -----------------------------------------------------------------------------
+# Alertes et tableau de bord techniques (NF-62) : notifient le groupe d'actions du module monitoring.
+module "alerting" {
+  source = "./modules/alerting"
+
+  name_prefix                = local.name_prefix
+  resource_group_name        = azurerm_resource_group.zone["platform"].name
+  location                   = var.location
+  action_group_id            = module.monitoring.action_group_id
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+  application_insights_id    = module.monitoring.application_insights_id
+  servicebus_namespace_id    = module.servicebus.namespace_id
+  postgres_server_ids        = { for z, p in module.postgres : z => p.server_id }
+  container_app_ids          = { for n, app in module.container_app : n => app.id }
+  tags                       = local.tags
+}
+
 module "policy" {
   source = "./modules/policy"
 

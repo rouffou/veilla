@@ -643,9 +643,13 @@ variable "log_retention_days" {
 }
 
 variable "alert_email" {
-  description = "Adresse de la liste de diffusion d'exploitation destinataire des alertes (null = pas de groupe d'actions)."
+  description = "Adresse de la liste de diffusion d'exploitation destinataire des alertes (obligatoire, NF-62). Aucune adresse réelle dans le dépôt public : utiliser une adresse @sepp.example.be d'exemple."
   type        = string
-  default     = null
+
+  validation {
+    condition     = var.alert_email != null && can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.alert_email))
+    error_message = "alert_email est obligatoire et doit être une adresse e-mail valide (valeur vide refusée)."
+  }
 }
 
 # -----------------------------------------------------------------------------

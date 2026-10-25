@@ -19,6 +19,7 @@ infra/
 ├── modules/
 │   ├── network/            VNet, sous-réseaux par zone, NSG, zones DNS privées
 │   ├── monitoring/         Log Analytics, Application Insights, groupe d'actions
+│   ├── alerting/           règles d'alerte et workbook de supervision (NF-62)
 │   ├── registry/           Azure Container Registry Premium privé
 │   ├── keyvault/           Key Vault par zone (+ Managed HSM zones sensibles)
 │   ├── postgres/           PostgreSQL Flexible Server par zone, une base par service
@@ -439,7 +440,7 @@ ressource) et les tests .NET : aucun `plan` ni `apply` réel n'a été exécuté
 | ARC-44 | Key Vault par zone ; Managed HSM dédié aux zones médicale et psychosociale (`managed_hsm_enabled`), Key Vault Premium (clés HSM) à défaut. |
 | ARC-45 | Rôle Key Vault Crypto User pour le chiffrement applicatif des seuls services qui déclarent `encryption` ; Documents : clé racine `documents-kek` par zone (RSA-HSM, rotation 12 mois), rôle *Crypto Service Encryption User* sur la clé. |
 | ARC-46 | mTLS Container Apps, segmentation NSG par zone, restrictions IP d'entrée. |
-| ARC-47 / NF-62 | Log Analytics, Application Insights (OpenTelemetry), paramètres de diagnostic sur toutes les ressources, groupe d'actions. |
+| ARC-47 / NF-62 | Log Analytics, Application Insights (OpenTelemetry), paramètres de diagnostic sur toutes les ressources, groupe d'actions, règles d'alerte et workbook (section « Supervision et alertes »). |
 | ARC-50 | Révisions multiples ; image et répartition du trafic pilotées par la CI/CD (`ignore_changes`) ; job de migration par service, exécuté avant la nouvelle révision (ADR 0010). |
 | ARC-52 | `dr_location` (région UE) ; géo-réplication ACR activable (`enable_dr_replication`). |
 | ARC-53 | Voir « Vérifications de disponibilité » ci-dessous. |
@@ -535,6 +536,59 @@ Après l'activation, un nouvel `apply` crée la clé racine `documents-kek` dans
 User* sur cette clé. Tant que le HSM n'est pas activé, ces ressources échouent : le domaine de sécurité doit être
 téléchargé et sauvegardé avant le premier `apply` qui les crée (voir « Clés racines de Documents » pour la sauvegarde).
 Les autres rôles locaux (*Managed HSM Crypto User* pour d'autres services de la zone) ne sont pas gérés par ce code.
+
+## Supervision et alertes (NF-62)
+
+Le module `modules/alerting` crée les règles d'alerte et le workbook « SEPP <env> : supervision technique »
+(disponibilité, débit, erreurs et latence par service, files Service Bus, PostgreSQL). Toutes les alertes notifient le
+groupe d'actions `ag-sepp-<env>-exploitation`, dont le destinataire est `alert_email`.
+
+`alert_email` est obligatoire dans chaque environnement (une valeur vide ou invalide est refusée par une validation
+Terraform). Le dépôt est public : les `terraform.tfvars` ne portent que des adresses d'exemple en `@sepp.example.be`,
+à remplacer par la liste d'exploitation réelle au déploiement (variable `TF_VAR_alert_email` ou fichier non versionné).
+
+Seuils et sévérités sont les variables `thresholds` et `severities` du module (valeurs par défaut ci-dessous, à ajuster
+après observation de la charge réelle ; elles ne sont pas encore surchargées par environnement).
+
+| Alerte | Source | Seuil par défaut | Sév. |
+|---|---|---|---|
+| `taux-5xx` | `AppRequests` par service | > 5 % de 5xx sur 15 min, 2 évaluations consécutives, min. 50 requêtes | 1 |
+| `latence-p95` | `AppRequests` par service | p95 > 2000 ms sur 15 min, 2 évaluations consécutives, min. 50 requêtes | 2 |
+| `servicebus-file-morte` | métrique `DeadletteredMessages` par entité | > 0 | 1 |
+| `redemarrages-<service>` | métrique `RestartCount` de la Container App | > 3 sur 15 min | 2 |
+| `sondes-echecs` | `ContainerAppSystemLogs_CL` | > 10 échecs de sonde sur 15 min par application | 2 |
+| `postgres-<zone>-cpu` / `-memoire` | métriques `cpu_percent` / `memory_percent` | > 85 % / > 90 % (moyenne 15 min) | 2 |
+| `postgres-<zone>-stockage` | métrique `storage_percent` | > 85 % | 1 |
+| `postgres-<zone>-connexions` | métrique `active_connections` | > 80 (à relier à `max_connections` du SKU) | 2 |
+| `outbox-lot` | `AppTraces` Error « Échec du traitement d'un lot de l'outbox » | au moins 1 sur 10 min | 1 |
+| `outbox-publication` | `AppTraces` Warning « Échec de publication du message » | > 5 sur 15 min par service | 2 |
+| `waf-blocages` | `AzureDiagnostics` (journal du pare-feu) | > 200 requêtes bloquées sur 15 min | 3 |
+| `documents-cle-racine` | `AppTraces` Error « version de clé racine inutilisable » (code `document.cle-racine-indisponible`) | au moins 1 sur 5 min | 0 |
+| `migration-echec-telemetrie` / `-console` | `AppTraces` du service `<nom>-migration` / console du job `mig-*` | au moins 1 erreur sur 15 min | 1 |
+
+Les règles sur la sonde, la console des jobs et les redémarrages ne sont créées que si `deploy_container_apps` est vrai.
+Les requêtes ne lisent aucune donnée métier (ARC-06).
+
+Réponse succincte :
+
+1. Ouvrir l'alerte, identifier le service (dimension `AppRoleName`) et la fenêtre, puis le workbook pour la tendance.
+2. 5xx / latence : examiner les traces de la période (`AppTraces`, `AppExceptions`), la dernière révision déployée
+   (`az containerapp revision list`) et, au besoin, rétablir la révision précédente.
+3. File morte : lire les messages de la subscription concernée (`<subscription>/$deadletterqueue`), corriger la cause
+   (consommateur, contrat), puis rejouer les messages ; ne jamais les supprimer sans analyse.
+4. Outbox : vérifier la connectivité Service Bus du service et ses droits ; les messages restent en base et sont
+   republiés au rétablissement (publication au moins une fois, consommateurs idempotents).
+5. Clé racine de Documents : ne désactiver ni supprimer aucune version utilisée par des archives ; restaurer la version
+   ou rétablir l'accès au coffre / HSM de la zone (ARC-44). Sévérité 0 : escalade immédiate.
+6. Migration en échec : ne pas déployer la nouvelle révision ; lire les journaux de l'exécution du job `mig-<service>`
+   (ADR 0010), corriger puis relancer le job.
+7. PostgreSQL : stockage, CPU ou connexions saturés, augmenter le SKU ou le stockage (`postgres_sku_name`,
+   `postgres_storage_mb`) par Terraform ; repérer les requêtes en cause.
+8. WAF : consulter le journal `ApplicationGatewayFirewallLog` (règle, adresse source, URI) ; distinguer une attaque
+   d'une règle trop stricte avant de modifier la politique.
+
+Les requêtes KQL et métriques n'ont pas pu être exécutées sans environnement Azure : à valider à la première mise en
+service (noms de colonnes `ContainerAppSystemLogs_CL` / `ContainerAppConsoleLogs_CL`, métriques du workbook).
 
 ## Vérifications de disponibilité (ARC-53)
 

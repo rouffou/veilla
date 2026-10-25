@@ -57,7 +57,7 @@ adapter_mode = "Simulateur"
 encryption_key_ids = ["K1"]
 
 log_retention_days = 30
-alert_email        = null
+alert_email        = "exploitation-test@sepp.example.be"
 
 apim_sku_name                   = "Developer_1"
 apim_zones                      = []

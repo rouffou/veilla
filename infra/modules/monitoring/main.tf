@@ -33,10 +33,8 @@ resource "azurerm_application_insights" "this" {
   tags                = var.tags
 }
 
-# Groupe d'actions d'exploitation (NF-62) : créé seulement si une adresse est fournie.
+# Groupe d'actions d'exploitation (NF-62) : alert_email est obligatoire.
 resource "azurerm_monitor_action_group" "ops" {
-  count = var.alert_email == null ? 0 : 1
-
   name                = "ag-${var.name_prefix}-exploitation"
   resource_group_name = var.resource_group_name
   short_name          = "sepp-ops"
