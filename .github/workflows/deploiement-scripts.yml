@@ -1,0 +1,29 @@
+# Tests des scripts de déploiement progressif (tools/deploy, ARC-50) : shellcheck et tests avec une CLI az simulée.
+# Contrôle informatif : non exigé par la protection de main.
+name: Scripts de déploiement
+
+on:
+  pull_request:
+    paths:
+      - "tools/deploy/**"
+      - ".github/workflows/deploy.yml"
+      - ".github/workflows/deploiement-scripts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: Tests des scripts de déploiement
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupération des sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: shellcheck tools/deploy/*.sh tools/deploy/tests/*.sh
+      - name: Tests avec az simulé
+        run: bash tools/deploy/tests/deployer-service.test.sh
