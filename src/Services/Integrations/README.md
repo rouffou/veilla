@@ -20,7 +20,7 @@ Base `integrations`, port local 5115, espace de noms `Sepp.Integrations`.
 | INT-02 tableau de suivi | Table `journal_flux` ; API volumes par flux et par jour, erreurs et rejets, détail, relance manuelle |
 | INT-03 / INT-04 autorisations et certificats | Ci-dessous ; adaptateurs réels en squelette documenté |
 | §15.3 correspondances d'identifiants | Table `correspondance_identifiant` : numéro BCE ↔ `affilie_id`, référence DIMONA ↔ `occupation_id` ; jamais de NISS |
-| ARC-45, DAT-06 | Charge utile chiffrée (`FieldEncryptor`, colonne `charge_utile_chiffree`), purgée après traitement ; messages d'erreur masqués ; aucun NISS dans les événements, URL ni journaux |
+| ARC-45, DAT-06 | Charge utile chiffrée (`FieldEncryptor` par enveloppe, clé racine `integrations-fields-kek`, ADR 0012 ; colonne `charge_utile_chiffree`), purgée après traitement ; messages d'erreur masqués ; aucun NISS dans les événements, URL ni journaux |
 
 ## Architecture des flux
 

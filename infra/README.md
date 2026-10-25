@@ -151,14 +151,14 @@ pas fournie par Terraform.
 | `SERVICEBUS__SUBSCRIPTIONNAME` | nom du service ou de l'instance (la subscription porte ce nom) | tous |
 | `<Section>__ServicesInternes__*` | attribut `internal_services` du catalogue | affilies, communications, documents, documents-medicale, integrations |
 | `<Préfixe>__TokenEndpoint`, `__ClientId`, `__Scope` ; secret `__ClientSecret` | attribut `compte_technique`, `var.technical_account_client_ids`, Key Vault de la zone | affilies, communications, documents, documents-medicale, integrations |
-| `<Préfixe>__CurrentKeyId` ; secrets `<Préfixe>__Keys__<id>` | attribut `encryption`, `var.encryption_key_ids`, Key Vault de la zone **du service** | personnes, integrations, surveillance-medicale, reintegration |
+| `<Préfixe>__Enveloppe__Type` (`KeyVault`), `<Préfixe>__Enveloppe__CleKek` (URI de `<service>-fields-kek` sans version), `<Préfixe>__CurrentKeyId` ; secrets `<Préfixe>__Deks__<id>` (DEK enveloppées) et, en lecture seule, `<Préfixe>__Keys__<id>` (format v1) | attribut `encryption`, module `keyvault` de la zone **du service**, `var.encryption_key_ids`, `var.encryption_legacy_key_ids` (ADR 0012) | personnes, integrations, surveillance-medicale, reintegration |
 | `DOCUMENTS__ZONES` (et `DOCUMENTS__ZONES__0`), `DOCUMENTS__ENVELOPPE__TYPE` (`KeyVault`), `DOCUMENTS__ENVELOPPE__CLEKEK` (URI de `documents-kek` sans version), `DOCUMENTS__BLOBENDPOINT` | zone de l'instance, module `keyvault` et module `storage` de la zone | documents, documents-medicale |
-| `BLINDINDEX__KEY` | `key_vault_secrets` du catalogue (secret `blindindex--key`) | personnes |
+| `BLINDINDEX__CLEENVELOPPEE` | `key_vault_secrets` du catalogue (secret `blindindex--cleenveloppee`, clé de l'index aveugle enveloppée par `personnes-fields-kek`) | personnes |
 | `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, documents-medicale, integrations, planification |
 | `DATABASE__MIGRATEANDEXIT` (`true`), `DATABASE__RUNTIMEROLE` ; `POSTGRES__USER` et `AZURE_CLIENT_ID` de l'identité de migration | `local.migration_environment` (job `mig-<service>` seulement, aucun secret) | services avec base |
 
 Un secret est exposé au conteneur sous le nom du secret en majuscules, `-` devenant `_` : le secret
-`personnes--encryption--keys--k1` devient `ENCRYPTION__KEYS__K1`, soit la clé `Encryption:Keys:K1` de la configuration .NET.
+`personnes--encryption--deks--d1` devient `ENCRYPTION__DEKS__D1`, soit la clé `Encryption:Deks:D1` de la configuration .NET.
 
 ### PostgreSQL par identité managée
 
@@ -273,23 +273,19 @@ version, lus avec l'identité du service). Les secrets doivent exister **avant**
 référence vers un secret absent fait échouer l'`apply`). Les Key Vault n'ayant aucun accès public, les créer depuis un
 agent relié au VNet, avec le rôle *Key Vault Secrets Officer* sur le coffre de la zone. Valeurs :
 
-- clé de chiffrement : 256 bits aléatoires en base64 (`openssl rand -base64 32`), **distincte par zone** et créée dans le
-  coffre de la zone du service (un service ne lit jamais le coffre d'une autre zone) ;
-- clé de l'index aveugle du NISS : idem, 256 bits en base64 ;
+- clé de données (DEK) du chiffrement des champs : **enveloppée** par la clé racine du service (voir « Clés racines du
+  chiffrement des champs »), jamais en clair ;
+- clé de l'index aveugle du NISS : idem, enveloppée par `personnes-fields-kek` ;
 - secret d'un compte technique : le secret client de l'application Entra du service.
-
-```bash
-# <id> = identifiant de var.encryption_key_ids en minuscules (par défaut k1)
-az keyvault secret set --vault-name <kv-standard> --name personnes--encryption--keys--<id> --value "$(openssl rand -base64 32)" >/dev/null
-```
 
 | Secret | Coffre | Service |
 |---|---|---|
-| `personnes--encryption--keys--<id>` | standard | personnes |
-| `integrations--encryption--keys--<id>` | standard | integrations |
-| `blindindex--key` | standard | personnes |
-| `surveillance-medicale--zonemedicale--encryption--keys--<id>` | médicale | surveillance-medicale |
-| `reintegration--zonemedicale--encryption--keys--<id>` | médicale | reintegration |
+| `personnes--encryption--deks--<id>` | standard | personnes |
+| `integrations--encryption--deks--<id>` | standard | integrations |
+| `blindindex--cleenveloppee` | standard | personnes |
+| `surveillance-medicale--zonemedicale--encryption--deks--<id>` | médicale | surveillance-medicale |
+| `reintegration--zonemedicale--encryption--deks--<id>` | médicale | reintegration |
+| `<mêmes préfixes>--keys--<id>` (anciennes clés AES du format v1, lecture seule, seulement pour les identifiants de `encryption_legacy_key_ids`) | zone du service | idem |
 | `affilies--comptetechnique--clientsecret`, `communications--comptetechnique--clientsecret`, `documents--comptetechnique--clientsecret`, `integrations--personnes--clientsecret` | standard | affilies, communications, documents, integrations |
 | `documents-medicale--comptetechnique--clientsecret` | médicale | documents-medicale |
 
@@ -298,12 +294,62 @@ exportables, sont remplacées par une clé racine non exportable par zone (voir 
 créer ; ceux déjà créés dans un coffre peuvent être supprimés.
 
 Le secret Key Vault d'une clé de chiffrement est préfixé par le nom du service (une clé par service) ; la variable
-d'environnement injectée reste `ENCRYPTION__KEYS__<ID>` (ou le préfixe propre au service).
+d'environnement injectée reste `ENCRYPTION__DEKS__<ID>` (ou le préfixe propre au service).
 
-Rotation : ajouter le nouvel identifiant **en tête** de `encryption_key_ids` (la clé courante) en conservant les anciens
-(déchiffrement), après avoir créé les nouveaux secrets ; retirer un identifiant seulement quand plus aucune donnée ne
-l'utilise (`FieldEncryptor.NeedsRotation`). Les identifiants sont en majuscules et chiffres (`K1`, `K2`), les variables
-d'environnement étant en majuscules.
+### Clés racines du chiffrement des champs (ADR 0012)
+
+Personnes, Intégrations, Surveillance médicale et Réintégration chiffrent leurs champs sensibles (`FieldEncryptor`,
+AES-256-GCM, format `v2`) avec une clé de données (DEK) **enveloppée** par la clé racine `<service>-fields-kek` du
+service. Terraform crée cette clé dans le coffre de la zone du service (module `keyvault`, `field_kek_names`), sur le
+modèle de `documents-kek` : RSA-HSM 3072 en zone sensible (Key Vault Premium, ou Managed HSM si `managed_hsm_enabled`),
+RSA 3072 en zone standard, `wrapKey`/`unwrapKey`, rotation automatique tous les 12 mois (`field_kek_rotation_period`),
+sans expiration. L'identité du service reçoit *Key Vault Crypto Service Encryption User* **sur sa clé** (variante Managed
+HSM : rôle local sur `/keys/<service>-fields-kek`) ; aucun rôle cryptographique sur le coffre. Le service reçoit l'URI de
+la clé sans version (`<Préfixe>__Enveloppe__CleKek`, sorties `field_kek_uris`) et déballe ses DEK **au démarrage** (un
+appel par DEK, aucun par valeur) ; il refuse de démarrer si une DEK ne se déballe pas.
+
+Création d'une DEK (ou de la clé enveloppée de l'index aveugle), depuis un agent relié au VNet, avec la lecture de la clé
+(*Key Vault Crypto Officer* ou *Reader* sur la clé) et *Key Vault Secrets Officer* sur le coffre. La DEK est tirée et
+enveloppée avec la **clé publique** dans un même tube : elle n'est jamais écrite ni affichée en clair.
+
+```bash
+KV=<kv-zone> ; SERVICE=personnes ; PREFIXE=encryption ; ID=d1   # zonemedicale--encryption pour la zone médicale
+KEK="$SERVICE-fields-kek"
+KID=$(az keyvault key show --vault-name "$KV" --name "$KEK" --query key.kid -o tsv)      # version courante (kid versionné)
+az keyvault key download --vault-name "$KV" --name "$KEK" --encoding PEM --file kek.pub.pem   # clé publique seulement
+ENVELOPPEE=$(openssl rand 32 | openssl pkeyutl -encrypt -pubin -inkey kek.pub.pem \
+  -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha256 | base64 -w0)
+az keyvault secret set --vault-name "$KV" --name "$SERVICE--$PREFIXE--deks--$ID" --value "$KID|$ENVELOPPEE" >/dev/null
+```
+
+Avec un Managed HSM, lire la clé par `--hsm-name <hsm>` au lieu de `--vault-name` (le secret reste dans le Key Vault).
+Le `kid` doit être celui de la version dont la clé publique a été téléchargée (ne pas lancer ces commandes pendant une
+rotation).
+
+Index aveugle du NISS : la clé **existante** est enveloppée telle quelle, pour que l'index et la recherche par NISS ne
+changent pas ; dans un environnement neuf, remplacer la première commande du tube par `openssl rand 32`.
+
+```bash
+az keyvault secret show --vault-name "$KV" --name blindindex--key --query value -o tsv | base64 -d \
+  | openssl pkeyutl -encrypt -pubin -inkey kek.pub.pem -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha256 \
+  | base64 -w0 | { read -r E; az keyvault secret set --vault-name "$KV" --name blindindex--cleenveloppee --value "$KID|$E" >/dev/null; }
+```
+
+Rotation :
+
+- **clé racine** : automatique ; une DEK enveloppée garde son kid versionné et reste déballable. Comme pour
+  `documents-kek`, ne jamais désactiver ni supprimer une version tant qu'une DEK l'utilise : le service ne démarrerait
+  plus. Rien à faire côté DEK (une nouvelle DEK utilisera la nouvelle version) ;
+- **DEK** : créer `--deks--<nouvel id>`, puis placer l'identifiant **en tête** de `encryption_key_ids` en conservant les
+  anciens (déchiffrement) ; retirer un identifiant seulement quand plus aucune donnée ne l'utilise
+  (`FieldEncryptor.NeedsRotation`). Identifiants en majuscules et chiffres (`D1`, `D2`) ;
+- **clés AES historiques (format v1)** : `encryption_legacy_key_ids` les injecte en lecture seule (`--keys--<id>`) ; les
+  vider, puis supprimer les secrets `--keys--` et `blindindex--key` (dernières copies exportables), une fois toutes les
+  valeurs v1 rechiffrées (une valeur v1 est réécrite en v2 lorsque le champ est modifié ; aucun travail de rechiffrement
+  global n'existe encore).
+
+Sauvegarde : comme pour `documents-kek` (ci-dessous), **toutes versions incluses**, avant la mise en service puis après
+chaque rotation. La perte de `<service>-fields-kek` rend illisibles les champs chiffrés du service.
 
 ### Clés racines de Documents (décision #356, ADR 0009)
 

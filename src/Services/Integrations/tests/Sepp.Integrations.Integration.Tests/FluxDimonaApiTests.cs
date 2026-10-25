@@ -125,7 +125,7 @@ public sealed class FluxDimonaApiTests(IntegrationsApiFixture fixture) : IClassF
             var chiffrees = 0;
             while (await lecteur.ReadAsync(_ct))
             {
-                lecteur.GetString(0).ShouldStartWith("v1:test:");
+                lecteur.GetString(0).ShouldStartWith("v2:test:");
                 chiffrees++;
             }
 
@@ -221,7 +221,7 @@ public sealed class FluxDimonaApiTests(IntegrationsApiFixture fixture) : IClassF
             var chiffrees = 0;
             while (await lecteur.ReadAsync(_ct))
             {
-                lecteur.GetString(0).ShouldStartWith("v1:test:");
+                lecteur.GetString(0).ShouldStartWith("v2:test:");
                 chiffrees++;
             }
 

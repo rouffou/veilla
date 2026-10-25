@@ -34,8 +34,10 @@ Point de passage unique : `Application/Commun.cs` → `GardeDossier`.
 ## Chiffrement applicatif (ARC-45)
 
 `FieldEncryptor` (AES-256-GCM) avec des clés **propres à la zone médicale**, section de configuration
-`ZoneMedicale:Encryption` (`CurrentKeyId`, `Keys:<id>`), distincte de la section `Encryption` des autres services. En
-Azure : secrets Key Vault protégés par HSM, injectés par référence (CTR-16). Colonnes chiffrées (suffixe `_chiffre`) :
+`ZoneMedicale:Encryption`, distincte de la section `Encryption` des autres services : clé de données courante
+(`CurrentKeyId`) et clés de données enveloppées (`Deks:<id>`) par la clé racine RSA-HSM non exportable
+`surveillance-medicale-fields-kek` (`Enveloppe:Type`, `Enveloppe:CleKek`), déballées au démarrage et gardées en mémoire ;
+anciennes clés du format `v1` en lecture seule (`Keys:<id>`). Voir ADR 0012. Colonnes chiffrées (suffixe `_chiffre`) :
 anamnèse et examen clinique (`observation_clinique`), valeurs et commentaire des actes (`resultat_acte`), réponses aux
 questionnaires, titre et description des pièces jointes (le fichier reste au service Documents, référence
 `document_id`), remarque de vaccination, lecture des tests tuberculiniques, justification et recommandations de la

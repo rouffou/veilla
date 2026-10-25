@@ -116,8 +116,14 @@ variable "managed_hsm_admin_object_ids" {
 }
 
 variable "encryption_key_ids" {
-  description = "Identifiants des clés de chiffrement applicatif : la première est la clé courante (ARC-45)."
+  description = "Identifiants des clés de données (DEK) enveloppées du chiffrement des champs : la première est la DEK courante (ARC-44, ARC-45, ADR 0012)."
   type        = list(string)
+}
+
+variable "encryption_legacy_key_ids" {
+  description = "Identifiants des anciennes clés AES du format v1, en lecture seule tant que des valeurs v1 subsistent (ADR 0012)."
+  type        = list(string)
+  default     = []
 }
 
 variable "entra_tenant_id" {

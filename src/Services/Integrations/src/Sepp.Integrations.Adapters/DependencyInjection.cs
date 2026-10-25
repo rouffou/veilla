@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Infrastructure.Security;
@@ -31,8 +32,10 @@ public static class DependencyInjection
         services.AddSeppPersistence<IntegrationsDbContext>(configuration, ConnectionStringName);
         services.AddSeppMessaging(configuration);
 
-        // ARC-45 : chiffrement des charges utiles ; clés lues dans Encryption:CurrentKeyId et Encryption:Keys:<id>.
-        services.AddSingleton<IFieldKeyProvider>(sp => new ConfigurationFieldKeyProvider(sp.GetRequiredService<IConfiguration>()));
+        // ARC-44, ARC-45, ADR 0012 : chiffrement des charges utiles par enveloppe (section Encryption) ; DEK enveloppées
+        // par la clé racine du service dans le coffre de sa zone, déballées au démarrage.
+        services.AddSingleton(sp => ChiffrementChamps.Charger(
+            sp.GetRequiredService<IConfiguration>().GetSection("Encryption"), sp.GetRequiredService<IHostEnvironment>(), sp.GetService<IOperationsCleRacine>()).Cles);
         services.AddSingleton<FieldEncryptor>();
 
         services.AddScoped<IJournalFluxRepository, JournalFluxRepository>();

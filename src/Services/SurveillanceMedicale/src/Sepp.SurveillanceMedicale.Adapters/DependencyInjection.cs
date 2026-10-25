@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 using Sepp.BuildingBlocks.Application.Auditing;
 using Sepp.BuildingBlocks.Infrastructure;
@@ -40,10 +41,11 @@ public static class DependencyInjection
         // NF-04 : chaque accès au dossier de santé est tracé dans la partition médicale du journal d'audit.
         services.AddSeppAuditTrail(NomService, ZonesSensibilite.Medicale);
 
-        // ARC-04, ARC-45 : clés propres à la zone médicale (section ZoneMedicale:Encryption), jamais partagées avec les
-        // autres zones ; en Azure, secrets Key Vault protégés par HSM injectés par référence.
-        services.AddSingleton(sp => new ChiffrementZoneMedicale(new FieldEncryptor(
-            new ConfigurationFieldKeyProvider(sp.GetRequiredService<IConfiguration>().GetSection(ChiffrementZoneMedicale.Section)))));
+        // ARC-04, ARC-44, ARC-45, ADR 0012 : clés propres au service dans la zone médicale (section ZoneMedicale:Encryption),
+        // jamais partagées avec les autres zones ; DEK enveloppées par la clé racine RSA-HSM du service, déballées au démarrage.
+        services.AddSingleton(sp => new ChiffrementZoneMedicale(new FieldEncryptor(ChiffrementChamps.Charger(
+            sp.GetRequiredService<IConfiguration>().GetSection($"{ChiffrementZoneMedicale.Section}:Encryption"),
+            sp.GetRequiredService<IHostEnvironment>(), sp.GetService<IOperationsCleRacine>()).Cles)));
 
         services.AddScoped<IDossierSanteRepository, DossierSanteRepository>();
         services.AddScoped<IExamenRepository, ExamenRepository>();

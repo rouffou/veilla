@@ -149,9 +149,9 @@ public sealed class SurveillanceMedicaleApiTests(SurveillanceMedicaleFixture fix
 
         // SQL brut : colonnes chiffrées avec la clé de la zone médicale, aucune valeur clinique en clair, nulle part.
         ((string)(await fixture.ScalaireAsync("SELECT anamnese_chiffre FROM observation_clinique o JOIN examen e ON e.id = o.examen_id WHERE e.id = @id", _ct, ("id", examenId)))!)
-            .ShouldStartWith($"v1:{SurveillanceMedicaleFixture.CleTest}:");
+            .ShouldStartWith($"v2:{SurveillanceMedicaleFixture.CleTest}:");
         ((string)(await fixture.ScalaireAsync("SELECT justification_chiffre FROM decision WHERE id = @id", _ct, ("id", decisionId)))!)
-            .ShouldStartWith($"v1:{SurveillanceMedicaleFixture.CleTest}:");
+            .ShouldStartWith($"v2:{SurveillanceMedicaleFixture.CleTest}:");
         foreach (var clinique in new[] { "Zorglub", "Bidulon", "Machinchose", "Kinésithérapie-Truc", "Plouf" })
         {
             (await fixture.OccurrencesEnBaseAsync(clinique, _ct)).ShouldBe(0, $"« {clinique} » trouvé en clair en base");
@@ -377,7 +377,7 @@ public sealed class SurveillanceMedicaleApiTests(SurveillanceMedicaleFixture fix
         await Ok(transmis);
         var empreinte = (await transmis.Content.ReadFromJsonAsync<JsonElement>(_ct)).GetProperty("empreinte").GetString()!;
         ((string)(await fixture.ScalaireAsync("SELECT paquet_chiffre FROM transfert_dossier WHERE id = @id", _ct, ("id", transfertId)))!)
-            .ShouldStartWith($"v1:{SurveillanceMedicaleFixture.CleTest}:");
+            .ShouldStartWith($"v2:{SurveillanceMedicaleFixture.CleTest}:");
 
         const string paquet = "{\"dossier\":\"recu\"}";
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(paquet)));

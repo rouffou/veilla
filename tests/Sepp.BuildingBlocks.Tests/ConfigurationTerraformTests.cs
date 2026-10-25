@@ -22,7 +22,9 @@ public sealed partial class ConfigurationTerraformTests
     private static string[] Compte(string prefixe) =>
         [$"{prefixe}:TokenEndpoint", $"{prefixe}:ClientId", $"{prefixe}:ClientSecret", $"{prefixe}:Scope"];
 
-    private static string[] Chiffrement(string prefixe) => [$"{prefixe}:CurrentKeyId", $"{prefixe}:Keys"];
+    /// <summary>Chiffrement des champs par enveloppe (ADR 0012) : clé racine du coffre, DEK courante et DEK enveloppées.</summary>
+    private static string[] Chiffrement(string prefixe) =>
+        [$"{prefixe}:Enveloppe:Type", $"{prefixe}:Enveloppe:CleKek", $"{prefixe}:CurrentKeyId", $"{prefixe}:Deks"];
 
     private static string[] Adaptateurs(string section, params string[] ports) => [.. ports.Select(p => $"{section}:Adaptateurs:{p}")];
 
@@ -68,7 +70,7 @@ public sealed partial class ConfigurationTerraformTests
             .. Adaptateurs("Integrations", "Bce", "Dimona", "RegistreNational", "Incapacites"),
         ],
         ["obligations"] = [.. Authentification, .. BasePostgres],
-        ["personnes"] = [.. Authentification, .. BasePostgres, .. Chiffrement("Encryption"), "BlindIndex:Key"],
+        ["personnes"] = [.. Authentification, .. BasePostgres, .. Chiffrement("Encryption"), "BlindIndex:CleEnveloppee"],
         ["planification"] = [.. Authentification, .. BasePostgres, .. Adaptateurs("Planification", "OutilRh", "AgendaExterne")],
         ["postes-risques"] = [.. Authentification, .. BasePostgres],
         ["referentiels"] = [.. Authentification, .. BasePostgres],
@@ -476,6 +478,52 @@ public sealed partial class ConfigurationTerraformTests
         }
     }
 
+    [Fact]
+    public void Chaque_service_qui_chiffre_des_champs_a_sa_cle_racine_non_exportable_dans_le_coffre_de_sa_zone()
+    {
+        // ARC-44, ADR 0012 : une clé racine <service>-fields-kek par service (donc par zone), créée par azapi sur le plan de
+        // contrôle comme documents-kek, RSA-HSM 3072 en zone sensible, rotation automatique, rôle porté sur la clé.
+        var terraform = Terraform.Lire();
+        var racine = Terraform.RacineDepot();
+        var main = terraform.Main;
+        var chiffrants = terraform.Services.Where(s => s.Value.Encryption.Count > 0).Select(s => s.Key).ToList();
+        chiffrants.ShouldBe(new[] { "personnes", "integrations", "surveillance-medicale", "reintegration" }, ignoreOrder: true);
+
+        Regex.IsMatch(main, @"field_kek_names\s*=\s*\{\s*for n, s in var\.services : n => ""\$\{n\}-fields-kek"" if length\(s\.encryption\) > 0\s*\}")
+            .ShouldBeTrue("Une clé racine <service>-fields-kek par service qui chiffre des champs.");
+        Regex.IsMatch(BlocModule(main, "keyvault"), @"field_kek_names\s*=\s*\[for n, cle in local\.field_kek_names : cle if var\.services\[n\]\.zone == each\.value\]")
+            .ShouldBeTrue("La clé racine d'un service est créée dans le coffre de sa zone, et seulement là.");
+        Regex.IsMatch(main, @"""\$\{prefixe\}__Enveloppe__CleKek""\s*=\s*module\.keyvault\[s\.zone\]\.field_kek_uris\[local\.field_kek_names\[n\]\]")
+            .ShouldBeTrue("Le service reçoit l'URI (sans version) de sa propre clé racine.");
+        Regex.IsMatch(main, @"""\$\{prefixe\}__Enveloppe__Type""\s*=\s*""KeyVault""").ShouldBeTrue("En Azure, l'enveloppe est celle du coffre (ARC-44).");
+        Regex.IsMatch(main, @"key_id\s*=\s*module\.keyvault\[s\.zone\]\.field_kek_ids\[local\.field_kek_names\[n\]\]")
+            .ShouldBeTrue("Le rôle d'enveloppement est porté sur la clé racine du service.");
+        main.ShouldNotContain("crypto_services", Case.Sensitive, "Plus de rôle cryptographique au niveau du coffre (ADR 0012).");
+
+        var coffre = Terraform.SansCommentaires(File.ReadAllText(Path.Combine(racine, "infra", "modules", "keyvault", "main.tf")));
+        var debut = coffre.IndexOf("resource \"azapi_resource\" \"field_kek\"", StringComparison.Ordinal);
+        debut.ShouldBeGreaterThanOrEqualTo(0, "Ressource azapi_resource.field_kek absente du module keyvault.");
+        var ouvrante = coffre.IndexOf('{', debut);
+        var cle = coffre[ouvrante..(Terraform.FinAccolade(coffre, ouvrante) + 1)];
+        cle.ShouldContain("kty     = local.documents_kek_kty", Case.Sensitive, "Même type que documents-kek : RSA-HSM en zone sensible.");
+        cle.ShouldContain("keySize = 3072", Case.Sensitive);
+        cle.ShouldContain("keyOps  = [\"wrapKey\", \"unwrapKey\"]", Case.Sensitive);
+        cle.ShouldContain("timeAfterCreate = var.field_kek_rotation_period", Case.Sensitive, "Rotation automatique de la clé racine.");
+        cle.ShouldNotContain("expiryTime", Case.Sensitive, "Les versions n'expirent jamais : les DEK enveloppées portent leur kid.");
+        Regex.IsMatch(coffre, @"documents_kek_kty\s*=\s*\(var\.sku_name == ""premium"" \|\| var\.managed_hsm_enabled\) \? ""RSA-HSM"" : ""RSA""").ShouldBeTrue();
+
+        var identite = Terraform.SansCommentaires(File.ReadAllText(Path.Combine(racine, "infra", "modules", "identity", "main.tf")));
+        identite.ShouldNotContain("\"Key Vault Crypto User\"", Case.Sensitive, "Aucun rôle Key Vault Crypto User sur le coffre (ADR 0012).");
+        Regex.IsMatch(identite, @"resource ""azurerm_role_assignment"" ""field_kek"" \{[^{}]*\{[^}]*\}\s*scope\s*=\s*each\.value\.key_id\s*role_definition_name\s*=\s*""Key Vault Crypto Service Encryption User""")
+            .ShouldBeTrue("Rôle « Key Vault Crypto Service Encryption User » porté sur la clé racine du service.");
+        identite.ShouldContain("azurerm_key_vault_managed_hardware_security_module_role_assignment\" \"field_kek\"", Case.Sensitive, "Variante Managed HSM du rôle sur la clé.");
+
+        // Plus aucune clé AES en clair injectée pour chiffrer : les secrets --keys-- ne servent qu'à relire le format v1.
+        Regex.IsMatch(main, @"for id in var\.encryption_key_ids :\s*""\$\{local\.secret_name_prefix\[n\]\[prefixe\]\}--deks--").ShouldBeTrue();
+        Regex.IsMatch(main, @"for id in var\.encryption_legacy_key_ids :\s*""\$\{local\.secret_name_prefix\[n\]\[prefixe\]\}--keys--").ShouldBeTrue();
+        terraform.Services["personnes"].KeyVaultSecrets.ShouldBe(new[] { "blindindex--cleenveloppee" });
+    }
+
     private static string BlocModule(string main, string nom)
     {
         var debut = main.IndexOf($"module \"{nom}\" {{", StringComparison.Ordinal);
@@ -678,8 +726,9 @@ public sealed partial class ConfigurationTerraformTests
 
             foreach (var prefixe in s.Encryption)
             {
-                Ajouter(fournies, Fusionne("encryption_environment") && ContientTous("__CurrentKeyId"), $"{prefixe}__CurrentKeyId");
-                Ajouter(fournies, ContientTous("--keys--", "service_key_vault_secrets"), $"{prefixe}__Keys");
+                Ajouter(fournies, Fusionne("encryption_environment") && ContientTous("__CurrentKeyId", "__Enveloppe__Type", "__Enveloppe__CleKek", "field_kek_uris"),
+                    $"{prefixe}__CurrentKeyId", $"{prefixe}__Enveloppe__Type", $"{prefixe}__Enveloppe__CleKek");
+                Ajouter(fournies, ContientTous("--deks--", "service_key_vault_secrets"), $"{prefixe}__Deks");
             }
 
             // key_vault_secrets du catalogue : variable = nom du secret en majuscules, « - » -> « _ ».

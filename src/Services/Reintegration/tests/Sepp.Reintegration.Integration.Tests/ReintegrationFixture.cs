@@ -19,6 +19,7 @@ using Microsoft.Extensions.Time.Testing;
 using Npgsql;
 
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
+using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Contracts;
 using Sepp.Reintegration.Adapters.Persistence;
 
@@ -57,8 +58,12 @@ public sealed class ReintegrationFixture : IAsyncLifetime
             b.UseSetting("ConnectionStrings:Reintegration", _postgres.GetConnectionString());
             b.UseSetting("Database:MigrateOnStartup", "true");
             b.UseSetting("Outbox:PollingInterval", "01:00:00");
-            b.UseSetting("ZoneMedicale:Encryption:CurrentKeyId", CleTest);
-            b.UseSetting($"ZoneMedicale:Encryption:Keys:{CleTest}", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+            // ADR 0012 : DEK enveloppée par une clé racine locale de test.
+            foreach (var (cle, valeur) in ChiffrementChamps.ConfigurationLocale("ZoneMedicale:Encryption", CleTest))
+            {
+                b.UseSetting(cle, valeur);
+            }
+
             b.UseSetting("Reintegration:Adaptateurs:EHealth", "Simulateur");
             b.UseSetting("Reintegration:Traitement:Actif", "false");
             b.UseSetting("Logging:LogLevel:Default", "Debug");

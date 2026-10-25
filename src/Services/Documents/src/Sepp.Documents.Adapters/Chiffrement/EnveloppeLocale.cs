@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
-using System.Text;
 
 using Microsoft.Extensions.Configuration;
 
+using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Documents.Application;
 using Sepp.Documents.Domain.Commun;
 
@@ -15,22 +15,20 @@ namespace Sepp.Documents.Adapters.Chiffrement;
 /// courante enveloppe, toutes les versions déballent. Refusée hors développement et test.
 /// </summary>
 /// <remarks>
-/// Kid : <c>local:&lt;zone&gt;:&lt;version&gt;</c>. Clé enveloppée : nonce (12 octets) | étiquette (16 octets) | clé
-/// chiffrée ; données associées : <c>documents-kek|&lt;kid&gt;</c>.
+/// Une <see cref="CleRacineLocale"/> (socle commun, ADR 0012) par zone. Kid : <c>local:&lt;zone&gt;:&lt;version&gt;</c>.
+/// Clé enveloppée : nonce (12 octets) | étiquette (16 octets) | clé chiffrée ; données associées :
+/// <c>documents-kek|&lt;kid&gt;</c> (format inchangé par la factorisation).
 /// </remarks>
 public sealed class EnveloppeLocale : IEnveloppeCles
 {
     private const int TailleCle = 32;
-    private const int TailleNonce = 12;
-    private const int TailleEtiquette = 16;
 
-    private readonly Dictionary<ZoneDocument, (string Courante, Dictionary<string, byte[]> Versions)> _cles;
+    private readonly Dictionary<ZoneDocument, CleRacineLocale> _cles;
 
     public EnveloppeLocale(IReadOnlyDictionary<ZoneDocument, (string Courante, Dictionary<string, byte[]> Versions)> cles)
     {
-        _cles = cles.ToDictionary();
         var empreintes = new Dictionary<string, ZoneDocument>(StringComparer.Ordinal);
-        foreach (var (zone, (courante, versions)) in _cles)
+        foreach (var (zone, (courante, versions)) in cles)
         {
             if (!versions.ContainsKey(courante))
             {
@@ -53,6 +51,8 @@ public sealed class EnveloppeLocale : IEnveloppeCles
                 empreintes[empreinte] = zone;
             }
         }
+
+        _cles = cles.ToDictionary(c => c.Key, c => new CleRacineLocale($"local:{c.Key.Code()}:", "documents-kek", c.Value.Courante, c.Value.Versions));
     }
 
     /// <summary>Lit, pour chaque zone, la section <c>Courante</c> et <c>Versions:&lt;version&gt;</c>.</summary>
@@ -70,54 +70,27 @@ public sealed class EnveloppeLocale : IEnveloppeCles
             return (courante, versions);
         }));
 
-    public Task<CleEnveloppee> EnvelopperAsync(ZoneDocument zone, ReadOnlyMemory<byte> cleDonnees, CancellationToken cancellationToken)
+    public async Task<CleEnveloppee> EnvelopperAsync(ZoneDocument zone, ReadOnlyMemory<byte> cleDonnees, CancellationToken cancellationToken)
     {
-        var (courante, versions) = Cles(zone);
-        var kid = Kid(zone, courante);
-        var sortie = new byte[TailleNonce + TailleEtiquette + cleDonnees.Length];
-        var nonce = sortie.AsSpan(0, TailleNonce);
-        RandomNumberGenerator.Fill(nonce);
-        using var aes = new AesGcm(versions[courante], TailleEtiquette);
-        aes.Encrypt(nonce, cleDonnees.Span, sortie.AsSpan(TailleNonce + TailleEtiquette), sortie.AsSpan(TailleNonce, TailleEtiquette), DonneesAssociees(kid));
-        return Task.FromResult(new CleEnveloppee(kid, sortie));
+        var resultat = await Cle(zone).EnvelopperAsync(cleDonnees, cancellationToken);
+        return new CleEnveloppee(resultat.Kid, resultat.Octets);
     }
 
-    public Task<byte[]> DesenvelopperAsync(ZoneDocument zone, string kid, byte[] cleEnveloppee, CancellationToken cancellationToken)
+    public async Task<byte[]> DesenvelopperAsync(ZoneDocument zone, string kid, byte[] cleEnveloppee, CancellationToken cancellationToken)
     {
-        var (_, versions) = Cles(zone);
-        var prefixe = $"local:{zone.Code()}:";
-        if (!kid.StartsWith(prefixe, StringComparison.Ordinal) || !versions.TryGetValue(kid[prefixe.Length..], out var cle))
-        {
-            throw new ContenuAltereException($"Kid étranger à la clé racine de la zone {zone.Code()} ou version inconnue.");
-        }
-
-        if (cleEnveloppee.Length <= TailleNonce + TailleEtiquette)
-        {
-            throw new ContenuAltereException("Clé enveloppée tronquée.");
-        }
-
-        var cleDonnees = new byte[cleEnveloppee.Length - TailleNonce - TailleEtiquette];
+        var cle = Cle(zone);
         try
         {
-            using var aes = new AesGcm(cle, TailleEtiquette);
-            aes.Decrypt(cleEnveloppee.AsSpan(0, TailleNonce), cleEnveloppee.AsSpan(TailleNonce + TailleEtiquette), cleEnveloppee.AsSpan(TailleNonce, TailleEtiquette),
-                cleDonnees, DonneesAssociees(kid));
+            return await cle.DesenvelopperAsync(kid, cleEnveloppee, cancellationToken);
         }
-        catch (AuthenticationTagMismatchException ex)
+        catch (EnveloppeAltereeException ex)
         {
-            CryptographicOperations.ZeroMemory(cleDonnees);
-            throw new ContenuAltereException("Clé enveloppée invalide.", ex);
+            throw ex.InnerException is null ? new ContenuAltereException(ex.Message) : new ContenuAltereException(ex.Message, ex.InnerException);
         }
-
-        return Task.FromResult(cleDonnees);
     }
 
-    private (string Courante, Dictionary<string, byte[]> Versions) Cles(ZoneDocument zone) =>
-        _cles.TryGetValue(zone, out var cles)
-            ? cles
+    private CleRacineLocale Cle(ZoneDocument zone) =>
+        _cles.TryGetValue(zone, out var cle)
+            ? cle
             : throw new InvalidOperationException($"La zone {zone.Code()} n'est pas servie par cette instance : aucune clé racine.");
-
-    private static string Kid(ZoneDocument zone, string version) => $"local:{zone.Code()}:{version}";
-
-    private static byte[] DonneesAssociees(string kid) => Encoding.UTF8.GetBytes($"documents-kek|{kid}");
 }

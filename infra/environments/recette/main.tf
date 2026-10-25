@@ -72,6 +72,7 @@ module "sepp" {
   managed_hsm_enabled                   = var.managed_hsm_enabled
   managed_hsm_admin_object_ids          = var.managed_hsm_admin_object_ids
   encryption_key_ids                    = var.encryption_key_ids
+  encryption_legacy_key_ids             = var.encryption_legacy_key_ids
   entra_tenant_id                       = var.entra_tenant_id
   authentication_audience               = var.authentication_audience
   portal_origins                        = var.portal_origins
