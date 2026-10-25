@@ -107,6 +107,8 @@ public sealed partial class ConfigurationTerraformTests
         ["ServiceBus"] = "Terraform",
         ["ServicesAval"] = "Defaut",
         ["ConnectionStrings"] = "Local",
+        // Bus de développement PostgreSQL : Development, Test et Testing uniquement (ADR 0004), jamais injecté par Terraform.
+        ["BusDeveloppement"] = "Local",
         ["Database"] = "Defaut",
         ["Outbox"] = "Defaut",
         ["Republication"] = "Defaut",

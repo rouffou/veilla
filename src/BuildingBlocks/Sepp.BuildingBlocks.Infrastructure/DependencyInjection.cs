@@ -6,6 +6,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 using Npgsql;
 
@@ -77,10 +79,18 @@ public static class DependencyInjection
 
     /// <summary>
     /// Bus d'événements : Azure Service Bus si <c>ServiceBus:FullyQualifiedNamespace</c> (identité managée, CTR-16)
-    /// ou <c>ConnectionStrings:ServiceBus</c> (émulateur local) est configuré ; sinon publication en mémoire.
+    /// ou <c>ConnectionStrings:ServiceBus</c> (émulateur local) est configuré ; bus de développement PostgreSQL si
+    /// <c>ConnectionStrings:BusDeveloppement</c> l'est (Development, Test et Testing uniquement, ADR 0004) ; sinon
+    /// publication en mémoire.
     /// </summary>
     public static IServiceCollection AddSeppMessaging(this IServiceCollection services, IConfiguration configuration)
     {
+        if (AjouterBusDeveloppement(services, configuration))
+        {
+            services.TryAddSingleton<IMessagePublisher, PostgresMessagePublisher>();
+            return services;
+        }
+
         var fullyQualifiedNamespace = configuration["ServiceBus:FullyQualifiedNamespace"];
         var connectionString = configuration.GetConnectionString("ServiceBus");
 
@@ -163,8 +173,8 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// Réception des événements : répartiteur idempotent et, si un bus est configuré, consommateur Service Bus
-    /// sur l'abonnement <c>ServiceBus:SubscriptionName</c> du service.
+    /// Réception des événements : répartiteur idempotent et, si un bus est configuré, consommateur Service Bus (ou du bus
+    /// de développement PostgreSQL) sur l'abonnement <c>ServiceBus:SubscriptionName</c> du service.
     /// </summary>
     public static IServiceCollection AddSeppConsumer<TContext>(this IServiceCollection services, IConfiguration configuration)
         where TContext : SeppDbContext
@@ -176,12 +186,51 @@ public static class DependencyInjection
 
         services.AddSingleton<IntegrationEventDispatcher<TContext>>();
         services.AddOptions<ServiceBusConsumerOptions>().Bind(configuration.GetSection("ServiceBus"));
-        if (!string.IsNullOrWhiteSpace(configuration["ServiceBus:FullyQualifiedNamespace"]) ||
+        if (AjouterBusDeveloppement(services, configuration))
+        {
+            services.AddHostedService<PostgresBusConsumer<TContext>>();
+        }
+        else if (!string.IsNullOrWhiteSpace(configuration["ServiceBus:FullyQualifiedNamespace"]) ||
             !string.IsNullOrWhiteSpace(configuration.GetConnectionString("ServiceBus")))
         {
             services.AddHostedService<ServiceBusConsumer<TContext>>();
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Bus de développement PostgreSQL (ADR 0004, amendement) : enregistré si <c>ConnectionStrings:BusDeveloppement</c> est
+    /// renseignée. Refusé hors Development, Test et Testing, dès l'enregistrement si l'environnement est connu de la
+    /// configuration, et toujours à la construction du bus (<see cref="GardeBusDeveloppement"/>, démarrage en échec).
+    /// </summary>
+    private static bool AjouterBusDeveloppement(IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString(BusDeveloppement.ConnectionStringName);
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(configuration["ServiceBus:FullyQualifiedNamespace"]) ||
+            !string.IsNullOrWhiteSpace(configuration.GetConnectionString("ServiceBus")))
+        {
+            throw new InvalidOperationException(
+                $"Deux bus configurés : ConnectionStrings:{BusDeveloppement.ConnectionStringName} (bus de développement) et Azure Service Bus. N'en garder qu'un.");
+        }
+
+        if (configuration[HostDefaults.EnvironmentKey] is { Length: > 0 } environnement)
+        {
+            BusDeveloppement.VerifierEnvironnement(environnement);
+        }
+
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddOptions<BusDeveloppementOptions>().Bind(configuration.GetSection("BusDeveloppement"));
+        services.TryAddSingleton(sp => new BusDeveloppement(
+            connectionString,
+            sp.GetRequiredService<IHostEnvironment>(),
+            sp.GetRequiredService<ILogger<BusDeveloppement>>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, GardeBusDeveloppement>());
+        return true;
     }
 }
