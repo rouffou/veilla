@@ -1,11 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { LanguageService } from '@veilla/shared';
+import { chargeable, Chargement, DateLocalePipe, ErreurApi, ErreurApiMessage, LanguageService, versErreurApi } from '@veilla/shared';
 import { DocumentPersonnel, Fichier } from '../api/bff-travailleur.models';
-import { BffTravailleurService, ErreurApi, versErreurApi } from '../api/bff-travailleur.service';
-import { chargeable } from '../ui/chargeable';
-import { DateLocalePipe } from '../ui/date-locale.pipe';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
+import { BffTravailleurService } from '../api/bff-travailleur.service';
 import { CopieDossier } from './copie-dossier';
 
 /**
@@ -22,15 +19,15 @@ import { CopieDossier } from './copie-dossier';
       <h1>{{ t('documents.title') }}</h1>
       <p>{{ t('documents.intro') }}</p>
       @if (erreurTelechargement(); as e) {
-        <app-erreur-api [erreur]="e" />
+        <vl-erreur-api [erreur]="e" />
       }
       @let etat = documents.etat();
       @switch (etat.statut) {
         @case ('chargement') {
-          <app-chargement />
+          <vl-chargement />
         }
         @case ('erreur') {
-          <app-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="documents.recharger()" />
+          <vl-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="documents.recharger()" />
         }
         @case ('ok') {
           @if (etat.valeur.length === 0) {

@@ -1,7 +1,7 @@
 import { signal, Signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { Observable, switchMap } from 'rxjs';
-import { charger, CHARGEMENT, Etat } from '../api/bff-travailleur.service';
+import { charger, CHARGEMENT, Etat } from './erreur-api';
 
 export interface Chargeable<T> {
   readonly etat: Signal<Etat<T>>;
@@ -10,7 +10,7 @@ export interface Chargeable<T> {
 }
 
 /**
- * Charge une ressource du BFF et la recharge à la demande (requête précédente annulée).
+ * Charge une ressource et la recharge à la demande (requête précédente annulée).
  * À appeler dans un contexte d'injection (initialiseur de champ).
  */
 export function chargeable<T>(requete: () => Observable<T>): Chargeable<T> {

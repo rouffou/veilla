@@ -19,7 +19,7 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { LanguageService } from '@veilla/shared';
+import { CHARGEMENT, Chargement, charger, ErreurApi, ErreurApiMessage, Etat, LanguageService, versErreurApi } from '@veilla/shared';
 import { AffilieContext } from '../affilie/affilie-context';
 import { EtatAffilie } from '../affilie/affilie-selector';
 import {
@@ -28,16 +28,8 @@ import {
   Risque,
   TypeModification,
 } from '../api/bff-employeur.models';
-import {
-  BffEmployeurService,
-  charger,
-  CHARGEMENT,
-  ErreurApi,
-  Etat,
-  versErreurApi,
-} from '../api/bff-employeur.service';
+import { BffEmployeurService } from '../api/bff-employeur.service';
 import { switchMap } from 'rxjs';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
 import { parAffilie } from '../ui/par-affilie';
 
 export const TYPES_MODIFICATION: readonly TypeModification[] = ['Ajout', 'Modification', 'Retrait'];
@@ -81,9 +73,9 @@ function niveauRequis(groupe: LigneForm): { niveauRequis: true } | null {
       @if (contexte.affilieId()) {
         @let etatPostes = postes.etat();
         @if (etatPostes.statut === 'chargement') {
-          <app-chargement />
+          <vl-chargement />
         } @else if (etatPostes.statut === 'erreur') {
-          <app-erreur-api
+          <vl-erreur-api
             [erreur]="etatPostes.erreur"
             [reessayable]="true"
             (reessayer)="postes.recharger()"
@@ -116,7 +108,7 @@ function niveauRequis(groupe: LigneForm): { niveauRequis: true } | null {
               </div>
             }
             @if (erreurEnvoi(); as e) {
-              <app-erreur-api [erreur]="e" />
+              <vl-erreur-api [erreur]="e" />
             }
 
             <form [formGroup]="formulaire" (ngSubmit)="soumettre()" novalidate class="app-form">
@@ -166,7 +158,7 @@ function niveauRequis(groupe: LigneForm): { niveauRequis: true } | null {
                 <legend>{{ t('proposal.lines') }}</legend>
                 @let etatRisques = risques.etat();
                 @if (etatRisques.statut === 'erreur') {
-                  <app-erreur-api [erreur]="etatRisques.erreur" />
+                  <vl-erreur-api [erreur]="etatRisques.erreur" />
                 }
                 @for (ligne of lignes.controls; track ligne; let i = $index) {
                   <div

@@ -289,6 +289,132 @@ h1 {
   padding: 1rem;
 }
 
+// --- Composants d'écran (tableaux, formulaires, badges, alertes) ---
+// Contrastes : texte ≥ 4,5:1, bordures et composants ≥ 3:1 ; cibles ≥ 44 px.
+
+// Tableau : <div class="vl-table-wrapper"><table class="vl-table"><caption>…</caption><thead><tr><th scope="col">…
+.vl-table-wrapper {
+  overflow-x: auto;
+  margin-block: var(--vl-space);
+}
+
+.vl-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  caption {
+    padding-block-end: 0.5rem;
+    font-weight: 600;
+    text-align: start;
+  }
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    text-align: start;
+    vertical-align: top;
+    border-bottom: 1px solid var(--vl-color-border);
+  }
+
+  thead th {
+    background: var(--vl-color-surface);
+    border-bottom-width: 2px;
+  }
+
+  tbody th {
+    font-weight: 600;
+  }
+}
+
+// Formulaire : <form class="vl-form"><div class="vl-champ"><label>…</label><input class="vl-input">…
+.vl-form {
+  max-width: 48rem;
+}
+
+.vl-champ {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-block-end: var(--vl-space);
+
+  label,
+  legend {
+    font-weight: 600;
+  }
+}
+
+.vl-champ__aide {
+  font-size: 0.875rem;
+  color: var(--vl-color-text-muted);
+}
+
+.vl-champ__erreur {
+  margin: 0;
+  font-weight: 600;
+  color: #a4262c; // sur blanc : 6,9:1
+}
+
+.vl-input {
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  font: inherit;
+  color: var(--vl-color-text);
+  background: #ffffff;
+  border: 2px solid var(--vl-color-border);
+  border-radius: var(--vl-radius);
+
+  &[aria-invalid='true'] {
+    border-color: #a4262c;
+  }
+}
+
+// Badge de statut (le sens ne repose jamais sur la seule couleur : le texte porte l'information).
+.vl-badge {
+  display: inline-block;
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--vl-color-primary);
+  border: 1px solid var(--vl-color-primary);
+  border-radius: 999px;
+}
+
+.vl-badge--succes {
+  color: #1e6b34; // sur blanc : 6,6:1
+  border-color: #1e6b34;
+}
+
+.vl-badge--avertissement {
+  color: #6b4400; // sur blanc : 8,4:1
+  border-color: #6b4400;
+}
+
+.vl-badge--erreur {
+  color: #a4262c;
+  border-color: #a4262c;
+}
+
+// Alerte (erreur par défaut) ; à porter avec role="alert" (erreur) ou role="status" (information, succès).
+.vl-alerte {
+  margin-block: var(--vl-space);
+  padding: 0.75rem var(--vl-space);
+  border-inline-start: 0.375rem solid #a4262c;
+  background: #fdf3f4;
+
+  p {
+    margin: 0.25rem 0;
+  }
+}
+
+.vl-alerte--succes {
+  border-inline-start-color: #1e6b34;
+  background: #f1f8f3;
+}
+
+.vl-alerte--information {
+  border-inline-start-color: var(--vl-color-primary);
+  background: var(--vl-color-surface);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -307,5 +433,10 @@ h1 {
 
   .vl-card {
     border-color: CanvasText;
+  }
+
+  .vl-alerte,
+  .vl-badge {
+    border: 1px solid CanvasText;
   }
 }

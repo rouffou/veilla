@@ -1,6 +1,7 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { AffilieResume } from '../api/bff-employeur.models';
-import { BffEmployeurService, ErreurApi, versErreurApi } from '../api/bff-employeur.service';
+import { BffEmployeurService } from '../api/bff-employeur.service';
+import { ErreurApi, versErreurApi } from '@veilla/shared';
 
 const STORAGE_KEY = 'veilla.employeur.affilie';
 

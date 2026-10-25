@@ -4,7 +4,15 @@
   },
   "nav": {
     "dashboard": "Tableau de bord",
-    "search": "Recherche"
+    "search": "Recherche",
+    "travailleurs": "Travailleurs",
+    "affilies": "Affiliés",
+    "planification": "Planification",
+    "consultation": "Consultation",
+    "vaccinations": "Vaccinations",
+    "reintegration": "Réintégration",
+    "travail": "File de travail",
+    "admin": "Administration"
   },
   "dashboard": {
     "title": "Tableau de bord",

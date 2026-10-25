@@ -4,7 +4,15 @@
   },
   "nav": {
     "dashboard": "Übersicht",
-    "search": "Suche"
+    "search": "Suche",
+    "travailleurs": "Arbeitnehmer",
+    "affilies": "Angeschlossene",
+    "planification": "Planung",
+    "consultation": "Konsultation",
+    "vaccinations": "Impfungen",
+    "reintegration": "Wiedereingliederung",
+    "travail": "Arbeitsliste",
+    "admin": "Verwaltung"
   },
   "dashboard": {
     "title": "Übersicht",

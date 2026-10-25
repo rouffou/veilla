@@ -1,9 +1,8 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
 import { Questionnaire, Reponse } from '../api/bff-travailleur.models';
-import { BffTravailleurService, ErreurApi, versErreurApi } from '../api/bff-travailleur.service';
-import { chargeable } from '../ui/chargeable';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
+import { BffTravailleurService } from '../api/bff-travailleur.service';
+import { chargeable, Chargement, ErreurApi, ErreurApiMessage, versErreurApi } from '@veilla/shared';
 
 /**
  * POR-12 : questionnaire de santé à remplir avant l'examen (SAN-22). <b>Écriture seule</b> : le portail liste les modèles et
@@ -27,10 +26,10 @@ import { Chargement, ErreurApiMessage } from '../ui/etats';
       @let etat = modeles.etat();
       @switch (etat.statut) {
         @case ('chargement') {
-          <app-chargement />
+          <vl-chargement />
         }
         @case ('erreur') {
-          <app-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="modeles.recharger()" />
+          <vl-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="modeles.recharger()" />
         }
         @case ('ok') {
           @if (etat.valeur.length === 0) {
@@ -48,7 +47,7 @@ import { Chargement, ErreurApiMessage } from '../ui/etats';
               </div>
             }
             @if (erreurEnvoi(); as e) {
-              <app-erreur-api [erreur]="e" />
+              <vl-erreur-api [erreur]="e" />
             }
             <form class="app-form" (submit)="$event.preventDefault(); envoyer(q)" novalidate>
               @for (question of q.questions; track question.code) {

@@ -12,6 +12,7 @@ import { TranslocoDirective } from '@jsverse/transloco';
 import { filter, skip } from 'rxjs';
 import { SkipLink } from '../a11y/skip-link';
 import { AuthService } from '../auth/auth.service';
+import { possedeUnRole } from '../auth/roles';
 import { LanguageSelector } from '../i18n/language-selector';
 
 export interface ShellNavItem {
@@ -21,6 +22,16 @@ export interface ShellNavItem {
   readonly labelKey: string;
   /** Correspondance exacte pour l'état actif (accueil). */
   readonly exact?: boolean;
+  /** Rôles autorisés à voir l'entrée (au moins un) ; absent = visible de tous. Voir `filtrerNavigation`. */
+  readonly roles?: readonly string[];
+}
+
+/** Ne garde que les entrées de navigation visibles pour les rôles donnés. */
+export function filtrerNavigation(
+  items: readonly ShellNavItem[],
+  roles: readonly string[],
+): readonly ShellNavItem[] {
+  return items.filter((item) => possedeUnRole(roles, item.roles));
 }
 
 export const MAIN_CONTENT_ID = 'contenu-principal';

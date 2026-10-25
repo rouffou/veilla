@@ -6,7 +6,9 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { EnvironmentProviders, Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Routes } from '@angular/router';
+import { provideCodesErreurApi } from '@veilla/shared';
 import { provideVeillaTesting, TEST_RUNTIME_CONFIG } from '@veilla/shared/testing';
+import { CODES_ERREUR_EMPLOYEUR } from '../api/codes-erreur';
 import { AffilieResume } from '../api/bff-employeur.models';
 
 export const BFF = `${TEST_RUNTIME_CONFIG.apiBaseUrl}/api/v1`;
@@ -19,7 +21,12 @@ export const AFFILIE: AffilieResume = {
 };
 
 export function providePortailTesting(routes: Routes = []): (Provider | EnvironmentProviders)[] {
-  return [...provideVeillaTesting({ routes }), provideHttpClient(), provideHttpClientTesting()];
+  return [
+    ...provideVeillaTesting({ routes }),
+    provideHttpClient(),
+    provideHttpClientTesting(),
+    provideCodesErreurApi(CODES_ERREUR_EMPLOYEUR),
+  ];
 }
 
 export function bff(): HttpTestingController {

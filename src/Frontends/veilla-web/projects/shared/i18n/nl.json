@@ -22,6 +22,23 @@
     "title": "Functionaliteit in voorbereiding",
     "notYetAvailable": "Deze functionaliteit is nog niet beschikbaar."
   },
+  "ui": {
+    "loading": "Bezig met laden…",
+    "retry": "Opnieuw proberen"
+  },
+  "errors": {
+    "indisponible": "Deze dienst is tijdelijk niet beschikbaar. Probeer het over enkele ogenblikken opnieuw.",
+    "interdit": "U hebt geen toegang tot deze gegevens.",
+    "introuvable": "Het gevraagde element werd niet gevonden.",
+    "invalide": "De aanvraag kon niet worden aanvaard. Controleer de ingevoerde gegevens.",
+    "reseau": "Geen verbinding met de server. Controleer uw internetverbinding.",
+    "inattendue": "Er is een onverwachte fout opgetreden. Probeer het later opnieuw."
+  },
+  "accessDenied": {
+    "title": "Toegang geweigerd",
+    "text": "Uw profiel geeft geen toegang tot deze pagina.",
+    "home": "Terug naar de startpagina"
+  },
   "a11y": {
     "title": "Toegankelijkheidsverklaring",
     "statementLink": "Toegankelijkheid",

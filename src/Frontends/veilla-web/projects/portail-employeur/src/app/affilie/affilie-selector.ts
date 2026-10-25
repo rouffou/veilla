@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
 import { AffilieContext } from './affilie-context';
+import { Chargement, ErreurApiMessage } from '@veilla/shared';
 
 /**
  * Sélecteur de l'affilié consulté (en-tête), affiché seulement si l'utilisateur en représente plusieurs.
@@ -53,9 +53,9 @@ export class AffilieSelector {
   template: `
     <ng-container *transloco="let t">
       @if (contexte.erreur(); as erreur) {
-        <app-erreur-api [erreur]="erreur" [reessayable]="true" (reessayer)="contexte.charger()" />
+        <vl-erreur-api [erreur]="erreur" [reessayable]="true" (reessayer)="contexte.charger()" />
       } @else if (!contexte.charge()) {
-        <app-chargement />
+        <vl-chargement />
       } @else if (!contexte.affilieId()) {
         <p class="vl-empty">{{ t('affiliate.none') }}</p>
       }

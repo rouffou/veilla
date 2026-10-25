@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { ErreurApi } from '../api/bff-employeur.service';
+import { CODES_ERREUR_API } from './codes-erreur';
+import { ErreurApi } from './erreur-api';
 
 /** Indication de chargement annoncée aux technologies d'assistance (WCAG 4.1.3). */
 @Component({
-  selector: 'app-chargement',
+  selector: 'vl-chargement',
   imports: [TranslocoDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<p class="vl-empty" role="status" *transloco="let t">{{ t('ui.loading') }}</p>`,
@@ -12,23 +13,16 @@ import { ErreurApi } from '../api/bff-employeur.service';
 export class Chargement {}
 
 /**
- * Codes fonctionnels des services aval dont le message est traduit dans le portail (FR, NL, DE, EN) ; les autres erreurs de
- * validation affichent le détail (français) renvoyé par le service.
- */
-const MESSAGES_PAR_CODE: Readonly<Record<string, string>> = {
-  'reprise.occupation-inactive': 'errors.repriseOccupationInactive',
-};
-
-/**
- * Message d'erreur d'un appel au BFF (rôle alert) : texte selon la catégorie (service indisponible,
- * accès refusé, introuvable…) et, pour une erreur de validation, le détail renvoyé par le service.
+ * Message d'erreur d'un appel d'API (rôle alert) : texte du code fonctionnel connu (table injectée, voir
+ * `provideCodesErreurApi`) ou de la catégorie (service indisponible, accès refusé, introuvable…) et, pour
+ * une erreur de validation, le détail renvoyé par le service.
  */
 @Component({
-  selector: 'app-erreur-api',
+  selector: 'vl-erreur-api',
   imports: [TranslocoDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="app-alerte" role="alert" *transloco="let t">
+    <div class="vl-alerte" role="alert" *transloco="let t">
       @if (cleCode(); as cle) {
         <p>{{ t(cle) }}</p>
       } @else {
@@ -47,7 +41,12 @@ const MESSAGES_PAR_CODE: Readonly<Record<string, string>> = {
 })
 export class ErreurApiMessage {
   readonly erreur = input.required<ErreurApi>();
-  protected readonly cleCode = computed(() => MESSAGES_PAR_CODE[this.erreur().code ?? ''] ?? null);
   readonly reessayable = input(false);
   readonly reessayer = output();
+
+  private readonly codes: Record<string, string> = Object.assign(
+    {},
+    ...(inject(CODES_ERREUR_API, { optional: true }) ?? []),
+  );
+  protected readonly cleCode = computed(() => this.codes[this.erreur().code ?? ''] ?? null);
 }

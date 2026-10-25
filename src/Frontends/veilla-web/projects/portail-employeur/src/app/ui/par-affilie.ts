@@ -1,14 +1,8 @@
 import { computed, inject, Signal, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { filter, Observable, switchMap } from 'rxjs';
-import { charger, CHARGEMENT, Etat } from '../api/bff-employeur.service';
 import { AffilieContext } from '../affilie/affilie-context';
-
-export interface Chargeable<T> {
-  readonly etat: Signal<Etat<T>>;
-  /** Relance la requête (bouton « Réessayer », après une proposition…). */
-  recharger(): void;
-}
+import { Chargeable, CHARGEMENT, charger, Etat } from '@veilla/shared';
 
 /**
  * Charge une ressource de l'affilié courant et la recharge quand l'affilié ou les paramètres changent

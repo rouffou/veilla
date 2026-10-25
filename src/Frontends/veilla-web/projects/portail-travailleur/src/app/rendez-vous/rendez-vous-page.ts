@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoDirective } from '@jsverse/transloco';
-import { LanguageService } from '@veilla/shared';
+import { chargeable, Chargement, charger, DateLocalePipe, ErreurApi, ErreurApiMessage, Etat, LanguageService, versErreurApi } from '@veilla/shared';
 import { Observable, of, switchMap } from 'rxjs';
 import {
   Creneau,
@@ -20,17 +20,8 @@ import {
   RendezVous,
   TYPES_ACTE,
 } from '../api/bff-travailleur.models';
-import {
-  BffTravailleurService,
-  charger,
-  Etat,
-  ErreurApi,
-  versErreurApi,
-} from '../api/bff-travailleur.service';
+import { BffTravailleurService } from '../api/bff-travailleur.service';
 import { affiliesConnus, denominationsConnues } from '../ui/affilies';
-import { chargeable } from '../ui/chargeable';
-import { DateLocalePipe } from '../ui/date-locale.pipe';
-import { Chargement, ErreurApiMessage } from '../ui/etats';
 
 /** Période de réservation proposée : 60 jours (le service Planification accepte au plus 93 jours). */
 const JOURS_RECHERCHE = 60;
@@ -55,15 +46,15 @@ const JOURS_RECHERCHE = 60;
         </div>
       }
       @if (erreurAction(); as e) {
-        <app-erreur-api [erreur]="e" />
+        <vl-erreur-api [erreur]="e" />
       }
       @let etat = rendezVous.etat();
       @switch (etat.statut) {
         @case ('chargement') {
-          <app-chargement />
+          <vl-chargement />
         }
         @case ('erreur') {
-          <app-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="rendezVous.recharger()" />
+          <vl-erreur-api [erreur]="etat.erreur" [reessayable]="true" (reessayer)="rendezVous.recharger()" />
         }
         @case ('ok') {
           <h2>{{ t('appointments.mine') }}</h2>
@@ -193,10 +184,10 @@ const JOURS_RECHERCHE = 60;
               @if (creneauxDeplacement(); as c) {
                 @switch (c.statut) {
                   @case ('chargement') {
-                    <app-chargement />
+                    <vl-chargement />
                   }
                   @case ('erreur') {
-                    <app-erreur-api [erreur]="c.erreur" />
+                    <vl-erreur-api [erreur]="c.erreur" />
                   }
                   @case ('ok') {
                     @if (c.valeur.length === 0) {
@@ -260,10 +251,10 @@ const JOURS_RECHERCHE = 60;
             @if (creneaux(); as c) {
               @switch (c.statut) {
                 @case ('chargement') {
-                  <app-chargement />
+                  <vl-chargement />
                 }
                 @case ('erreur') {
-                  <app-erreur-api [erreur]="c.erreur" />
+                  <vl-erreur-api [erreur]="c.erreur" />
                 }
                 @case ('ok') {
                   @if (c.valeur.length === 0) {

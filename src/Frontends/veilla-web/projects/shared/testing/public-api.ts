@@ -9,6 +9,7 @@ import {
   AuthStatus,
   AVAILABLE_LANGS,
   PORTAL_LANGS,
+  possedeUnRole,
   RUNTIME_CONFIG,
   VeillaLang,
   VeillaRuntimeConfig,
@@ -21,9 +22,18 @@ export const TEST_RUNTIME_CONFIG: VeillaRuntimeConfig = {
 };
 
 /** Double de test d'AuthService : aucun appel au fournisseur d'identité. */
-export class FakeAuthService implements Pick<AuthService, 'checkStatus' | 'login' | 'logout' | 'consumeReturnUrl' | 'accessToken'> {
+export class FakeAuthService implements Pick<AuthService, 'checkStatus' | 'login' | 'logout' | 'consumeReturnUrl' | 'accessToken' | 'hasAnyRole' | 'rolesApresVerification'> {
   readonly isAuthenticated = signal(false);
   readonly userName = signal<string | null>(null);
+  /** Rôles de l'utilisateur simulé (claim `roles`). */
+  readonly roles = signal<readonly string[]>([]);
+
+  hasAnyRole(...exiges: readonly string[]): boolean {
+    return possedeUnRole(this.roles(), exiges);
+  }
+  rolesApresVerification(): Observable<readonly string[]> {
+    return of(this.roles());
+  }
   status: AuthStatus = 'authenticated';
   loginCalls: (string | undefined)[] = [];
 
