@@ -19,11 +19,14 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.Contracts;
 using Sepp.Contracts.BffEmployeur;
+using Sepp.Contracts.Examens;
+using Sepp.Contracts.Integrations;
 using Sepp.Contracts.Obligations;
 using Sepp.Contracts.Personnes;
 using Sepp.Contracts.Planification;
 using Sepp.Contracts.PostesRisques;
 using Sepp.Contracts.Referentiels;
+using Sepp.Contracts.Reintegration;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.Obligations.Adapters.Persistence;
 using Sepp.Obligations.Application.Consultation;
@@ -306,6 +309,40 @@ public sealed partial class ObligationsApiTests : IAsyncLifetime
 
         // Type confidentiel : invisible pour l'employeur.
         (await Obligations(personne, Employeur)).ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// SAN-60, SAN-02 : l'incapacité saisie dans Réintégration ouvre l'estimation du potentiel de travail ; la même incapacité
+    /// reçue ensuite par eHealth (autre identifiant, même personne, affilié et date de début) et les rejeux n'en ouvrent pas d'autre.
+    /// </summary>
+    [Fact]
+    public async Task L_incapacite_saisie_puis_recue_par_ehealth_n_ouvre_qu_une_estimation_du_potentiel()
+    {
+        var personne = Guid.CreateVersion7();
+        var debut = new DateOnly(2026, 4, 15);
+        var saisie = new IncapaciteSaisie(Guid.CreateVersion7(), personne, _affilie, debut, CodesReintegration.SourcesIncapacite.SaisieManuelle, null);
+        var notification = new IncapaciteNotifiee(Guid.CreateVersion7(), personne, _affilie, debut, CodesReintegration.SourcesIncapacite.Employeur, new DateOnly(2026, 7, 31));
+
+        var messageSaisie = Guid.CreateVersion7();
+        (await Livrer(messageSaisie, saisie)).ShouldBe(1);
+        var estimation = (await Obligations(personne)).ShouldHaveSingleItem();
+        estimation.Type.ShouldBe(TypesExamen.EstimationPotentielTravail);
+        estimation.DateDue.ShouldBe(new DateOnly(2026, 6, 10));
+
+        var messageNotification = Guid.CreateVersion7();
+        (await Livrer(messageNotification, notification)).ShouldBe(1);
+        (await Livrer(messageNotification, notification)).ShouldBe(0);
+        (await Livrer(messageSaisie, saisie)).ShouldBe(0);
+        (await Livrer(Guid.CreateVersion7(), notification with { DateFinPrevue = new DateOnly(2026, 9, 30) })).ShouldBe(1);
+
+        var obligations = await Obligations(personne);
+        obligations.ShouldHaveSingleItem().Id.ShouldBe(estimation.Id);
+        obligations[0].Statut.ShouldNotBe("Annule");
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ObligationsDbContext>();
+        (await db.Incapacites.CountAsync(i => i.PersonneId == personne, Ct)).ShouldBe(2);
+        var creees = await db.OutboxMessages.Where(m => m.EventType == "obligations.obligation-creee.v1").Select(m => m.Payload).ToListAsync(Ct);
+        creees.Count(p => p.Contains(personne.ToString(), StringComparison.Ordinal)).ShouldBe(1);
     }
 
     [Fact]

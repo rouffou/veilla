@@ -2,7 +2,7 @@ namespace Sepp.Contracts.Reintegration;
 
 /// <summary>
 /// Codes partagés du domaine de la réintégration (§5.8) portés par les événements <c>integrations.incapacite-notifiee</c>,
-/// <c>reintegration.trajet-demarre</c> et <c>reintegration.trajet-termine</c>. Source de vérité unique : producteurs et
+/// <c>reintegration.incapacite-saisie</c>, <c>reintegration.trajet-demarre</c> et <c>reintegration.trajet-termine</c>. Source de vérité unique : producteurs et
 /// consommateurs y renvoient au lieu de redéclarer leurs chaînes. Des catégories seulement, jamais un motif médical (ARC-06).
 /// </summary>
 public static class CodesReintegration
@@ -13,7 +13,10 @@ public static class CodesReintegration
         public const string Employeur = "EMPLOYEUR";
         public const string MedecinConseil = "MEDECIN_CONSEIL";
 
-        /// <summary>Notification reçue hors flux (courrier, appel) et saisie par le CPMT ou l'infirmier ; jamais publiée.</summary>
+        /// <summary>
+        /// Notification reçue hors flux (courrier, appel) et saisie par le CPMT ou l'infirmier : publiée seulement par
+        /// <c>reintegration.incapacite-saisie</c>, jamais par <c>integrations.incapacite-notifiee</c>.
+        /// </summary>
         public const string SaisieManuelle = "SAISIE_MANUELLE";
 
         public static readonly IReadOnlyList<string> Connus = [Employeur, MedecinConseil, SaisieManuelle];

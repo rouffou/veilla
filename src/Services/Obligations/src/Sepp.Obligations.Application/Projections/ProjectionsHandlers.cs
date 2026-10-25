@@ -338,24 +338,51 @@ public sealed class RepriseAnnonceeHandler(EnregistrementReprise enregistrement)
     }
 }
 
-/// <summary>§5.1 : incapacité notifiée → estimation du potentiel de travail après huit semaines.</summary>
-public sealed class IncapaciteNotifieeHandler(IProjectionRepository projections, MiseAJourProjection miseAJour)
+/// <summary>
+/// §5.1, SAN-60 : incapacité notifiée par le flux eHealth (<c>integrations.incapacite-notifiee</c>) → estimation du potentiel
+/// de travail après huit semaines. Dédoublonnée avec la saisie manuelle de Réintégration (<see cref="IncapaciteLocale.SansDoublons"/>).
+/// </summary>
+public sealed class IncapaciteNotifieeHandler(IProjectionRepository projections, MiseAJourProjection miseAJour, TimeProvider horloge)
     : IIntegrationEventHandler<IncapaciteNotifiee>
 {
-    public async Task HandleAsync(IncapaciteNotifiee integrationEvent, CancellationToken cancellationToken)
+    public Task HandleAsync(IncapaciteNotifiee integrationEvent, CancellationToken cancellationToken) =>
+        ProjectionIncapacite.AppliquerAsync(
+            projections, miseAJour, horloge, integrationEvent.IncapaciteId, integrationEvent.PersonneId, integrationEvent.AffilieId,
+            integrationEvent.DateDebut, integrationEvent.Source, cancellationToken);
+}
+
+/// <summary>
+/// SAN-60, SAN-02 : incapacité saisie à la main dans Réintégration (<c>reintegration.incapacite-saisie</c>), traitée comme
+/// une <see cref="IncapaciteNotifiee"/>. Si la même incapacité arrive aussi par eHealth (même personne, même affilié, même
+/// date de début), une seule estimation est ouverte (<see cref="IncapaciteLocale.SansDoublons"/>).
+/// </summary>
+public sealed class IncapaciteSaisieHandler(IProjectionRepository projections, MiseAJourProjection miseAJour, TimeProvider horloge)
+    : IIntegrationEventHandler<IncapaciteSaisie>
+{
+    public Task HandleAsync(IncapaciteSaisie integrationEvent, CancellationToken cancellationToken) =>
+        ProjectionIncapacite.AppliquerAsync(
+            projections, miseAJour, horloge, integrationEvent.IncapaciteId, integrationEvent.PersonneId, integrationEvent.AffilieId,
+            integrationEvent.DateDebut, integrationEvent.Source, cancellationToken);
+}
+
+/// <summary>Projection commune aux deux canaux d'incapacité : une ligne par identifiant reçu (état courant, idempotent).</summary>
+internal static class ProjectionIncapacite
+{
+    public static async Task AppliquerAsync(
+        IProjectionRepository projections, MiseAJourProjection miseAJour, TimeProvider horloge, Guid incapaciteId, Guid personneId, Guid affilieId,
+        DateOnly dateDebut, string source, CancellationToken cancellationToken)
     {
-        var e = integrationEvent;
-        var incapacite = await projections.GetIncapaciteAsync(e.IncapaciteId, cancellationToken);
+        var incapacite = await projections.GetIncapaciteAsync(incapaciteId, cancellationToken);
         if (incapacite is null)
         {
-            projections.Add(new IncapaciteLocale(e.IncapaciteId, e.PersonneId, e.AffilieId, e.DateDebut, e.Source));
+            projections.Add(new IncapaciteLocale(incapaciteId, personneId, affilieId, dateDebut, source, horloge.GetUtcNow()));
         }
         else
         {
-            incapacite.Appliquer(e.PersonneId, e.AffilieId, e.DateDebut, e.Source);
+            incapacite.Appliquer(personneId, affilieId, dateDebut, source);
         }
 
-        await miseAJour.TerminerAsync([e.PersonneId], cancellationToken);
+        await miseAJour.TerminerAsync([personneId], cancellationToken);
     }
 }
 

@@ -47,6 +47,7 @@ public static class DependencyInjection
         services.AddIntegrationEventHandler<RendezVousAnnule, RendezVousAnnuleHandler>();
         services.AddIntegrationEventHandler<RepriseAnnoncee, RepriseAnnonceeHandler>();
         services.AddIntegrationEventHandler<IncapaciteNotifiee, IncapaciteNotifieeHandler>();
+        services.AddIntegrationEventHandler<IncapaciteSaisie, IncapaciteSaisieHandler>();
         services.AddIntegrationEventHandler<TrajetDemarre, TrajetDemarreHandler>();
         services.AddIntegrationEventHandler<TrajetTermine, TrajetTermineHandler>();
         services.AddIntegrationEventHandler<ListeNominativeGeneree, ListeNominativeGenereeHandler>();

@@ -323,6 +323,8 @@ public static class EvenementsIntegration
             {
                 TrajetDemarreLocal e => new TrajetDemarre(e.TrajetId, e.PersonneId, e.AffilieId, e.Initiateur.Code(), e.DateDemande),
                 TrajetTermineLocal e => new TrajetTermine(e.TrajetId, e.PersonneId, e.AffilieId, e.Issue.Code(), e.DateFin),
+                IncapaciteSaisieManuellement e => new IncapaciteSaisie(
+                    e.IncapaciteId, e.PersonneId, e.AffilieId, e.DateDebut, CodesReintegration.SourcesIncapacite.SaisieManuelle, e.DateFinPrevue),
                 _ => null,
             };
 

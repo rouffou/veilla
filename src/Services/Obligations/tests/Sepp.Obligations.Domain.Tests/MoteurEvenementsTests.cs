@@ -139,6 +139,33 @@ public class MoteurEvenementsTests
     }
 
     [Fact]
+    public void La_meme_incapacite_recue_par_ehealth_et_saisie_a_la_main_n_ouvre_qu_une_estimation()
+    {
+        var saisie = Guid.CreateVersion7();
+        var s = new Scenario()
+            .Incapacite(new DateOnly(2026, 3, 2), "SAISIE_MANUELLE", Scenario.T0, saisie)
+            .Incapacite(new DateOnly(2026, 3, 2), "EMPLOYEUR", Scenario.T0.AddDays(3));
+
+        var normal = s.Calculer().Echeances.ShouldHaveSingleItem();
+        s.Incapacites.Reverse();
+        var inverse = s.Calculer().Echeances.ShouldHaveSingleItem();
+
+        normal.Type.ShouldBe(TypeObligation.EstimationPotentielTravail);
+        normal.Cle.ShouldContain(saisie.ToString("N"), Case.Insensitive, "La première incapacité enregistrée garde la clé de l'obligation.");
+        inverse.Cle.ShouldBe(normal.Cle);
+    }
+
+    [Fact]
+    public void Deux_incapacites_de_dates_de_debut_differentes_ouvrent_chacune_une_estimation()
+    {
+        var s = new Scenario()
+            .Incapacite(new DateOnly(2026, 3, 2), "SAISIE_MANUELLE")
+            .Incapacite(new DateOnly(2026, 3, 3), "EMPLOYEUR");
+
+        s.Calculer().Echeances.Count(e => e.Type == TypeObligation.EstimationPotentielTravail).ShouldBe(2);
+    }
+
+    [Fact]
     public void Une_reprise_avant_les_huit_semaines_supprime_l_estimation_du_potentiel()
     {
         var s = new Scenario().Incapacite(new DateOnly(2026, 3, 2)).Reprise(new DateOnly(2026, 4, 1), new DateOnly(2026, 3, 2));

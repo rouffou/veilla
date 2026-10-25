@@ -94,9 +94,9 @@ internal sealed class Scenario
         return this;
     }
 
-    public Scenario Incapacite(DateOnly debut)
+    public Scenario Incapacite(DateOnly debut, string source = "MUTUALITE", DateTimeOffset? enregistreeLe = null, Guid? id = null)
     {
-        Incapacites.Add(new IncapaciteLocale(Guid.CreateVersion7(), Personne, Affilie, debut, "MUTUALITE"));
+        Incapacites.Add(new IncapaciteLocale(id ?? Guid.CreateVersion7(), Personne, Affilie, debut, source, enregistreeLe ?? T0));
         return this;
     }
 

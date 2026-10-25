@@ -173,8 +173,13 @@ variable "services" {
         "personnes", "postes-risques", "planification", "surveillance-medicale", "referentiels", "documents",
         "integrations",  # incapacite-notifiee
         "bff-employeur", # reprise-annoncee (rétrocompatibilité : la saga démarre par l'API /reprises)
-        "reintegration", # trajet-demarre, trajet-termine (TrajetDemarreHandler, TrajetTermineHandler)
+        "reintegration", # trajet-demarre, trajet-termine, incapacite-saisie (TrajetDemarreHandler, TrajetTermineHandler, IncapaciteSaisieHandler)
       ]
+      # Gestionnaires enregistrés pour ces deux rubriques (SAN-60, SAN-62) : seuls ces sujets intéressent le service.
+      subject_filters = {
+        integrations  = ["integrations.incapacite-notifiee.v1"]
+        reintegration = ["reintegration.trajet-demarre.v1", "reintegration.trajet-termine.v1", "reintegration.incapacite-saisie.v1"]
+      }
     }
     "planification" = {
       zone          = "standard"

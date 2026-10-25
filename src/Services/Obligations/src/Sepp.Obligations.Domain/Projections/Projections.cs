@@ -663,20 +663,26 @@ public sealed class RepriseLocale
     }
 }
 
-/// <summary>Incapacité notifiée (integrations.incapacite-notifiee, SAN-60) : début et source uniquement.</summary>
+/// <summary>
+/// Incapacité de travail (SAN-60, SAN-02) : début et source uniquement. Deux canaux l'alimentent :
+/// <c>integrations.incapacite-notifiee</c> (flux eHealth) et <c>reintegration.incapacite-saisie</c> (saisie manuelle dans
+/// Réintégration). Chaque canal a ses propres identifiants : une ligne par <c>IncapaciteId</c> reçu, et la règle de
+/// dédoublonnage (<see cref="SansDoublons"/>) décide quelles lignes ouvrent une estimation du potentiel de travail.
+/// </summary>
 public sealed class IncapaciteLocale
 {
     private IncapaciteLocale()
     {
     }
 
-    public IncapaciteLocale(Guid incapaciteId, Guid personneId, Guid affilieId, DateOnly dateDebut, string source)
+    public IncapaciteLocale(Guid incapaciteId, Guid personneId, Guid affilieId, DateOnly dateDebut, string source, DateTimeOffset enregistreeLe)
     {
         IncapaciteId = incapaciteId;
         PersonneId = personneId;
         AffilieId = affilieId;
         DateDebut = dateDebut;
         Source = source;
+        EnregistreeLe = enregistreeLe;
     }
 
     public Guid IncapaciteId { get; private set; }
@@ -689,6 +695,12 @@ public sealed class IncapaciteLocale
 
     public string Source { get; private set; } = string.Empty;
 
+    /// <summary>Première réception par Obligations (jamais modifiée) : départage les doublons d'une même incapacité.</summary>
+    public DateTimeOffset EnregistreeLe { get; private set; }
+
+    /// <summary>Clé métier de dédoublonnage : la même incapacité reçue par plusieurs canaux (la source n'en fait pas partie).</summary>
+    public (Guid PersonneId, Guid AffilieId, DateOnly DateDebut) CleMetier => (PersonneId, AffilieId, DateDebut);
+
     public void Appliquer(Guid personneId, Guid affilieId, DateOnly dateDebut, string source)
     {
         PersonneId = personneId;
@@ -696,6 +708,17 @@ public sealed class IncapaciteLocale
         DateDebut = dateDebut;
         Source = source;
     }
+
+    /// <summary>
+    /// SAN-02 : une incapacité reçue par eHealth et saisie à la main dans Réintégration n'ouvre qu'une estimation. Clé
+    /// métier : (personne, affilié, date de début), la source exclue (par définition, les deux canaux diffèrent). Parmi les
+    /// lignes de même clé, la première enregistrée l'emporte (puis le plus petit identifiant) : l'obligation déjà ouverte
+    /// garde sa clé, sans annulation ni recréation à l'arrivée du second canal, quel que soit l'ordre de réception.
+    /// </summary>
+    public static IEnumerable<IncapaciteLocale> SansDoublons(IEnumerable<IncapaciteLocale> incapacites) =>
+        incapacites
+            .GroupBy(i => i.CleMetier)
+            .Select(g => g.OrderBy(i => i.EnregistreeLe).ThenBy(i => i.IncapaciteId).First());
 }
 
 /// <summary>

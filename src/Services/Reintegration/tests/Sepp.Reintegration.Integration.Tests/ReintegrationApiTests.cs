@@ -169,6 +169,28 @@ public sealed class ReintegrationApiTests(ReintegrationFixture fixture) : IClass
     }
 
     [Fact]
+    public async Task La_saisie_manuelle_publie_l_incapacite_par_l_outbox_sans_donnee_medicale()
+    {
+        var incapacite = await Id(await Cpmt.PostAsJsonAsync("/api/v1/incapacites",
+            new { personneId = _personne, affilieId = _affilie, dateDebut = "2026-03-02", dateFinPrevue = "2026-04-30" }, _ct));
+
+        var evenement = (await fixture.EvenementsAsync(_ct))
+            .Where(e => e.Type == "reintegration.incapacite-saisie.v1")
+            .Select(e => JsonDocument.Parse(e.Payload).RootElement)
+            .Where(e => e.GetProperty("incapaciteId").GetGuid() == incapacite)
+            .ShouldHaveSingleItem();
+        evenement.GetProperty("personneId").GetGuid().ShouldBe(_personne);
+        evenement.GetProperty("affilieId").GetGuid().ShouldBe(_affilie);
+        evenement.GetProperty("dateDebut").GetString().ShouldBe("2026-03-02");
+        evenement.GetProperty("dateFinPrevue").GetString().ShouldBe("2026-04-30");
+        evenement.GetProperty("source").GetString().ShouldBe(CodesReintegration.SourcesIncapacite.SaisieManuelle);
+
+        // ARC-06 : identifiants, dates et catégorie, rien d'autre (enveloppe commune comprise).
+        evenement.EnumerateObject().Select(p => p.Name).ShouldBeSubsetOf(
+            ["affilieId", "correlationId", "dateDebut", "dateFinPrevue", "eventId", "incapaciteId", "occurredAt", "personneId", "source"]);
+    }
+
+    [Fact]
     public async Task La_notification_eHealth_est_consommee_une_fois_et_les_absences_informent_le_medecin_conseil()
     {
         var incapaciteId = Guid.CreateVersion7();
