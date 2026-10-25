@@ -94,6 +94,7 @@ services:
       # Bus d'événements de développement (ADR 0004) : abonnement et filtres de sujets alignés sur infra/variables.tf.
       ConnectionStrings__BusDeveloppement: Host=postgres;Database=bus;Username=sepp;Password=sepp-local-dev
       ServiceBus__SubscriptionName: audit
+      ServiceBus__SubjectFilters__referentiels__0: referentiels.parametre-legal-modifie.v1
       Database__MigrateOnStartup: "true"
       Authentication__Authority: http://localhost:8180/realms/veilla
       Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration
@@ -395,6 +396,8 @@ services:
       ServiceBus__SubscriptionName: surveillance-medicale
       ServiceBus__SubjectFilters__personnes__0: personnes.affectation-modifiee.v1
       ServiceBus__SubjectFilters__documents__0: documents.document-publie.v1
+      ServiceBus__SubjectFilters__referentiels__0: referentiels.parametre-legal-modifie.v1
+      ServiceBus__SubjectFilters__referentiels__1: referentiels.jours-feries-modifies.v1
       Database__MigrateOnStartup: "true"
       Authentication__Authority: http://localhost:8180/realms/veilla
       Authentication__MetadataAddress: http://keycloak:8080/realms/veilla/.well-known/openid-configuration

@@ -4,9 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Sepp.Audit.Adapters.Persistence;
 using Sepp.Audit.Application;
 using Sepp.Audit.Application.Journal;
-using Sepp.Audit.Domain.Journal;
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.Contracts.Audit;
+using Sepp.Contracts.Referentiels;
 
 namespace Sepp.Audit.Adapters;
 
@@ -22,13 +22,15 @@ public static class DependencyInjection
 
         // ARC-31 : consommateur idempotent des traces publiées sur la rubrique « audit ».
         services.AddIntegrationEventHandler<AccesDonneeSensible, EnregistrerAccesHandler>();
+
+        // ARC-21 : durée de conservation du journal, reçue de Référentiels (projection locale).
+        services.AddScoped<IParametreLegalRepository, ParametreLegalRepository>();
+        services.AddIntegrationEventHandler<ParametreLegalModifie, ParametreLegalModifieHandler>();
         services.AddSeppConsumer<AuditDbContext>(configuration);
 
-        // NF-04 : conservation d'au moins 10 ans, vérifiée au démarrage.
+        // NF-04 : purge périodique ; la durée (au moins 10 ans) est le paramètre AUDIT.CONSERVATION de Référentiels (ARC-21).
         services.AddOptions<ConservationOptions>()
             .Bind(configuration.GetSection("Audit:Conservation"))
-            .Validate(o => o.Annees >= PolitiqueConservation.MinimumAnnees,
-                $"Audit:Conservation:Annees doit valoir au moins {PolitiqueConservation.MinimumAnnees} (NF-04).")
             .Validate(o => o.IntervallePurge > TimeSpan.Zero, "Audit:Conservation:IntervallePurge doit être positif.")
             .ValidateOnStart();
         services.AddHostedService<PurgeJournalService>();

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 
 using Sepp.Audit.Domain.Journal;
+using Sepp.Audit.Domain.Parametres;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
 
@@ -17,6 +18,8 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ICu
     public DbSet<EntreeAudit> Entrees => Set<EntreeAudit>();
 
     public DbSet<SceauPurge> Sceaux => Set<SceauPurge>();
+
+    public DbSet<ParametreLegalLocal> Parametres => Set<ParametreLegalLocal>();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
@@ -54,6 +57,14 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options, ICu
             b.Property(s => s.EmpreinteFinale).HasMaxLength(64).IsFixedLength();
             b.Ignore(s => s.Maillon);
             b.HasIndex(s => new { s.Zone, s.NumeroFinal }).IsUnique();
+        });
+
+        modelBuilder.Entity<ParametreLegalLocal>(b =>
+        {
+            b.ToTable("parametre_legal_local");
+            b.HasKey(p => new { p.Code, p.ValideDu });
+            b.Property(p => p.Code).HasMaxLength(100);
+            b.Property(p => p.Unite).HasMaxLength(30);
         });
     }
 }

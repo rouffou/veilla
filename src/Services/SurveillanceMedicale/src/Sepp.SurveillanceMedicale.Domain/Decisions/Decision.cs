@@ -312,9 +312,9 @@ public sealed class Recours : Entity
 }
 
 /// <summary>
-/// Délais des procédures de concertation et de recours (SAN-34), en jours ouvrables (DAT-08). Valeurs par défaut :
-/// introduction de la concertation 5 jours, issue 14 jours ; recours auprès du médecin-inspecteur social 7 jours,
-/// décision 31 jours — à valider par le département médical, paramétrables par configuration.
+/// Délais des procédures de concertation et de recours (SAN-34), en jours ouvrables (DAT-08). Aucune valeur n'est codée
+/// ici : elles viennent des paramètres légaux du service Référentiels (ARC-21, <c>SANTE.CONCERTATION.*</c> et
+/// <c>SANTE.RECOURS.*</c>), à valider par le département médical.
 /// </summary>
 public sealed class PolitiqueRecours(BusinessCalendar calendrier, DelaisRecours delais)
 {
@@ -325,7 +325,7 @@ public sealed class PolitiqueRecours(BusinessCalendar calendrier, DelaisRecours 
         calendrier.AddBusinessDays(introduction, type == TypeRecours.Concertation ? delais.IssueConcertation : delais.DecisionMedecinInspecteur);
 }
 
-public sealed record DelaisRecours(int IntroductionConcertation = 5, int IssueConcertation = 14, int IntroductionRecours = 7, int DecisionMedecinInspecteur = 31);
+public sealed record DelaisRecours(int IntroductionConcertation, int IssueConcertation, int IntroductionRecours, int DecisionMedecinInspecteur);
 
 /// <summary>
 /// Décision transmise (signée ou réformée) : traduite en <c>DecisionEmise</c> (catégorie, mesures, validité, examen

@@ -24,7 +24,7 @@ public class PolitiquesLegalesTests
     [InlineData(CodesParametres.RevueListesNominatives, 12, UniteDuree.Mois)]
     public void Les_valeurs_par_defaut_sont_celles_du_catalogue_des_parametres_legaux(string code, int valeur, UniteDuree unite)
     {
-        var duree = new PolitiquesLegales([]).Duree(code, Date);
+        var duree = new PolitiquesLegales([], DefautsDeTest.Valeurs).Duree(code, Date);
 
         duree.Valeur.ShouldBe(valeur);
         duree.Unite.ShouldBe(unite);
@@ -38,7 +38,7 @@ public class PolitiquesLegalesTests
         [
             new ParametreLegalLocal(CodesParametres.RepriseDelai, new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 1), 7, "JoursOuvrables", Scenario.T0),
             new ParametreLegalLocal(CodesParametres.RepriseDelai, new DateOnly(2026, 6, 1), null, 12, "JoursOuvrables", Scenario.T0),
-        ]);
+        ], DefautsDeTest.Valeurs);
 
         politiques.Duree(CodesParametres.RepriseDelai, new DateOnly(2026, 3, 1)).Valeur.ShouldBe(7);
         politiques.Duree(CodesParametres.RepriseDelai, Date).Valeur.ShouldBe(12);
@@ -52,7 +52,7 @@ public class PolitiquesLegalesTests
     [InlineData(5, "Inconnue")]
     public void Un_parametre_inexploitable_est_ignore(decimal valeur, string unite)
     {
-        var politiques = new PolitiquesLegales([new ParametreLegalLocal(CodesParametres.RepriseDelai, new DateOnly(2026, 1, 1), null, valeur, unite, Scenario.T0)]);
+        var politiques = new PolitiquesLegales([new ParametreLegalLocal(CodesParametres.RepriseDelai, new DateOnly(2026, 1, 1), null, valeur, unite, Scenario.T0)], DefautsDeTest.Valeurs);
 
         politiques.Duree(CodesParametres.RepriseDelai, Date).Source.ShouldBe("valeur par défaut");
     }
@@ -60,7 +60,7 @@ public class PolitiquesLegalesTests
     [Fact]
     public void Un_parametre_inconnu_sans_valeur_par_defaut_est_une_erreur_de_programmation()
     {
-        Should.Throw<InvalidOperationException>(() => new PolitiquesLegales([]).Duree("INCONNU", Date));
+        Should.Throw<InvalidOperationException>(() => new PolitiquesLegales([], DefautsDeTest.Valeurs).Duree("INCONNU", Date));
     }
 
     [Fact]
@@ -332,7 +332,7 @@ public class AlertesTests
     public void Une_liste_nominative_non_revue_depuis_douze_mois_declenche_une_alerte_sur_sa_derniere_version()
     {
         var calendrier = BusinessCalendar.Belgian(2025, 2026);
-        var delai = new PolitiquesLegales([]).Duree(CodesParametres.RevueListesNominatives, Aujourdhui);
+        var delai = new PolitiquesLegales([], DefautsDeTest.Valeurs).Duree(CodesParametres.RevueListesNominatives, Aujourdhui);
         var ancienne = new ListeNominativeLocale(Guid.CreateVersion7(), Fabrique.Affilie, "EXPOSES", 1, new DateOnly(2025, 1, 1), new DateOnly(2025, 1, 10));
         var recente = new ListeNominativeLocale(Guid.CreateVersion7(), Fabrique.Affilie, "EXPOSES", 2, new DateOnly(2025, 5, 1), new DateOnly(2025, 5, 10));
         var revue = new ListeNominativeLocale(Guid.CreateVersion7(), Fabrique.Affilie, "NUIT", 1, new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 10));

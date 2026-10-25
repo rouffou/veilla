@@ -4,6 +4,7 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.BuildingBlocks.Domain.Calendar;
 using Sepp.Contracts;
+using Sepp.Contracts.Referentiels;
 using Sepp.Contracts.SurveillanceMedicale;
 using Sepp.SurveillanceMedicale.Domain.Conservation;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
@@ -132,15 +133,13 @@ public sealed class GardeDossier(
         dossier.EstSuiviPar(user.UserId) || await examens.ExisteExamenDuProfessionnelAsync(dossier.Id, user.UserId, cancellationToken);
 }
 
-/// <summary>Paramètres de la zone médicale non portés par le service Référentiels (valeurs par défaut documentées).</summary>
+/// <summary>
+/// Paramètres de la zone médicale non portés par le service Référentiels (valeurs par défaut documentées). Les durées
+/// légales (conservation du dossier, délais de concertation et de recours) ne se configurent pas ici : elles viennent de
+/// Référentiels (ARC-21), sinon de leur valeur initiale dans <c>ParametresLegauxParDefaut</c> (Sepp.Contracts).
+/// </summary>
 public sealed class OptionsSurveillanceMedicale
 {
-    /// <summary>Minimum légal de conservation tant que <c>SANTE.DOSSIER.CONSERVATION_MINIMUM</c> n'a pas été reçu (15 ans).</summary>
-    public int ConservationMinimumAnnees { get; set; } = PolitiqueConservationDossier.PlancherAnnees;
-
-    /// <summary>SAN-34 : délais de concertation et de recours en jours ouvrables (à valider par le département médical).</summary>
-    public DelaisRecours DelaisRecours { get; set; } = new();
-
     /// <summary>SAN-43 : droit d'accès du travailleur (demande de copie du dossier).</summary>
     public OptionsCopieDossier CopieDossier { get; set; } = new();
 }
@@ -156,7 +155,7 @@ public sealed class OptionsCopieDossier
 }
 
 /// <summary>Politiques légales alimentées par le service Référentiels (ARC-21, ARC-24) et le calendrier belge (DAT-08).</summary>
-public sealed class ParametresMedicaux(IProjectionRepository projections, OptionsSurveillanceMedicale options)
+public sealed class ParametresMedicaux(IProjectionRepository projections)
 {
     public async Task<int> ConservationMinimumAnneesAsync(DateOnly date, CancellationToken cancellationToken)
     {
@@ -165,12 +164,29 @@ public sealed class ParametresMedicaux(IProjectionRepository projections, Option
         {
             "Annees" => (int)Math.Ceiling(parametre.Valeur),
             "Mois" => (int)Math.Ceiling(parametre.Valeur / 12),
-            _ => options.ConservationMinimumAnnees,
+            _ => ParametresLegauxParDefaut.Obtenir(PolitiqueConservationDossier.CodeParametreMinimum).Valeur,
         };
         return Math.Max(annees, PolitiqueConservationDossier.PlancherAnnees);
     }
 
-    public DelaisRecours DelaisRecours => options.DelaisRecours;
+    /// <summary>
+    /// SAN-34 : délais de concertation et de recours (jours ouvrables) applicables à une date : paramètres reçus de
+    /// Référentiels (<c>SANTE.CONCERTATION.*</c>, <c>SANTE.RECOURS.*</c>), sinon valeurs initiales du contrat.
+    /// </summary>
+    public async Task<DelaisRecours> DelaisRecoursAsync(DateOnly date, CancellationToken cancellationToken) =>
+        new(
+            await JoursOuvrablesAsync(CodesParametresLegaux.ConcertationIntroductionDelai, date, cancellationToken),
+            await JoursOuvrablesAsync(CodesParametresLegaux.ConcertationIssueDelai, date, cancellationToken),
+            await JoursOuvrablesAsync(CodesParametresLegaux.RecoursIntroductionDelai, date, cancellationToken),
+            await JoursOuvrablesAsync(CodesParametresLegaux.RecoursDecisionDelai, date, cancellationToken));
+
+    private async Task<int> JoursOuvrablesAsync(string code, DateOnly date, CancellationToken cancellationToken)
+    {
+        var parametre = await projections.ParametreApplicableAsync(code, date, cancellationToken);
+        return parametre is { Unite: UnitesParametreLegal.JoursOuvrables, Valeur: >= 0 } && parametre.Valeur == decimal.Truncate(parametre.Valeur)
+            ? (int)parametre.Valeur
+            : ParametresLegauxParDefaut.Obtenir(code).Valeur;
+    }
 
     /// <summary>
     /// SAN-34 : délais de concertation et de recours en jours ouvrables, avec les jours fériés légaux belges et les jours
@@ -180,7 +196,7 @@ public sealed class ParametresMedicaux(IProjectionRepository projections, Option
     {
         var (debut, fin) = Calendrier.Annees(date);
         var supplementaires = await projections.ListerCalendriersAsync(debut, fin, cancellationToken);
-        return new PolitiqueRecours(Calendrier.Belge(date, supplementaires.SelectMany(c => c.JoursSupplementaires)), options.DelaisRecours);
+        return new PolitiqueRecours(Calendrier.Belge(date, supplementaires.SelectMany(c => c.JoursSupplementaires)), await DelaisRecoursAsync(date, cancellationToken));
     }
 }
 

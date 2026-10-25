@@ -1,5 +1,6 @@
 using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.Contracts.Referentiels;
 
 namespace Sepp.PostesRisques.Application;
 
@@ -31,12 +32,12 @@ internal static class Acces
 /// <summary>
 /// Durée de conservation de l'historique des listes nominatives (AFF-31). La valeur légale est le paramètre
 /// <c>SANTE.LISTES_NOMINATIVES.CONSERVATION</c> du service Référentiels, reçu par l'événement ParametreLegalModifie ;
-/// tant qu'aucune valeur n'a été reçue, la valeur de configuration <c>ListesNominatives:ConservationAnnees</c>
-/// (5 ans par défaut, valeur initiale du paramètre légal) s'applique.
+/// tant qu'aucune valeur n'a été reçue, la valeur initiale du contrat Référentiels (<c>ParametresLegauxParDefaut</c>,
+/// source unique) s'applique.
 /// </summary>
-public sealed class PolitiqueConservationListes(IProjectionRepository projections, ConservationListesOptions options)
+public sealed class PolitiqueConservationListes(IProjectionRepository projections)
 {
-    public const string CodeParametre = "SANTE.LISTES_NOMINATIVES.CONSERVATION";
+    public const string CodeParametre = CodesParametresLegaux.ListesNominativesConservation;
 
     public async Task<int> AnneesAsync(DateOnly date, CancellationToken cancellationToken)
     {
@@ -45,16 +46,10 @@ public sealed class PolitiqueConservationListes(IProjectionRepository projection
         {
             "Annees" => (int)Math.Ceiling(parametre.Valeur),
             "Mois" => (int)Math.Ceiling(parametre.Valeur / 12),
-            _ => options.AnneesParDefaut,
+            _ => ParametresLegauxParDefaut.Obtenir(CodeParametre).Valeur,
         };
         return Math.Max(annees, 1);
     }
-}
-
-public sealed class ConservationListesOptions
-{
-    /// <summary>Valeur par défaut, alignée sur la valeur initiale du paramètre légal (5 ans).</summary>
-    public int AnneesParDefaut { get; set; } = 5;
 }
 
 internal static class Enumerations

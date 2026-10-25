@@ -3,31 +3,23 @@ using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.BuildingBlocks.Domain.Calendar;
 using Sepp.Contracts.Examens;
+using Sepp.Contracts.Referentiels;
 using Sepp.Planification.Domain;
 
 namespace Sepp.Planification.Application;
 
-/// <summary>Paramétrage du service (section <c>Planification</c>). Les valeurs légales viennent en priorité des paramètres légaux reçus.</summary>
+/// <summary>Paramétrage du service (section <c>Planification</c>). Les valeurs légales ne sont pas configurables ici : elles viennent des paramètres légaux reçus de Référentiels, sinon de leur valeur initiale (contrat).</summary>
 public sealed class OptionsPlanification
 {
-    /// <summary>SAN-13 : délai du premier rappel (jours calendrier) tant que CONVOCATION.RAPPEL_1 n'a pas été reçu.</summary>
-    public int Rappel1Jours { get; set; } = 7;
-
-    /// <summary>SAN-13 : délai du second rappel (jours calendrier) tant que CONVOCATION.RAPPEL_2 n'a pas été reçu.</summary>
-    public int Rappel2Jours { get; set; } = 1;
-
-    /// <summary>PLA-06 : délai légal par défaut des urgences (jours ouvrables) tant que le paramètre légal n'a pas été reçu.</summary>
-    public int DelaiUrgenceJoursOuvrables { get; set; } = 10;
-
     /// <summary>
     /// PLA-06 : types d'examen traités comme urgences légales → code du paramètre légal de leur délai. Les codes de type
     /// d'examen sont ceux publiés par le service Obligations (à aligner, voir README).
     /// </summary>
     public Dictionary<string, string> TypesUrgence { get; } = new(StringComparer.Ordinal)
     {
-        [TypesExamen.ExamenReprise] = "SANTE.REPRISE.DELAI",
-        [TypesExamen.ConsultationSpontanee] = "SANTE.CONSULTATION_SPONTANEE.DELAI",
-        [TypesExamen.VisitePreReprise] = "SANTE.PRE_REPRISE.DELAI",
+        [TypesExamen.ExamenReprise] = CodesParametresLegaux.RepriseDelai,
+        [TypesExamen.ConsultationSpontanee] = CodesParametresLegaux.ConsultationSpontaneeDelai,
+        [TypesExamen.VisitePreReprise] = CodesParametresLegaux.PreRepriseDelai,
     };
 
     /// <summary>SAN-11 : types d'acte dont la convocation doit partir en recommandé (par ex. invitations de réintégration).</summary>
@@ -71,19 +63,19 @@ public sealed class OptionsPlanification
 /// </summary>
 public sealed class ParametresPlanification(IParametreLocalRepository parametres, ICalendrierLocalRepository calendriers, OptionsPlanification options)
 {
-    public const string Rappel1 = "CONVOCATION.RAPPEL_1";
-    public const string Rappel2 = "CONVOCATION.RAPPEL_2";
+    public const string Rappel1 = CodesParametresLegaux.ConvocationRappel1;
+    public const string Rappel2 = CodesParametresLegaux.ConvocationRappel2;
 
     public OptionsPlanification Options => options;
 
     public async Task<(int Rappel1, int Rappel2)> DelaisRappelAsync(DateOnly date, CancellationToken cancellationToken) =>
-        (await JoursAsync(Rappel1, date, options.Rappel1Jours, cancellationToken),
-         await JoursAsync(Rappel2, date, options.Rappel2Jours, cancellationToken));
+        (await JoursAsync(Rappel1, date, cancellationToken),
+         await JoursAsync(Rappel2, date, cancellationToken));
 
     /// <summary>Délai légal (jours ouvrables) d'un type d'examen urgent, ou <c>null</c> si le type n'est pas une urgence.</summary>
     public async Task<int?> DelaiUrgenceAsync(string typeExamen, DateOnly date, CancellationToken cancellationToken) =>
         options.TypesUrgence.TryGetValue(typeExamen, out var code)
-            ? await JoursAsync(code, date, options.DelaiUrgenceJoursOuvrables, cancellationToken)
+            ? await JoursAsync(code, date, cancellationToken)
             : null;
 
     public bool EstUrgence(string typeExamen) => options.TypesUrgence.ContainsKey(typeExamen);
@@ -104,10 +96,11 @@ public sealed class ParametresPlanification(IParametreLocalRepository parametres
         return new BusinessCalendar(annees.SelectMany(BelgianPublicHolidays.For).Select(h => h.Date).Concat(supplementaires));
     }
 
-    private async Task<int> JoursAsync(string code, DateOnly date, int defaut, CancellationToken cancellationToken)
+    /// <summary>Valeur reçue de Référentiels, sinon valeur initiale du contrat (source unique, ARC-21).</summary>
+    private async Task<int> JoursAsync(string code, DateOnly date, CancellationToken cancellationToken)
     {
         var parametre = await parametres.ApplicableAsync(code, date, cancellationToken);
-        return parametre is null ? defaut : (int)decimal.Truncate(parametre.Valeur);
+        return parametre is null ? ParametresLegauxParDefaut.Obtenir(code).Valeur : (int)decimal.Truncate(parametre.Valeur);
     }
 }
 

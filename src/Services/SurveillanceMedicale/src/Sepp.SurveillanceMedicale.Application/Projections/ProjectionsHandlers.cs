@@ -155,7 +155,7 @@ public sealed class MesurageEnregistreHandler(IProjectionRepository projections,
 }
 
 /// <summary>
-/// ARC-21 : paramètres légaux utilisés par ce service (conservation du dossier). Le délai de l'examen de reprise
+/// ARC-21 : paramètres légaux utilisés par ce service (conservation du dossier, délais de concertation et de recours, SAN-34). Le délai de l'examen de reprise
 /// (<c>SANTE.REPRISE.DELAI</c>) n'est plus suivi : la date limite est reçue du service Obligations avec l'obligation.
 /// </summary>
 public sealed class ParametreLegalModifieHandler(IProjectionRepository projections, IUnitOfWork unitOfWork) : IIntegrationEventHandler<ParametreLegalModifie>
@@ -163,6 +163,10 @@ public sealed class ParametreLegalModifieHandler(IProjectionRepository projectio
     public static readonly IReadOnlySet<string> ParametresSuivis = new HashSet<string>(StringComparer.Ordinal)
     {
         PolitiqueConservationDossier.CodeParametreMinimum,
+        CodesParametresLegaux.ConcertationIntroductionDelai,
+        CodesParametresLegaux.ConcertationIssueDelai,
+        CodesParametresLegaux.RecoursIntroductionDelai,
+        CodesParametresLegaux.RecoursDecisionDelai,
     };
 
     public async Task HandleAsync(ParametreLegalModifie integrationEvent, CancellationToken cancellationToken)

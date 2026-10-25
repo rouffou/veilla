@@ -4,6 +4,7 @@ using Sepp.BuildingBlocks.Application;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.Contracts.Audit;
+using Sepp.Contracts.Referentiels;
 
 using Shouldly;
 
@@ -178,7 +179,7 @@ public class UseCasesTests
     public async Task La_purge_respecte_la_conservation_minimale()
     {
         var maintenant = new DateTimeOffset(2036, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var handler = new PurgerJournalHandler(_journal, new FixedClock(maintenant));
+        var handler = new PurgerJournalHandler(_journal, new ConservationApplicable(_journal), new FixedClock(maintenant));
 
         (await handler.HandleAsync(new PurgerJournal(5), _ct)).Error!.Kind.ShouldBe(ErrorKind.Validation);
         _journal.Purges.ShouldBeEmpty();
@@ -186,5 +187,44 @@ public class UseCasesTests
         (await handler.HandleAsync(new PurgerJournal(12), _ct)).IsSuccess.ShouldBeTrue();
         _journal.Purges.Count.ShouldBe(3);
         _journal.Purges.ShouldAllBe(p => p.Limite == maintenant.AddYears(-12));
+    }
+
+    [Fact]
+    public async Task Sans_parametre_recu_la_conservation_est_la_valeur_initiale_de_referentiels()
+    {
+        var maintenant = new DateTimeOffset(2036, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        (await new PurgerJournalHandler(_journal, new ConservationApplicable(_journal), new FixedClock(maintenant)).HandleAsync(new PurgerJournal(), _ct)).IsSuccess.ShouldBeTrue();
+
+        _journal.Purges.ShouldAllBe(p => p.Limite == maintenant.AddYears(-ParametresLegauxParDefaut.Obtenir(CodesParametresLegaux.AuditConservation).Valeur));
+    }
+
+    [Fact]
+    public async Task Le_parametre_AUDIT_CONSERVATION_recu_de_referentiels_pilote_la_purge()
+    {
+        var maintenant = new DateTimeOffset(2036, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var handler = new ParametreLegalModifieHandler(_journal);
+        await handler.HandleAsync(new ParametreLegalModifie(CodesParametresLegaux.AuditConservation, 12, UnitesParametreLegal.Annees, new DateOnly(2026, 1, 1), null), _ct);
+        await handler.HandleAsync(new ParametreLegalModifie("SANTE.REPRISE.DELAI", 3, UnitesParametreLegal.JoursOuvrables, new DateOnly(2026, 1, 1), null), _ct);
+
+        _journal.Parametres.ShouldHaveSingleItem();
+        await new PurgerJournalHandler(_journal, new ConservationApplicable(_journal), new FixedClock(maintenant)).HandleAsync(new PurgerJournal(), _ct);
+
+        _journal.Purges.ShouldAllBe(p => p.Limite == maintenant.AddYears(-12));
+    }
+
+    [Fact]
+    public async Task Un_parametre_inferieur_au_minimum_legal_est_ecarte_et_une_valeur_recue_deux_fois_est_mise_a_jour()
+    {
+        var handler = new ParametreLegalModifieHandler(_journal);
+        var debut = new DateOnly(2026, 1, 1);
+        await handler.HandleAsync(new ParametreLegalModifie(CodesParametresLegaux.AuditConservation, 5, UnitesParametreLegal.Annees, debut, null), _ct);
+
+        (await new ConservationApplicable(_journal).AnneesAsync(debut, _ct)).ShouldBe(PolitiqueConservation.MinimumAnnees);
+
+        await handler.HandleAsync(new ParametreLegalModifie(CodesParametresLegaux.AuditConservation, 180, UnitesParametreLegal.Mois, debut, null), _ct);
+
+        _journal.Parametres.ShouldHaveSingleItem();
+        (await new ConservationApplicable(_journal).AnneesAsync(debut, _ct)).ShouldBe(15);
     }
 }

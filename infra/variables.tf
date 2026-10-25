@@ -311,7 +311,9 @@ variable "services" {
       zone             = "standard"
       database         = true
       publishes_events = true
-      subscribes_to    = ["audit"]
+      # audit : traces d'accès (NF-04) ; referentiels : durée de conservation du journal, AUDIT.CONSERVATION (ARC-21).
+      subscribes_to   = ["audit", "referentiels"]
+      subject_filters = { referentiels = ["referentiels.parametre-legal-modifie.v1"] }
     }
 
     # --- Zone médicale (ARC-04) ---
@@ -323,9 +325,11 @@ variable "services" {
       subscribes_to = ["planification", "personnes", "postes-risques", "obligations", "referentiels", "prevention", "documents"]
       # personnes.etat-particulier-declare.v1 est réservé à Obligations (catalogue des événements) ; documents : seule la
       # publication intéresse le service (copie du dossier publiée au travailleur, SAN-43).
+      # referentiels : paramètres légaux (conservation du dossier, délais de concertation et de recours, ARC-21) et jours fériés (DAT-08).
       subject_filters = {
-        personnes = ["personnes.affectation-modifiee.v1"]
-        documents = ["documents.document-publie.v1"]
+        personnes    = ["personnes.affectation-modifiee.v1"]
+        documents    = ["documents.document-publie.v1"]
+        referentiels = ["referentiels.parametre-legal-modifie.v1", "referentiels.jours-feries-modifies.v1"]
       }
       # ARC-04, ARC-45 : clés propres à la zone médicale (Key Vault Premium / HSM de la zone), jamais partagées.
       # Pas d'adaptateur « Reel » : seuls les simulateurs existent, fixés par appsettings.json (le service refuse le reste).

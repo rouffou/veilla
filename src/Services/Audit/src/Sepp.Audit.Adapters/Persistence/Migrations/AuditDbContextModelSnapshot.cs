@@ -202,6 +202,37 @@ namespace Sepp.Audit.Adapters.Persistence.Migrations
                     b.ToTable("sceau_purge", (string)null);
                 });
 
+            modelBuilder.Entity("Sepp.Audit.Domain.Parametres.ParametreLegalLocal", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("code");
+
+                    b.Property<DateOnly>("ValideDu")
+                        .HasColumnType("date")
+                        .HasColumnName("valide_du");
+
+                    b.Property<string>("Unite")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("unite");
+
+                    b.Property<decimal>("Valeur")
+                        .HasColumnType("numeric")
+                        .HasColumnName("valeur");
+
+                    b.Property<DateOnly?>("ValideJusquAu")
+                        .HasColumnType("date")
+                        .HasColumnName("valide_jusqu_au");
+
+                    b.HasKey("Code", "ValideDu")
+                        .HasName("pk_parametre_legal_local");
+
+                    b.ToTable("parametre_legal_local", (string)null);
+                });
+
             modelBuilder.Entity("Sepp.BuildingBlocks.Infrastructure.Messaging.InboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")

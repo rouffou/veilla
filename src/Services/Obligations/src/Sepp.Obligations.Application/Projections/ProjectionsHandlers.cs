@@ -233,7 +233,7 @@ public sealed class ParametreLegalModifieHandler(IProjectionRepository projectio
     public async Task HandleAsync(ParametreLegalModifie integrationEvent, CancellationToken cancellationToken)
     {
         var e = integrationEvent;
-        if (!PolitiquesLegales.ValeursParDefaut.ContainsKey(e.Code))
+        if (!PolitiquesLegalesParDefaut.Defauts.ContainsKey(e.Code))
         {
             return;
         }

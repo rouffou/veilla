@@ -221,7 +221,7 @@ public sealed class SignerDecisionHandler(
             return Error.Validation("decision.examen-non-cloture", "Clôturez l'examen avant de signer la décision.");
         }
 
-        var formulaire = Formulaires.Construire(decision, ExemplaireFormulaire.Dossier, parametres.DelaisRecours, await parametres.PolitiqueRecoursAsync(decision.DateExamen, cancellationToken));
+        var formulaire = Formulaires.Construire(decision, ExemplaireFormulaire.Dossier, await parametres.DelaisRecoursAsync(decision.DateExamen, cancellationToken), await parametres.PolitiqueRecoursAsync(decision.DateExamen, cancellationToken));
         var empreinte = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(formulaire))));
         var signee = await signature.SignerAsync(new DemandeSignature(decision.Id, user.UserId, empreinte), cancellationToken);
 
@@ -342,7 +342,7 @@ public sealed class ObtenirFormulaireHandler(AccesDecisions acces, ParametresMed
         }
 
         var politique = await parametres.PolitiqueRecoursAsync(decision.Value.DateExamen, cancellationToken);
-        return Formulaires.Construire(decision.Value, query.Exemplaire, parametres.DelaisRecours, politique);
+        return Formulaires.Construire(decision.Value, query.Exemplaire, await parametres.DelaisRecoursAsync(decision.Value.DateExamen, cancellationToken), politique);
     }
 }
 

@@ -57,32 +57,25 @@ public static class CodesParametres
     public const string RevueListesNominatives = "SANTE.LISTES_NOMINATIVES.REVUE_ALERTE";
 }
 
+/// <summary>Valeur par défaut d'une durée légale (source unique : <c>ParametresLegauxParDefaut</c> du contrat Référentiels).</summary>
+public sealed record DureeParDefaut(int Valeur, UniteDuree Unite, string BaseLegale);
+
 /// <summary>
 /// Politiques légales alimentées par la projection locale des paramètres du service Référentiels
 /// (referentiels.parametre-legal-modifie). Tant qu'aucune valeur n'a été reçue pour une date — Référentiels ne publie
-/// qu'à la modification d'un paramètre, pas lors de l'initialisation — la valeur par défaut documentée ci-dessous,
-/// identique à la valeur initiale du catalogue des paramètres légaux de Référentiels (réforme du 1er janvier 2026),
-/// s'applique ; la trace de calcul indique la provenance.
+/// qu'à la modification d'un paramètre, pas lors de l'initialisation — la valeur par défaut injectée par la couche
+/// application (identique à la valeur initiale du catalogue de Référentiels, réforme du 1er janvier 2026) s'applique ; la
+/// trace de calcul indique la provenance. Le domaine ne contient aucune valeur légale.
 /// </summary>
 public sealed class PolitiquesLegales : IPolitiquesLegales
 {
-    /// <summary>Valeurs par défaut (§2.1) : valeur initiale du paramètre dans Référentiels.</summary>
-    public static IReadOnlyDictionary<string, (int Valeur, UniteDuree Unite, string BaseLegale)> ValeursParDefaut { get; } =
-        new Dictionary<string, (int, UniteDuree, string)>(StringComparer.Ordinal)
-        {
-            [CodesParametres.RepriseAbsenceMinimum] = (4, UniteDuree.Semaines, "Code du bien-être au travail, livre I, titre 4 (§2.1)"),
-            [CodesParametres.RepriseDelai] = (10, UniteDuree.JoursOuvrables, "Code du bien-être au travail, livre I, titre 4 (§2.1)"),
-            [CodesParametres.ConsultationSpontaneeDelai] = (10, UniteDuree.JoursOuvrables, "Code du bien-être au travail, livre I, titre 4 (§2.1)"),
-            [CodesParametres.PreRepriseDelai] = (10, UniteDuree.JoursOuvrables, "Code du bien-être au travail, livre I, titre 4 (§2.1)"),
-            [CodesParametres.EstimationPotentiel] = (8, UniteDuree.Semaines, "Code du bien-être au travail, livre I, titre 4, chapitre 6 (réforme 2026)"),
-            [CodesParametres.InvitationReintegrationDelai] = (49, UniteDuree.JoursCalendrier, "Code du bien-être au travail, livre I, titre 4, chapitre 6 (réforme 2026)"),
-            [CodesParametres.RevueListesNominatives] = (12, UniteDuree.Mois, "Cahier des charges AFF-32"),
-        };
+    private readonly IReadOnlyDictionary<string, DureeParDefaut> _defauts;
 
     private readonly Dictionary<string, List<ParametreLegalLocal>> _valeurs;
 
-    public PolitiquesLegales(IEnumerable<ParametreLegalLocal> valeurs)
+    public PolitiquesLegales(IEnumerable<ParametreLegalLocal> valeurs, IReadOnlyDictionary<string, DureeParDefaut> defauts)
     {
+        _defauts = defauts;
         _valeurs = valeurs
             .GroupBy(v => v.Code, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(v => v.ValideDu).ToList(), StringComparer.Ordinal);
@@ -100,7 +93,7 @@ public sealed class PolitiquesLegales : IPolitiquesLegales
             }
         }
 
-        if (!ValeursParDefaut.TryGetValue(code, out var defaut))
+        if (!_defauts.TryGetValue(code, out var defaut))
         {
             throw new InvalidOperationException($"Paramètre légal sans valeur par défaut : {code}.");
         }
