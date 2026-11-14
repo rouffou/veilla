@@ -139,7 +139,8 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         serviceProprietaire = "surveillance-medicale",
         objetType = "decision",
         objetId = Guid.CreateVersion7(),
-        typeDestinataire = "Personne",
+        // Casse réelle du service Documents (TypesDestinataire.Code()) : minuscules (#436).
+        typeDestinataire = "personne",
         destinataireId = destinataire,
         exemplaire = "Travailleur",
         format = "PDF/A-1a",

@@ -28,10 +28,13 @@ docker compose -f deploy/local/compose.yaml up -d --build
 
 Définis dans [`keycloak/veilla-realm.json`](keycloak/veilla-realm.json), mot de passe commun `veilla-dev`. Les noms sont fictifs.
 
+Chaque utilisateur a un identifiant (claim `sub`) fixe, défini dans le realm (voir [Portées OIDC](#portées-oidc)).
+
 | Utilisateur | Nom affiché | Rôle |
 |---|---|---|
 | `cpmt` | Anne Martin | `cpmt` (conseiller en prévention-médecin du travail) |
 | `cpmt.dirigeant` | Marc Dubois | `cpmt`, `cpmt-dirigeant` |
+| `cpmt.mfa` | Hélène Fontaine | `cpmt`, avec un OTP de démonstration déjà configuré (voir [Authentification forte](#authentification-forte-nf-01)) |
 | `infirmier` | Sophie Lambert | `infirmier` |
 | `assistant` | Laura Maes | `assistant-medical` (accueil, salle d'attente, questionnaire sur tablette) |
 | `cpap` | Thomas Janssens | `cpap` |
@@ -75,6 +78,32 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:5100/referentiels/api/v
 Le realm n'est importé qu'à la création du conteneur Keycloak (sans volume) : après une modification de
 `veilla-realm.json`, recréez-le (`docker compose -f deploy/local/compose.yaml up -d --force-recreate keycloak`).
 
+## Authentification forte (NF-01)
+
+La démo reste sans friction : aucun utilisateur n'a d'OTP obligatoire à la connexion, et les services tournent en mode souple
+(`Authentication__Strength__Mode` absent, donc `Log` en Development) : une signature ou un accès au dossier de santé sans second
+facteur est **accordé et journalisé** (« NF-01 : authentification forte absente… »). Détails et valeurs :
+[docs/securite/authentification-forte.md](../../docs/securite/authentification-forte.md).
+
+- **Montée en niveau dans le navigateur** : une demande d'autorisation avec `acr_values=mfa` déclenche l'OTP (enrôlement à la
+  première fois pour un utilisateur qui n'en a pas) ; le jeton porte alors `acr=mfa` et `amr=["pwd","otp"]`. Sans demande, le jeton
+  porte `acr=password`.
+- **Utilisateur `cpmt.mfa`** : OTP déjà configuré avec un secret **fictif et public**, réservé à ce realm local
+  (TOTP, SHA-1, 6 chiffres, 30 s). Clé à saisir dans une application d'authentification :
+  `KZCUSTCMIEWUIRKNJ4WU6VCQFVDESQ2UJFDA` (base32 de `VEILLA-DEMO-OTP-FICTIF`). En ligne de commande :
+  `oathtool --totp -b KZCUSTCMIEWUIRKNJ4WU6VCQFVDESQ2UJFDA`. Un même code n'est accepté qu'une fois.
+- **Flux mot de passe** (`veilla-dev-cli`) : inchangé pour tous les comptes de test. Seul un utilisateur qui a configuré un OTP
+  doit ajouter `-d totp=<code>` ; le jeton porte alors `amr=["pwd","otp"]`, accepté comme authentification forte :
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8180/realms/veilla/protocol/openid-connect/token -d grant_type=password \
+  -d client_id=veilla-dev-cli -d username=cpmt.mfa -d password=veilla-dev -d totp=$(oathtool --totp -b KZCUSTCMIEWUIRKNJ4WU6VCQFVDESQ2UJFDA) | jq -r .access_token)
+```
+
+Pour se placer dans les conditions d'Azure, ajoutez `Authentication__Strength__Mode: Enforce` à l'environnement du service : sans
+authentification forte, la signature (`POST /api/v1/decisions/{id}/signature`) et les routes `dossier-sante:*` répondent alors
+401 avec `WWW-Authenticate: Bearer error="insufficient_user_authentication", …, acr_values="mfa"`.
+
 ## Bus d'événements
 
 Les services du `compose.yaml` publient et consomment leurs événements par le **bus de développement PostgreSQL** (ADR 0004, amendement #391) : base `bus` du conteneur `postgres`, publication par l'outbox, consommation par curseur et par abonnement.
@@ -92,6 +121,38 @@ docker compose -f deploy/local/compose.yaml exec postgres psql -U sepp -d bus   
 - Un service lancé hors conteneur (`dotnet run`) n'utilise le bus que si l'on renseigne `ConnectionStrings__BusDeveloppement` (`Host=localhost;Database=bus;Username=sepp;Password=sepp-local-dev`) et `ServiceBus__SubscriptionName` ; sinon il publie en mémoire.
 
 L'émulateur Azure Service Bus n'est pas utilisé : il impose l'acceptation des licences de l'émulateur et de SQL Edge.
+
+## Démo
+
+Une commande repart d'un environnement vierge et le remplit de **données fictives** pour une démonstration (épique #389, lot G #393) :
+
+```bash
+deploy/local/demo.sh            # PowerShell : deploy/local/demo.ps1
+```
+
+Le script enchaîne `docker compose down -v`, `up -d --build`, l'attente de tous les `/health/ready` (délai maximal 15 minutes) puis l'outil [`tools/donnees-demo/Sepp.Outils.DonneesDemo`](../../tools/donnees-demo/Sepp.Outils.DonneesDemo) lancé par `dotnet run` (SDK .NET 10 requis sur le poste ; les ports et l'émetteur Keycloak sont ceux de `localhost`, d'où une exécution hors conteneur plutôt qu'un service compose).
+
+**Attention : `down -v` efface les volumes du projet** (bases PostgreSQL, Keycloak, documents). Le script demande de taper `OUI`, sauf avec `--oui` (`-Oui` en PowerShell). Autres options : `--projet <nom>` (projet compose distinct de `veilla`, par exemple pour un essai ; les volumes de `veilla` ne sont alors pas touchés), `--seulement-amorcage` (relance l'outil seul, sans rien effacer), `--delai <s>`.
+
+L'outil n'appelle que les API des services (jeton par rôle obtenu par le flux mot de passe de `veilla-dev-cli`, aucun SQL) et l'API d'administration de Keycloak (`admin` / `admin-local-dev`) pour renseigner `affilie_id` (compte `employeur`) et `personne_id` (compte `travailleur`). Il ne référence aucun projet de service : les contrats sont recopiés, les DTO minimaux.
+
+- **Déterministe et fictif** : mêmes noms, adresses, NISS (contrôle modulo 97 valide, numéro d'ordre arbitraire) et numéros BCE à chaque exécution ; les dates sont relatives à aujourd'hui (fuseau Europe/Brussels).
+- **Idempotent** : il cherche avant de créer (BCE, NISS, noms de poste, lieux, ressources par `sub`, modèles d'agenda, rendez-vous). Le manifeste de l'exécution précédente sert de mémoire pour l'examen en cours et la décision en brouillon, que l'API ne permet pas de lister.
+- **Attentes** : après chaque flux entre services (obligations, projections, documents), l'outil interroge l'API avec un délai maximal et un message clair ; un échec d'une étape est consigné dans les avertissements et n'arrête pas les suivantes (code de sortie 1).
+- **Sorties** : résumé imprimé (comptes, parcours, travailleuse à chercher, contrôles) et manifeste `deploy/local/demo/manifeste.json` (identifiants, constats, avertissements ; non versionné).
+
+| Contenu | Détail |
+|---|---|
+| Affiliés | Boulangerie Démo SRL (Bruxelles, FR), Zorg Demo vzw (Gand, NL), Construct Démo SA (Liège, FR) ; un groupe rattache la Boulangerie et Construct |
+| Postes | 6 par affilié, profils de risques validés par le CPMT à partir du jeu d'exemple `risques-exemple.csv` ; une proposition refusée ; une proposition soumise par l'employeur |
+| Travailleurs | 40 en FR, NL et DE, occupations de 3 ans à 3 mois, affectations aux postes |
+| Planification | lieux Bruxelles et Gand, ressources CPMT, infirmier et CPMT dirigeant (`ReferenceId` = `sub` du jeton), créneaux de J à J+30, 5 rendez-vous aujourd'hui pour le CPMT puis d'autres, avec convocations |
+| Documents | modèles de départ du formulaire d'évaluation validés puis publiés (sinon la signature ne génère aucun document) |
+| Santé | 16 dossiers, 8 décisions signées (documents FR et NL générés), hépatite B doses 1 et 2 avec rappel dû, un examen en cours, **une décision en brouillon à signer en direct** |
+| Réintégration | 2 incapacités, un trajet avec invitation (évaluation en attente), un délai dépassé |
+| Comptes externes | `employeur` voit la Boulangerie et Construct ; `travailleur` est la travailleuse à chercher (annonce de reprise, demande de copie et proposition de risque faites avec leurs jetons) |
+
+Limites connues : le BFF travailleur n'affiche pas encore les documents publiés (ticket #436, le contrôle P11 reste en échec) ; s'il est tard dans la journée ou si c'est un week-end ou un jour férié, il reste moins de cinq créneaux libres « aujourd'hui » (l'outil le signale et reporte les rendez-vous au prochain jour ouvrable) ; ne lancez pas la démo avec le profil `par-zone`.
 
 ## Lancer un service hors conteneur
 
@@ -125,4 +186,8 @@ Le script `init-databases.sql` ne s'exécute qu'à la création du volume Postgr
 
 ## Portées OIDC
 
-Le realm déclare les portées `profile`, `email`, `offline_access` (rôle `offline_access` donné aux utilisateurs de test) et `sepp-api` : les portails demandent `openid profile email offline_access`.
+Le realm déclare les portées `basic`, `profile`, `email`, `offline_access` (rôle `offline_access` donné aux utilisateurs de test) et `sepp-api` : les portails demandent `openid profile email offline_access`.
+
+La portée `basic` reprend le scope intégré de Keycloak (depuis la version 25), qu'un realm importé avec ses propres `clientScopes` ne reçoit pas : elle émet `sub` (identifiant de l'utilisateur lu par les services : audit, relation de soin, auteur des actions) et `auth_time`. Elle est une portée par défaut de tous les clients. `auth_time` n'apparaît qu'après une authentification par le navigateur (flux code des portails), pas dans les jetons du flux mot de passe de `veilla-dev-cli` ni des comptes techniques : si `Authentication__Strength__MaxAge` est renseigné, ces jetons ne satisfont donc pas l'authentification forte.
+
+Les utilisateurs et comptes de service du realm ont un identifiant fixe (`0192a5c8-0000-7000-8001-…` pour les utilisateurs de test, `…-8002-…` pour les comptes de service) : le claim `sub` reste le même quand le conteneur Keycloak est recréé, et les données déjà en base (auteurs, ressources de Planification, journal d'audit) restent rattachées au bon utilisateur.

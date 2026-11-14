@@ -1,0 +1,1682 @@
+{
+  "components": {
+    "schemas": {
+      "AvisCpptSaisie": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "documentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "CategorieRisque": {
+        "enum": [
+          "Chimique",
+          "Physique",
+          "Biologique",
+          "Ergonomique",
+          "Psychosocial",
+          "PosteSecurite",
+          "PosteVigilance",
+          "TravailNuit",
+          "Conduite",
+          "DenreesAlimentaires",
+          "Autre",
+          null
+        ]
+      },
+      "CibleSurcharge": {
+        "enum": [
+          "Poste",
+          "Groupe",
+          "Personne",
+          null
+        ]
+      },
+      "Cloture": {
+        "properties": {
+          "fin": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fin"
+        ],
+        "type": "object"
+      },
+      "CreerPoste": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "intitule": {
+            "type": "string"
+          },
+          "metierTypeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "affilieId",
+          "intitule",
+          "description",
+          "metierTypeCode"
+        ],
+        "type": "object"
+      },
+      "CreerRisque": {
+        "properties": {
+          "categorie": {
+            "$ref": "#/components/schemas/CategorieRisque"
+          },
+          "code": {
+            "type": "string"
+          },
+          "libelle": {
+            "$ref": "#/components/schemas/LibellesDto"
+          },
+          "referenceLegale": {
+            "type": "string"
+          },
+          "regle": {
+            "$ref": "#/components/schemas/RegleSaisie"
+          }
+        },
+        "required": [
+          "code",
+          "categorie",
+          "libelle",
+          "referenceLegale",
+          "regle"
+        ],
+        "type": "object"
+      },
+      "DecisionRefus": {
+        "properties": {
+          "motif": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "motif"
+        ],
+        "type": "object"
+      },
+      "DecisionValidation": {
+        "properties": {
+          "dateAvisCppt": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "documentAvisCpptId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "dateAvisCppt",
+          "documentAvisCpptId"
+        ],
+        "type": "object"
+      },
+      "DefinirSurchargeFrequence": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "cibleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "cibleType": {
+            "$ref": "#/components/schemas/CibleSurcharge"
+          },
+          "frequenceMois": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "motif": {
+            "type": "string"
+          },
+          "risqueCode": {
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "affilieId",
+          "cibleType",
+          "cibleId",
+          "risqueCode",
+          "frequenceMois",
+          "motif",
+          "valideDu",
+          "valideJusquAu"
+        ],
+        "type": "object"
+      },
+      "DemandeLigneListe": {
+        "properties": {
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "posteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeModification"
+          }
+        },
+        "required": [
+          "type",
+          "personneId",
+          "posteId"
+        ],
+        "type": "object"
+      },
+      "DocumentListe": {
+        "properties": {
+          "documentId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "GenerationListe": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dateReference": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeListeNominative"
+          }
+        },
+        "required": [
+          "affilieId",
+          "type",
+          "dateReference"
+        ],
+        "type": "object"
+      },
+      "LibellesDto": {
+        "properties": {
+          "de": {
+            "type": "string"
+          },
+          "en": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fr": {
+            "type": "string"
+          },
+          "nl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fr",
+          "nl",
+          "de",
+          "en"
+        ],
+        "type": "object"
+      },
+      "LigneRisqueSaisie": {
+        "properties": {
+          "niveauExposition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NiveauExposition"
+              }
+            ]
+          },
+          "risqueCode": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeModification"
+          }
+        },
+        "required": [
+          "type",
+          "risqueCode",
+          "niveauExposition"
+        ],
+        "type": "object"
+      },
+      "ModificationPoste": {
+        "properties": {
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "intitule": {
+            "type": "string"
+          },
+          "metierTypeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "intitule",
+          "description",
+          "metierTypeCode"
+        ],
+        "type": "object"
+      },
+      "NiveauExposition": {
+        "enum": [
+          "Faible",
+          "Moyen",
+          "Eleve",
+          null
+        ]
+      },
+      "NouvellePropositionListe": {
+        "properties": {
+          "lignes": {
+            "items": {
+              "$ref": "#/components/schemas/DemandeLigneListe"
+            },
+            "type": "array"
+          },
+          "motif": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "motif",
+          "lignes"
+        ],
+        "type": "object"
+      },
+      "NouvellePropositionPosteRisque": {
+        "properties": {
+          "avisCppt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AvisCpptSaisie"
+              }
+            ]
+          },
+          "lignes": {
+            "items": {
+              "$ref": "#/components/schemas/LigneRisqueSaisie"
+            },
+            "type": "array"
+          },
+          "motif": {
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "motif",
+          "valideDu",
+          "lignes",
+          "avisCppt"
+        ],
+        "type": "object"
+      },
+      "RegleSaisie": {
+        "properties": {
+          "actesSupplementaires": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "frequenceMois": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "surveillanceProlongee": {
+            "type": "boolean"
+          },
+          "typeSurveillance": {
+            "$ref": "#/components/schemas/TypeSurveillance"
+          },
+          "vaccins": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "typeSurveillance",
+          "frequenceMois",
+          "actesSupplementaires",
+          "vaccins",
+          "surveillanceProlongee",
+          "valideDu"
+        ],
+        "type": "object"
+      },
+      "StatutPoste": {
+        "enum": [
+          "Actif",
+          "Archive",
+          null
+        ]
+      },
+      "StatutProposition": {
+        "enum": [
+          "Soumise",
+          "Validee",
+          "Refusee",
+          null
+        ]
+      },
+      "TypeListeNominative": {
+        "enum": [
+          "PosteSecurite",
+          "PosteVigilance",
+          "ActiviteRisqueDefini",
+          "ActiviteDenreesAlimentaires",
+          "TravailNuit",
+          null
+        ]
+      },
+      "TypeModification": {
+        "enum": [
+          "Ajout",
+          "Modification",
+          "Retrait"
+        ]
+      },
+      "TypeSurveillance": {
+        "enum": [
+          "EvaluationSantePeriodique",
+          "ActesMedicauxSupplementaires",
+          "EvaluationPrealableUniquement"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.PostesRisques | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/listes-nominatives": {
+      "get": {
+        "operationId": "ListerListesNominatives",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "$ref": "#/components/schemas/TypeListeNominative"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Historique des versions des listes d\u0027un affili\u00E9 (AFF-31).",
+        "tags": [
+          "Listes nominatives"
+        ]
+      },
+      "post": {
+        "operationId": "GenererListeNominative",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationListe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Nouvelle version de la liste nominative d\u0027un type, avec la date de la derni\u00E8re \u00E9valuation (AFF-30).",
+        "tags": [
+          "Listes nominatives"
+        ]
+      }
+    },
+    "/api/v1/listes-nominatives/{id}": {
+      "get": {
+        "operationId": "ObtenirListeNominative",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Listes nominatives"
+        ]
+      }
+    },
+    "/api/v1/listes-nominatives/{id}/document": {
+      "put": {
+        "operationId": "AssocierDocumentListeNominative",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentListe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Listes nominatives"
+        ]
+      }
+    },
+    "/api/v1/listes-nominatives/{id}/propositions": {
+      "post": {
+        "operationId": "ProposerModificationListeNominative",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NouvellePropositionListe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Proposition de modification d\u0027une liste (employeur via le portail), soumise au CPMT (AFF-31).",
+        "tags": [
+          "Listes nominatives"
+        ]
+      }
+    },
+    "/api/v1/postes": {
+      "get": {
+        "operationId": "ListerPostes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "$ref": "#/components/schemas/StatutPoste"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Catalogue des postes d\u0027un affili\u00E9, risques en vigueur \u00E0 une date (AFF-10).",
+        "tags": [
+          "Postes"
+        ]
+      },
+      "post": {
+        "operationId": "CreerPoste",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerPoste"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Postes"
+        ]
+      }
+    },
+    "/api/v1/postes/{id}": {
+      "get": {
+        "operationId": "ObtenirPoste",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Poste et historique complet de ses liens aux risques (DAT-04).",
+        "tags": [
+          "Postes"
+        ]
+      },
+      "put": {
+        "operationId": "ModifierPoste",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModificationPoste"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Postes"
+        ]
+      }
+    },
+    "/api/v1/postes/{id}/archivage": {
+      "post": {
+        "operationId": "ArchiverPoste",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Postes"
+        ]
+      }
+    },
+    "/api/v1/postes/{id}/profil-risques": {
+      "get": {
+        "operationId": "ObtenirProfilRisquesPoste",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Risques du poste \u00E0 une date et r\u00E8gles de surveillance qu\u0027ils portent (AFF-11, AFF-12).",
+        "tags": [
+          "Postes"
+        ]
+      }
+    },
+    "/api/v1/postes/{id}/propositions": {
+      "post": {
+        "operationId": "ProposerModificationProfilRisques",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NouvellePropositionPosteRisque"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Proposition de modification du lien poste \u2194 risque, sans effet avant la validation du CPMT (AFF-14, AFF-31).",
+        "tags": [
+          "Postes"
+        ]
+      }
+    },
+    "/api/v1/postes/{id}/reactivation": {
+      "post": {
+        "operationId": "ReactiverPoste",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Postes"
+        ]
+      }
+    },
+    "/api/v1/propositions-liste-nominative": {
+      "get": {
+        "operationId": "ListerPropositionsListeNominative",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "affilieId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "$ref": "#/components/schemas/StatutProposition"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Listes nominatives"
+        ]
+      }
+    },
+    "/api/v1/propositions-liste-nominative/{id}": {
+      "get": {
+        "operationId": "ObtenirPropositionListeNominative",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Listes nominatives"
+        ]
+      }
+    },
+    "/api/v1/propositions-liste-nominative/{id}/refus": {
+      "post": {
+        "operationId": "RefuserPropositionListeNominative",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRefus"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Listes nominatives"
+        ]
+      }
+    },
+    "/api/v1/propositions-liste-nominative/{id}/validation": {
+      "post": {
+        "operationId": "ValiderPropositionListeNominative",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Validation par le CPMT : nouvelle version de la liste (AFF-31).",
+        "tags": [
+          "Listes nominatives"
+        ]
+      }
+    },
+    "/api/v1/propositions-poste-risque": {
+      "get": {
+        "operationId": "ListerPropositionsPosteRisque",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "affilieId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "posteId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "$ref": "#/components/schemas/StatutProposition"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Propositions poste-risque"
+        ]
+      }
+    },
+    "/api/v1/propositions-poste-risque/{id}": {
+      "get": {
+        "operationId": "ObtenirPropositionPosteRisque",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Propositions poste-risque"
+        ]
+      }
+    },
+    "/api/v1/propositions-poste-risque/{id}/avis-cppt": {
+      "post": {
+        "operationId": "JoindreAvisCppt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvisCpptSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Avis du Comit\u00E9 PPT : date et pi\u00E8ce jointe (AFF-14).",
+        "tags": [
+          "Propositions poste-risque"
+        ]
+      }
+    },
+    "/api/v1/propositions-poste-risque/{id}/refus": {
+      "post": {
+        "operationId": "RefuserPropositionPosteRisque",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRefus"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Propositions poste-risque"
+        ]
+      }
+    },
+    "/api/v1/propositions-poste-risque/{id}/validation": {
+      "post": {
+        "operationId": "ValiderPropositionPosteRisque",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionValidation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Validation par le CPMT : le profil est appliqu\u00E9 et ProfilRisquePosteModifie publi\u00E9 (AFF-14).",
+        "tags": [
+          "Propositions poste-risque"
+        ]
+      }
+    },
+    "/api/v1/risques": {
+      "get": {
+        "operationId": "ListerRisques",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "categorie",
+            "schema": {
+              "$ref": "#/components/schemas/CategorieRisque"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "R\u00E9f\u00E9rentiel des risques (annexe I.4-5) et r\u00E8gle applicable \u00E0 une date (AFF-11, AFF-12).",
+        "tags": [
+          "Risques"
+        ]
+      },
+      "post": {
+        "operationId": "CreerRisque",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerRisque"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Risques"
+        ]
+      }
+    },
+    "/api/v1/risques/import": {
+      "post": {
+        "operationId": "ImporterRisques",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "valideDu",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "text/csv": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Import CSV (s\u00E9parateur \u00AB ; \u00BB) du r\u00E9f\u00E9rentiel des risques et de leurs r\u00E8gles, atomique et idempotent (AFF-11).",
+        "tags": [
+          "Risques"
+        ]
+      }
+    },
+    "/api/v1/risques/{code}": {
+      "get": {
+        "operationId": "ObtenirRisque",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Risques"
+        ]
+      }
+    },
+    "/api/v1/risques/{code}/regles": {
+      "post": {
+        "operationId": "DefinirRegleSurveillance",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegleSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Nouvelle version de la r\u00E8gle de surveillance ; la r\u00E8gle en vigueur est cl\u00F4tur\u00E9e (AFF-12, DAT-04).",
+        "tags": [
+          "Risques"
+        ]
+      }
+    },
+    "/api/v1/surcharges-frequence": {
+      "get": {
+        "operationId": "ListerSurchargesFrequence",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cibleType",
+            "schema": {
+              "$ref": "#/components/schemas/CibleSurcharge"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cibleId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Surcharges de fr\u00E9quence"
+        ]
+      },
+      "post": {
+        "operationId": "DefinirSurchargeFrequence",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinirSurchargeFrequence"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Surcharge de fr\u00E9quence par le CPMT : poste, groupe ou travailleur, motif et p\u00E9riode (AFF-13).",
+        "tags": [
+          "Surcharges de fr\u00E9quence"
+        ]
+      }
+    },
+    "/api/v1/surcharges-frequence/{id}/cloture": {
+      "post": {
+        "operationId": "CloturerSurchargeFrequence",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Cloture"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Surcharges de fr\u00E9quence"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Postes"
+    },
+    {
+      "name": "Propositions poste-risque"
+    },
+    {
+      "name": "Risques"
+    },
+    {
+      "name": "Surcharges de fr\u00E9quence"
+    },
+    {
+      "name": "Listes nominatives"
+    }
+  ]
+}

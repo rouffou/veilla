@@ -1,0 +1,1344 @@
+{
+  "components": {
+    "schemas": {
+      "AbsenceSaisieDto": {
+        "properties": {
+          "dateRendezVous": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dateRendezVous"
+        ],
+        "type": "object"
+      },
+      "AnnulationDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "type": "object"
+      },
+      "ConclusionEvaluation": {
+        "enum": [
+          "TravailAdapteOuAutrePossible",
+          "AucunTravailEnvisageable"
+        ]
+      },
+      "DemanderTrajet": {
+        "properties": {
+          "dateDemande": {
+            "format": "date",
+            "type": "string"
+          },
+          "incapaciteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "initiateur": {
+            "$ref": "#/components/schemas/InitiateurTrajet"
+          }
+        },
+        "required": [
+          "incapaciteId",
+          "initiateur",
+          "dateDemande"
+        ],
+        "type": "object"
+      },
+      "DestinataireEHealth": {
+        "enum": [
+          "MedecinTraitant",
+          "MedecinConseil",
+          "CoordinateurRetourAuTravail"
+        ]
+      },
+      "EffectifDto": {
+        "properties": {
+          "effectif": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "effectif"
+        ],
+        "type": "object"
+      },
+      "EstimationSaisieDto": {
+        "properties": {
+          "commentaire": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "methode": {
+            "type": "string"
+          },
+          "resultat": {
+            "$ref": "#/components/schemas/ResultatEstimation"
+          }
+        },
+        "required": [
+          "date",
+          "resultat",
+          "methode",
+          "commentaire"
+        ],
+        "type": "object"
+      },
+      "EvaluationDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "date",
+          "note"
+        ],
+        "type": "object"
+      },
+      "FinIncapaciteDto": {
+        "properties": {
+          "dernierJour": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dernierJour"
+        ],
+        "type": "object"
+      },
+      "FinTrajetDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "issue": {
+            "$ref": "#/components/schemas/IssueTrajet"
+          }
+        },
+        "required": [
+          "date",
+          "issue"
+        ],
+        "type": "object"
+      },
+      "FormulaireDto": {
+        "properties": {
+          "conclusion": {
+            "$ref": "#/components/schemas/ConclusionEvaluation"
+          },
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "documentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "date",
+          "conclusion",
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "InformationDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "documentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "date",
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "InitiateurTrajet": {
+        "enum": [
+          "Travailleur",
+          "MedecinTraitant",
+          "MedecinConseil",
+          "Employeur",
+          "Cpmt"
+        ]
+      },
+      "InvitationDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "documentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recommandee": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "date",
+          "recommandee",
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "IssueTrajet": {
+        "enum": [
+          "PlanAccepte",
+          "PlanRefuse",
+          "RapportMotive",
+          "Annule"
+        ]
+      },
+      "ObjetEchange": {
+        "enum": [
+          "NotificationAbsences",
+          "InformationTrajet",
+          "DemandeInformation",
+          "Reponse",
+          "Autre"
+        ]
+      },
+      "PreparerEchange": {
+        "properties": {
+          "accordTravailleur": {
+            "type": "boolean"
+          },
+          "contenu": {
+            "type": "string"
+          },
+          "destinataire": {
+            "$ref": "#/components/schemas/DestinataireEHealth"
+          },
+          "incapaciteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "objet": {
+            "$ref": "#/components/schemas/ObjetEchange"
+          },
+          "referenceDestinataire": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trajetId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "incapaciteId",
+          "trajetId",
+          "destinataire",
+          "objet",
+          "contenu",
+          "referenceDestinataire",
+          "accordTravailleur"
+        ],
+        "type": "object"
+      },
+      "ReponseEmployeur": {
+        "enum": [
+          "PlanReintegration",
+          "RapportMotive"
+        ]
+      },
+      "ReponseEmployeurDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "documentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reponse": {
+            "$ref": "#/components/schemas/ReponseEmployeur"
+          }
+        },
+        "required": [
+          "reponse",
+          "date",
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "ReponseTravailleur": {
+        "enum": [
+          "Acceptation",
+          "Refus"
+        ]
+      },
+      "ReponseTravailleurDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "reponse": {
+            "$ref": "#/components/schemas/ReponseTravailleur"
+          }
+        },
+        "required": [
+          "reponse",
+          "date"
+        ],
+        "type": "object"
+      },
+      "ResultatEstimation": {
+        "enum": [
+          "RepriseTravailConvenu",
+          "TrajetIndique",
+          "RepriseNonEnvisageable",
+          "EstimationImpossible"
+        ]
+      },
+      "SaisirIncapacite": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dateDebut": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateFinPrevue": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId",
+          "affilieId",
+          "dateDebut",
+          "dateFinPrevue"
+        ],
+        "type": "object"
+      },
+      "StatutEcheance": {
+        "enum": [
+          "AVenir",
+          "Proche",
+          "Depassee",
+          "Respectee",
+          null
+        ]
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Reintegration | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/affilies/{affilieId}/trajets": {
+      "get": {
+        "operationId": "SuivreTrajetsAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-62 : statuts, \u00E9ch\u00E9ances et conclusion du formulaire des trajets de l\u0027affili\u00E9 (employeur et SIPP limit\u00E9s \u00E0 leur affili\u00E9).",
+        "tags": [
+          "Suivi employeur (sans donn\u00E9e m\u00E9dicale)"
+        ]
+      }
+    },
+    "/api/v1/echanges-ehealth": {
+      "post": {
+        "operationId": "PreparerEchangeEHealth",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreparerEchange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-64 : message au m\u00E9decin traitant (accord du travailleur), au m\u00E9decin-conseil ou au coordinateur Retour au travail.",
+        "tags": [
+          "\u00C9changes eHealth (SAN-64)"
+        ]
+      }
+    },
+    "/api/v1/echanges-ehealth/receptions": {
+      "post": {
+        "operationId": "RecevoirEchangesEHealth",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "\u00C9changes eHealth (SAN-64)"
+        ]
+      }
+    },
+    "/api/v1/echanges-ehealth/{id}/relance": {
+      "post": {
+        "operationId": "RelancerEchangeEHealth",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "\u00C9changes eHealth (SAN-64)"
+        ]
+      }
+    },
+    "/api/v1/incapacites": {
+      "get": {
+        "operationId": "RechercherIncapacites",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "personneId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Dossiers d\u0027une personne : identifiants, dates et statuts (chaque dossier trouv\u00E9 est trac\u00E9).",
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      },
+      "post": {
+        "operationId": "SaisirIncapacite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisirIncapacite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-60 : saisie manuelle d\u0027une notification d\u0027incapacit\u00E9 re\u00E7ue hors flux eHealth.",
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/incapacites/{id}": {
+      "get": {
+        "operationId": "ObtenirIncapacite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Dossier de r\u00E9int\u00E9gration : estimations, trajets et \u00E9ch\u00E9ances l\u00E9gales.",
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/incapacites/{id}/annulation": {
+      "post": {
+        "operationId": "AnnulerIncapacite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Notification erron\u00E9e : annulation et compensation du trajet rattach\u00E9.",
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/incapacites/{id}/echanges-ehealth": {
+      "get": {
+        "operationId": "ListerEchangesEHealth",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/incapacites/{id}/effectif-employeur": {
+      "put": {
+        "operationId": "DefinirEffectifEmployeur",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EffectifDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Effectif de l\u0027employeur : trajet obligatoire \u00E0 partir de REINTEGRATION.SEUIL_TRAVAILLEURS.",
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/incapacites/{id}/estimations": {
+      "post": {
+        "operationId": "EstimerPotentielTravail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimationSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-61 : estimation du potentiel de travail par le CPMT ou l\u0027infirmier (commentaire chiffr\u00E9).",
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/incapacites/{id}/fin": {
+      "post": {
+        "operationId": "TerminerIncapacite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinIncapaciteDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/incapacites/{id}/information-travailleur": {
+      "post": {
+        "operationId": "InformerTravailleur",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InformationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-60 : information du travailleur (d\u00E8s REINTEGRATION.INFORMATION_TRAVAILLEUR d\u0027incapacit\u00E9).",
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/incapacites/{id}/prise-en-charge": {
+      "post": {
+        "operationId": "PrendreEnChargeIncapacite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "L\u0027utilisateur devient gestionnaire du dossier (relation de soin ; motif exig\u00E9 s\u0027il ne l\u0027\u00E9tait pas).",
+        "tags": [
+          "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+        ]
+      }
+    },
+    "/api/v1/tableau-de-bord/delais": {
+      "get": {
+        "operationId": "ObtenirTableauDeBordDelais",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "affilieId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "$ref": "#/components/schemas/StatutEcheance"
+            }
+          },
+          {
+            "in": "query",
+            "name": "inclureRespectees",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-65 : \u00E9ch\u00E9ances l\u00E9gales des dossiers et trajets ouverts, alertes avant d\u00E9passement (Proche) et d\u00E9passements.",
+        "tags": [
+          "Tableau de bord des d\u00E9lais (SAN-65)"
+        ]
+      }
+    },
+    "/api/v1/trajets": {
+      "post": {
+        "operationId": "DemanderTrajet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemanderTrajet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-62 : demande de trajet ; publie reintegration.trajet-demarre.",
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}": {
+      "get": {
+        "operationId": "ObtenirTrajet",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}/absences": {
+      "post": {
+        "operationId": "SignalerAbsenceRendezVous",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbsenceSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-63 : absence \u00E0 un rendez-vous ; au seuil, information du m\u00E9decin-conseil par eHealth.",
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}/annulation": {
+      "post": {
+        "operationId": "AnnulerTrajet",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnulationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Compensation : arr\u00EAt du trajet, envois eHealth non effectu\u00E9s annul\u00E9s, trajet-termine(ANNULE).",
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}/evaluation": {
+      "post": {
+        "operationId": "EvaluerReintegration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}/fin": {
+      "post": {
+        "operationId": "TerminerTrajet",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinTrajetDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Fin du trajet ; publie reintegration.trajet-termine.",
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}/formulaire": {
+      "post": {
+        "operationId": "EtablirFormulaireReintegration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormulaireDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}/invitation": {
+      "post": {
+        "operationId": "InviterTravailleur",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}/reponse-employeur": {
+      "post": {
+        "operationId": "DeposerReponseEmployeur",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReponseEmployeurDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Plan de r\u00E9int\u00E9gration ou rapport motiv\u00E9 de l\u0027employeur (r\u00E9f\u00E9rence au document).",
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    },
+    "/api/v1/trajets/{id}/reponse-travailleur": {
+      "post": {
+        "operationId": "EnregistrerReponseTravailleur",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReponseTravailleurDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Acceptation ou refus du plan (REINTEGRATION.REPONSE_PLAN.DELAI).",
+        "tags": [
+          "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Dossiers d\u0027incapacit\u00E9 (SAN-60, SAN-61)"
+    },
+    {
+      "name": "Trajets de r\u00E9int\u00E9gration (SAN-62, SAN-63)"
+    },
+    {
+      "name": "\u00C9changes eHealth (SAN-64)"
+    },
+    {
+      "name": "Tableau de bord des d\u00E9lais (SAN-65)"
+    },
+    {
+      "name": "Suivi employeur (sans donn\u00E9e m\u00E9dicale)"
+    }
+  ]
+}

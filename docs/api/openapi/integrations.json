@@ -1,0 +1,522 @@
+{
+  "components": {
+    "schemas": {
+      "DefinirCorrespondance": {
+        "properties": {
+          "identifiantInterne": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "typeExterne": {
+            "$ref": "#/components/schemas/TypeIdentifiantExterne"
+          },
+          "typeInterne": {
+            "$ref": "#/components/schemas/TypeObjetInterne"
+          },
+          "valeurExterne": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "typeExterne",
+          "valeurExterne",
+          "typeInterne",
+          "identifiantInterne"
+        ],
+        "type": "object"
+      },
+      "DemandeConsultationBce": {
+        "properties": {
+          "numeroBce": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "numeroBce"
+        ],
+        "type": "object"
+      },
+      "StatutEchange": {
+        "enum": [
+          "Recu",
+          "Traite",
+          "Rejete",
+          "EnErreur"
+        ]
+      },
+      "TypeIdentifiantExterne": {
+        "enum": [
+          "NumeroBce",
+          "ReferenceDimona",
+          "ReferenceIncapacite",
+          null
+        ]
+      },
+      "TypeObjetInterne": {
+        "enum": [
+          "Affilie",
+          "Occupation",
+          "Incapacite"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Integrations | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/bce/entreprises/{numeroBce}": {
+      "get": {
+        "operationId": "ObtenirEntrepriseBce",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "numeroBce",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Derni\u00E8res donn\u00E9es BCE re\u00E7ues d\u0027une entreprise, unit\u00E9s d\u0027\u00E9tablissement et adresses comprises.",
+        "tags": [
+          "BCE"
+        ]
+      }
+    },
+    "/api/v1/correspondances": {
+      "get": {
+        "operationId": "ListerCorrespondances",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "$ref": "#/components/schemas/TypeIdentifiantExterne"
+            }
+          },
+          {
+            "in": "query",
+            "name": "valeur",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "identifiantInterne",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "\u00A715.3 : correspondances identifiant externe \u2194 identifiant interne (jamais de NISS).",
+        "tags": [
+          "Correspondances d\u0027identifiants"
+        ]
+      },
+      "put": {
+        "operationId": "DefinirCorrespondance",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinirCorrespondance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Cr\u00E9e ou met \u00E0 jour une correspondance (reprise de donn\u00E9es) ; idempotent.",
+        "tags": [
+          "Correspondances d\u0027identifiants"
+        ]
+      }
+    },
+    "/api/v1/flux/bce/consultations": {
+      "post": {
+        "operationId": "ConsulterBce",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeConsultationBce"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Consultation BCE d\u0027une entreprise \u00E0 la demande ; une consultation identique le m\u00EAme jour renvoie l\u0027\u00E9change existant.",
+        "tags": [
+          "Suivi des flux"
+        ]
+      }
+    },
+    "/api/v1/flux/erreurs": {
+      "get": {
+        "operationId": "ListerErreursFlux",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "flux",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "du",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "au",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "taille",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "INT-02 : \u00E9changes rejet\u00E9s ou en erreur.",
+        "tags": [
+          "Suivi des flux"
+        ]
+      }
+    },
+    "/api/v1/flux/journal": {
+      "get": {
+        "operationId": "ListerJournalFlux",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "flux",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "items": {
+                "$ref": "#/components/schemas/StatutEchange"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "du",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "au",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "taille",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "INT-02 : \u00E9changes journalis\u00E9s, filtr\u00E9s par flux (bce, dimona, registre-national), statut et p\u00E9riode.",
+        "tags": [
+          "Suivi des flux"
+        ]
+      }
+    },
+    "/api/v1/flux/journal/{id}": {
+      "get": {
+        "operationId": "ObtenirEchangeFlux",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Suivi des flux"
+        ]
+      }
+    },
+    "/api/v1/flux/journal/{id}/relance": {
+      "post": {
+        "operationId": "RelancerEchangeFlux",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "INT-02 : relance manuelle d\u0027un \u00E9change rejet\u00E9 ou en erreur ; sans effet sur un \u00E9change d\u00E9j\u00E0 trait\u00E9 (idempotent).",
+        "tags": [
+          "Suivi des flux"
+        ]
+      }
+    },
+    "/api/v1/flux/volumes": {
+      "get": {
+        "operationId": "ObtenirVolumesFlux",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "du",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "au",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "INT-02 : volumes par flux, par jour et sur la p\u00E9riode (30 derniers jours par d\u00E9faut, 366 au plus).",
+        "tags": [
+          "Suivi des flux"
+        ]
+      }
+    },
+    "/api/v1/flux/{flux}/executions": {
+      "post": {
+        "operationId": "LancerFlux",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "flux",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Lance un flux \u00E0 la demande (bce, dimona, registre-national) : r\u00E9ception, journalisation et traitement.",
+        "tags": [
+          "Suivi des flux"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Suivi des flux"
+    },
+    {
+      "name": "Correspondances d\u0027identifiants"
+    },
+    {
+      "name": "BCE"
+    }
+  ]
+}

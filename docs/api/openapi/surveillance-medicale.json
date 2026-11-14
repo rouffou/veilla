@@ -1,0 +1,3637 @@
+{
+  "components": {
+    "schemas": {
+      "ActeSaisi": {
+        "properties": {
+          "commentaire": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mesures": {
+            "items": {
+              "$ref": "#/components/schemas/MesureSaisie"
+            },
+            "type": "array"
+          },
+          "typeActe": {
+            "$ref": "#/components/schemas/TypeActe"
+          }
+        },
+        "required": [
+          "typeActe",
+          "mesures",
+          "commentaire",
+          "date"
+        ],
+        "type": "object"
+      },
+      "AjustementSaisi": {
+        "properties": {
+          "delta": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "delta"
+        ],
+        "type": "object"
+      },
+      "CategorieDecision": {
+        "enum": [
+          "Apte",
+          "ApteAvecMesures",
+          "InaptitudeTemporaire",
+          "InaptitudeDefinitive",
+          "Mutation",
+          "EcartementMaternite"
+        ]
+      },
+      "CategoriePieceJointe": {
+        "enum": [
+          "RapportSpecialiste",
+          "Imagerie",
+          "ResultatExterne",
+          "Correspondance",
+          "DossierRecu",
+          "Autre"
+        ]
+      },
+      "ClotureSaisie": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "type": "object"
+      },
+      "ContenuDecisionSaisi": {
+        "properties": {
+          "categorie": {
+            "$ref": "#/components/schemas/CategorieDecision"
+          },
+          "justification": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mesures": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "recommandations": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "categorie",
+          "mesures",
+          "valideJusquAu",
+          "justification",
+          "recommandations"
+        ],
+        "type": "object"
+      },
+      "DecisionPropositionSaisie": {
+        "properties": {
+          "acceptee": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "acceptee"
+        ],
+        "type": "object"
+      },
+      "DeclarationMpSaisie": {
+        "properties": {
+          "agentCausal": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "codeMaladie": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "codeMaladie",
+          "description",
+          "agentCausal"
+        ],
+        "type": "object"
+      },
+      "DefinirDureeConservation": {
+        "properties": {
+          "annees": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "baseLegale": {
+            "type": "string"
+          },
+          "codeAgent": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "codeAgent",
+          "annees",
+          "baseLegale"
+        ],
+        "type": "object"
+      },
+      "DefinirSchemaVaccinal": {
+        "properties": {
+          "codesRisques": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "intervallesMois": {
+            "items": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "libelle": {
+            "$ref": "#/components/schemas/LibelleDto"
+          },
+          "nombreDoses": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "rappelMois": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "vaccinCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "vaccinCode",
+          "libelle",
+          "codesRisques",
+          "nombreDoses",
+          "intervallesMois",
+          "rappelMois"
+        ],
+        "type": "object"
+      },
+      "DefinirValeurReference": {
+        "properties": {
+          "codeMesure": {
+            "type": "string"
+          },
+          "libelle": {
+            "$ref": "#/components/schemas/LibelleDto"
+          },
+          "maximum": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "minimum": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "typeActe": {
+            "$ref": "#/components/schemas/TypeActe"
+          },
+          "unite": {
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "typeActe",
+          "codeMesure",
+          "libelle",
+          "unite",
+          "minimum",
+          "maximum",
+          "valideDu"
+        ],
+        "type": "object"
+      },
+      "DemandeInformationSaisie": {
+        "properties": {
+          "dateDemande": {
+            "format": "date",
+            "type": "string"
+          },
+          "echeance": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "objet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dateDemande",
+          "echeance",
+          "objet"
+        ],
+        "type": "object"
+      },
+      "ExemplaireFormulaire": {
+        "enum": [
+          "Employeur",
+          "Travailleur",
+          "Dossier"
+        ]
+      },
+      "ExpositionSaisie": {
+        "properties": {
+          "agent": {
+            "type": "string"
+          },
+          "debut": {
+            "format": "date",
+            "type": "string"
+          },
+          "fin": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "niveau": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent",
+          "niveau",
+          "debut",
+          "fin"
+        ],
+        "type": "object"
+      },
+      "GestionnaireSaisi": {
+        "properties": {
+          "cpmtId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cpmtId"
+        ],
+        "type": "object"
+      },
+      "GroupeSaisi": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "groupeExpositionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "groupeExpositionId",
+          "affilieId",
+          "valideDu",
+          "valideJusquAu"
+        ],
+        "type": "object"
+      },
+      "ImportSaisi": {
+        "properties": {
+          "contenu": {
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "format": {
+            "type": "string"
+          },
+          "typeActe": {
+            "$ref": "#/components/schemas/TypeActe"
+          }
+        },
+        "required": [
+          "typeActe",
+          "format",
+          "contenu",
+          "date"
+        ],
+        "type": "object"
+      },
+      "IssueRecours": {
+        "enum": [
+          "Confirmee",
+          "Reformee",
+          "Irrecevable",
+          "Desistement"
+        ]
+      },
+      "IssueSaisie": {
+        "properties": {
+          "commentaire": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateIssue": {
+            "format": "date",
+            "type": "string"
+          },
+          "issue": {
+            "$ref": "#/components/schemas/IssueRecours"
+          },
+          "reformation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContenuDecisionSaisi"
+              }
+            ]
+          }
+        },
+        "required": [
+          "issue",
+          "dateIssue",
+          "reformation",
+          "commentaire"
+        ],
+        "type": "object"
+      },
+      "LectureTestSaisie": {
+        "properties": {
+          "dateLecture": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "indurationMm": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "resultat": {
+            "$ref": "#/components/schemas/ResultatTuberculinique"
+          }
+        },
+        "required": [
+          "dateLecture",
+          "resultat",
+          "indurationMm"
+        ],
+        "type": "object"
+      },
+      "LibelleDto": {
+        "properties": {
+          "de": {
+            "type": "string"
+          },
+          "en": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fr": {
+            "type": "string"
+          },
+          "nl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fr",
+          "nl",
+          "de"
+        ],
+        "type": "object"
+      },
+      "MesureSaisie": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "texte": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unite": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "valeur": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "valeur",
+          "unite",
+          "texte"
+        ],
+        "type": "object"
+      },
+      "ModeleTexteSaisi": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "rubrique": {
+            "$ref": "#/components/schemas/RubriqueModeleTexte"
+          },
+          "texte": {
+            "type": "string"
+          },
+          "titre": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "rubrique",
+          "titre",
+          "texte"
+        ],
+        "type": "object"
+      },
+      "MotifRefusCopie": {
+        "enum": [
+          "AucunDossier",
+          "IdentiteNonConfirmee"
+        ]
+      },
+      "MotifSaisi": {
+        "properties": {
+          "motif": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "motif"
+        ],
+        "type": "object"
+      },
+      "MotifTransfert": {
+        "enum": [
+          "ChangementEmployeur",
+          "OperationAffilie",
+          "DemandeTravailleur"
+        ]
+      },
+      "NouvelleQuestion": {
+        "properties": {
+          "choix": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "libelle": {
+            "$ref": "#/components/schemas/LibelleDto"
+          },
+          "obligatoire": {
+            "type": "boolean"
+          },
+          "typeReponse": {
+            "$ref": "#/components/schemas/TypeReponse"
+          }
+        },
+        "required": [
+          "code",
+          "libelle",
+          "typeReponse",
+          "obligatoire",
+          "choix"
+        ],
+        "type": "object"
+      },
+      "ObservationSaisie": {
+        "properties": {
+          "anamnese": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "examenClinique": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "anamnese",
+          "examenClinique"
+        ],
+        "type": "object"
+      },
+      "OuvrirDossier": {
+        "properties": {
+          "gestionnaireCpmtId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId",
+          "gestionnaireCpmtId"
+        ],
+        "type": "object"
+      },
+      "OuvrirExamen": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dossierId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rendezVousId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "typeExamen": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "dossierId",
+          "typeExamen",
+          "affilieId",
+          "rendezVousId",
+          "date"
+        ],
+        "type": "object"
+      },
+      "PieceJointeSaisie": {
+        "properties": {
+          "categorie": {
+            "$ref": "#/components/schemas/CategoriePieceJointe"
+          },
+          "dateDocument": {
+            "format": "date",
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "documentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "titre": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "categorie",
+          "titre",
+          "description",
+          "dateDocument"
+        ],
+        "type": "object"
+      },
+      "PoseTestSaisie": {
+        "properties": {
+          "datePose": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "datePose"
+        ],
+        "type": "object"
+      },
+      "PreRemplirQuestionnaire": {
+        "properties": {
+          "modeleCode": {
+            "type": "string"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reponses": {
+            "items": {
+              "$ref": "#/components/schemas/ReponseSaisie"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "personneId",
+          "modeleCode",
+          "reponses"
+        ],
+        "type": "object"
+      },
+      "PublierModeleQuestionnaire": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/NouvelleQuestion"
+            },
+            "type": "array"
+          },
+          "titre": {
+            "$ref": "#/components/schemas/LibelleDto"
+          }
+        },
+        "required": [
+          "code",
+          "titre",
+          "questions"
+        ],
+        "type": "object"
+      },
+      "QuestionnaireSaisi": {
+        "properties": {
+          "examenId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "modeleCode": {
+            "type": "string"
+          },
+          "reponses": {
+            "items": {
+              "$ref": "#/components/schemas/ReponseSaisie"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "modeleCode",
+          "reponses",
+          "examenId"
+        ],
+        "type": "object"
+      },
+      "ReceptionnerLot": {
+        "properties": {
+          "centreId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "numeroLot": {
+            "type": "string"
+          },
+          "peremption": {
+            "format": "date",
+            "type": "string"
+          },
+          "quantite": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "vaccinCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "centreId",
+          "vaccinCode",
+          "numeroLot",
+          "peremption",
+          "quantite"
+        ],
+        "type": "object"
+      },
+      "RecevoirDossier": {
+        "properties": {
+          "contrepartie": {
+            "type": "string"
+          },
+          "empreinte": {
+            "type": "string"
+          },
+          "motif": {
+            "$ref": "#/components/schemas/MotifTransfert"
+          },
+          "paquet": {
+            "type": "string"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "referenceCanal": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId",
+          "contrepartie",
+          "motif",
+          "paquet",
+          "empreinte",
+          "referenceCanal"
+        ],
+        "type": "object"
+      },
+      "RecoursSaisi": {
+        "properties": {
+          "dateIntroduction": {
+            "format": "date",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeRecours"
+          }
+        },
+        "required": [
+          "type",
+          "dateIntroduction"
+        ],
+        "type": "object"
+      },
+      "RefusCopieSaisi": {
+        "properties": {
+          "motif": {
+            "$ref": "#/components/schemas/MotifRefusCopie"
+          }
+        },
+        "required": [
+          "motif"
+        ],
+        "type": "object"
+      },
+      "RefusPurgeSaisi": {
+        "properties": {
+          "motif": {
+            "type": "string"
+          },
+          "prolongationAnnees": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "prolongationAnnees",
+          "motif"
+        ],
+        "type": "object"
+      },
+      "ReponseInformationSaisie": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "reponse": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "reponse"
+        ],
+        "type": "object"
+      },
+      "ReponseSaisie": {
+        "properties": {
+          "codeQuestion": {
+            "type": "string"
+          },
+          "valeur": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "codeQuestion",
+          "valeur"
+        ],
+        "type": "object"
+      },
+      "ResultatTuberculinique": {
+        "enum": [
+          "Negatif",
+          "Positif",
+          "Douteux"
+        ]
+      },
+      "RubriqueModeleTexte": {
+        "enum": [
+          "Anamnese",
+          "ExamenClinique",
+          "Decision",
+          "Recommandation",
+          "Courrier"
+        ]
+      },
+      "StatutDemandeCopie": {
+        "enum": [
+          "Deposee",
+          "Validee",
+          "Publiee",
+          "Refusee",
+          null
+        ]
+      },
+      "TransfertSaisi": {
+        "properties": {
+          "contrepartie": {
+            "type": "string"
+          },
+          "motif": {
+            "$ref": "#/components/schemas/MotifTransfert"
+          }
+        },
+        "required": [
+          "contrepartie",
+          "motif"
+        ],
+        "type": "object"
+      },
+      "TypeActe": {
+        "enum": [
+          "Biometrie",
+          "Vision",
+          "Audiometrie",
+          "Spirometrie",
+          "Ecg",
+          "Biologie"
+        ]
+      },
+      "TypeRecours": {
+        "enum": [
+          "Concertation",
+          "RecoursMedecinInspecteur"
+        ]
+      },
+      "TypeReponse": {
+        "enum": [
+          "OuiNon",
+          "Texte",
+          "Nombre",
+          "Choix"
+        ]
+      },
+      "VaccinationSaisie": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dose": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "lotId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "remarque": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vaccinCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "vaccinCode",
+          "dose",
+          "date",
+          "lotId",
+          "remarque"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.SurveillanceMedicale | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/centres/{centreId}/stock-vaccins": {
+      "get": {
+        "operationId": "ObtenirStockVaccins",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "centreId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-51 : stock par vaccin, lots p\u00E9rim\u00E9s ou p\u00E9rimant dans les 30 jours.",
+        "tags": [
+          "Stock de vaccins"
+        ]
+      }
+    },
+    "/api/v1/decisions": {
+      "get": {
+        "operationId": "ListerDecisionsPersonne",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "personneId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "\u00A73.3 : d\u00E9cisions \u00E9mises d\u0027une personne (cat\u00E9gorie, mesures, validit\u00E9 ; jamais de motif m\u00E9dical).",
+        "tags": [
+          "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/decisions/{id}": {
+      "get": {
+        "operationId": "ObtenirDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+        ]
+      },
+      "put": {
+        "operationId": "ModifierDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContenuDecisionSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/decisions/{id}/complete": {
+      "get": {
+        "operationId": "ObtenirDecisionComplete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "D\u00E9cision avec justification, recommandations et proc\u00E9dures (zone m\u00E9dicale).",
+        "tags": [
+          "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/decisions/{id}/formulaire": {
+      "get": {
+        "operationId": "ObtenirFormulaireEvaluationSante",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "exemplaire",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ExemplaireFormulaire"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-30 : donn\u00E9es du formulaire (annexe I.4-2) par exemplaire : Employeur, Travailleur, Dossier.",
+        "tags": [
+          "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/decisions/{id}/recours": {
+      "post": {
+        "operationId": "IntroduireRecours",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoursSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-34 : concertation ou recours aupr\u00E8s du m\u00E9decin-inspecteur social (d\u00E9lais calcul\u00E9s).",
+        "tags": [
+          "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/decisions/{id}/recours/{recoursId}/issue": {
+      "post": {
+        "operationId": "EnregistrerIssueRecours",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "recoursId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-34 : issue (d\u00E9cision du m\u00E9decin-inspecteur social) ; une d\u00E9cision r\u00E9form\u00E9e est retransmise.",
+        "tags": [
+          "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/decisions/{id}/signature": {
+      "post": {
+        "operationId": "SignerDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-32, SAN-33 : signature qualifi\u00E9e du CPMT puis \u00E9mission (DecisionEmise) ; authentification forte exig\u00E9e (NF-01).",
+        "tags": [
+          "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/declarations-mp/{id}": {
+      "get": {
+        "operationId": "ObtenirDeclarationMp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Maladies professionnelles (Fedris)"
+        ]
+      }
+    },
+    "/api/v1/declarations-mp/{id}/demandes-information": {
+      "post": {
+        "operationId": "EnregistrerDemandeInformationFedris",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeInformationSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Maladies professionnelles (Fedris)"
+        ]
+      }
+    },
+    "/api/v1/declarations-mp/{id}/demandes-information/{demandeId}/reponse": {
+      "post": {
+        "operationId": "RepondreDemandeInformationFedris",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "demandeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReponseInformationSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Maladies professionnelles (Fedris)"
+        ]
+      }
+    },
+    "/api/v1/declarations-mp/{id}/envoi": {
+      "post": {
+        "operationId": "EnvoyerDeclarationMp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-70 : envoi \u00E0 Fedris (et au m\u00E9decin-inspecteur social).",
+        "tags": [
+          "Maladies professionnelles (Fedris)"
+        ]
+      }
+    },
+    "/api/v1/declarations-mp/{id}/suivi": {
+      "post": {
+        "operationId": "SuivreDeclarationMp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-71 : mise \u00E0 jour du statut aupr\u00E8s de Fedris.",
+        "tags": [
+          "Maladies professionnelles (Fedris)"
+        ]
+      }
+    },
+    "/api/v1/demandes-copie": {
+      "get": {
+        "operationId": "ListerDemandesCopie",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "$ref": "#/components/schemas/StatutDemandeCopie"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-43 : file de travail du CPMT (d\u00E9pos\u00E9es par d\u00E9faut), par date limite.",
+        "tags": [
+          "Copie du dossier et carnet de vaccination (travailleur)"
+        ]
+      },
+      "post": {
+        "operationId": "DeposerDemandeCopie",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-43 : le travailleur (claim personne_id) demande la copie de son dossier de sant\u00E9 ; aucun contenu m\u00E9dical.",
+        "tags": [
+          "Copie du dossier et carnet de vaccination (travailleur)"
+        ]
+      }
+    },
+    "/api/v1/demandes-copie/miennes": {
+      "get": {
+        "operationId": "ListerMesDemandesCopie",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-43 : suivi de ses demandes par le travailleur (statut, date limite, document publi\u00E9).",
+        "tags": [
+          "Copie du dossier et carnet de vaccination (travailleur)"
+        ]
+      }
+    },
+    "/api/v1/demandes-copie/{id}/contenu": {
+      "get": {
+        "operationId": "ObtenirContenuCopie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-43 : contenu d\u0027une copie valid\u00E9e, pour le seul service Documents (compte technique) ; journalis\u00E9 comme export.",
+        "tags": [
+          "Copie du dossier et carnet de vaccination (travailleur)"
+        ]
+      }
+    },
+    "/api/v1/demandes-copie/{id}/refus": {
+      "post": {
+        "operationId": "RefuserDemandeCopie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefusCopieSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-43 : refus pour un motif cod\u00E9 (AucunDossier, IdentiteNonConfirmee).",
+        "tags": [
+          "Copie du dossier et carnet de vaccination (travailleur)"
+        ]
+      }
+    },
+    "/api/v1/demandes-copie/{id}/validation": {
+      "post": {
+        "operationId": "ValiderDemandeCopie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-43 : le CPMT valide l\u0027export ; Documents g\u00E9n\u00E8re et publie la copie au travailleur (zone m\u00E9dicale).",
+        "tags": [
+          "Copie du dossier et carnet de vaccination (travailleur)"
+        ]
+      }
+    },
+    "/api/v1/dossiers": {
+      "get": {
+        "operationId": "TrouverDossierSante",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "personneId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Identifiant et statut du dossier d\u0027une personne (sans contenu clinique, journalis\u00E9).",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      },
+      "post": {
+        "operationId": "OuvrirDossierSante",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OuvrirDossier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-40 : ouverture du dossier unique de la personne (transversal aux employeurs).",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}": {
+      "get": {
+        "operationId": "ObtenirDossierSante",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Parties du dossier (art. I.4-85 \u00E0 I.4-87) : expositions, pi\u00E8ces jointes, questionnaires, vaccinations.",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/archivage": {
+      "post": {
+        "operationId": "ArchiverDossier",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-44 : archivage et calcul de la date de purge (minimum l\u00E9gal \u2265 15 ans, dur\u00E9es par exposition).",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/consultation": {
+      "get": {
+        "operationId": "ObtenirVueConsultation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-20 : vue \u00AB poste de consultation \u00BB (postes et risques, historique, examens dus, questionnaires, r\u00E9sultats, alertes, rappels).",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/declarations-mp": {
+      "post": {
+        "operationId": "PreparerDeclarationMp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclarationMpSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-70 : d\u00E9claration de maladie professionnelle pr\u00E9remplie depuis le dossier.",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/export": {
+      "get": {
+        "operationId": "ExporterDossierSante",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-43 : export structur\u00E9 (JSON) du dossier pour le droit d\u0027acc\u00E8s du travailleur ; journalis\u00E9 comme export.",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/expositions": {
+      "post": {
+        "operationId": "AjouterExposition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpositionSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/gestionnaire": {
+      "put": {
+        "operationId": "ChangerGestionnaireDossier",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GestionnaireSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/groupes-exposition": {
+      "post": {
+        "operationId": "RattacherGroupeExposition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupeSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-40 : rattachement \u00E0 un groupe d\u0027exposition ; ses mesurages (Pr\u00E9vention) alimentent les donn\u00E9es d\u0027exposition.",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/pieces-jointes": {
+      "post": {
+        "operationId": "AjouterPieceJointe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PieceJointeSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-41 : pi\u00E8ce jointe (fichier stock\u00E9 par le service Documents, r\u00E9f\u00E9rence document_id).",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/questionnaires": {
+      "post": {
+        "operationId": "EnregistrerQuestionnaire",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionnaireSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/questionnaires/{modeleCode}/pre-rempli": {
+      "get": {
+        "operationId": "ObtenirQuestionnairePreRempli",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "modeleCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-22 : mod\u00E8le et derni\u00E8res r\u00E9ponses de la personne pour pr\u00E9-remplir une saisie.",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/tests-tuberculiniques": {
+      "post": {
+        "operationId": "PoserTestTuberculinique",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoseTestSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/tests-tuberculiniques/{testId}/lecture": {
+      "post": {
+        "operationId": "LireTestTuberculinique",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "testId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LectureTestSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/transferts": {
+      "post": {
+        "operationId": "DemanderTransfertDossier",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransfertSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-42 : demande de transfert du dossier vers un autre SEPP ou SIPP.",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/vaccinations": {
+      "post": {
+        "operationId": "AdministrerVaccin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaccinationSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-50, SAN-51 : vaccination (lot d\u00E9compt\u00E9 du stock) ; publie VaccinationAdministree.",
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dossiers/{id}/vaccinations/rappels": {
+      "get": {
+        "operationId": "ObtenirRappelsVaccinaux",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Dossier de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/examens": {
+      "post": {
+        "operationId": "OuvrirExamen",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OuvrirExamen"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Ouverture d\u0027un examen, de pr\u00E9f\u00E9rence sur un rendez-vous planifi\u00E9 (affili\u00E9 et obligations repris).",
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
+    "/api/v1/examens/{id}": {
+      "get": {
+        "operationId": "ObtenirExamen",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
+    "/api/v1/examens/{id}/actes": {
+      "post": {
+        "operationId": "EnregistrerActe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActeSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-21, SAN-23 : biom\u00E9trie, vision, audiom\u00E9trie, spirom\u00E9trie, ECG, biologie ; alerte et proposition de fr\u00E9quence si inhabituel.",
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
+    "/api/v1/examens/{id}/cloture": {
+      "post": {
+        "operationId": "CloturerExamen",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClotureSaisie"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Cl\u00F4ture : obligations satisfaites, ExamenCloture publi\u00E9 (type et date uniquement).",
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
+    "/api/v1/examens/{id}/decision": {
+      "post": {
+        "operationId": "RedigerDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContenuDecisionSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-31 : r\u00E9daction de la d\u00E9cision d\u0027\u00E9valuation de sant\u00E9 (brouillon).",
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
+    "/api/v1/examens/{id}/imports": {
+      "post": {
+        "operationId": "ImporterAppareil",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-21 : import direct d\u0027un appareil (HL7 v2 ORU, CSV, SIMULATEUR).",
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
+    "/api/v1/examens/{id}/observation": {
+      "put": {
+        "operationId": "SaisirObservationClinique",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObservationSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-21 : anamn\u00E8se et examen clinique (chiffr\u00E9s).",
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
+    "/api/v1/examens/{id}/propositions-frequence/{propositionId}": {
+      "post": {
+        "operationId": "DeciderPropositionFrequence",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "propositionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionPropositionSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-23 : acceptation ou refus de l\u0027augmentation de fr\u00E9quence (art. I.4-32).",
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
+    "/api/v1/lots-vaccins": {
+      "post": {
+        "operationId": "ReceptionnerLotVaccins",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceptionnerLot"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-51 : r\u00E9ception d\u0027un lot (num\u00E9ro, p\u00E9remption, quantit\u00E9) dans un centre.",
+        "tags": [
+          "Stock de vaccins"
+        ]
+      }
+    },
+    "/api/v1/lots-vaccins/{id}/ajustement": {
+      "post": {
+        "operationId": "AjusterLotVaccins",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AjustementSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Stock de vaccins"
+        ]
+      }
+    },
+    "/api/v1/modeles-texte": {
+      "get": {
+        "operationId": "ListerModelesTexte",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-24 : mod\u00E8les de texte du CPMT connect\u00E9 (la dict\u00E9e vocale est hors p\u00E9rim\u00E8tre).",
+        "tags": [
+          "Mod\u00E8les de texte du CPMT"
+        ]
+      },
+      "post": {
+        "operationId": "CreerModeleTexte",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeleTexteSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Mod\u00E8les de texte du CPMT"
+        ]
+      }
+    },
+    "/api/v1/modeles-texte/{id}": {
+      "delete": {
+        "operationId": "SupprimerModeleTexte",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Mod\u00E8les de texte du CPMT"
+        ]
+      },
+      "put": {
+        "operationId": "ModifierModeleTexte",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeleTexteSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Mod\u00E8les de texte du CPMT"
+        ]
+      }
+    },
+    "/api/v1/protocoles/durees-conservation": {
+      "get": {
+        "operationId": "ListerDureesConservation",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Protocoles m\u00E9dicaux"
+        ]
+      },
+      "put": {
+        "operationId": "DefinirDureeConservation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinirDureeConservation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-44 : dur\u00E9e de conservation par type d\u0027exposition (\u2265 15 ans).",
+        "tags": [
+          "Protocoles m\u00E9dicaux"
+        ]
+      }
+    },
+    "/api/v1/protocoles/questionnaires": {
+      "get": {
+        "operationId": "ListerModelesQuestionnaire",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Protocoles m\u00E9dicaux"
+        ]
+      },
+      "post": {
+        "operationId": "PublierModeleQuestionnaire",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublierModeleQuestionnaire"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Protocoles m\u00E9dicaux"
+        ]
+      }
+    },
+    "/api/v1/protocoles/schemas-vaccinaux": {
+      "get": {
+        "operationId": "ListerSchemasVaccinaux",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Protocoles m\u00E9dicaux"
+        ]
+      },
+      "post": {
+        "operationId": "DefinirSchemaVaccinal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinirSchemaVaccinal"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-50 : sch\u00E9ma vaccinal par risque ou p\u00E9riodicit\u00E9 des tests tuberculiniques.",
+        "tags": [
+          "Protocoles m\u00E9dicaux"
+        ]
+      }
+    },
+    "/api/v1/protocoles/valeurs-reference": {
+      "get": {
+        "operationId": "ListerValeursReference",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Protocoles m\u00E9dicaux"
+        ]
+      },
+      "post": {
+        "operationId": "DefinirValeurReference",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinirValeurReference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-23 : valeur de r\u00E9f\u00E9rence (la pr\u00E9c\u00E9dente est cl\u00F4tur\u00E9e, DAT-04).",
+        "tags": [
+          "Protocoles m\u00E9dicaux"
+        ]
+      }
+    },
+    "/api/v1/purges/preuves": {
+      "get": {
+        "operationId": "ListerPreuvesDestruction",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Conservation et purge"
+        ]
+      }
+    },
+    "/api/v1/purges/propositions": {
+      "get": {
+        "operationId": "ListerPurgesProposees",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Conservation et purge"
+        ]
+      },
+      "post": {
+        "operationId": "ProposerPurges",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "NF-22 : liste des dossiers dont la conservation est \u00E9chue, propos\u00E9s \u00E0 la purge (aucune destruction).",
+        "tags": [
+          "Conservation et purge"
+        ]
+      }
+    },
+    "/api/v1/purges/{dossierId}/refus": {
+      "post": {
+        "operationId": "RefuserPurge",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dossierId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefusPurgeSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Conservation et purge"
+        ]
+      }
+    },
+    "/api/v1/purges/{dossierId}/validation": {
+      "post": {
+        "operationId": "ValiderPurge",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dossierId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MotifSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-44 : validation humaine par le responsable du traitement ; destruction et preuve de destruction.",
+        "tags": [
+          "Conservation et purge"
+        ]
+      }
+    },
+    "/api/v1/questionnaires/pre-remplissage": {
+      "post": {
+        "operationId": "PreRemplirQuestionnaire",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreRemplirQuestionnaire"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-22 : questionnaire rempli \u00E0 l\u0027avance (portail ou tablette) ; \u00E9criture seule, sans lecture du dossier.",
+        "tags": [
+          "Questionnaires de sant\u00E9"
+        ]
+      }
+    },
+    "/api/v1/transferts/entrants": {
+      "post": {
+        "operationId": "RecevoirDossier",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecevoirDossier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-42 : r\u00E9ception d\u0027un dossier entrant (contr\u00F4le d\u0027int\u00E9grit\u00E9 par empreinte SHA-256).",
+        "tags": [
+          "Transferts de dossiers"
+        ]
+      }
+    },
+    "/api/v1/transferts/{id}": {
+      "get": {
+        "operationId": "ObtenirTransfert",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Transferts de dossiers"
+        ]
+      }
+    },
+    "/api/v1/transferts/{id}/integration": {
+      "post": {
+        "operationId": "IntegrerTransfert",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Transferts de dossiers"
+        ]
+      }
+    },
+    "/api/v1/transferts/{id}/transmission": {
+      "post": {
+        "operationId": "TransmettreTransfert",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-42 : export chiffr\u00E9 du dossier et transmission par le canal s\u00E9curis\u00E9 (\u00E0 confirmer).",
+        "tags": [
+          "Transferts de dossiers"
+        ]
+      }
+    },
+    "/api/v1/vaccinations/{vaccinationId}/carnet": {
+      "get": {
+        "operationId": "ObtenirCarnetVaccination",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vaccinationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-50 : carnet de vaccination \u00E0 jour d\u0027une vaccination, pour le seul service Documents ; journalis\u00E9 comme export.",
+        "tags": [
+          "Copie du dossier et carnet de vaccination (travailleur)"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Dossier de sant\u00E9"
+    },
+    {
+      "name": "Examens et consultation"
+    },
+    {
+      "name": "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
+    },
+    {
+      "name": "Stock de vaccins"
+    },
+    {
+      "name": "Copie du dossier et carnet de vaccination (travailleur)"
+    },
+    {
+      "name": "Questionnaires de sant\u00E9"
+    },
+    {
+      "name": "Protocoles m\u00E9dicaux"
+    },
+    {
+      "name": "Mod\u00E8les de texte du CPMT"
+    },
+    {
+      "name": "Conservation et purge"
+    },
+    {
+      "name": "Maladies professionnelles (Fedris)"
+    },
+    {
+      "name": "Transferts de dossiers"
+    }
+  ]
+}

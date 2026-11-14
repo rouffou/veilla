@@ -1,0 +1,730 @@
+{
+  "components": {
+    "schemas": {
+      "LigneListeSaisie": {
+        "properties": {
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "posteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "personneId",
+          "posteId"
+        ],
+        "type": "object"
+      },
+      "LigneRisqueSaisie": {
+        "properties": {
+          "niveauExposition": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "risqueCode": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "risqueCode",
+          "niveauExposition"
+        ],
+        "type": "object"
+      },
+      "PropositionListeCorps": {
+        "properties": {
+          "lignes": {
+            "items": {
+              "$ref": "#/components/schemas/LigneListeSaisie"
+            },
+            "type": "array"
+          },
+          "motif": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "motif",
+          "lignes"
+        ],
+        "type": "object"
+      },
+      "PropositionPosteCorps": {
+        "properties": {
+          "lignes": {
+            "items": {
+              "$ref": "#/components/schemas/LigneRisqueSaisie"
+            },
+            "type": "array"
+          },
+          "motif": {
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "motif",
+          "valideDu",
+          "lignes"
+        ],
+        "type": "object"
+      },
+      "RepriseAnnonceCorps": {
+        "properties": {
+          "dateReprise": {
+            "format": "date",
+            "type": "string"
+          },
+          "debutAbsence": {
+            "format": "date",
+            "type": "string"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId",
+          "dateReprise",
+          "debutAbsence"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Bff.Employeur | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/affilies": {
+      "get": {
+        "operationId": "MesAffilies",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Affili\u00E9s repr\u00E9sent\u00E9s par l\u0027utilisateur (claim affilie_id), pour le s\u00E9lecteur du portail (POR-01).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}": {
+      "get": {
+        "operationId": "FicheAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Identit\u00E9, sites et contacts en vigueur de l\u0027affili\u00E9 (AFF-01 \u00E0 AFF-03).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/listes-nominatives": {
+      "get": {
+        "operationId": "ListesNominatives",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-06 : versions des listes nominatives de l\u0027affili\u00E9 (AFF-30, AFF-31).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/listes-nominatives/{listeId}": {
+      "get": {
+        "operationId": "ListeNominative",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "listeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Une version de liste avec ses lignes (noms des travailleurs et intitul\u00E9s des postes).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/listes-nominatives/{listeId}/csv": {
+      "get": {
+        "operationId": "TelechargerListeNominative",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "listeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-06 : t\u00E9l\u00E9chargement CSV d\u0027une version de liste nominative (PDF : service Documents, \u00E0 venir).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/listes-nominatives/{listeId}/propositions": {
+      "post": {
+        "operationId": "ProposerModificationListe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "listeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropositionListeCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-03 : proposition d\u0027ajustement d\u0027une liste nominative, soumise au CPMT (AFF-31).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/postes": {
+      "get": {
+        "operationId": "PostesEtRisques",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-03 : catalogue des postes et risques en vigueur (AFF-10, AFF-11).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/postes/{posteId}/propositions": {
+      "post": {
+        "operationId": "ProposerModificationPoste",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "posteId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropositionPosteCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-03 : proposition de modification du profil de risques, soumise \u00E0 la validation du CPMT (AFF-14).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/propositions": {
+      "get": {
+        "operationId": "PropositionsAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-03 : \u00E9tat des propositions soumises (soumise, valid\u00E9e, refus\u00E9e et motif).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/reprises": {
+      "get": {
+        "operationId": "ReprisesAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-04 : suivi des reprises annonc\u00E9es (statut et date limite, sans donn\u00E9e m\u00E9dicale).",
+        "tags": [
+          "Portail employeur"
+        ]
+      },
+      "post": {
+        "operationId": "AnnoncerReprise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepriseAnnonceCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-04 : annonce d\u0027une reprise du travail, relay\u00E9e au service Obligations (201 \u00E0 la cr\u00E9ation, 200 si d\u00E9j\u00E0 connue).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/reprises/{repriseId}": {
+      "get": {
+        "operationId": "RepriseAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "repriseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-04 : suivi d\u0027une reprise ; une reprise d\u0027un autre affili\u00E9 est inconnue (404).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/tableau-de-bord": {
+      "get": {
+        "operationId": "TableauDeBord",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-02 : compteurs disponibles ; les autres sont explicitement \u00AB \u00E0 venir \u00BB (aucun chiffre fictif).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/travailleurs": {
+      "get": {
+        "operationId": "TravailleursAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recherche",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "taille",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-03 : travailleurs occup\u00E9s chez l\u0027affili\u00E9, recherche et pagination ; jamais de NISS (DAT-06).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    },
+    "/api/v1/risques": {
+      "get": {
+        "operationId": "ReferentielRisques",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "R\u00E9f\u00E9rentiel des risques, pour le formulaire de proposition (POR-03, AFF-11).",
+        "tags": [
+          "Portail employeur"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Portail employeur"
+    }
+  ]
+}

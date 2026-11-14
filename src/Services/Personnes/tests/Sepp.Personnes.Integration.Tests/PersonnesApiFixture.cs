@@ -34,10 +34,19 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         await _postgres.StartAsync();
-        Factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+        Factory = CreerHote(_postgres.GetConnectionString(), Journal);
+        _ = Factory.Server;
+    }
+
+    /// <summary>
+    /// Service complet sur la base <paramref name="connexion"/>, avec ses propres clés de chiffrement et d'index aveugle
+    /// (tirées au hasard à chaque appel) : plusieurs hôtes peuvent coexister dans le même processus (#442).
+    /// </summary>
+    public static WebApplicationFactory<Program> CreerHote(string connexion, JournalCapture journal) =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Testing");
-            b.UseSetting("ConnectionStrings:Personnes", _postgres.GetConnectionString());
+            b.UseSetting("ConnectionStrings:Personnes", connexion);
             b.UseSetting("Database:MigrateOnStartup", "true");
             b.UseSetting("Outbox:PollingInterval", "00:00:00.200");
             b.UseSetting("Republication:Intervalle", "00:00:00.100");
@@ -55,7 +64,7 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
             b.UseSetting("Logging:LogLevel:Microsoft.AspNetCore", "Debug");
             b.ConfigureTestServices(s =>
             {
-                s.AddSingleton<ILoggerProvider>(Journal);
+                s.AddSingleton<ILoggerProvider>(journal);
                 s.AddAuthentication(TestAuth.Name).AddScheme<AuthenticationSchemeOptions, TestAuth>(TestAuth.Name, _ => { });
                 s.PostConfigure<AuthenticationOptions>(o =>
                 {
@@ -64,8 +73,6 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
                 });
             });
         });
-        _ = Factory.Server;
-    }
 
     public async ValueTask DisposeAsync()
     {
@@ -73,9 +80,12 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
         await _postgres.DisposeAsync();
     }
 
-    public HttpClient Client(string role, Guid? affilieId = null, params Guid[] personnes)
+    public HttpClient Client(string role, Guid? affilieId = null, params Guid[] personnes) =>
+        Client(Factory, role, affilieId, personnes);
+
+    public static HttpClient Client(WebApplicationFactory<Program> hote, string role, Guid? affilieId = null, params Guid[] personnes)
     {
-        var client = Factory.CreateClient();
+        var client = hote.CreateClient();
         client.DefaultRequestHeaders.Add(TestAuth.RolesHeader, role);
         if (affilieId is { } affilie)
         {

@@ -4,13 +4,14 @@
 #     (projets du service + socle partagé + contrats + règles d'architecture) ;
 #   - src/BuildingBlocks/Socle.slnx : socle, contrats et leurs tests ;
 #   - src/Sagas/Sagas.slnx : test de bout en bout des sagas (tests/Sepp.Sagas.Tests) avec le code des services qu'il héberge ;
+#   - tools/pseudonymisation/Pseudonymisation.slnx : outil de pseudonymisation hors production (NF-14) et ses tests ;
 #   - Sepp.slnx à la racine : tous les projets (vue d'ensemble dans l'IDE).
 # La CI vérifie que les fichiers committés sont à jour.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 shared=$(find src/BuildingBlocks src/Contracts -name '*.csproj' | LC_ALL=C sort)
-shared_tests="tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj"
+shared_tests="tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj tests/Sepp.Testing.Contrats/Sepp.Testing.Contrats.csproj"
 
 generate() { # $1 = fichier .slnx, reste = projets
   local file=$1; shift
@@ -38,4 +39,7 @@ generate src/BuildingBlocks/Socle.slnx $shared $(find tests -name '*.csproj' -no
 generate src/Sagas/Sagas.slnx $sagas_tests $shared $shared_tests $(find src/Services/{Obligations,Planification,SurveillanceMedicale,Communications,Documents,Reintegration}/src -name '*.csproj' | LC_ALL=C sort)
 
 # shellcheck disable=SC2046
-generate Sepp.slnx $(find src tests -name '*.csproj' -not -path '*/node_modules/*' | LC_ALL=C sort)
+generate tools/pseudonymisation/Pseudonymisation.slnx $(find tools/pseudonymisation -name '*.csproj' | LC_ALL=C sort) $shared $shared_tests
+
+# shellcheck disable=SC2046
+generate Sepp.slnx $(find src tests tools/pseudonymisation tools/donnees-demo -name '*.csproj' -not -path '*/node_modules/*' | LC_ALL=C sort)

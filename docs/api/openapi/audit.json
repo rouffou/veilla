@@ -1,0 +1,298 @@
+{
+  "components": {
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Audit | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/audit/bris-de-glace": {
+      "get": {
+        "operationId": "ListerBrisDeGlace",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "zone",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "du",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "au",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "taille",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Alertes \u00AB bris de glace \u00BB (\u00A73.3) : CPMT dirigeant (zone m\u00E9dicale), CPAP dirigeant (zone psychosociale), DPO.",
+        "tags": [
+          "Journal d\u0027audit"
+        ]
+      }
+    },
+    "/api/v1/audit/droits/matrice": {
+      "get": {
+        "operationId": "ExporterMatriceDroits",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Matrice r\u00F4le \u2192 permissions en vigueur, pour la revue trimestrielle des droits (NF-02). Les attributions d\u0027utilisateurs viennent de l\u0027annuaire (Entra ID).",
+        "tags": [
+          "Journal d\u0027audit"
+        ]
+      }
+    },
+    "/api/v1/audit/entrees": {
+      "get": {
+        "operationId": "RechercherEntreesAudit",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "zone",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "utilisateurId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "objetType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "objetId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "du",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "au",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "brisDeGlace",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "taille",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Recherche par utilisateur, objet, p\u00E9riode et zone, dans le p\u00E9rim\u00E8tre de l\u0027utilisateur (PSY-20).",
+        "tags": [
+          "Journal d\u0027audit"
+        ]
+      }
+    },
+    "/api/v1/audit/entrees/{id}": {
+      "get": {
+        "operationId": "ObtenirEntreeAudit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Journal d\u0027audit"
+        ]
+      }
+    },
+    "/api/v1/audit/integrite/{zone}": {
+      "get": {
+        "operationId": "VerifierIntegriteJournal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "zone",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "V\u00E9rifie la cha\u00EEne d\u0027empreintes d\u0027une zone : d\u00E9tecte toute ligne modifi\u00E9e ou supprim\u00E9e (NF-04).",
+        "tags": [
+          "Journal d\u0027audit"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Journal d\u0027audit"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ using Azure.Identity;
 using Azure.Messaging.ServiceBus;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,6 +18,7 @@ using Sepp.BuildingBlocks.Application.Republication;
 using Sepp.BuildingBlocks.Infrastructure.Auditing;
 using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
+using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Contracts;
 
 namespace Sepp.BuildingBlocks.Infrastructure;
@@ -39,7 +41,8 @@ public static class DependencyInjection
         {
             services.AddDbContext<TContext>(options => options
                 .UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure())
-                .UseSnakeCaseNamingConvention());
+                .UseSnakeCaseNamingConvention()
+                .ReplaceService<IModelCacheKeyFactory, ModelCacheKeyFactoryChiffre>());
         }
         else if (PostgresIdentiteManagee.EstConfiguree(configuration))
         {
@@ -48,7 +51,8 @@ public static class DependencyInjection
             services.TryAddSingleton(_ => PostgresIdentiteManagee.ConstruireSourceDeDonnees(configuration));
             services.AddDbContext<TContext>((sp, options) => options
                 .UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>(), npgsql => npgsql.EnableRetryOnFailure())
-                .UseSnakeCaseNamingConvention());
+                .UseSnakeCaseNamingConvention()
+                .ReplaceService<IModelCacheKeyFactory, ModelCacheKeyFactoryChiffre>());
         }
         else
         {

@@ -273,6 +273,8 @@ public sealed class CommunicationsApiTests : IAsyncLifetime
         await mailhog.StartAsync(_ct);
         Demarrer(new Dictionary<string, string>
         {
+            // NF-14 : un adaptateur réel n'est admis qu'en production.
+            ["Sepp:Environnement"] = "prod",
             ["Communications:Adaptateurs:Email"] = "Reel",
             ["Communications:Smtp:Hote"] = mailhog.Hostname,
             ["Communications:Smtp:Port"] = mailhog.GetMappedPublicPort(1025).ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -306,6 +308,8 @@ public sealed class CommunicationsApiTests : IAsyncLifetime
     {
         Demarrer(new Dictionary<string, string>
         {
+            // NF-14 : un adaptateur réel n'est admis qu'en production.
+            ["Sepp:Environnement"] = "prod",
             ["Communications:Adaptateurs:Email"] = "Reel",
             ["Communications:Smtp:Hote"] = "127.0.0.1",
             ["Communications:Smtp:Port"] = "1",
