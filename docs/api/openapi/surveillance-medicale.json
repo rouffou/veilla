@@ -1441,7 +1441,7 @@
             ]
           }
         ],
-        "summary": "SAN-32, SAN-33 : signature qualifi\u00E9e du CPMT puis \u00E9mission (DecisionEmise).",
+        "summary": "SAN-32, SAN-33 : signature qualifi\u00E9e du CPMT puis \u00E9mission (DecisionEmise) ; authentification forte exig\u00E9e (NF-01).",
         "tags": [
           "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
         ]
