@@ -18,8 +18,11 @@ public static class PortailCors
     /// <summary>En-têtes de requête utilisés par les portails (jeton, JSON, langue, corrélation).</summary>
     private static readonly string[] EnTetesAutorises = ["Authorization", "Content-Type", "Accept-Language", CorrelationIdMiddleware.Header];
 
-    /// <summary>En-têtes de réponse lisibles par les portails (nom du fichier exporté, corrélation).</summary>
-    private static readonly string[] EnTetesExposes = ["Content-Disposition", CorrelationIdMiddleware.Header];
+    /// <summary>
+    /// En-têtes de réponse lisibles par les portails : nom du fichier exporté, corrélation et défi de montée en niveau
+    /// d'authentification (<c>WWW-Authenticate</c>, RFC 9470, NF-01).
+    /// </summary>
+    private static readonly string[] EnTetesExposes = ["Content-Disposition", CorrelationIdMiddleware.Header, "WWW-Authenticate"];
 
     /// <summary>
     /// Valide et normalise les origines. En production : liste non vide, https obligatoire. Hors production (Development,

@@ -4,6 +4,7 @@
     <PackageReference Include="Shouldly" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BuildingBlocks\Sepp.BuildingBlocks.Infrastructure\Sepp.BuildingBlocks.Infrastructure.csproj" />

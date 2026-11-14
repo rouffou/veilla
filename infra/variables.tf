@@ -607,6 +607,33 @@ variable "authentication_audience" {
   }
 }
 
+variable "authentication_strength" {
+  description = "Authentification forte (NF-01) exigée par les services pour signer (SAN-32) et pour les routes dossier-sante:* et dossier-psy:* : contextes d'authentification Entra ID acceptés (claim acrs, c1 à c99, chacun lié à une stratégie d'accès conditionnel qui exige la MFA ou l'eID / itsme via CSAM) et méthodes amr acceptées (mfa). Le mode est toujours strict en Azure (Authentication__Strength__Mode = Enforce). Voir docs/securite/authentification-forte.md."
+  type = object({
+    accepted_amr                     = list(string)
+    accepted_authentication_contexts = list(string)
+  })
+  default = {
+    accepted_amr                     = ["mfa"]
+    accepted_authentication_contexts = ["c1"]
+  }
+
+  validation {
+    condition     = length(var.authentication_strength.accepted_amr) + length(var.authentication_strength.accepted_authentication_contexts) > 0
+    error_message = "authentication_strength : au moins une valeur acceptée, sinon toute route sensible est refusée (et le service refuse de démarrer)."
+  }
+
+  validation {
+    condition     = alltrue([for c in var.authentication_strength.accepted_authentication_contexts : can(regex("^c([1-9]|[1-9][0-9])$", c))])
+    error_message = "authentication_strength.accepted_authentication_contexts : identifiants de contexte Entra ID c1 à c99."
+  }
+
+  validation {
+    condition     = alltrue([for m in var.authentication_strength.accepted_amr : contains(["mfa", "otp", "hwk", "fido", "sc", "swk"], m)])
+    error_message = "authentication_strength.accepted_amr : méthodes fortes uniquement (mfa, otp, hwk, fido, sc, swk ; RFC 8176), jamais pwd."
+  }
+}
+
 variable "portal_origins" {
   description = "Origines CORS autorisées sur chaque BFF (#358, ARC-42, ARC-43, ADR 0013), par nom de service : bff-interne (application interne), bff-employeur et bff-travailleur. Une origine = https://hôte[:port] des domaines publics (APIM, Application Gateway ou domaine du portail) ; ni joker, ni http, ni chemin. Injectées en CORS__ORIGINESAUTORISEES__<i> ; au démarrage, le BFF refuse une liste vide ou invalide."
   type        = map(list(string))
