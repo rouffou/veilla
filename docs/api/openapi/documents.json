@@ -1,0 +1,818 @@
+{
+  "components": {
+    "schemas": {
+      "ChampDto": {
+        "properties": {
+          "libelle": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "obligatoire": {
+            "type": "boolean"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeChamp"
+          }
+        },
+        "required": [
+          "nom",
+          "type",
+          "obligatoire",
+          "libelle"
+        ],
+        "type": "object"
+      },
+      "ContenuModele": {
+        "properties": {
+          "champs": {
+            "items": {
+              "$ref": "#/components/schemas/ChampDto"
+            },
+            "type": "array"
+          },
+          "contenu": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "libelle": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "libelle",
+          "description",
+          "contenu",
+          "champs"
+        ],
+        "type": "object"
+      },
+      "CreerModele": {
+        "properties": {
+          "champs": {
+            "items": {
+              "$ref": "#/components/schemas/ChampDto"
+            },
+            "type": "array"
+          },
+          "code": {
+            "type": "string"
+          },
+          "contenu": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "libelle": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeModele"
+          },
+          "zone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "langue",
+          "type",
+          "zone",
+          "libelle",
+          "description",
+          "contenu",
+          "champs"
+        ],
+        "type": "object"
+      },
+      "DemandeDocument": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "choixTravailleur": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Language"
+              }
+            ]
+          },
+          "codeModele": {
+            "type": "string"
+          },
+          "destinataireId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "langue": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Language"
+              }
+            ]
+          },
+          "objetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "objetType": {
+            "type": "string"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publier": {
+            "type": "boolean"
+          },
+          "regime": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegimeLinguistique"
+              }
+            ]
+          },
+          "serviceProprietaire": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "typeDestinataire": {
+            "$ref": "#/components/schemas/TypeDestinataire"
+          },
+          "valeurs": {
+            "type": [
+              "null",
+              "object"
+            ]
+          }
+        },
+        "required": [
+          "codeModele",
+          "typeDestinataire",
+          "destinataireId",
+          "serviceProprietaire",
+          "objetType",
+          "objetId",
+          "valeurs",
+          "langue",
+          "regime",
+          "choixTravailleur",
+          "affilieId",
+          "personneId",
+          "publier"
+        ],
+        "type": "object"
+      },
+      "Language": {
+        "enum": [
+          "Fr",
+          "Nl",
+          "De",
+          "En"
+        ]
+      },
+      "RegimeLinguistique": {
+        "enum": [
+          "Francais",
+          "Neerlandais",
+          "Allemand",
+          "BruxellesCapitale",
+          null
+        ]
+      },
+      "TypeChamp": {
+        "enum": [
+          "Texte",
+          "Date",
+          "Nombre",
+          "Booleen",
+          "Liste"
+        ]
+      },
+      "TypeDestinataire": {
+        "enum": [
+          "Affilie",
+          "Personne",
+          "Dossier"
+        ]
+      },
+      "TypeModele": {
+        "enum": [
+          "Courrier",
+          "Rapport",
+          "Formulaire"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Documents | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/documents": {
+      "get": {
+        "operationId": "ListerDocuments",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "objetType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "objetId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "typeDestinataire",
+            "schema": {
+              "$ref": "#/components/schemas/TypeDestinataire"
+            }
+          },
+          {
+            "in": "query",
+            "name": "destinataireId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      },
+      "post": {
+        "operationId": "GenererDocument",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeDocument"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "G\u00E9n\u00E9ration PDF/A, chiffrement par zone, archivage WORM, horodatage ; langue selon NF-41.",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{id}": {
+      "get": {
+        "operationId": "ObtenirDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{id}/contenu": {
+      "get": {
+        "operationId": "LireContenuDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Motif-Acces",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "PDF/A d\u00E9chiffr\u00E9 ; acc\u00E8s journalis\u00E9 (NF-04). Motif facultatif dans l\u0027en-t\u00EAte X-Motif-Acces.",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{id}/integrite": {
+      "get": {
+        "operationId": "VerifierIntegriteDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "NF-21 : empreintes SHA-256 de l\u0027objet stock\u00E9 et du PDF, d\u00E9chiffrement authentifi\u00E9.",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{id}/publication": {
+      "post": {
+        "operationId": "PublierDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Mise \u00E0 disposition du destinataire : publie documents.document-publie.v1 (envoi par Communications).",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{id}/signatures": {
+      "post": {
+        "operationId": "SignerDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Signature \u00E9lectronique qualifi\u00E9e de l\u0027utilisateur courant (preuve d\u00E9tach\u00E9e).",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/modeles": {
+      "get": {
+        "operationId": "ListerModeles",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      },
+      "post": {
+        "operationId": "CreerModele",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerModele"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Version 1 d\u0027un mod\u00E8le dans une langue, en brouillon (DOC-01).",
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      }
+    },
+    "/api/v1/modeles/{id}": {
+      "get": {
+        "operationId": "ObtenirModele",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      },
+      "put": {
+        "operationId": "ModifierModele",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContenuModele"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Modification d\u0027un brouillon.",
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      }
+    },
+    "/api/v1/modeles/{id}/apercu": {
+      "post": {
+        "operationId": "ApercuModele",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Fusion d\u0027essai, sans archivage.",
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      }
+    },
+    "/api/v1/modeles/{id}/publication": {
+      "post": {
+        "operationId": "PublierModele",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      }
+    },
+    "/api/v1/modeles/{id}/renvoi-en-brouillon": {
+      "post": {
+        "operationId": "RenvoyerModeleEnBrouillon",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      }
+    },
+    "/api/v1/modeles/{id}/validation": {
+      "post": {
+        "operationId": "ValiderModele",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Validation avant publication : administrateur fonctionnel, CPMT dirigeant (zone m\u00E9dicale), CPAP dirigeant (zone psychosociale).",
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      }
+    },
+    "/api/v1/modeles/{id}/versions": {
+      "post": {
+        "operationId": "CreerVersionModele",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Mod\u00E8les"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Mod\u00E8les"
+    },
+    {
+      "name": "Documents"
+    }
+  ]
+}

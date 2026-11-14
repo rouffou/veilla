@@ -1,0 +1,659 @@
+{
+  "components": {
+    "schemas": {
+      "AnnulationCorps": {
+        "properties": {
+          "commentaire": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "raison": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "raison",
+          "commentaire"
+        ],
+        "type": "object"
+      },
+      "DemandeCorps": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "affilieId",
+          "type"
+        ],
+        "type": "object"
+      },
+      "DeplacementCorps": {
+        "properties": {
+          "nouveauCreneauId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nouveauCreneauId"
+        ],
+        "type": "object"
+      },
+      "QuestionnaireReponsesCorps": {
+        "properties": {
+          "reponses": {
+            "items": {
+              "$ref": "#/components/schemas/ReponseSaisie"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "reponses"
+        ],
+        "type": "object"
+      },
+      "ReponseSaisie": {
+        "properties": {
+          "codeQuestion": {
+            "type": "string"
+          },
+          "valeur": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "codeQuestion",
+          "valeur"
+        ],
+        "type": "object"
+      },
+      "ReservationCorps": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "creneauId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "obligationIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          }
+        },
+        "required": [
+          "creneauId",
+          "affilieId",
+          "obligationIds"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Bff.Travailleur | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/accueil": {
+      "get": {
+        "operationId": "Accueil",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Accueil composite : prochains rendez-vous, documents r\u00E9cents, questionnaires disponibles (POR-11 \u00E0 POR-13).",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/demandes": {
+      "post": {
+        "operationId": "DemanderConsultation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-12 : consultation spontan\u00E9e ou visite de pr\u00E9-reprise, sans passer par l\u0027employeur (\u00A75.1).",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/demandes-copie-dossier": {
+      "get": {
+        "operationId": "MesDemandesCopieDossier",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-13, SAN-43 : suivi de mes demandes de copie du dossier de sant\u00E9 (statut, date limite, document publi\u00E9).",
+        "tags": [
+          "Portail travailleur"
+        ]
+      },
+      "post": {
+        "operationId": "DemanderCopieDossier",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-13, SAN-43 : demande de copie de mon dossier de sant\u00E9, trait\u00E9e par le CPMT ; jamais rejou\u00E9e automatiquement.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/documents": {
+      "get": {
+        "operationId": "MesDocuments",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-13 : documents publi\u00E9s pour le travailleur (formulaire d\u0027\u00E9valuation de sant\u00E9, exemplaire du travailleur).",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/documents/{documentId}/contenu": {
+      "get": {
+        "operationId": "TelechargerDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-13 : PDF d\u0027un document du travailleur ; la lecture est journalis\u00E9e par le service Documents (NF-04).",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/employeurs": {
+      "get": {
+        "operationId": "MesEmployeurs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : employeurs du travailleur (occupations actives de la personne du jeton) ; permet une premi\u00E8re r\u00E9servation sans lien de convocation.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/examens-a-planifier": {
+      "get": {
+        "operationId": "MesExamensAPlanifier",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11, SAN-12 : examens \u00E0 planifier de la personne du jeton, avec leur employeur et leur \u00E9ch\u00E9ance.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/questionnaires": {
+      "get": {
+        "operationId": "ModelesQuestionnaire",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-12 : mod\u00E8les de questionnaire de sant\u00E9 \u00E0 remplir (SAN-22) ; aucune r\u00E9ponse d\u00E9j\u00E0 enregistr\u00E9e n\u0027est relue.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/questionnaires/{modeleCode}/reponses": {
+      "post": {
+        "operationId": "RemplirQuestionnaire",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "modeleCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionnaireReponsesCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-12 : questionnaire de sant\u00E9 rempli \u00E0 l\u0027avance, en \u00E9criture seule (SAN-22) ; jamais rejou\u00E9 automatiquement.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/rendez-vous": {
+      "get": {
+        "operationId": "MesRendezVous",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : rendez-vous du travailleur (les siens uniquement).",
+        "tags": [
+          "Portail travailleur"
+        ]
+      },
+      "post": {
+        "operationId": "ReserverRendezVous",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : r\u00E9servation d\u0027un cr\u00E9neau ouvert pour soi-m\u00EAme ; jamais rejou\u00E9e automatiquement.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/rendez-vous/creneaux": {
+      "get": {
+        "operationId": "CreneauxOuverts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "typeActe",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "du",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "au",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lieuId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : cr\u00E9neaux ouverts \u00E0 la r\u00E9servation en ligne (SAN-12) ; le service limite la p\u00E9riode \u00E0 93 jours.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/rendez-vous/{rendezVousId}/annulation": {
+      "post": {
+        "operationId": "AnnulerRendezVous",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rendezVousId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AnnulationCorps"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : annulation en ligne, au plus tard 24 heures avant le rendez-vous (r\u00E8gle du service Planification), avec raison cod\u00E9e et pr\u00E9cision courte sans donn\u00E9e de sant\u00E9.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/rendez-vous/{rendezVousId}/confirmation": {
+      "post": {
+        "operationId": "ConfirmerRendezVous",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rendezVousId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : le travailleur confirme sa pr\u00E9sence au rendez-vous.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/rendez-vous/{rendezVousId}/deplacement": {
+      "post": {
+        "operationId": "DeplacerRendezVous",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rendezVousId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeplacementCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : d\u00E9placement atomique vers un autre cr\u00E9neau ouvert (409 si le cr\u00E9neau est pris) ; jamais rejou\u00E9 automatiquement.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Portail travailleur"
+    }
+  ]
+}

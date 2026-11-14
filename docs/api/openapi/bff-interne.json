@@ -1,0 +1,287 @@
+{
+  "components": {
+    "schemas": {
+      "ProblemDetails": {
+        "properties": {
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Bff.Interne | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/ecrans/affilies/{affilieId}": {
+      "get": {
+        "operationId": "EcranAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Fiche affili\u00E9 (lot A ; 501 tant qu\u0027il n\u0027est pas r\u00E9alis\u00E9).",
+        "tags": [
+          "Application interne \u2014 \u00E9crans"
+        ]
+      }
+    },
+    "/api/v1/ecrans/agenda": {
+      "get": {
+        "operationId": "EcranAgenda",
+        "responses": {
+          "501": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Agenda (lot B ; 501 tant qu\u0027il n\u0027est pas r\u00E9alis\u00E9).",
+        "tags": [
+          "Application interne \u2014 \u00E9crans"
+        ]
+      }
+    },
+    "/api/v1/ecrans/consultation/{personneId}": {
+      "get": {
+        "operationId": "EcranConsultation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "personneId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Consultation (lot C ; 501 tant qu\u0027il n\u0027est pas r\u00E9alis\u00E9).",
+        "tags": [
+          "Application interne \u2014 \u00E9crans"
+        ]
+      }
+    },
+    "/api/v1/ecrans/recherche": {
+      "get": {
+        "operationId": "EcranRecherche",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Recherche de travailleurs et d\u0027affili\u00E9s (lot A ; 501 tant qu\u0027il n\u0027est pas r\u00E9alis\u00E9).",
+        "tags": [
+          "Application interne \u2014 \u00E9crans"
+        ]
+      }
+    },
+    "/api/v1/ecrans/tableau-de-bord": {
+      "get": {
+        "operationId": "EcranTableauDeBord",
+        "responses": {
+          "501": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Tableau de bord (lot D ; 501 tant qu\u0027il n\u0027est pas r\u00E9alis\u00E9).",
+        "tags": [
+          "Application interne \u2014 \u00E9crans"
+        ]
+      }
+    },
+    "/api/v1/ecrans/travailleurs/{personneId}": {
+      "get": {
+        "operationId": "EcranDossierTravailleur",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "personneId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Dossier travailleur (lot A ; 501 tant qu\u0027il n\u0027est pas r\u00E9alis\u00E9).",
+        "tags": [
+          "Application interne \u2014 \u00E9crans"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Application interne \u2014 \u00E9crans"
+    }
+  ]
+}

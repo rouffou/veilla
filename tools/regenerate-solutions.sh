@@ -11,7 +11,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 shared=$(find src/BuildingBlocks src/Contracts -name '*.csproj' | LC_ALL=C sort)
-shared_tests="tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj"
+shared_tests="tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj tests/Sepp.Testing.Contrats/Sepp.Testing.Contrats.csproj"
 
 generate() { # $1 = fichier .slnx, reste = projets
   local file=$1; shift

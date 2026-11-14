@@ -1,0 +1,312 @@
+{
+  "components": {
+    "schemas": {
+      "Canal": {
+        "enum": [
+          "Portail",
+          "Email",
+          "Sms",
+          "Courrier",
+          "RecommandeElectronique",
+          "EBoxEntreprise",
+          "EBoxCitoyen",
+          null
+        ]
+      },
+      "EnvoyerMessage": {
+        "properties": {
+          "canal": {
+            "$ref": "#/components/schemas/Canal"
+          },
+          "corps": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "destinataireId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "recommande": {
+            "type": "boolean"
+          },
+          "sujet": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "typeDestinataire": {
+            "$ref": "#/components/schemas/TypeDestinataire"
+          }
+        },
+        "required": [
+          "typeDestinataire",
+          "destinataireId",
+          "canal",
+          "recommande",
+          "sujet",
+          "corps"
+        ],
+        "type": "object"
+      },
+      "StatutMessage": {
+        "enum": [
+          "EnAttente",
+          "EnEchec",
+          "Envoye",
+          "Abandonne",
+          "Annule",
+          null
+        ]
+      },
+      "TypeDestinataire": {
+        "enum": [
+          "Affilie",
+          "Personne",
+          "Interne",
+          null
+        ]
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Communications | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/messages": {
+      "get": {
+        "operationId": "RechercherMessages",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "typeDestinataire",
+            "schema": {
+              "$ref": "#/components/schemas/TypeDestinataire"
+            }
+          },
+          {
+            "in": "query",
+            "name": "destinataireId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "objetType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "objetId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "$ref": "#/components/schemas/StatutMessage"
+            }
+          },
+          {
+            "in": "query",
+            "name": "canal",
+            "schema": {
+              "$ref": "#/components/schemas/Canal"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "taille",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Journal des messages (DOC-05), du plus r\u00E9cent au plus ancien.",
+        "tags": [
+          "Messages"
+        ]
+      },
+      "post": {
+        "operationId": "EnvoyerMessage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvoyerMessage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Envoi manuel ; par e-mail ou SMS, seule la notification g\u00E9n\u00E9rique est envoy\u00E9e.",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/api/v1/messages/expedition": {
+      "post": {
+        "operationId": "ExpedierMessagesEchus",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Envoi imm\u00E9diat des messages \u00E9chus.",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/api/v1/messages/{id}": {
+      "get": {
+        "operationId": "ObtenirMessage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Message, corps et preuves d\u0027envoi (DOC-05).",
+        "tags": [
+          "Messages"
+        ]
+      }
+    },
+    "/api/v1/messages/{id}/relance": {
+      "post": {
+        "operationId": "RelancerMessage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Relance d\u0027un message abandonn\u00E9.",
+        "tags": [
+          "Messages"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Messages"
+    }
+  ]
+}

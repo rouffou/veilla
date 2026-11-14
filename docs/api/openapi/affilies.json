@@ -1,0 +1,2049 @@
+{
+  "components": {
+    "schemas": {
+      "AdresseDto": {
+        "properties": {
+          "boite": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "codePays": {
+            "default": "BE",
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "localite": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "rue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rue",
+          "numero",
+          "boite",
+          "codePostal",
+          "localite"
+        ],
+        "type": "object"
+      },
+      "CategorieTarifaire": {
+        "enum": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "ContactCorps": {
+        "properties": {
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fonction": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nom": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RoleContact"
+          },
+          "telephone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nom",
+          "fonction",
+          "role",
+          "email",
+          "telephone",
+          "valideDu"
+        ],
+        "type": "object"
+      },
+      "CreerAffilie": {
+        "properties": {
+          "dateAffiliation": {
+            "format": "date",
+            "type": "string"
+          },
+          "fiche": {
+            "$ref": "#/components/schemas/FicheSaisie"
+          },
+          "groupeId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "numeroBce": {
+            "type": "string"
+          },
+          "seppOrigine": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "numeroBce",
+          "fiche",
+          "dateAffiliation",
+          "groupeId",
+          "seppOrigine"
+        ],
+        "type": "object"
+      },
+      "DateFinCorps": {
+        "properties": {
+          "dateFin": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dateFin"
+        ],
+        "type": "object"
+      },
+      "DemandeRepublicationRequete": {
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "DepartementCorps": {
+        "properties": {
+          "depuis": {
+            "format": "date",
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "parentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "nom",
+          "parentId",
+          "depuis"
+        ],
+        "type": "object"
+      },
+      "DepartementModifie": {
+        "properties": {
+          "nom": {
+            "type": "string"
+          },
+          "parentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "nom",
+          "parentId"
+        ],
+        "type": "object"
+      },
+      "FicheCorps": {
+        "properties": {
+          "fiche": {
+            "$ref": "#/components/schemas/FicheSaisie"
+          },
+          "groupeId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "fiche",
+          "groupeId"
+        ],
+        "type": "object"
+      },
+      "FicheSaisie": {
+        "properties": {
+          "categorieTarifaire": {
+            "$ref": "#/components/schemas/CategorieTarifaire"
+          },
+          "codeNace": {
+            "type": "string"
+          },
+          "commissionParitaire": {
+            "type": "string"
+          },
+          "denomination": {
+            "type": "string"
+          },
+          "formeJuridique": {
+            "type": "string"
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "regimeLinguistique": {
+            "$ref": "#/components/schemas/RegimeLinguistique"
+          }
+        },
+        "required": [
+          "denomination",
+          "formeJuridique",
+          "codeNace",
+          "commissionParitaire",
+          "categorieTarifaire",
+          "langue",
+          "regimeLinguistique"
+        ],
+        "type": "object"
+      },
+      "FinCorps": {
+        "properties": {
+          "fin": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fin"
+        ],
+        "type": "object"
+      },
+      "Language": {
+        "enum": [
+          "Fr",
+          "Nl",
+          "De",
+          "En"
+        ]
+      },
+      "NomGroupe": {
+        "properties": {
+          "nom": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nom"
+        ],
+        "type": "object"
+      },
+      "OperationCorps": {
+        "properties": {
+          "affilieAbsorbantId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "affiliesBeneficiaires": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "dateEffet": {
+            "format": "date",
+            "type": "string"
+          },
+          "seppDestination": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeOperation"
+          }
+        },
+        "required": [
+          "type",
+          "dateEffet",
+          "affilieAbsorbantId",
+          "affiliesBeneficiaires",
+          "seppDestination"
+        ],
+        "type": "object"
+      },
+      "OrganeCorps": {
+        "properties": {
+          "depuis": {
+            "format": "date",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeOrgane"
+          }
+        },
+        "required": [
+          "type",
+          "depuis"
+        ],
+        "type": "object"
+      },
+      "RegimeLinguistique": {
+        "enum": [
+          "Francais",
+          "Neerlandais",
+          "Allemand",
+          "BruxellesCapitale"
+        ]
+      },
+      "ReunionCorps": {
+        "properties": {
+          "dateReunion": {
+            "format": "date",
+            "type": "string"
+          },
+          "ordreDuJourDocumentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "participationSepp": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dateReunion",
+          "ordreDuJourDocumentId",
+          "participationSepp"
+        ],
+        "type": "object"
+      },
+      "RoleContact": {
+        "enum": [
+          "PersonneDeContact",
+          "ConseillerPreventionInterne",
+          "MembreComitePpt",
+          "DelegationSyndicale",
+          "PersonneDeConfiance"
+        ]
+      },
+      "SiteCorps": {
+        "properties": {
+          "adresse": {
+            "$ref": "#/components/schemas/AdresseDto"
+          },
+          "depuis": {
+            "format": "date",
+            "type": "string"
+          },
+          "latitude": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "longitude": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "nom": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nom",
+          "adresse",
+          "latitude",
+          "longitude",
+          "depuis"
+        ],
+        "type": "object"
+      },
+      "SiteModifie": {
+        "properties": {
+          "adresse": {
+            "$ref": "#/components/schemas/AdresseDto"
+          },
+          "latitude": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "longitude": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "nom": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nom",
+          "adresse",
+          "latitude",
+          "longitude"
+        ],
+        "type": "object"
+      },
+      "TypeOperation": {
+        "enum": [
+          "Fusion",
+          "Scission",
+          "TransfertSortant",
+          "TransfertEntrant"
+        ]
+      },
+      "TypeOrgane": {
+        "enum": [
+          "ComitePpt",
+          "DelegationSyndicale"
+        ]
+      },
+      "UniteCorps": {
+        "properties": {
+          "adresse": {
+            "$ref": "#/components/schemas/AdresseDto"
+          },
+          "depuis": {
+            "format": "date",
+            "type": "string"
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "numero",
+          "nom",
+          "adresse",
+          "langue",
+          "depuis"
+        ],
+        "type": "object"
+      },
+      "UniteModifiee": {
+        "properties": {
+          "adresse": {
+            "$ref": "#/components/schemas/AdresseDto"
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "nom": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nom",
+          "adresse",
+          "langue"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Affilies | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/admin/republications": {
+      "get": {
+        "operationId": "ListerRepublications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Republications les plus r\u00E9centes (type, statut, compteurs).",
+        "tags": [
+          "Exploitation"
+        ]
+      },
+      "post": {
+        "operationId": "DemanderRepublication",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeRepublicationRequete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "ADR 0011 : republie par lots l\u0027\u00E9tat courant d\u0027un type (instantan\u00E9s via l\u0027outbox) ; 202, suivi par GET.",
+        "tags": [
+          "Exploitation"
+        ]
+      }
+    },
+    "/api/v1/admin/republications/types": {
+      "get": {
+        "operationId": "ListerTypesRepublication",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Types d\u0027\u00E9tat que ce service sait republier.",
+        "tags": [
+          "Exploitation"
+        ]
+      }
+    },
+    "/api/v1/admin/republications/{id}": {
+      "get": {
+        "operationId": "ConsulterRepublication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Avancement d\u0027une republication : EnCours, Terminee ou Echouee, nombre d\u0027instantan\u00E9s \u00E9crits.",
+        "tags": [
+          "Exploitation"
+        ]
+      }
+    },
+    "/api/v1/affilies": {
+      "get": {
+        "operationId": "RechercherAffilies",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "bce",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "denomination",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "taille",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Recherche par num\u00E9ro BCE et / ou d\u00E9nomination, pagin\u00E9e.",
+        "tags": [
+          "Affili\u00E9s"
+        ]
+      },
+      "post": {
+        "operationId": "CreerAffilie",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerAffilie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Affiliation d\u0027un employeur (num\u00E9ro BCE contr\u00F4l\u00E9 par modulo 97).",
+        "tags": [
+          "Affili\u00E9s"
+        ]
+      }
+    },
+    "/api/v1/affilies/bce/{numero}": {
+      "get": {
+        "operationId": "ObtenirAffilieParBce",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "numero",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Affili\u00E9s"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}": {
+      "get": {
+        "operationId": "ObtenirAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Fiche compl\u00E8te : identit\u00E9, hi\u00E9rarchie, contacts, organes de concertation, op\u00E9rations (AFF-01 \u00E0 AFF-06).",
+        "tags": [
+          "Affili\u00E9s"
+        ]
+      },
+      "put": {
+        "operationId": "ModifierFicheAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FicheCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Affili\u00E9s"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/contacts": {
+      "post": {
+        "operationId": "AjouterContact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Contact avec r\u00F4le et p\u00E9riode de validit\u00E9 (AFF-03) ; ouvert \u00E0 l\u0027employeur et au SIPP sur leur affili\u00E9.",
+        "tags": [
+          "Contacts et concertation"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/contacts/{contactId}": {
+      "put": {
+        "operationId": "ModifierContact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "contactId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Cl\u00F4ture la ligne en vigueur et cr\u00E9e une nouvelle ligne \u00E0 partir de \u00AB valideDu \u00BB (DAT-04).",
+        "tags": [
+          "Contacts et concertation"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/contacts/{contactId}/fin": {
+      "post": {
+        "operationId": "TerminerContact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "contactId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Contacts et concertation"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/departements/{departementId}": {
+      "put": {
+        "operationId": "ModifierDepartement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "departementId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartementModifie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/departements/{departementId}/fermeture": {
+      "post": {
+        "operationId": "FermerDepartement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "departementId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/historique": {
+      "get": {
+        "operationId": "ConsulterHistoriqueAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Historique versionn\u00E9 : qui, quand, avant, apr\u00E8s (AFF-05).",
+        "tags": [
+          "Affili\u00E9s"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/operations": {
+      "post": {
+        "operationId": "ProjeterOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Fusion, scission ou transfert sortant vers un autre SEPP (AFF-06).",
+        "tags": [
+          "Fusions, scissions et transferts"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/operations/{operationId}/annulation": {
+      "post": {
+        "operationId": "AnnulerOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Fusions, scissions et transferts"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/operations/{operationId}/realisation": {
+      "post": {
+        "operationId": "RealiserOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Fusions, scissions et transferts"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/organes-concertation": {
+      "post": {
+        "operationId": "InstallerOrganeConcertation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganeCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Comit\u00E9 PPT ou d\u00E9l\u00E9gation syndicale (AFF-04).",
+        "tags": [
+          "Contacts et concertation"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/organes-concertation/{organeId}/dissolution": {
+      "post": {
+        "operationId": "DissoudreOrganeConcertation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "organeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Contacts et concertation"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/organes-concertation/{organeId}/reunions": {
+      "post": {
+        "operationId": "PlanifierReunion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "organeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReunionCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Contacts et concertation"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/organes-concertation/{organeId}/reunions/{reunionId}": {
+      "put": {
+        "operationId": "ModifierReunion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "organeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "reunionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReunionCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Contacts et concertation"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/resiliation": {
+      "delete": {
+        "operationId": "AnnulerResiliation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Affili\u00E9s"
+        ]
+      },
+      "post": {
+        "operationId": "ResilierAffiliation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DateFinCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Affili\u00E9s"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/sites/{siteId}": {
+      "put": {
+        "operationId": "ModifierSite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "siteId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteModifie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/sites/{siteId}/departements": {
+      "post": {
+        "operationId": "AjouterDepartement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "siteId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartementCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/sites/{siteId}/fermeture": {
+      "post": {
+        "operationId": "FermerSite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "siteId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/unites-etablissement": {
+      "post": {
+        "operationId": "AjouterUniteEtablissement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UniteCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/unites-etablissement/{uniteId}": {
+      "put": {
+        "operationId": "ModifierUniteEtablissement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uniteId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UniteModifiee"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/unites-etablissement/{uniteId}/fermeture": {
+      "post": {
+        "operationId": "FermerUniteEtablissement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uniteId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/unites-etablissement/{uniteId}/sites": {
+      "post": {
+        "operationId": "AjouterSite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uniteId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteCorps"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Hi\u00E9rarchie"
+        ]
+      }
+    },
+    "/api/v1/ecarts-bce": {
+      "get": {
+        "operationId": "ListerEcartsBce",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ouverts",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Donn\u00E9es BCE re\u00E7ues que le service n\u0027a pas pu appliquer seul (ouvertes par d\u00E9faut).",
+        "tags": [
+          "\u00C9carts BCE"
+        ]
+      }
+    },
+    "/api/v1/ecarts-bce/{ecartId}/resolution": {
+      "post": {
+        "operationId": "ResoudreEcartBce",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ecartId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Marque l\u0027\u00E9cart comme trait\u00E9.",
+        "tags": [
+          "\u00C9carts BCE"
+        ]
+      }
+    },
+    "/api/v1/groupes": {
+      "get": {
+        "operationId": "ListerGroupes",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Groupes"
+        ]
+      },
+      "post": {
+        "operationId": "CreerGroupe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NomGroupe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Groupes"
+        ]
+      }
+    },
+    "/api/v1/groupes/{groupeId}": {
+      "put": {
+        "operationId": "RenommerGroupe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groupeId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NomGroupe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Groupes"
+        ]
+      }
+    },
+    "/api/v1/mes-employeurs": {
+      "get": {
+        "operationId": "ListerMesEmployeurs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : d\u00E9nomination et langue des affili\u00E9s chez qui la personne du jeton (claim personne_id) a une occupation active ; aucune autre donn\u00E9e.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Portail travailleur"
+    },
+    {
+      "name": "Groupes"
+    },
+    {
+      "name": "Affili\u00E9s"
+    },
+    {
+      "name": "Hi\u00E9rarchie"
+    },
+    {
+      "name": "Contacts et concertation"
+    },
+    {
+      "name": "Fusions, scissions et transferts"
+    },
+    {
+      "name": "\u00C9carts BCE"
+    },
+    {
+      "name": "Exploitation"
+    }
+  ]
+}
