@@ -2,7 +2,7 @@
 
 Les services valident un jeton dont le claim `roles` porte les noms de rôles de `Roles` (voir
 [ADR 0005](../adr/0005-identite-autorisation.md)) ; les permissions en sont déduites par `RolePermissions`. Entra ID est
-l'annuaire des internes (MFA par accès conditionnel, NF-01) ; Keycloak joue le même rôle en local
+l'annuaire des internes (MFA par accès conditionnel, NF-01, voir [authentification forte](authentification-forte.md)) ; Keycloak joue le même rôle en local
 (`deploy/local/keycloak/veilla-realm.json`).
 
 ## Déclaration des rôles

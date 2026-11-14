@@ -32,6 +32,7 @@ Définis dans [`keycloak/veilla-realm.json`](keycloak/veilla-realm.json), mot de
 |---|---|---|
 | `cpmt` | Anne Martin | `cpmt` (conseiller en prévention-médecin du travail) |
 | `cpmt.dirigeant` | Marc Dubois | `cpmt`, `cpmt-dirigeant` |
+| `cpmt.mfa` | Hélène Fontaine | `cpmt`, avec un OTP de démonstration déjà configuré (voir [Authentification forte](#authentification-forte-nf-01)) |
 | `infirmier` | Sophie Lambert | `infirmier` |
 | `assistant` | Laura Maes | `assistant-medical` (accueil, salle d'attente, questionnaire sur tablette) |
 | `cpap` | Thomas Janssens | `cpap` |
@@ -74,6 +75,32 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:5100/referentiels/api/v
 
 Le realm n'est importé qu'à la création du conteneur Keycloak (sans volume) : après une modification de
 `veilla-realm.json`, recréez-le (`docker compose -f deploy/local/compose.yaml up -d --force-recreate keycloak`).
+
+## Authentification forte (NF-01)
+
+La démo reste sans friction : aucun utilisateur n'a d'OTP obligatoire à la connexion, et les services tournent en mode souple
+(`Authentication__Strength__Mode` absent, donc `Log` en Development) : une signature ou un accès au dossier de santé sans second
+facteur est **accordé et journalisé** (« NF-01 : authentification forte absente… »). Détails et valeurs :
+[docs/securite/authentification-forte.md](../../docs/securite/authentification-forte.md).
+
+- **Montée en niveau dans le navigateur** : une demande d'autorisation avec `acr_values=mfa` déclenche l'OTP (enrôlement à la
+  première fois pour un utilisateur qui n'en a pas) ; le jeton porte alors `acr=mfa` et `amr=["pwd","otp"]`. Sans demande, le jeton
+  porte `acr=password`.
+- **Utilisateur `cpmt.mfa`** : OTP déjà configuré avec un secret **fictif et public**, réservé à ce realm local
+  (TOTP, SHA-1, 6 chiffres, 30 s). Clé à saisir dans une application d'authentification :
+  `KZCUSTCMIEWUIRKNJ4WU6VCQFVDESQ2UJFDA` (base32 de `VEILLA-DEMO-OTP-FICTIF`). En ligne de commande :
+  `oathtool --totp -b KZCUSTCMIEWUIRKNJ4WU6VCQFVDESQ2UJFDA`. Un même code n'est accepté qu'une fois.
+- **Flux mot de passe** (`veilla-dev-cli`) : inchangé pour tous les comptes de test. Seul un utilisateur qui a configuré un OTP
+  doit ajouter `-d totp=<code>` ; le jeton porte alors `amr=["pwd","otp"]`, accepté comme authentification forte :
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8180/realms/veilla/protocol/openid-connect/token -d grant_type=password \
+  -d client_id=veilla-dev-cli -d username=cpmt.mfa -d password=veilla-dev -d totp=$(oathtool --totp -b KZCUSTCMIEWUIRKNJ4WU6VCQFVDESQ2UJFDA) | jq -r .access_token)
+```
+
+Pour se placer dans les conditions d'Azure, ajoutez `Authentication__Strength__Mode: Enforce` à l'environnement du service : sans
+authentification forte, la signature (`POST /api/v1/decisions/{id}/signature`) et les routes `dossier-sante:*` répondent alors
+401 avec `WWW-Authenticate: Bearer error="insufficient_user_authentication", …, acr_values="mfa"`.
 
 ## Bus d'événements
 
