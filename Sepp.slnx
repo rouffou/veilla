@@ -197,4 +197,10 @@
     <Project Path="tests/Sepp.Sagas.Tests/Sepp.Sagas.Tests.csproj" />
     <Project Path="tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj" />
   </Folder>
+  <Folder Name="/tools/" />
+  <Folder Name="/tools/pseudonymisation/">
+    <Project Path="tools/pseudonymisation/Sepp.Pseudonymisation.Integration.Tests/Sepp.Pseudonymisation.Integration.Tests.csproj" />
+    <Project Path="tools/pseudonymisation/Sepp.Pseudonymisation.Tests/Sepp.Pseudonymisation.Tests.csproj" />
+    <Project Path="tools/pseudonymisation/Sepp.Pseudonymisation/Sepp.Pseudonymisation.csproj" />
+  </Folder>
 </Solution>

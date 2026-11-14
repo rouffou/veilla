@@ -11,6 +11,7 @@ on:
       - "src/Services/**"
       - "src/Bff/**"
       - "src/Sagas/**"
+      - "tools/pseudonymisation/**"
       - "tests/**"
       - "infra/**"
       - "**/*.slnx"
@@ -67,7 +68,7 @@ jobs:
         env:
           EVENEMENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^src/Sagas/|^tests/|^infra/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
+          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^src/Sagas/|^tools/pseudonymisation/|^tests/|^infra/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
         run: |
           if [ "$EVENEMENT" != "pull_request" ]; then
             echo "concerne=true" >> "$GITHUB_OUTPUT"
@@ -100,7 +101,7 @@ jobs:
       - name: Liste des solutions
         id: find
         run: |
-          solutions=$(find src -name '*.slnx' | LC_ALL=C sort | jq -R -c '{path: ., name: (split("/") | last | sub(".slnx$"; ""))}' | jq -s -c .)
+          solutions=$(find src tools/pseudonymisation -name '*.slnx' | LC_ALL=C sort | jq -R -c '{path: ., name: (split("/") | last | sub(".slnx$"; ""))}' | jq -s -c .)
           echo "solutions=$solutions" >> "$GITHUB_OUTPUT"
           echo "$solutions" | jq .
 

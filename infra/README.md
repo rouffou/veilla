@@ -433,6 +433,9 @@ message clair hors production, sans dérogation, préproduction comprise (`SEPP_
 services Intégrations, Documents, Planification, Communications). Surveillance médicale n'a pas d'adaptateur réel : son choix
 `Simulateur` est fixe.
 
+Pseudonymisation d'une copie de production pour la recette et la formation, et environnement de formation :
+[docs/conformite/pseudonymisation.md](../docs/conformite/pseudonymisation.md) (NF-14).
+
 ### À vérifier sur Azure (#282)
 
 Ce câblage n'a été validé que par `terraform fmt` / `validate`, un `terraform apply` des seules expressions locales (sans
