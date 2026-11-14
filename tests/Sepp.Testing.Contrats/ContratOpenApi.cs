@@ -298,7 +298,7 @@ public static class ContratOpenApi
         _ => noeud.DeepClone(),
     };
 
-    private static string CheminInstantane(string nom)
+    internal static string CheminInstantane(string nom)
     {
         var dossier = new DirectoryInfo(AppContext.BaseDirectory);
         while (dossier is not null && !File.Exists(Path.Combine(dossier.FullName, "Sepp.slnx")))

@@ -17,6 +17,8 @@ on:
       - "**/*.slnx"
       - "src/Bff/**"
       - "tools/regenerate-solutions.sh"
+      - "tools/verifier-couverture.py"
+      - "tools/couverture-seuils.json"
       - "Directory.Build.props"
       - "Directory.Packages.props"
       - "global.json"
@@ -68,7 +70,7 @@ jobs:
         env:
           EVENEMENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^src/Sagas/|^tools/pseudonymisation/|^tests/|^infra/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
+          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^src/Sagas/|^tools/pseudonymisation/|^tests/|^infra/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^tools/verifier-couverture\.py$|^tools/couverture-seuils\.json$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
         run: |
           if [ "$EVENEMENT" != "pull_request" ]; then
             echo "concerne=true" >> "$GITHUB_OUTPUT"
@@ -171,11 +173,22 @@ jobs:
       # Tests unitaires, d'architecture et d'intégration (Testcontainers : Docker est fourni
       # par ubuntu-latest). Runner Microsoft.Testing.Platform (global.json).
       - name: Tests et couverture
+        id: tests
         run: >-
           dotnet test --solution "${{ matrix.solution.path }}" -c Release --no-build
           --coverage --coverage-output-format cobertura
           --report-xunit-trx
           --results-directory "${{ github.workspace }}/TestResults"
+
+      # Seuil bloquant (ARC-23) : couverture des assemblies Domain et Application du service, par couche. Cible 80 % ; un
+      # service sous la cible porte un seuil propre, au niveau actuel (cliquet), dans tools/couverture-seuils.json.
+      # Cette étape vit dans build-test : une PR qui ne touche pas au .NET ne l'exécute pas (job ignoré, « Statut .NET » vert).
+      - name: Seuil de couverture Domain et Application
+        run: >-
+          python3 tools/verifier-couverture.py
+          --solution "${{ matrix.solution.name }}"
+          --resultats "${{ github.workspace }}/TestResults"
+          --resume "$GITHUB_STEP_SUMMARY"
 
       - name: Publication des résultats de tests
         if: ${{ !cancelled() }}
