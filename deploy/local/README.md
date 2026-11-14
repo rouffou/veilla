@@ -120,6 +120,38 @@ docker compose -f deploy/local/compose.yaml exec postgres psql -U sepp -d bus   
 
 L'émulateur Azure Service Bus n'est pas utilisé : il impose l'acceptation des licences de l'émulateur et de SQL Edge.
 
+## Démo
+
+Une commande repart d'un environnement vierge et le remplit de **données fictives** pour une démonstration (épique #389, lot G #393) :
+
+```bash
+deploy/local/demo.sh            # PowerShell : deploy/local/demo.ps1
+```
+
+Le script enchaîne `docker compose down -v`, `up -d --build`, l'attente de tous les `/health/ready` (délai maximal 15 minutes) puis l'outil [`tools/donnees-demo/Sepp.Outils.DonneesDemo`](../../tools/donnees-demo/Sepp.Outils.DonneesDemo) lancé par `dotnet run` (SDK .NET 10 requis sur le poste ; les ports et l'émetteur Keycloak sont ceux de `localhost`, d'où une exécution hors conteneur plutôt qu'un service compose).
+
+**Attention : `down -v` efface les volumes du projet** (bases PostgreSQL, Keycloak, documents). Le script demande de taper `OUI`, sauf avec `--oui` (`-Oui` en PowerShell). Autres options : `--projet <nom>` (projet compose distinct de `veilla`, par exemple pour un essai ; les volumes de `veilla` ne sont alors pas touchés), `--seulement-amorcage` (relance l'outil seul, sans rien effacer), `--delai <s>`.
+
+L'outil n'appelle que les API des services (jeton par rôle obtenu par le flux mot de passe de `veilla-dev-cli`, aucun SQL) et l'API d'administration de Keycloak (`admin` / `admin-local-dev`) pour renseigner `affilie_id` (compte `employeur`) et `personne_id` (compte `travailleur`). Il ne référence aucun projet de service : les contrats sont recopiés, les DTO minimaux.
+
+- **Déterministe et fictif** : mêmes noms, adresses, NISS (contrôle modulo 97 valide, numéro d'ordre arbitraire) et numéros BCE à chaque exécution ; les dates sont relatives à aujourd'hui (fuseau Europe/Brussels).
+- **Idempotent** : il cherche avant de créer (BCE, NISS, noms de poste, lieux, ressources par `sub`, modèles d'agenda, rendez-vous). Le manifeste de l'exécution précédente sert de mémoire pour l'examen en cours et la décision en brouillon, que l'API ne permet pas de lister.
+- **Attentes** : après chaque flux entre services (obligations, projections, documents), l'outil interroge l'API avec un délai maximal et un message clair ; un échec d'une étape est consigné dans les avertissements et n'arrête pas les suivantes (code de sortie 1).
+- **Sorties** : résumé imprimé (comptes, parcours, travailleuse à chercher, contrôles) et manifeste `deploy/local/demo/manifeste.json` (identifiants, constats, avertissements ; non versionné).
+
+| Contenu | Détail |
+|---|---|
+| Affiliés | Boulangerie Démo SRL (Bruxelles, FR), Zorg Demo vzw (Gand, NL), Construct Démo SA (Liège, FR) ; un groupe rattache la Boulangerie et Construct |
+| Postes | 6 par affilié, profils de risques validés par le CPMT à partir du jeu d'exemple `risques-exemple.csv` ; une proposition refusée ; une proposition soumise par l'employeur |
+| Travailleurs | 40 en FR, NL et DE, occupations de 3 ans à 3 mois, affectations aux postes |
+| Planification | lieux Bruxelles et Gand, ressources CPMT, infirmier et CPMT dirigeant (`ReferenceId` = `sub` du jeton), créneaux de J à J+30, 5 rendez-vous aujourd'hui pour le CPMT puis d'autres, avec convocations |
+| Documents | modèles de départ du formulaire d'évaluation validés puis publiés (sinon la signature ne génère aucun document) |
+| Santé | 16 dossiers, 8 décisions signées (documents FR et NL générés), hépatite B doses 1 et 2 avec rappel dû, un examen en cours, **une décision en brouillon à signer en direct** |
+| Réintégration | 2 incapacités, un trajet avec invitation (évaluation en attente), un délai dépassé |
+| Comptes externes | `employeur` voit la Boulangerie et Construct ; `travailleur` est la travailleuse à chercher (annonce de reprise, demande de copie et proposition de risque faites avec leurs jetons) |
+
+Limites connues : le BFF travailleur n'affiche pas encore les documents publiés (ticket #436, le contrôle P11 reste en échec) ; s'il est tard dans la journée ou si c'est un week-end ou un jour férié, il reste moins de cinq créneaux libres « aujourd'hui » (l'outil le signale et reporte les rendez-vous au prochain jour ouvrable) ; ne lancez pas la démo avec le profil `par-zone`.
+
 ## Lancer un service hors conteneur
 
 ```bash
