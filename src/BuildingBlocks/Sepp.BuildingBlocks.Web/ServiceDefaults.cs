@@ -71,7 +71,7 @@ public static class ServiceDefaults
 
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<ConflictExceptionHandler>();
-        builder.Services.AddOpenApi();
+        builder.Services.AddSeppOpenApi();
         builder.Services.AddHttpContextAccessor();
         builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();

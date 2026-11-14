@@ -8,5 +8,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sepp.PostesRisques.Infrastructure\Sepp.PostesRisques.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\..\..\tests\Sepp.Testing.Contrats\Sepp.Testing.Contrats.csproj" />
   </ItemGroup>
 </Project>

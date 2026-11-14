@@ -7,5 +7,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sepp.Bff.Interne\Sepp.Bff.Interne.csproj" />
+    <ProjectReference Include="..\..\..\..\..\tests\Sepp.Testing.Contrats\Sepp.Testing.Contrats.csproj" />
   </ItemGroup>
 </Project>
