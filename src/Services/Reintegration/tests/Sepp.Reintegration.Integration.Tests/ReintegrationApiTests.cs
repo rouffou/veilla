@@ -28,7 +28,7 @@ namespace Sepp.Reintegration.Integration.Tests;
 /// et journaux sans contenu médical, consommation idempotente, suivi employeur limité à son affilié, minuteries en base
 /// (<c>FOR UPDATE SKIP LOCKED</c>) et envoi eHealth par le simulateur.
 /// </summary>
-public sealed class ReintegrationApiTests(ReintegrationFixture fixture) : IClassFixture<ReintegrationFixture>
+public sealed partial class ReintegrationApiTests(ReintegrationFixture fixture) : IClassFixture<ReintegrationFixture>
 {
     private const string Commentaire = "Lombalgie-Zorglub chronique";
     private const string Note = "Hernie-Bidulon L4-L5 opérée";

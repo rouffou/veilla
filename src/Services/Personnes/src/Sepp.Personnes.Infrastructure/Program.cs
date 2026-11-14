@@ -31,6 +31,13 @@ _ = app.Services.GetRequiredService<FieldEncryptor>();
 _ = app.Services.GetRequiredService<IFieldKeyProvider>();
 _ = app.Services.GetRequiredService<BlindIndex>();
 
+// ADR 0012, #396 : « rechiffrer puis quitter » (job d'exploitation) : toutes les valeurs chiffrées passent à la DEK courante.
+if (await app.RechiffrerChampsAsync<PersonnesDbContext>(s => s.GetRequiredService<FieldEncryptor>()) is { } codeRechiffrement)
+{
+    Environment.ExitCode = codeRechiffrement;
+    return;
+}
+
 app.MapSeppServiceDefaults();
 app.MapPersonnesEndpoints();
 app.MapSeppRepublications();

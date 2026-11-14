@@ -24,7 +24,7 @@ namespace Sepp.SurveillanceMedicale.Integration.Tests;
 /// glace, journalisation de chaque accès, chiffrement du contenu clinique au repos (SQL brut), événements et journaux
 /// sans contenu clinique, décisions et recours, purge avec validation humaine, projections idempotentes.
 /// </summary>
-public sealed class SurveillanceMedicaleApiTests(SurveillanceMedicaleFixture fixture) : IClassFixture<SurveillanceMedicaleFixture>
+public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFixture fixture) : IClassFixture<SurveillanceMedicaleFixture>
 {
     private const string Anamnese = "Céphalées-chroniques-Zorglub depuis 2019";
     private const string ExamenClinique = "Souffle-cardiaque-Bidulon discret";

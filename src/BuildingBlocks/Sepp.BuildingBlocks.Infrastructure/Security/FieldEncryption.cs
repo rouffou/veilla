@@ -74,8 +74,20 @@ public sealed class FieldEncryptor(IFieldKeyProvider keys)
         return Encoding.UTF8.GetString(plaintext);
     }
 
+    /// <summary>
+    /// Préfixe des valeurs chiffrées avec la DEK courante (<c>v2:&lt;dekId&gt;:</c>) : il ne contient aucun secret et sert
+    /// au rechiffrement à écarter, en SQL, les valeurs déjà à jour.
+    /// </summary>
+    public string PrefixeCourant => $"{Courant}:{keys.CurrentKeyId}:";
+
     /// <summary>Indique si la valeur doit être rechiffrée avec la DEK courante (rotation, ou ancien format <c>v1</c>).</summary>
-    public bool NeedsRotation(string ciphertext) => !ciphertext.StartsWith($"{Courant}:{keys.CurrentKeyId}:", StringComparison.Ordinal);
+    public bool NeedsRotation(string ciphertext) => !ciphertext.StartsWith(PrefixeCourant, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Rechiffre une valeur avec la DEK courante (format <c>v2</c>) ; une valeur déjà à jour est rendue telle quelle.
+    /// </summary>
+    /// <exception cref="CryptographicException">Valeur altérée, ou clé (DEK ou clé <c>v1</c>) non configurée.</exception>
+    public string Rechiffrer(string ciphertext) => NeedsRotation(ciphertext) ? Encrypt(Decrypt(ciphertext)) : ciphertext;
 
     private static byte[] DonneesAssociees(string version, string keyId) =>
         Encoding.UTF8.GetBytes(version == Courant ? $"{Courant}:{keyId}" : keyId);

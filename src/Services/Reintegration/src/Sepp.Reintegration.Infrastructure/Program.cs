@@ -1,5 +1,6 @@
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
+using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.BuildingBlocks.Web;
 using Sepp.Reintegration.Adapters;
 using Sepp.Reintegration.Adapters.Api;
@@ -28,6 +29,13 @@ if (await app.MigrerSchemaAsync<ReintegrationDbContext>() is { } codeSortie)
 
 // Échec au démarrage si les clés de chiffrement de la zone médicale sont absentes ou invalides (ARC-45).
 _ = app.Services.GetRequiredService<ChiffrementZoneMedicale>();
+
+// ADR 0012, #396 : « rechiffrer puis quitter » (job d'exploitation) : toutes les valeurs chiffrées passent à la DEK courante.
+if (await app.RechiffrerChampsAsync<ReintegrationDbContext>(s => s.GetRequiredService<ChiffrementZoneMedicale>().Encryptor) is { } codeRechiffrement)
+{
+    Environment.ExitCode = codeRechiffrement;
+    return;
+}
 
 app.MapSeppServiceDefaults();
 app.MapReintegrationEndpoints();

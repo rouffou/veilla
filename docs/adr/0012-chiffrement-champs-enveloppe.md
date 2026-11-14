@@ -69,7 +69,12 @@ par valeur (comme Documents par document) est exclu, pour la latence comme pour 
 - **Exploitation** : avant l'`apply`, créer les secrets `--deks--d1` et `blindindex--cleenveloppee` (procédure dans
   `infra/README.md`), sauvegarder les clés racines comme `documents-kek` ; après rechiffrement des valeurs v1, vider
   `encryption_legacy_key_ids` puis supprimer les secrets `--keys--` et `blindindex--key` (seule copie exportable restante).
-- **Rechiffrement des valeurs v1** : non automatisé ici (aucun travail de rechiffrement n'existe) ; une valeur v1 n'est
-  rechiffrée en v2 que lorsque le champ est modifié. Un travail de rechiffrement par service reste à prévoir avant de retirer les
-  anciennes clés.
+- **Rechiffrement des valeurs v1 et des anciennes DEK** (#396) : mode d'hôte « rechiffrer puis quitter »
+  (`Rechiffrement:ExecuterPuisQuitter`, `RechiffrementHote` du socle) dans les quatre services. Il traite par lots, avec
+  un curseur et des transactions courtes, toutes les colonnes chiffrées du modèle. Il est rejouable et idempotent, et
+  produit un rapport sans donnée ni clé. Il tourne avec l'identité d'exécution du service (il lui faut les DEK), et non
+  avec le job de migration. Le job Terraform `rech-<service>` reste à créer (#474). Procédures de rotation des DEK et de
+  retrait des anciennes clés, avec la requête de contrôle : `infra/README.md`.
+- **Rotation de la clé de l'index aveugle** : non outillée. Elle exige une lecture à double clé pendant le recalcul de
+  l'index (#473).
 - **Activation du Managed HSM** et domaine de sécurité : manuels (#282), comme pour `documents-kek`.

@@ -22,7 +22,7 @@ using Shouldly;
 namespace Sepp.Personnes.Integration.Tests;
 
 /// <summary>Migrations, chiffrement, index aveugle, outbox, API et autorisations contre un vrai PostgreSQL.</summary>
-public sealed class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixture<PersonnesApiFixture>
+public sealed partial class PersonnesApiTests(PersonnesApiFixture fixture) : IClassFixture<PersonnesApiFixture>
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 

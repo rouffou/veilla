@@ -156,6 +156,7 @@ pas fournie par Terraform.
 | `BLINDINDEX__CLEENVELOPPEE` | `key_vault_secrets` du catalogue (secret `blindindex--cleenveloppee`, clé de l'index aveugle enveloppée par `personnes-fields-kek`) | personnes |
 | `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, documents-medicale, integrations, planification |
 | `DATABASE__MIGRATEANDEXIT` (`true`), `DATABASE__RUNTIMEROLE` ; `POSTGRES__USER` et `AZURE_CLIENT_ID` de l'identité de migration | `local.migration_environment` (job `mig-<service>` seulement, aucun secret) | services avec base |
+| `RECHIFFREMENT__EXECUTERPUISQUITTER` (`true`) ; facultatifs `RECHIFFREMENT__TAILLELOT` (200), `RECHIFFREMENT__PAUSEENTRELOTS` (`00:00:00.050`) | job de rechiffrement seulement (manuel en attendant #474), jamais la révision du service | personnes, integrations, surveillance-medicale, reintegration |
 
 Un secret est exposé au conteneur sous le nom du secret en majuscules, `-` devenant `_` : le secret
 `personnes--encryption--deks--d1` devient `ENCRYPTION__DEKS__D1`, soit la clé `Encryption:Deks:D1` de la configuration .NET.
@@ -341,15 +342,149 @@ Rotation :
   `documents-kek`, ne jamais désactiver ni supprimer une version tant qu'une DEK l'utilise : le service ne démarrerait
   plus. Rien à faire côté DEK (une nouvelle DEK utilisera la nouvelle version) ;
 - **DEK** : créer `--deks--<nouvel id>`, puis placer l'identifiant **en tête** de `encryption_key_ids` en conservant les
-  anciens (déchiffrement) ; retirer un identifiant seulement quand plus aucune donnée ne l'utilise
-  (`FieldEncryptor.NeedsRotation`). Identifiants en majuscules et chiffres (`D1`, `D2`) ;
-- **clés AES historiques (format v1)** : `encryption_legacy_key_ids` les injecte en lecture seule (`--keys--<id>`) ; les
-  vider, puis supprimer les secrets `--keys--` et `blindindex--key` (dernières copies exportables), une fois toutes les
-  valeurs v1 rechiffrées (une valeur v1 est réécrite en v2 lorsque le champ est modifié ; aucun travail de rechiffrement
-  global n'existe encore).
+  anciens (déchiffrement), rechiffrer, et retirer un identifiant seulement quand plus aucune donnée ne l'utilise. Voir
+  « Rotation des DEK » ci-dessous. Identifiants en majuscules et chiffres (`D1`, `D2`) ;
+- **clés AES historiques (format v1)** : `encryption_legacy_key_ids` les injecte en lecture seule (`--keys--<id>`). Les
+  retirer, avec `blindindex--key`, une fois toutes les valeurs v1 rechiffrées : voir « Retrait des anciennes clés ».
 
 Sauvegarde : comme pour `documents-kek` (ci-dessous), **toutes versions incluses**, avant la mise en service puis après
 chaque rotation. La perte de `<service>-fields-kek` rend illisibles les champs chiffrés du service.
+
+### Rechiffrement des champs, rotation des DEK et retrait des anciennes clés (#396)
+
+Une valeur n'est réécrite avec la DEK courante que lorsque le service modifie le champ. Le **traitement de
+rechiffrement** réécrit toutes les autres : valeurs `v1` (anciennes clés AES, `encryption_legacy_key_ids`) et valeurs `v2`
+d'une ancienne DEK. Sans lui, ni une ancienne DEK ni une ancienne clé v1 ne peut être retirée.
+
+**Fonctionnement.** C'est un mode de l'hôte du service, sur le modèle de « migrer puis quitter » :
+`Rechiffrement__ExecuterPuisQuitter=true` rechiffre, journalise le rapport puis arrête le processus.
+
+- **Colonnes traitées** : toutes les colonnes chiffrées du modèle EF Core du service, c'est-à-dire celles suffixées
+  `_chiffre` ou `_chiffree` et munies d'un convertisseur. Un test par service fige la liste.
+- **Lecture par lots** : curseur sur la clé primaire, `Rechiffrement__TailleLot` valeurs (200 par défaut) par transaction
+  courte, avec une pause de `Rechiffrement__PauseEntreLots` (50 ms) entre deux lots. Seules les valeurs qui ne commencent pas
+  par `v2:<DEK courante>:` sont lues.
+- **Service non bloqué** : le traitement tourne pendant que le service sert les requêtes, et ne pose aucun verrou de
+  table. Chaque mise à jour est conditionnée à la valeur lue : une valeur que le service vient de modifier n'est pas
+  écrasée (« modifiée entre-temps » dans le rapport).
+- **Rejouable et idempotent** : après une interruption (arrêt, délai dépassé, erreur de base), il suffit de relancer.
+  Les lots déjà validés sont acquis et ne sont pas relus.
+- **Rapport** dans le journal (catégorie `Sepp.Rechiffrement`, événements 5101 à 5105) : par colonne, valeurs examinées,
+  rechiffrées, modifiées entre-temps, en erreur, à jour, restantes et restantes au format v1. Une valeur en erreur (clé non
+  configurée, valeur altérée) est signalée par sa table, sa colonne et l'identifiant technique de sa ligne, puis laissée
+  en place. Le journal ne contient jamais ni valeur, en clair comme chiffrée, ni clé.
+- **Code de sortie** : 0 si plus aucune valeur n'utilise une autre clé que la DEK courante, 1 sinon (erreurs, valeurs
+  restantes, échec).
+- **Identité et secrets** : le traitement a besoin des clés du service. Il tourne donc avec l'**identité d'exécution** du
+  service, ses secrets `--deks--` et `--keys--` et sa configuration, et non avec le job `mig-<service>`, qui n'a aucun
+  secret (ADR 0010).
+
+**Exécution en local** (le service doit déjà tourner avec la même configuration) :
+
+```bash
+docker compose -f deploy/local/compose.yaml run --rm --no-deps -e Rechiffrement__ExecuterPuisQuitter=true personnes
+```
+
+**Exécution en Azure.** Le job Terraform `rech-<service>` reste à créer (#474). En attendant, l'exploitant crée à la main,
+depuis un poste relié au VNet, un job Container Apps manuel `rech-<service>` dans l'environnement de la zone du service :
+
+- même image, même identité d'exécution (`--mi-user-assigned`, `--registry-identity`) ;
+- mêmes références Key Vault (`--secrets`) que la Container App, lues par
+  `az containerapp show -g "$rg" -n "ca-$svc" --query properties.configuration.secrets` ;
+- mêmes variables (`--env-vars`), lues par `--query "properties.template.containers[0].env"`, plus
+  `RECHIFFREMENT__EXECUTERPUISQUITTER=true` ;
+- `--trigger-type Manual --parallelism 1 --replica-completion-count 1 --replica-retry-limit 0`, et un délai maximal
+  (`--replica-timeout`) adapté au volume, à relancer s'il est dépassé.
+
+Le job se lance ensuite comme `mig-<service>` (`az containerapp job start`, suivi de l'exécution, puis
+`az containerapp job logs show … --container <nom du conteneur>`). Une exécution réussie (`Succeeded`) correspond au code
+0 : plus aucune valeur n'utilise une autre clé.
+
+**Requête de contrôle.** Elle se lance dans la base du service, avec l'identité d'exécution ou un administrateur Entra
+(lecture seule). Elle donne, par colonne chiffrée, le nombre de valeurs encore au format v1 et le nombre de valeurs
+chiffrées avec une autre clé que la DEK courante. Remplacer `v2:D2:` par `v2:<DEK courante>:`.
+
+```sql
+-- Contrôle du rechiffrement (#396) : attendu 0 et 0 sur chaque ligne avant de retirer une clé.
+SELECT c.table_name AS table_chiffree, c.column_name AS colonne,
+       (xpath('/row/n/text()', query_to_xml(format(
+           'SELECT count(*) AS n FROM %I.%I WHERE starts_with(%I, %L)',
+           c.table_schema, c.table_name, c.column_name, 'v1:'), false, true, '')))[1]::text::bigint AS valeurs_v1,
+       (xpath('/row/n/text()', query_to_xml(format(
+           'SELECT count(*) AS n FROM %I.%I WHERE %I IS NOT NULL AND NOT starts_with(%I, %L)',
+           c.table_schema, c.table_name, c.column_name, c.column_name, 'v2:D2:'), false, true, '')))[1]::text::bigint AS hors_dek_courante
+FROM information_schema.columns c
+JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name AND t.table_type = 'BASE TABLE'
+WHERE c.table_schema = 'public' AND (c.column_name LIKE '%\_chiffre' OR c.column_name LIKE '%\_chiffree')
+ORDER BY 1, 2;
+```
+
+`RechiffrementChampsPostgresTests` exécute cette requête telle qu'écrite ici.
+
+#### Rotation des DEK
+
+`encryption_key_ids` est commune aux quatre services : une rotation les concerne tous, chacun avec sa propre DEK.
+
+1. **Créer la nouvelle DEK** de chaque service (`ID=d2`), comme indiqué plus haut :
+   - `personnes--encryption--deks--d2` et `integrations--encryption--deks--d2` dans le coffre standard ;
+   - `surveillance-medicale--zonemedicale--encryption--deks--d2` et `reintegration--zonemedicale--encryption--deks--d2`
+     dans le coffre médical.
+2. **Mettre la nouvelle DEK en tête** : `encryption_key_ids = ["D2", "D1"]` dans le `terraform.tfvars` de
+   l'environnement, puis `plan` et `apply`. Déployer les nouvelles révisions, contrôler `/health/ready`, puis
+   **désactiver les anciennes révisions** : une réplique encore sur `D1` continuerait d'écrire en `D1`.
+3. **Rechiffrer** : exécuter `rech-<service>` pour les quatre services, et relancer jusqu'au code 0. Les valeurs
+   « restantes » d'une exécution viennent d'une réplique restée sur `D1` ou d'une valeur en erreur, à examiner (table,
+   colonne, ligne).
+4. **Contrôler** : la requête de contrôle, avec `v2:D2:`, donne 0 dans chaque base.
+5. **Retirer l'ancienne DEK** : `encryption_key_ids = ["D2"]`, `plan`, `apply`, nouvelles révisions. Ne **pas supprimer**
+   tout de suite les secrets `--deks--d1`. Une sauvegarde PostgreSQL antérieure au rechiffrement (restauration à un
+   instant donné, rétention `postgres_backup_retention_days`) contient encore des valeurs `D1`. Désactiver ces secrets
+   (`az keyvault secret set-attributes --enabled false`), puis les supprimer une fois la rétention écoulée.
+
+En cas de restauration d'une sauvegarde antérieure, réactiver le secret, remettre `D1` dans `encryption_key_ids`
+(après la DEK courante), puis rechiffrer.
+
+#### Retrait des anciennes clés (`encryption_legacy_key_ids`, `blindindex--key`)
+
+Ces secrets sont les dernières copies **exportables** des clés : les retirer est le but de l'ADR 0012. Leur suppression
+est irréversible (au-delà de la suppression réversible du coffre) : confirmation humaine obligatoire.
+
+Vérifications préalables, dans chaque environnement :
+
+1. **Rechiffrement complet** : une exécution de `rech-<service>` terminée avec le code 0 pour chacun des quatre services.
+   Le journal indique « 0 au format v1 » et « complet : True ».
+2. **Requête de contrôle** dans les quatre bases : `valeurs_v1` = 0 et `hors_dek_courante` = 0 sur chaque ligne.
+3. **Index aveugle** : Personnes démarre avec `blindindex--cleenveloppee` (révision « Healthy ») et une recherche par NISS
+   aboutit. `blindindex--key` n'est plus injecté, mais c'est la copie en clair de la même clé.
+4. **Sauvegarde** de `personnes-fields-kek` à jour, toutes versions incluses : après le retrait, la clé de l'index et les
+   DEK n'existent plus qu'enveloppées par elle.
+
+Retrait :
+
+1. `encryption_legacy_key_ids = []` dans le `terraform.tfvars`, puis `plan`. Le plan ne doit retirer que les secrets
+   `…__Keys__<id>` des quatre Container Apps. Lancer ensuite `apply`, déployer les nouvelles révisions et contrôler
+   `/health/ready`.
+2. Désactiver les secrets `<service>--<préfixe>--keys--<id>` des quatre services et `blindindex--key`
+   (`az keyvault secret set-attributes --enabled false`).
+3. Une fois la rétention des sauvegardes écoulée depuis le rechiffrement (aucune sauvegarde ne contient plus de valeur
+   v1), et après confirmation : supprimer ces secrets (`az keyvault secret delete`). La protection contre la purge
+   les garde récupérables pendant la durée de suppression réversible du coffre.
+
+#### Rotation de la clé de l'index aveugle (non disponible : #473)
+
+La clé HMAC de l'index aveugle du NISS (`blindindex--cleenveloppee`) n'est pas tournée par ce traitement. En changer
+impose de recalculer `niss_hash` pour toutes les personnes, en déchiffrant chaque NISS. Or `niss_hash` est sous index
+unique et sert à toutes les recherches par NISS (API, imports, mutations du registre national, Intégrations). Pendant
+le recalcul, une partie de l'index utiliserait l'ancienne clé et l'autre la nouvelle : des recherches échoueraient et
+des doublons deviendraient possibles.
+
+Une rotation sûre exige une lecture à double clé (ancienne et nouvelle empreinte) pendant le recalcul : ticket #473. En
+attendant :
+
+- ne pas changer `blindindex--cleenveloppee` (une nouvelle version avec une autre clé casserait toute recherche par NISS) ;
+- après une rotation de `personnes-fields-kek`, la clé enveloppée existante reste déballable : rien à faire.
+- en cas de compromission avérée de la clé de l'index, ouvrir un incident. La procédure de secours passe par une fenêtre
+  de maintenance, service arrêté, et n'est pas outillée.
 
 ### Clés racines de Documents (décision #356, ADR 0009)
 
