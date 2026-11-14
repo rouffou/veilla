@@ -40,7 +40,7 @@ public sealed class EcransTravailleurTests
         new(Guid.CreateVersion7(), personne, _affilie, Guid.CreateVersion7(), DateTimeOffset.Parse(debut), DateTimeOffset.Parse(debut).AddMinutes(30),
             "EVALUATION_PERIODIQUE", statut, null);
 
-    private static DocumentAval Doc(Guid destinataire, string code = "SANTE.EVALUATION.TRAVAILLEUR", string statut = "Publie", string type = "Personne") =>
+    private static DocumentAval Doc(Guid destinataire, string code = "SANTE.EVALUATION.TRAVAILLEUR", string statut = "Publie", string type = "personne") =>
         new(Guid.CreateVersion7(), code, "Fr", type, destinataire, "Travailleur", "PDF/A-1a", 1024, DateTimeOffset.Parse("2026-09-01T08:00:00Z"), statut,
             DateTimeOffset.Parse("2026-09-02T08:00:00Z"));
 
@@ -319,7 +319,7 @@ public sealed class EcransTravailleurTests
             ancien,
             Doc(_personne, statut: "Archive"),
             Doc(_autre),
-            Doc(_affilie, type: "Affilie"),
+            Doc(_affilie, type: "affilie"),
             recent,
         ]);
 
@@ -328,6 +328,20 @@ public sealed class EcransTravailleurTests
         liste.Select(d => d.Id).ShouldBe([recent.Id, ancien.Id]);
         liste[0].Categorie.ShouldBe(EcransDocuments.CategorieEvaluationSante);
         liste[1].Categorie.ShouldBe(EcransDocuments.CategorieAutre);
+    }
+
+    [Theory]
+    [InlineData("personne")]
+    [InlineData("Personne")]
+    [InlineData("PERSONNE")]
+    public async Task Le_type_de_destinataire_est_compare_sans_tenir_compte_de_la_casse(string type)
+    {
+        var document = Doc(_personne, type: type);
+        _documents.ListerDocumentsDeLaPersonneAsync(_personne, Ct).Returns([document]);
+
+        var liste = await Documents.MesDocumentsAsync(_personne, Ct);
+
+        liste.Select(d => d.Id).ShouldBe([document.Id]);
     }
 
     [Fact]
