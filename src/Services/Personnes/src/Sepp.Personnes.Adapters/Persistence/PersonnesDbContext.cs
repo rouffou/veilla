@@ -13,17 +13,15 @@ namespace Sepp.Personnes.Adapters.Persistence;
 /// Base de données propre au service Personnes (ARC-02). Le NISS et le type d'état particulier sont chiffrés
 /// champ par champ (AES-256-GCM, ARC-45) ; la recherche se fait par l'index aveugle <c>niss_hash</c> (DAT-06).
 /// </summary>
-/// <remarks>
-/// Les convertisseurs de chiffrement sont construits avec le <see cref="FieldEncryptor"/> du premier contexte
-/// (modèle EF mis en cache par processus) : les clés proviennent de la configuration, identique pour tout le processus.
-/// </remarks>
 public sealed class PersonnesDbContext(
     DbContextOptions<PersonnesDbContext> options,
     ICurrentUser currentUser,
     TimeProvider timeProvider,
     FieldEncryptor encryptor)
-    : SeppDbContext(options, currentUser, timeProvider)
+    : SeppDbContext(options, currentUser, timeProvider), IContexteChiffre
 {
+    FieldEncryptor IContexteChiffre.Chiffreur => encryptor;
+
     public DbSet<Personne> Personnes => Set<Personne>();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)

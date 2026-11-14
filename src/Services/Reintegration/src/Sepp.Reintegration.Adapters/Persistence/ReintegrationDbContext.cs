@@ -26,8 +26,10 @@ public sealed class ReintegrationDbContext(
     ICurrentUser currentUser,
     TimeProvider timeProvider,
     ChiffrementZoneMedicale chiffrement)
-    : SeppDbContext(options, currentUser, timeProvider)
+    : SeppDbContext(options, currentUser, timeProvider), IContexteChiffre
 {
+    FieldEncryptor IContexteChiffre.Chiffreur => chiffrement.Encryptor;
+
     private const int CodeLength = 60;
     private const int UserLength = 100;
     private const int EnumLength = 40;

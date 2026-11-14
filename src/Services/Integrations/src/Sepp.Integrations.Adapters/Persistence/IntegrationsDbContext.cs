@@ -15,17 +15,15 @@ namespace Sepp.Integrations.Adapters.Persistence;
 /// correspondances d'identifiants (§15.3) et dernières données BCE. La charge utile des échanges, qui peut contenir
 /// un NISS, est chiffrée champ par champ (AES-256-GCM, ARC-45) ; aucune autre colonne ne contient de donnée personnelle.
 /// </summary>
-/// <remarks>
-/// Le convertisseur de chiffrement est construit avec le <see cref="FieldEncryptor"/> du premier contexte (modèle EF
-/// mis en cache par processus) : les clés proviennent de la configuration, identique pour tout le processus.
-/// </remarks>
 public sealed class IntegrationsDbContext(
     DbContextOptions<IntegrationsDbContext> options,
     ICurrentUser currentUser,
     TimeProvider timeProvider,
     FieldEncryptor encryptor)
-    : SeppDbContext(options, currentUser, timeProvider)
+    : SeppDbContext(options, currentUser, timeProvider), IContexteChiffre
 {
+    FieldEncryptor IContexteChiffre.Chiffreur => encryptor;
+
     public DbSet<EchangeFlux> Journal => Set<EchangeFlux>();
 
     public DbSet<PositionFlux> Positions => Set<PositionFlux>();
