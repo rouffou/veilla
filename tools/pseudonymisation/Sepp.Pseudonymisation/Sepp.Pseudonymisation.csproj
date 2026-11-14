@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Sepp.Pseudonymisation</AssemblyName>
+    <RootNamespace>Sepp.Pseudonymisation</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\Sepp.BuildingBlocks.Infrastructure\Sepp.BuildingBlocks.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sepp.Pseudonymisation.Tests" />
+    <InternalsVisibleTo Include="Sepp.Pseudonymisation.Integration.Tests" />
+  </ItemGroup>
+</Project>

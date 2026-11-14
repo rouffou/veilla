@@ -47,6 +47,7 @@ public sealed class SourceLinguistiqueProjectionTests : IAsyncLifetime
             b.UseSetting("Documents:Adaptateurs:Horodatage", "Simulateur");
             b.UseSetting("Documents:Adaptateurs:Signature", "Simulateur");
             // Adaptateur réel, alimenté par la projection : aucune adresse d'Affiliés ni de Personnes n'est configurée.
+            b.UseSetting("Sepp:Environnement", "prod"); // NF-14 : un adaptateur réel n'est admis qu'en production.
             b.UseSetting("Documents:Adaptateurs:SourceLinguistique", "Reel");
             b.UseSetting("Documents:SourceLinguistique", "Projection");
             b.UseSetting("Documents:Stockage:Type", "Local");

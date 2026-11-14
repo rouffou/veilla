@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sepp.Pseudonymisation\Sepp.Pseudonymisation.csproj" />
+    <!-- Schémas réels (migrations) des quatre services et règles du NISS du domaine Personnes. -->
+    <ProjectReference Include="..\..\..\src\Services\Personnes\src\Sepp.Personnes.Adapters\Sepp.Personnes.Adapters.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\Affilies\src\Sepp.Affilies.Adapters\Sepp.Affilies.Adapters.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\SurveillanceMedicale\src\Sepp.SurveillanceMedicale.Adapters\Sepp.SurveillanceMedicale.Adapters.csproj" />
+    <ProjectReference Include="..\..\..\src\Services\Reintegration\src\Sepp.Reintegration.Adapters\Sepp.Reintegration.Adapters.csproj" />
+  </ItemGroup>
+</Project>

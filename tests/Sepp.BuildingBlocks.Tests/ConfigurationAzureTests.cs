@@ -86,35 +86,50 @@ public sealed class ConfigurationAzureTests
         erreur.Message.ShouldContain("POSTGRES__HOST");
     }
 
-    [Fact]
-    public void Un_adaptateur_reel_non_implemente_est_refuse_hors_production()
+    [Theory]
+    [InlineData("recette")]
+    [InlineData("formation")]
+    [InlineData("preprod")]
+    [InlineData("dev")]
+    [InlineData("test")]
+    public void Un_adaptateur_reel_est_refuse_dans_tout_environnement_hors_production(string environnement)
     {
-        var configuration = Configuration(("Sepp:Environnement", "recette"));
+        var configuration = Configuration(("Sepp:Environnement", environnement));
 
         var erreur = Should.Throw<InvalidOperationException>(
-            () => GardeAdaptateurs.RefuserReelNonImplementeHorsProduction(configuration, "Integrations:Adaptateurs:Bce", "Reel", reelImplemente: false));
+            () => GardeAdaptateurs.RefuserReelHorsProduction(configuration, "Integrations:Adaptateurs:Bce", "Reel"));
 
         erreur.Message.ShouldContain("Integrations:Adaptateurs:Bce");
+        erreur.Message.ShouldContain(environnement);
         erreur.Message.ShouldContain("Simulateur");
     }
 
     [Fact]
-    public void Un_adaptateur_reel_non_implemente_est_refuse_sans_environnement_defini()
+    public void Un_adaptateur_reel_est_refuse_sans_environnement_defini()
     {
-        Should.Throw<InvalidOperationException>(
-            () => GardeAdaptateurs.RefuserReelNonImplementeHorsProduction(Configuration(), "Documents:Adaptateurs:Signature", "Reel", reelImplemente: false));
+        var erreur = Should.Throw<InvalidOperationException>(
+            () => GardeAdaptateurs.RefuserReelHorsProduction(Configuration(), "Documents:Adaptateurs:Signature", "Reel"));
+
+        erreur.Message.ShouldContain("non défini");
     }
 
     [Theory]
-    [InlineData("Simulateur", false, "recette")]
-    [InlineData("Reel", true, "recette")]
-    [InlineData("Reel", false, "prod")]
-    [InlineData("Reel", false, "PROD")]
-    public void Le_garde_fou_laisse_passer_les_simulateurs_les_adaptateurs_reels_implementes_et_la_production(string choix, bool implemente, string environnement)
+    [InlineData("Simulateur", "recette")]
+    [InlineData("Simulateur", "preprod")]
+    [InlineData("Simulateur", "prod")]
+    [InlineData("Reel", "prod")]
+    [InlineData("Reel", "PROD")]
+    public void Le_garde_fou_laisse_passer_les_simulateurs_et_la_production(string choix, string environnement)
     {
         var configuration = Configuration(("Sepp:Environnement", environnement));
 
-        Should.NotThrow(() => GardeAdaptateurs.RefuserReelNonImplementeHorsProduction(configuration, "X:Adaptateurs:Y", choix, implemente));
+        Should.NotThrow(() => GardeAdaptateurs.RefuserReelHorsProduction(configuration, "X:Adaptateurs:Y", choix));
+    }
+
+    [Fact]
+    public void Le_garde_fou_ignore_un_choix_absent()
+    {
+        Should.NotThrow(() => GardeAdaptateurs.RefuserReelHorsProduction(Configuration(), "X:Adaptateurs:Y", null));
     }
 
     private sealed class ContexteDeTest(Microsoft.EntityFrameworkCore.DbContextOptions<ContexteDeTest> options)
