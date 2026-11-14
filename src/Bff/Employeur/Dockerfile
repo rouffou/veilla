@@ -4,7 +4,7 @@
 # CTR-01 image par service ; CTR-02 multi-stage ; CTR-03 base minimale (chiseled) ;
 # CTR-04 utilisateur non root ; CTR-05 aucun secret ni configuration d'environnement.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 
 # Restauration mise en cache : uniquement les fichiers de projet.
