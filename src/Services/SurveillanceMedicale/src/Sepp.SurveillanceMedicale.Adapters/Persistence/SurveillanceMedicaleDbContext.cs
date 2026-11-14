@@ -28,17 +28,15 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence;
 /// <c>_chiffre</c>, qui ne contiennent que le texte chiffré <c>v1:&lt;clé&gt;:…</c>. Restent en clair les identifiants,
 /// dates, statuts, codes de référentiel et la catégorie de décision (qui sort de la zone, ARC-06).
 /// </summary>
-/// <remarks>
-/// Les convertisseurs de chiffrement sont construits avec le <see cref="FieldEncryptor"/> du premier contexte (modèle EF
-/// mis en cache par processus) : les clés de la zone médicale proviennent de la configuration, identique pour le processus.
-/// </remarks>
 public sealed class SurveillanceMedicaleDbContext(
     DbContextOptions<SurveillanceMedicaleDbContext> options,
     ICurrentUser currentUser,
     TimeProvider timeProvider,
     ChiffrementZoneMedicale chiffrement)
-    : SeppDbContext(options, currentUser, timeProvider)
+    : SeppDbContext(options, currentUser, timeProvider), IContexteChiffre
 {
+    FieldEncryptor IContexteChiffre.Chiffreur => chiffrement.Encryptor;
+
     private const int CodeLength = 60;
     private const int UserLength = 100;
     private const int EnumLength = 40;
