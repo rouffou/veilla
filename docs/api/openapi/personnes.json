@@ -1,0 +1,1524 @@
+{
+  "components": {
+    "schemas": {
+      "AdresseDto": {
+        "properties": {
+          "boite": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "localite": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "pays": {
+            "default": "BE",
+            "type": "string"
+          },
+          "rue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rue",
+          "numero",
+          "boite",
+          "codePostal",
+          "localite"
+        ],
+        "type": "object"
+      },
+      "CanalCommunication": {
+        "enum": [
+          "Courrier",
+          "Email",
+          "Sms",
+          "Portail"
+        ]
+      },
+      "ChangementAffectation": {
+        "properties": {
+          "aPartirDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "posteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "siteId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "posteId",
+          "siteId",
+          "aPartirDu"
+        ],
+        "type": "object"
+      },
+      "CoordonneesDto": {
+        "properties": {
+          "adresse": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AdresseDto"
+              }
+            ]
+          },
+          "canalPrefere": {
+            "$ref": "#/components/schemas/CanalCommunication"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "telephone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "adresse",
+          "email",
+          "telephone",
+          "canalPrefere"
+        ],
+        "type": "object"
+      },
+      "CreerPersonne": {
+        "properties": {
+          "coordonnees": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CoordonneesDto"
+              }
+            ]
+          },
+          "identite": {
+            "$ref": "#/components/schemas/IdentiteDto"
+          },
+          "niss": {
+            "type": "string"
+          },
+          "occupation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NouvelleOccupationDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "niss",
+          "identite",
+          "coordonnees",
+          "occupation"
+        ],
+        "type": "object"
+      },
+      "DemandeRepublicationRequete": {
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "EnregistrerEntreeDimona": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "affilieUtilisateurId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateDebut": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateFin": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "identite": {
+            "$ref": "#/components/schemas/IdentiteDto"
+          },
+          "niss": {
+            "type": "string"
+          },
+          "referenceDimona": {
+            "type": "string"
+          },
+          "typeContrat": {
+            "$ref": "#/components/schemas/TypeContrat"
+          },
+          "typeTravailleur": {
+            "$ref": "#/components/schemas/TypeTravailleur"
+          }
+        },
+        "required": [
+          "referenceDimona",
+          "niss",
+          "identite",
+          "affilieId",
+          "affilieUtilisateurId",
+          "typeTravailleur",
+          "typeContrat",
+          "dateDebut",
+          "dateFin"
+        ],
+        "type": "object"
+      },
+      "EnregistrerMutationRegistreNational": {
+        "properties": {
+          "adresse": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AdresseDto"
+              }
+            ]
+          },
+          "dateEffet": {
+            "format": "date",
+            "type": "string"
+          },
+          "langue": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Language"
+              }
+            ]
+          },
+          "niss": {
+            "type": "string"
+          },
+          "nom": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "prenom": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "referenceMutation": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeMutationRegistreNational"
+          }
+        },
+        "required": [
+          "referenceMutation",
+          "niss",
+          "type",
+          "dateEffet",
+          "adresse",
+          "nom",
+          "prenom",
+          "langue"
+        ],
+        "type": "object"
+      },
+      "FinAffectation": {
+        "properties": {
+          "aPartirDu": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "aPartirDu"
+        ],
+        "type": "object"
+      },
+      "FinEtatParticulier": {
+        "properties": {
+          "dateFin": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dateFin"
+        ],
+        "type": "object"
+      },
+      "FinOccupation": {
+        "properties": {
+          "dateFin": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dateFin"
+        ],
+        "type": "object"
+      },
+      "IdentifierPersonne": {
+        "properties": {
+          "niss": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "niss"
+        ],
+        "type": "object"
+      },
+      "IdentiteDto": {
+        "properties": {
+          "dateNaissance": {
+            "format": "date",
+            "type": "string"
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "prenom": {
+            "type": "string"
+          },
+          "sexe": {
+            "$ref": "#/components/schemas/Sexe"
+          }
+        },
+        "required": [
+          "nom",
+          "prenom",
+          "dateNaissance",
+          "sexe",
+          "langue"
+        ],
+        "type": "object"
+      },
+      "Language": {
+        "enum": [
+          "Fr",
+          "Nl",
+          "De",
+          "En"
+        ]
+      },
+      "NouvelEtatParticulier": {
+        "properties": {
+          "dateDebut": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateFin": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeEtatParticulier"
+          }
+        },
+        "required": [
+          "type",
+          "dateDebut",
+          "dateFin"
+        ],
+        "type": "object"
+      },
+      "NouvelleAffectation": {
+        "properties": {
+          "posteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "siteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "posteId",
+          "siteId",
+          "valideDu",
+          "valideJusquAu"
+        ],
+        "type": "object"
+      },
+      "NouvelleOccupationDto": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "affilieUtilisateurId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateDebut": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateFin": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "typeContrat": {
+            "$ref": "#/components/schemas/TypeContrat"
+          },
+          "typeTravailleur": {
+            "$ref": "#/components/schemas/TypeTravailleur"
+          }
+        },
+        "required": [
+          "affilieId",
+          "affilieUtilisateurId",
+          "typeTravailleur",
+          "typeContrat",
+          "dateDebut",
+          "dateFin"
+        ],
+        "type": "object"
+      },
+      "RechercherParNiss": {
+        "properties": {
+          "niss": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "niss"
+        ],
+        "type": "object"
+      },
+      "Sexe": {
+        "enum": [
+          "Masculin",
+          "Feminin",
+          "Inconnu"
+        ]
+      },
+      "TypeContrat": {
+        "enum": [
+          "DureeIndeterminee",
+          "DureeDeterminee",
+          "TravailNettementDefini",
+          "Remplacement",
+          "Interim",
+          "Etudiant",
+          "Flexijob",
+          "Occasionnel",
+          "Stage",
+          "Benevolat",
+          "Autre"
+        ]
+      },
+      "TypeEtatParticulier": {
+        "enum": [
+          "Grossesse",
+          "Allaitement",
+          "TravailDeNuit",
+          "Jeune"
+        ]
+      },
+      "TypeMutationRegistreNational": {
+        "enum": [
+          "ChangementAdresse",
+          "ChangementNom",
+          "ChangementPrenom",
+          "ChangementLangue",
+          "Deces"
+        ]
+      },
+      "TypeTravailleur": {
+        "enum": [
+          "Salarie",
+          "Interimaire",
+          "Etudiant",
+          "Stagiaire",
+          "Detache",
+          "Benevole"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Personnes | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/admin/republications": {
+      "get": {
+        "operationId": "ListerRepublications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Republications les plus r\u00E9centes (type, statut, compteurs).",
+        "tags": [
+          "Exploitation"
+        ]
+      },
+      "post": {
+        "operationId": "DemanderRepublication",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeRepublicationRequete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "ADR 0011 : republie par lots l\u0027\u00E9tat courant d\u0027un type (instantan\u00E9s via l\u0027outbox) ; 202, suivi par GET.",
+        "tags": [
+          "Exploitation"
+        ]
+      }
+    },
+    "/api/v1/admin/republications/types": {
+      "get": {
+        "operationId": "ListerTypesRepublication",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Types d\u0027\u00E9tat que ce service sait republier.",
+        "tags": [
+          "Exploitation"
+        ]
+      }
+    },
+    "/api/v1/admin/republications/{id}": {
+      "get": {
+        "operationId": "ConsulterRepublication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Avancement d\u0027une republication : EnCours, Terminee ou Echouee, nombre d\u0027instantan\u00E9s \u00E9crits.",
+        "tags": [
+          "Exploitation"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/imports/travailleurs": {
+      "post": {
+        "operationId": "ImporterTravailleurs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "simulation",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "text/csv": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-21 : import CSV (UTF-8, \u00AB ; \u00BB ou \u00AB , \u00BB) avec contr\u00F4le du NISS, doublons et rapport ligne par ligne.",
+        "tags": [
+          "Travailleurs d\u0027un affili\u00E9"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/travailleurs": {
+      "get": {
+        "operationId": "ListerTravailleursAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Travailleurs occup\u00E9s ou mis \u00E0 disposition chez l\u0027affili\u00E9 \u00E0 une date.",
+        "tags": [
+          "Travailleurs d\u0027un affili\u00E9"
+        ]
+      }
+    },
+    "/api/v1/dimona/entrees": {
+      "post": {
+        "operationId": "EnregistrerEntreeDimona",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnregistrerEntreeDimona"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-20 : entr\u00E9e DIMONA re\u00E7ue de la BCSS par le service Int\u00E9grations ; idempotent sur la r\u00E9f\u00E9rence DIMONA.",
+        "tags": [
+          "Interne : alimentation DIMONA (service Int\u00E9grations)"
+        ]
+      }
+    },
+    "/api/v1/dimona/{reference}/sortie": {
+      "post": {
+        "operationId": "EnregistrerSortieDimona",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reference",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinOccupation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-20 : sortie DIMONA ; idempotent.",
+        "tags": [
+          "Interne : alimentation DIMONA (service Int\u00E9grations)"
+        ]
+      }
+    },
+    "/api/v1/identifications": {
+      "post": {
+        "operationId": "IdentifierPersonne",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentifierPersonne"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "SAN-60 : identifiant interne d\u0027une personne d\u00E9sign\u00E9e par son NISS (dans le corps) ; aucune donn\u00E9e de la fiche n\u0027est rendue.",
+        "tags": [
+          "Interne : identification (service Int\u00E9grations)"
+        ]
+      }
+    },
+    "/api/v1/mes-occupations": {
+      "get": {
+        "operationId": "ListerMesOccupations",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11 : occupations actives de la personne du jeton (claim personne_id) ; l\u0027affili\u00E9 sans sa d\u00E9nomination, aucune donn\u00E9e d\u0027identit\u00E9.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/personnes": {
+      "post": {
+        "operationId": "CreerPersonne",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerPersonne"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-21 : saisie manuelle d\u0027un travailleur ; un NISS d\u00E9j\u00E0 connu (doublon) reprend la personne existante.",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/recherche": {
+      "post": {
+        "operationId": "RechercherPersonneParNiss",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RechercherParNiss"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Recherche par NISS via l\u0027index aveugle (DAT-06) ; le NISS est dans le corps, jamais dans l\u0027URL.",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}": {
+      "get": {
+        "operationId": "ObtenirPersonne",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Fiche du travailleur (NISS masqu\u00E9) et occupations visibles dans le p\u00E9rim\u00E8tre de l\u0027utilisateur.",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/affectations": {
+      "get": {
+        "operationId": "ListerAffectations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-22 : historique des affectations (DAT-04), ou celles en vigueur \u00E0 une date.",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/affectations/{affectationId}/changement": {
+      "post": {
+        "operationId": "ChangerAffectation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "affectationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangementAffectation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "DAT-04 : l\u0027affectation en cours est cl\u00F4tur\u00E9e et une nouvelle est cr\u00E9\u00E9e.",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/affectations/{affectationId}/fin": {
+      "post": {
+        "operationId": "TerminerAffectation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "affectationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinAffectation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/coordonnees": {
+      "put": {
+        "operationId": "ModifierCoordonneesPersonne",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoordonneesDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/etats-particuliers": {
+      "get": {
+        "operationId": "ListerEtatsParticuliers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Personnes"
+        ]
+      },
+      "post": {
+        "operationId": "DeclarerEtatParticulier",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NouvelEtatParticulier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-23, AFF-24 : grossesse, allaitement, travail de nuit, jeune ; \u00E9v\u00E9nement \u00E0 cat\u00E9gorie g\u00E9n\u00E9rique (ARC-06).",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/etats-particuliers/{etatId}/fin": {
+      "post": {
+        "operationId": "TerminerEtatParticulier",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "etatId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinEtatParticulier"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/identite": {
+      "put": {
+        "operationId": "ModifierIdentitePersonne",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentiteDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/occupations": {
+      "get": {
+        "operationId": "ListerOccupations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Personnes"
+        ]
+      },
+      "post": {
+        "operationId": "DebuterOccupation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NouvelleOccupationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-21, AFF-23 : entr\u00E9e chez un affili\u00E9 (int\u00E9rimaire : agence et affili\u00E9 utilisateur).",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/occupations/{occupationId}/affectations": {
+      "post": {
+        "operationId": "Affecter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "occupationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NouvelleAffectation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-22 : affectation \u00E0 un poste d\u0027un site, du valideDu au valideJusquAu exclu.",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/personnes/{id}/occupations/{occupationId}/fin": {
+      "post": {
+        "operationId": "TerminerOccupation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "occupationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinOccupation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Sortie (dernier jour inclus) ; les affectations en cours sont cl\u00F4tur\u00E9es.",
+        "tags": [
+          "Personnes"
+        ]
+      }
+    },
+    "/api/v1/registre-national/mutations": {
+      "post": {
+        "operationId": "EnregistrerMutationRegistreNational",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnregistrerMutationRegistreNational"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "AFF-20, AFF-22 : changement d\u0027adresse, de nom, de pr\u00E9nom, de langue ou d\u00E9c\u00E8s re\u00E7u du registre national par le service Int\u00E9grations ; historis\u00E9 (DAT-04), idempotent sur la r\u00E9f\u00E9rence de la mutation. Un d\u00E9c\u00E8s cl\u00F4t les occupations actives.",
+        "tags": [
+          "Interne : mutations du registre national (service Int\u00E9grations)"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Portail travailleur"
+    },
+    {
+      "name": "Interne : identification (service Int\u00E9grations)"
+    },
+    {
+      "name": "Personnes"
+    },
+    {
+      "name": "Travailleurs d\u0027un affili\u00E9"
+    },
+    {
+      "name": "Interne : alimentation DIMONA (service Int\u00E9grations)"
+    },
+    {
+      "name": "Interne : mutations du registre national (service Int\u00E9grations)"
+    },
+    {
+      "name": "Exploitation"
+    }
+  ]
+}

@@ -9,5 +9,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\BuildingBlocks\Sepp.BuildingBlocks.Infrastructure\Sepp.BuildingBlocks.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Sepp.BuildingBlocks.Web\Sepp.BuildingBlocks.Web.csproj" />
+    <ProjectReference Include="..\Sepp.Testing.Contrats\Sepp.Testing.Contrats.csproj" />
   </ItemGroup>
 </Project>

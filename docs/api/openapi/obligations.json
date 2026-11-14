@@ -1,0 +1,1057 @@
+{
+  "components": {
+    "schemas": {
+      "AnnulationSaisie": {
+        "properties": {
+          "motif": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "motif"
+        ],
+        "type": "object"
+      },
+      "DemandeSaisie": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dateDemande": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId",
+          "affilieId",
+          "type",
+          "dateDemande"
+        ],
+        "type": "object"
+      },
+      "MaDemandeSaisie": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dateDemande": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "affilieId",
+          "type",
+          "dateDemande"
+        ],
+        "type": "object"
+      },
+      "RecalculSaisie": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "personneId",
+          "affilieId"
+        ],
+        "type": "object"
+      },
+      "ReportSaisie": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "type": "object"
+      },
+      "RepriseAnnulationSaisie": {
+        "properties": {
+          "motif": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "motif"
+        ],
+        "type": "object"
+      },
+      "RepriseModification": {
+        "properties": {
+          "debutAbsence": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "debutAbsence"
+        ],
+        "type": "object"
+      },
+      "RepriseSaisie": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dateReprise": {
+            "format": "date",
+            "type": "string"
+          },
+          "debutAbsence": {
+            "format": "date",
+            "type": "string"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId",
+          "affilieId",
+          "dateReprise",
+          "debutAbsence"
+        ],
+        "type": "object"
+      },
+      "StatutObligation": {
+        "enum": [
+          "APlanifier",
+          "Planifie",
+          "Convoque",
+          "Realise",
+          "Absent",
+          "Reporte",
+          "Annule",
+          "Excuse",
+          "SortiEntreprise",
+          null
+        ]
+      },
+      "StatutReprise": {
+        "enum": [
+          "Annoncee",
+          "ObligationOuverte",
+          "Planifiee",
+          "NonCouverte",
+          "Convoquee",
+          "ExamenRealise",
+          "DecisionEmise",
+          "Terminee",
+          "ExamenNonRequis",
+          "Annulee",
+          "SansObjet",
+          null
+        ]
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "OAuth2 : code d\u0027autorisation avec PKCE (applications) ou client credentials (comptes techniques).",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/auth",
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          },
+          "clientCredentials": {
+            "scopes": {
+              "sepp-api/.default": "Acc\u00E8s \u00E0 l\u0027API"
+            },
+            "tokenUrl": "https://idp.exemple.test/realms/veilla/protocol/openid-connect/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "Sepp.Obligations | v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/affilies/{affilieId}/alertes": {
+      "get": {
+        "operationId": "ListerAlertes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Alertes de non-couverture : travailleur expos\u00E9 non planifi\u00E9, poste sans analyse, liste non revue (AFF-32).",
+        "tags": [
+          "Alertes"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/obligations": {
+      "get": {
+        "operationId": "ListerObligationsAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "categorie",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ouvertesSeulement",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Obligations d\u0027un affili\u00E9 : dues, en retard ou planifi\u00E9es pour le tableau de bord employeur (POR-02).",
+        "tags": [
+          "Obligations"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/obligations/regroupables": {
+      "get": {
+        "operationId": "ListerRegroupables",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fenetreJours",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Obligations regroupables en un seul rendez-vous par travailleur, dans une fen\u00EAtre param\u00E9trable (SAN-03).",
+        "tags": [
+          "Obligations"
+        ]
+      }
+    },
+    "/api/v1/affilies/{affilieId}/obligations/synthese": {
+      "get": {
+        "operationId": "SynthetiserObligationsAffilie",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "affilieId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "D\u00E9comptes en retard / planifi\u00E9es / dues / \u00E0 venir d\u0027un affili\u00E9 (POR-02).",
+        "tags": [
+          "Obligations"
+        ]
+      }
+    },
+    "/api/v1/demandes-travailleur": {
+      "post": {
+        "operationId": "EnregistrerDemandeTravailleur",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Demande du travailleur (pr\u00E9-reprise, consultation spontan\u00E9e) : obligation \u00E0 10 jours ouvrables (\u00A75.1).",
+        "tags": [
+          "Demandes"
+        ]
+      }
+    },
+    "/api/v1/mes-demandes": {
+      "post": {
+        "operationId": "EnregistrerMaDemande",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaDemandeSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-12 : demande du travailleur connect\u00E9 (pr\u00E9-reprise, consultation spontan\u00E9e) chez un employeur qui l\u0027occupe ; personne = claim personne_id.",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/mes-examens-a-planifier": {
+      "get": {
+        "operationId": "ListerMesExamensAPlanifier",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "POR-11, SAN-12 : examens \u00E0 planifier de la personne du jeton (claim personne_id).",
+        "tags": [
+          "Portail travailleur"
+        ]
+      }
+    },
+    "/api/v1/obligations/{id}": {
+      "get": {
+        "operationId": "ObtenirObligation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Obligations"
+        ]
+      }
+    },
+    "/api/v1/obligations/{id}/absence": {
+      "post": {
+        "operationId": "MarquerObligationAbsent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Statuts"
+        ]
+      }
+    },
+    "/api/v1/obligations/{id}/annulation": {
+      "post": {
+        "operationId": "AnnulerObligation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnulationSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Statuts"
+        ]
+      }
+    },
+    "/api/v1/obligations/{id}/convocation": {
+      "post": {
+        "operationId": "ConvoquerObligation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Statuts"
+        ]
+      }
+    },
+    "/api/v1/obligations/{id}/excuse": {
+      "post": {
+        "operationId": "ExcuserObligation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Statuts"
+        ]
+      }
+    },
+    "/api/v1/obligations/{id}/report": {
+      "post": {
+        "operationId": "ReporterObligation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Statuts"
+        ]
+      }
+    },
+    "/api/v1/obligations/{id}/trace": {
+      "get": {
+        "operationId": "ObtenirTraceCalcul",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Trace de calcul : r\u00E8gle ou param\u00E8tre appliqu\u00E9, version, entr\u00E9es et explication (SAN-04, \u00A715.3).",
+        "tags": [
+          "Obligations"
+        ]
+      }
+    },
+    "/api/v1/personnes/{personneId}/obligations": {
+      "get": {
+        "operationId": "ListerObligationsPersonne",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "personneId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ouvertesSeulement",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "$ref": "#/components/schemas/StatutObligation"
+            }
+          },
+          {
+            "in": "query",
+            "name": "langue",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Obligations d\u0027un travailleur, avec statut et \u00E9ch\u00E9ance (SAN-01, SAN-02).",
+        "tags": [
+          "Obligations"
+        ]
+      }
+    },
+    "/api/v1/recalcul": {
+      "post": {
+        "operationId": "DemanderRecalcul",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecalculSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Recalcul imm\u00E9diat des \u00E9ch\u00E9ances d\u0027un travailleur ou d\u0027un affili\u00E9 (SAN-04).",
+        "tags": [
+          "Calcul"
+        ]
+      }
+    },
+    "/api/v1/reprises": {
+      "get": {
+        "operationId": "ListerReprises",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "affilieId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statut",
+            "schema": {
+              "$ref": "#/components/schemas/StatutReprise"
+            }
+          },
+          {
+            "in": "query",
+            "name": "echeanceAvant",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Suivi des reprises et alertes : filtre par statut et par date limite au plus tard \u00E0 echeanceAvant (POR-04).",
+        "tags": [
+          "Reprises"
+        ]
+      },
+      "post": {
+        "operationId": "EnregistrerReprise",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepriseSaisie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Annonce une reprise du travail (idempotent : m\u00EAme travailleur, affili\u00E9 et date = m\u00EAme processus ; 201 \u00E0 la cr\u00E9ation, 200 sinon).",
+        "tags": [
+          "Reprises"
+        ]
+      }
+    },
+    "/api/v1/reprises/{id}": {
+      "get": {
+        "operationId": "ObtenirReprise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "tags": [
+          "Reprises"
+        ]
+      },
+      "put": {
+        "operationId": "ModifierReprise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepriseModification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Corrige le d\u00E9but de l\u0027absence ; pour changer la date de reprise, annuler puis annoncer de nouveau.",
+        "tags": [
+          "Reprises"
+        ]
+      }
+    },
+    "/api/v1/reprises/{id}/annulation": {
+      "post": {
+        "operationId": "AnnulerReprise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RepriseAnnulationSaisie"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Annule la reprise (compensation) ; 409 si l\u0027examen est cl\u00F4tur\u00E9.",
+        "tags": [
+          "Reprises"
+        ]
+      }
+    },
+    "/api/v1/traitement-echeances": {
+      "post": {
+        "operationId": "TraiterEcheances",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "Lance \u00E0 la demande le traitement p\u00E9riodique : recalcul et publication des ObligationEchue.",
+        "tags": [
+          "Calcul"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Portail travailleur"
+    },
+    {
+      "name": "Obligations"
+    },
+    {
+      "name": "Alertes"
+    },
+    {
+      "name": "Statuts"
+    },
+    {
+      "name": "Demandes"
+    },
+    {
+      "name": "Calcul"
+    },
+    {
+      "name": "Reprises"
+    }
+  ]
+}

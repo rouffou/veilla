@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 
 using Shouldly;
 
@@ -39,14 +40,25 @@ public static class ContratOpenApi
     {
         await using var factory = new WebApplicationFactory<TProgram>().WithWebHostBuilder(b =>
         {
-            b.UseEnvironment("Testing");
-            // Adresses fixes : le document ne dépend pas de la configuration de la machine qui l'exécute.
-            b.UseSetting("Authentication:Authority", "https://idp.exemple.test/realms/veilla");
-            b.UseSetting("Authentication:Audience", "sepp-api");
-            if (connexion is not null)
+            // Environnement « Development » : le dépôt y porte la configuration locale complète du service (clés de
+            // chiffrement de développement, adaptateurs simulés, adresses des services en aval) ; l'hôte démarre ainsi
+            // sans coffre ni base. Les valeurs ci-dessous, appliquées en dernier, rendent le document indépendant de la machine.
+            b.UseEnvironment("Development");
+            b.ConfigureAppConfiguration((_, configuration) =>
             {
-                b.UseSetting($"ConnectionStrings:{connexion}", ConnexionFactice);
-            }
+                var valeurs = new Dictionary<string, string?>
+                {
+                    ["Authentication:Authority"] = "https://idp.exemple.test/realms/veilla",
+                    ["Authentication:Audience"] = "sepp-api",
+                    ["Database:MigrateOnStartup"] = "false",
+                };
+                if (connexion is not null)
+                {
+                    valeurs[$"ConnectionStrings:{connexion}"] = ConnexionFactice;
+                }
+
+                configuration.AddInMemoryCollection(valeurs);
+            });
 
             configurer?.Invoke(b);
         });
