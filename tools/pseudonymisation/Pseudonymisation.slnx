@@ -17,6 +17,7 @@
   <Project Path="../../src/Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Application/Sepp.SurveillanceMedicale.Application.csproj" />
   <Project Path="../../src/Services/SurveillanceMedicale/src/Sepp.SurveillanceMedicale.Domain/Sepp.SurveillanceMedicale.Domain.csproj" />
   <Project Path="../../tests/Sepp.Testing.Architecture/Sepp.Testing.Architecture.csproj" />
+  <Project Path="../../tests/Sepp.Testing.Contrats/Sepp.Testing.Contrats.csproj" />
   <Project Path="Sepp.Pseudonymisation.Integration.Tests/Sepp.Pseudonymisation.Integration.Tests.csproj" />
   <Project Path="Sepp.Pseudonymisation.Tests/Sepp.Pseudonymisation.Tests.csproj" />
   <Project Path="Sepp.Pseudonymisation/Sepp.Pseudonymisation.csproj" />
