@@ -88,7 +88,7 @@ public class PortailCorsTests
 
         politique.Methods.ShouldBe(["GET", "POST"]);
         politique.Headers.ShouldBe(["Authorization", "Content-Type", "Accept-Language", "X-Correlation-Id"]);
-        politique.ExposedHeaders.ShouldBe(["Content-Disposition", "X-Correlation-Id"]);
+        politique.ExposedHeaders.ShouldBe(["Content-Disposition", "X-Correlation-Id", "WWW-Authenticate"]);
         politique.Origins.ShouldBe(["http://localhost:8081"]);
         politique.SupportsCredentials.ShouldBeFalse();
     }

@@ -27,7 +27,8 @@ namespace Sepp.BuildingBlocks.Web;
 
 /// <summary>
 /// Gabarit commun des services (ARC-24) : observabilité (ARC-47), sondes de santé (CTR-12),
-/// authentification JWT (ARC-40), autorisation par permissions (ARC-41), ProblemDetails, OpenAPI (ARC-30).
+/// authentification JWT (ARC-40), autorisation par permissions (ARC-41), authentification forte (NF-01), ProblemDetails,
+/// OpenAPI (ARC-30).
 /// </summary>
 public static class ServiceDefaults
 {
@@ -102,7 +103,10 @@ public static class ServiceDefaults
         return app;
     }
 
-    /// <summary>Exige une permission de la matrice des droits (§3.3).</summary>
+    /// <summary>
+    /// Exige une permission de la matrice des droits (§3.3). Pour une permission <c>dossier-sante:*</c> ou <c>dossier-psy:*</c>,
+    /// la politique exige aussi l'authentification forte (NF-01, <see cref="AuthenticationStrength"/>).
+    /// </summary>
     public static TBuilder RequirePermission<TBuilder>(this TBuilder builder, string permission)
         where TBuilder : IEndpointConventionBuilder =>
         builder.RequireAuthorization(PermissionPolicy.Name(permission));
@@ -133,16 +137,25 @@ public static class ServiceDefaults
                 o.TokenValidationParameters.ClockSkew = TimeSpan.FromSeconds(30);
             });
 
+        builder.AddAuthenticationStrengthServices();
         builder.Services.AddAuthorization(o =>
         {
             o.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
                 .Build();
+            o.AddPolicy(AuthenticationStrength.PolicyName, p => p.RequireAuthenticatedUser().AddRequirements(AuthenticationStrengthRequirement.Instance));
             foreach (var permission in typeof(Permissions).GetFields().Select(f => (string)f.GetRawConstantValue()!))
             {
-                o.AddPolicy(PermissionPolicy.Name(permission), p => p
-                    .RequireAuthenticatedUser()
-                    .RequireAssertion(ctx => HttpCurrentUser.PermissionsOf(ctx.User).Contains(permission)));
+                o.AddPolicy(PermissionPolicy.Name(permission), p =>
+                {
+                    p.RequireAuthenticatedUser()
+                        .RequireAssertion(ctx => HttpCurrentUser.PermissionsOf(ctx.User).Contains(permission));
+                    // NF-01 : les routes dossier-sante:* et dossier-psy:* exigent l'authentification forte (MFA, eID, itsme).
+                    if (AuthenticationStrength.IsRequiredFor(permission))
+                    {
+                        p.AddRequirements(AuthenticationStrengthRequirement.Instance);
+                    }
+                });
             }
         });
     }
