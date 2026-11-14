@@ -145,11 +145,12 @@ L'outil n'appelle que les API des services (jeton par rôle obtenu par le flux m
 | Postes | 6 par affilié, profils de risques validés par le CPMT à partir du jeu d'exemple `risques-exemple.csv` ; une proposition refusée ; une proposition soumise par l'employeur |
 | Travailleurs | 40 en FR, NL et DE, occupations de 3 ans à 3 mois, affectations aux postes |
 | Planification | lieux Bruxelles et Gand, ressources CPMT, infirmier et CPMT dirigeant (`ReferenceId` = `sub` du jeton), créneaux de J à J+30, 5 rendez-vous aujourd'hui pour le CPMT puis d'autres, avec convocations |
-| Santé | 17 dossiers, 8 décisions signées (documents FR et NL générés), hépatite B doses 1 et 2 avec rappel dû, un examen en cours, **une décision en brouillon à signer en direct** |
+| Documents | modèles de départ du formulaire d'évaluation validés puis publiés (sinon la signature ne génère aucun document) |
+| Santé | 16 dossiers, 8 décisions signées (documents FR et NL générés), hépatite B doses 1 et 2 avec rappel dû, un examen en cours, **une décision en brouillon à signer en direct** |
 | Réintégration | 2 incapacités, un trajet avec invitation (évaluation en attente), un délai dépassé |
 | Comptes externes | `employeur` voit la Boulangerie et Construct ; `travailleur` est la travailleuse à chercher (annonce de reprise, demande de copie et proposition de risque faites avec leurs jetons) |
 
-Limites connues : s'il est tard dans la journée ou si c'est un week-end ou un jour férié, il reste moins de cinq créneaux libres « aujourd'hui » (l'outil le signale et reporte les rendez-vous au prochain jour ouvrable) ; ne lancez pas la démo avec le profil `par-zone`.
+Limites connues : le BFF travailleur n'affiche pas encore les documents publiés (ticket #436, le contrôle P11 reste en échec) ; s'il est tard dans la journée ou si c'est un week-end ou un jour férié, il reste moins de cinq créneaux libres « aujourd'hui » (l'outil le signale et reporte les rendez-vous au prochain jour ouvrable) ; ne lancez pas la démo avec le profil `par-zone`.
 
 ## Lancer un service hors conteneur
 

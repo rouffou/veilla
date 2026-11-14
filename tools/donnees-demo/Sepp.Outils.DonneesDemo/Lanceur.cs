@@ -283,7 +283,7 @@ internal static class Controles
                     return documents.Count >= 1;
                 },
                 delaiSecondes: 120);
-            return (ok, $"{documents.Count} document(s) pour la travailleuse");
+            return (ok, $"{documents.Count} document(s) pour la travailleuse{(ok ? string.Empty : " (anomalie connue du BFF travailleur : voir le ticket #436)")}");
         });
 
         await Verifier("Employeur : périmètre Keycloak", async () =>
@@ -295,8 +295,10 @@ internal static class Controles
 
         await Verifier("Communications : envois", async () =>
         {
-            var r = await c.Api.GetAsync(Service.Communications, "messages", "gestionnaire");
-            return (r.Ok, r.Ok ? $"{r.Liste().Count} message(s)" : r.Resume());
+            var personne = c.Personnes.GetValueOrDefault("boulangerie-0");
+            var r = await c.Api.GetAsync(Service.Communications, $"messages?typeDestinataire=Personne&destinataireId={personne?.Id}", "gestionnaire");
+            var n = (r.Corps?["messages"] as JsonArray)?.Count ?? r.Liste().Count;
+            return (r.Ok && n > 0, r.Ok ? $"{n} message(s) pour la travailleuse à chercher (convocation, document)" : r.Resume());
         });
 
         return resultats;
