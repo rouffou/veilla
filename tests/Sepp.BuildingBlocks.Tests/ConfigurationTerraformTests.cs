@@ -15,7 +15,15 @@ namespace Sepp.BuildingBlocks.Tests;
 /// </summary>
 public sealed partial class ConfigurationTerraformTests
 {
-    private static readonly string[] Authentification = ["Authentication:Authority", "Authentication:Audience"];
+    /// <summary>
+    /// Émetteur et audience des jetons, et authentification forte (NF-01) : mode strict et valeurs acceptées (contexte
+    /// d'authentification Entra ID, méthode amr), sans lesquels un service démarré hors développement refuse de démarrer.
+    /// </summary>
+    private static readonly string[] Authentification =
+    [
+        "Authentication:Authority", "Authentication:Audience", "Authentication:Strength:Mode",
+        "Authentication:Strength:AcceptedAmr:0", "Authentication:Strength:AcceptedAuthenticationContexts:0",
+    ];
 
     private static readonly string[] BasePostgres = ["Postgres:Host", "Postgres:Database", "Postgres:User"];
 
@@ -545,6 +553,33 @@ public sealed partial class ConfigurationTerraformTests
     private static string SansCommentaires(string contenu) => Terraform.SansCommentaires(contenu);
 
     [Fact]
+    public void L_authentification_forte_est_stricte_en_Azure_avec_des_valeurs_fortes_par_defaut()
+    {
+        // NF-01 : jamais de mode souple (Log) ni de désactivation injectés en Azure ; au moins une valeur acceptée, jamais pwd.
+        var terraform = Terraform.Lire();
+        Regex.IsMatch(terraform.Main, @"Authentication__Strength__Mode\s*=\s*""Enforce""").ShouldBeTrue("Le mode strict doit être imposé par main.tf.");
+        terraform.Main.ShouldNotContain("Authentication__Strength__Mode = var.", Case.Sensitive, "Le mode n'est pas paramétrable en Azure.");
+        terraform.Main.ShouldNotContain("\"Log\"", Case.Sensitive);
+        terraform.Main.ShouldNotContain("\"Disabled\"", Case.Sensitive);
+
+        var debut = terraform.Variables.IndexOf("variable \"authentication_strength\"", StringComparison.Ordinal);
+        debut.ShouldBeGreaterThanOrEqualTo(0, "variable \"authentication_strength\" absente de infra/variables.tf.");
+        var ouvrante = terraform.Variables.IndexOf('{', debut);
+        var bloc = terraform.Variables[debut..(Terraform.FinAccolade(terraform.Variables, ouvrante) + 1)];
+        Regex.IsMatch(bloc, @"accepted_amr\s*=\s*\[""mfa""\]").ShouldBeTrue("Par défaut, amr mfa est accepté.");
+        Regex.IsMatch(bloc, @"accepted_authentication_contexts\s*=\s*\[""c1""\]").ShouldBeTrue("Par défaut, le contexte d'authentification c1 est accepté.");
+        bloc.ShouldContain("> 0", Case.Sensitive, "Une liste vide de valeurs acceptées doit être refusée.");
+        bloc.ShouldContain("^c([1-9]|[1-9][0-9])$", Case.Sensitive, "Les contextes Entra ID valent c1 à c99.");
+        bloc.ShouldNotContain("\"pwd\"", Case.Sensitive);
+
+        // Aucun environnement n'affaiblit l'exigence (pwd n'est pas une méthode forte).
+        foreach (var fichier in Directory.EnumerateFiles(Path.Combine(Terraform.RacineDepot(), "infra", "environments"), "*.tf*", SearchOption.AllDirectories))
+        {
+            Terraform.SansCommentaires(File.ReadAllText(fichier)).ShouldNotContain("\"pwd\"", Case.Sensitive, $"{fichier} : pwd n'est pas une méthode forte.");
+        }
+    }
+
+    [Fact]
     public void Toute_cle_de_configuration_lue_par_le_code_a_ete_classee()
     {
         var inconnues = new SortedSet<string>(StringComparer.Ordinal);
@@ -690,6 +725,12 @@ public sealed partial class ConfigurationTerraformTests
 
             // Injection commune, vérifiée dans main.tf : chaque clé doit y figurer et le local être fusionné dans l'environnement.
             Ajouter(fournies, Fusionne("authentication_environment"), "Authentication__Authority", "Authentication__Audience");
+            Ajouter(fournies, Fusionne("authentication_environment") && Regex.IsMatch(_main, @"Authentication__Strength__Mode\s*=\s*""Enforce"""),
+                "Authentication__Strength__Mode");
+            Ajouter(fournies, Fusionne("authentication_environment") && ContientTous(
+                    "for i, v in var.authentication_strength.accepted_amr : \"Authentication__Strength__AcceptedAmr__${i}\" => v",
+                    "for i, v in var.authentication_strength.accepted_authentication_contexts : \"Authentication__Strength__AcceptedAuthenticationContexts__${i}\" => v"),
+                "Authentication__Strength__AcceptedAmr__0", "Authentication__Strength__AcceptedAuthenticationContexts__0");
             if (s.Database)
             {
                 Ajouter(fournies, _main.Contains("postgres_environment", StringComparison.Ordinal) && _main.Contains("try(local.postgres_environment[n]", StringComparison.Ordinal),

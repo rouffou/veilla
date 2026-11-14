@@ -82,10 +82,17 @@ locals {
   authentication_authority = "https://login.microsoftonline.com/${var.entra_tenant_id}/v2.0"
   technical_token_endpoint = "https://login.microsoftonline.com/${var.entra_tenant_id}/oauth2/v2.0/token"
   technical_scope          = "${var.authentication_audience}/.default"
-  authentication_environment = {
-    Authentication__Authority = local.authentication_authority
-    Authentication__Audience  = var.authentication_audience
-  }
+  # Authentification forte (NF-01, docs/securite/authentification-forte.md) : mode strict imposé en Azure ; un jeton est fort
+  # s'il porte un contexte d'authentification accepté (claim acrs, accès conditionnel) ou une méthode amr acceptée (mfa).
+  authentication_environment = merge(
+    {
+      Authentication__Authority      = local.authentication_authority
+      Authentication__Audience       = var.authentication_audience
+      Authentication__Strength__Mode = "Enforce"
+    },
+    { for i, v in var.authentication_strength.accepted_amr : "Authentication__Strength__AcceptedAmr__${i}" => v },
+    { for i, v in var.authentication_strength.accepted_authentication_contexts : "Authentication__Strength__AcceptedAuthenticationContexts__${i}" => v },
+  )
 
   # --- Appels entre services : adresses internes et comptes techniques (secret par référence Key Vault) ---
   internal_services_environment = {
