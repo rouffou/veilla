@@ -103,6 +103,40 @@
   },
   "clientScopes": [
     {
+      "name": "basic",
+      "description": "Claims de base sub et auth_time (scope intégré de Keycloak depuis la version 25)",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "auth_time",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usersessionmodel-note-mapper",
+          "config": {
+            "user.session.note": "AUTH_TIME",
+            "claim.name": "auth_time",
+            "jsonType.label": "long",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
       "name": "sepp-api",
       "protocol": "openid-connect",
       "attributes": {
@@ -307,6 +341,7 @@
         "post.logout.redirect.uris": "http://localhost:4200/*##http://localhost:8081/*"
       },
       "defaultClientScopes": [
+        "basic",
         "profile",
         "email",
         "sepp-api"
@@ -336,6 +371,7 @@
         "post.logout.redirect.uris": "http://localhost:4201/*##http://localhost:8082/*"
       },
       "defaultClientScopes": [
+        "basic",
         "profile",
         "email",
         "sepp-api"
@@ -365,6 +401,7 @@
         "post.logout.redirect.uris": "http://localhost:4202/*##http://localhost:8083/*"
       },
       "defaultClientScopes": [
+        "basic",
         "profile",
         "email",
         "sepp-api"
@@ -381,6 +418,7 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
       "defaultClientScopes": [
+        "basic",
         "profile",
         "email",
         "sepp-api"
@@ -400,6 +438,7 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "defaultClientScopes": [
+        "basic",
         "sepp-api"
       ]
     },
@@ -414,6 +453,7 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "defaultClientScopes": [
+        "basic",
         "sepp-api"
       ]
     },
@@ -428,6 +468,7 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "defaultClientScopes": [
+        "basic",
         "sepp-api"
       ]
     },
@@ -442,6 +483,7 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "defaultClientScopes": [
+        "basic",
         "sepp-api"
       ]
     },
@@ -456,12 +498,14 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "defaultClientScopes": [
+        "basic",
         "sepp-api"
       ]
     }
   ],
   "users": [
     {
+      "id": "0192a5c8-0000-7000-8001-000000000001",
       "username": "cpmt",
       "enabled": true,
       "emailVerified": true,
@@ -481,6 +525,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-000000000002",
       "username": "cpmt.dirigeant",
       "enabled": true,
       "emailVerified": true,
@@ -501,6 +546,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-00000000000f",
       "username": "cpmt.mfa",
       "enabled": true,
       "emailVerified": true,
@@ -526,6 +572,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-000000000003",
       "username": "infirmier",
       "enabled": true,
       "emailVerified": true,
@@ -545,6 +592,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-000000000004",
       "username": "assistant",
       "enabled": true,
       "emailVerified": true,
@@ -564,6 +612,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-000000000005",
       "username": "cpap",
       "enabled": true,
       "emailVerified": true,
@@ -583,6 +632,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-000000000006",
       "username": "securite",
       "enabled": true,
       "emailVerified": true,
@@ -602,6 +652,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-000000000007",
       "username": "gestionnaire",
       "enabled": true,
       "emailVerified": true,
@@ -621,6 +672,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-000000000008",
       "username": "planificateur",
       "enabled": true,
       "emailVerified": true,
@@ -640,6 +692,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-000000000009",
       "username": "responsable",
       "enabled": true,
       "emailVerified": true,
@@ -659,6 +712,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-00000000000a",
       "username": "admin",
       "enabled": true,
       "emailVerified": true,
@@ -678,6 +732,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-00000000000b",
       "username": "exploitant",
       "enabled": true,
       "emailVerified": true,
@@ -697,6 +752,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-00000000000c",
       "username": "dpo",
       "enabled": true,
       "emailVerified": true,
@@ -716,6 +772,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-00000000000d",
       "username": "employeur",
       "enabled": true,
       "emailVerified": true,
@@ -740,6 +797,7 @@
       }
     },
     {
+      "id": "0192a5c8-0000-7000-8001-00000000000e",
       "username": "travailleur",
       "enabled": true,
       "emailVerified": true,
@@ -764,6 +822,7 @@
       }
     },
     {
+      "id": "0192a5c8-0000-7000-8002-000000000001",
       "username": "service-account-veilla-integrations",
       "enabled": true,
       "serviceAccountClientId": "veilla-integrations",
@@ -772,6 +831,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8002-000000000002",
       "username": "service-account-veilla-documents",
       "enabled": true,
       "serviceAccountClientId": "veilla-documents",
@@ -781,6 +841,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8002-000000000003",
       "username": "service-account-veilla-documents-medicale",
       "enabled": true,
       "serviceAccountClientId": "veilla-documents-medicale",
@@ -789,6 +850,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8002-000000000004",
       "username": "service-account-veilla-communications",
       "enabled": true,
       "serviceAccountClientId": "veilla-communications",
@@ -797,6 +859,7 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8002-000000000005",
       "username": "service-account-veilla-affilies",
       "enabled": true,
       "serviceAccountClientId": "veilla-affilies",
