@@ -14,6 +14,11 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "deps(nuget)"
+    ignore:
+      # PDFsharp 6.5 impose une licence (PdfSharpLicenseException « The loaded license is not valid »,
+      # PR #412) : à décider par le responsable produit avant toute montée de version.
+      - dependency-name: "PDFsharp"
+        versions: [">= 6.5.0"]
     groups:
       aspnetcore-efcore:
         patterns:
