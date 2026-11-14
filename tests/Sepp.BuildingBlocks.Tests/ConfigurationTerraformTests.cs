@@ -126,6 +126,8 @@ public sealed partial class ConfigurationTerraformTests
         // Bus de développement PostgreSQL : Development, Test et Testing uniquement (ADR 0004), jamais injecté par Terraform.
         ["BusDeveloppement"] = "Local",
         ["Database"] = "Defaut",
+        // Rechiffrement des champs (#396) : mode d'exploitation ponctuel, désactivé par défaut, jamais injecté dans la révision.
+        ["Rechiffrement"] = "Defaut",
         ["Outbox"] = "Defaut",
         ["Republication"] = "Defaut",
         ["Cors"] = "Terraform",

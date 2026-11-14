@@ -17,7 +17,7 @@ using Shouldly;
 namespace Sepp.Integrations.Integration.Tests;
 
 /// <summary>Migrations, API de suivi (INT-02), flux BCE, correspondances et autorisations contre un vrai PostgreSQL.</summary>
-public sealed class IntegrationsApiTests(IntegrationsApiFixture fixture) : IClassFixture<IntegrationsApiFixture>
+public sealed partial class IntegrationsApiTests(IntegrationsApiFixture fixture) : IClassFixture<IntegrationsApiFixture>
 {
     private static readonly JsonSerializerOptions Json = FluxDimonaApiTests.Json;
 

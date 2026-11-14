@@ -30,6 +30,13 @@ if (await app.MigrerSchemaAsync<IntegrationsDbContext>() is { } codeSortie)
 _ = app.Services.GetRequiredService<FieldEncryptor>();
 _ = app.Services.GetRequiredService<IFieldKeyProvider>();
 
+// ADR 0012, #396 : « rechiffrer puis quitter » (job d'exploitation) : toutes les valeurs chiffrées passent à la DEK courante.
+if (await app.RechiffrerChampsAsync<IntegrationsDbContext>(s => s.GetRequiredService<FieldEncryptor>()) is { } codeRechiffrement)
+{
+    Environment.ExitCode = codeRechiffrement;
+    return;
+}
+
 app.MapSeppServiceDefaults();
 app.MapIntegrationsEndpoints();
 
