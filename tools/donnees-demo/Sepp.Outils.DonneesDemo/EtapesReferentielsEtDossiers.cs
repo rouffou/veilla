@@ -178,6 +178,8 @@ internal static class EtapeAffilies
 /// <summary>Étape 3 : postes (4 à 6 par affilié) et profils de risques validés par le CPMT, avec une proposition refusée.</summary>
 internal static class EtapePostes
 {
+    private static readonly Guid AvisCpptFictif = new("0198a6a0-0000-7000-8000-000000000001");
+
     private const string MotifProposition = "Démo : analyse de risques initiale";
     private const string MotifRefus = "Démo : proposition refusée, avis du comité PPT manquant";
 
@@ -233,11 +235,29 @@ internal static class EtapePostes
             return;
         }
 
-        var lignes = poste.Risques.Select(r => new { type = "Ajout", risqueCode = r.Code, niveauExposition = r.Niveau }).ToList();
-        var soumise = await c.Api.PostAsync(
-            Service.PostesRisques, $"postes/{posteId}/propositions", "gestionnaire",
-            new { motif = MotifProposition, valideDu = c.DebutProfils, lignes, avisCppt = (object?)null });
-        var id = EtapeAffilies.IdDe(Api.Exiger(soumise, $"Proposition de profil pour {poste.Intitule}"));
+        // Reprise après un échec de validation : la proposition soumise est validée, pas soumise une seconde fois.
+        var soumise = propositions.FirstOrDefault(p => p.Texte("statut") == "Soumise" && p.Texte("motif") == MotifProposition);
+        Guid id;
+        if (soumise is not null)
+        {
+            id = soumise.Guid("id");
+        }
+        else
+        {
+            var lignes = poste.Risques.Select(r => new { type = "Ajout", risqueCode = r.Code, niveauExposition = r.Niveau }).ToList();
+
+            // La validation exige l'avis du comité PPT (date et pièce jointe) : la pièce est un identifiant fictif, aucun document n'existe.
+            var corps = new
+            {
+                motif = MotifProposition,
+                valideDu = c.DebutProfils,
+                lignes,
+                avisCppt = new { date = c.DebutProfils.AddDays(-10), documentId = AvisCpptFictif },
+            };
+            var reponse = await c.Api.PostAsync(Service.PostesRisques, $"postes/{posteId}/propositions", "gestionnaire", corps);
+            id = EtapeAffilies.IdDe(Api.Exiger(reponse, $"Proposition de profil pour {poste.Intitule}"));
+        }
+
         Api.Exiger(
             await c.Api.PostAsync(Service.PostesRisques, $"propositions-poste-risque/{id}/validation", "cpmt", new { }),
             $"Validation du profil de {poste.Intitule}");
@@ -386,5 +406,57 @@ internal static class EtapePersonnes
             new { type = "TravailDeNuit", dateDebut = c.Aujourdhui.AddDays(-400), dateFin = (DateOnly?)null });
         Api.Exiger(cree, "État particulier « travail de nuit »");
         c.Info($"{p.Def.NomComplet} : état particulier « travail de nuit »");
+    }
+}
+
+/// <summary>
+/// Étape 1 (suite) : modèles de documents. Les modèles de départ du formulaire d'évaluation de santé sont créés en brouillon par le service
+/// Documents ; sans modèle publié, la signature d'une décision ne génère aucun document. Le département médical les valide (CPMT dirigeant pour
+/// la zone médicale, administrateur fonctionnel pour la zone standard), puis l'administrateur fonctionnel les publie (DOC-01).
+/// </summary>
+internal static class EtapeModeles
+{
+    public static async Task ExecuterAsync(Contexte c)
+    {
+        c.Titre("1b. Modèles de documents");
+        var modeles = Api.Exiger(await c.Api.GetAsync(Service.Documents, "modeles?code=SANTE.EVALUATION.EMPLOYEUR", "admin"), "Modèles du formulaire d'évaluation").Liste();
+        var tous = new List<JsonNode>(modeles);
+        foreach (var code in new[] { "SANTE.EVALUATION.TRAVAILLEUR", "SANTE.EVALUATION.DOSSIER" })
+        {
+            tous.AddRange(Api.Exiger(await c.Api.GetAsync(Service.Documents, $"modeles?code={code}", "admin"), $"Modèles {code}").Liste());
+        }
+
+        if (tous.Count == 0)
+        {
+            c.Avertir("Aucun modèle de départ du formulaire d'évaluation de santé : la signature des décisions ne produira pas de documents.");
+            return;
+        }
+
+        var publies = 0;
+        foreach (var modele in tous)
+        {
+            var statut = modele.Texte("statut");
+            var id = modele.Guid("id");
+            var libelle = $"{modele.Texte("code")} {modele.Texte("langue")} v{modele.Texte("version")}";
+            await c.EssayerAsync($"Modèle {libelle}", async () =>
+            {
+                if (statut == "Publie")
+                {
+                    publies++;
+                    return;
+                }
+
+                if (statut == "Brouillon")
+                {
+                    var validateur = string.Equals(modele.Texte("zone"), "Standard", StringComparison.OrdinalIgnoreCase) ? "admin" : "cpmt.dirigeant";
+                    Api.Exiger(await c.Api.PostAsync(Service.Documents, $"modeles/{id}/validation", validateur), $"Validation de {libelle}");
+                }
+
+                Api.Exiger(await c.Api.PostAsync(Service.Documents, $"modeles/{id}/publication", "admin"), $"Publication de {libelle}");
+                publies++;
+            });
+        }
+
+        c.Info($"{publies} modèles publiés sur {tous.Count} (modèles de départ, contenu à valider par le département médical)");
     }
 }

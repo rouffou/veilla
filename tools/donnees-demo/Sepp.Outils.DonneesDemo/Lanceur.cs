@@ -38,7 +38,7 @@ internal static class Lanceur
             await Comptes.AssurerAsync(c);
             foreach (var etape in new Func<Contexte, Task>[]
                      {
-                         EtapeReferentiels.ExecuterAsync, EtapeAffilies.ExecuterAsync, EtapePostes.ExecuterAsync, EtapePersonnes.ExecuterAsync,
+                         EtapeReferentiels.ExecuterAsync, EtapeModeles.ExecuterAsync, EtapeAffilies.ExecuterAsync, EtapePostes.ExecuterAsync, EtapePersonnes.ExecuterAsync,
                          EtapePlanification.ExecuterAsync, EtapeSurveillance.ExecuterAsync, EtapeReintegration.ExecuterAsync,
                          EtapeIntegrations.ExecuterAsync, EtapeComptesExternes.ExecuterAsync,
                      })
@@ -182,10 +182,22 @@ internal static class Controles
             var ressource = c.Ressources.GetValueOrDefault("cpmt");
             var du = c.DebutDeJour(c.Aujourdhui);
             var liste = Api.Exiger(
-                await c.Api.GetAsync(Service.Planification, $"rendez-vous?ressourceId={ressource}&du={Api.Q(du)}&au={Api.Q(du.AddDays(1))}", "cpmt"),
-                "Rendez-vous du jour").Liste();
-            var n = liste.Count(r => r.Texte("statut") is not ("Annule" or "Absent"));
-            return (n >= 1, $"{n} rendez-vous aujourd'hui" + (n < 5 ? " (moins de 5 : week-end, jour férié ou fin de journée)" : string.Empty));
+                await c.Api.GetAsync(Service.Planification, $"rendez-vous?ressourceId={ressource}&du={Api.Q(du)}&au={Api.Q(du.AddDays(14))}", "cpmt"),
+                "Rendez-vous du CPMT").Liste();
+            var actifs = liste.Where(r => r.Texte("statut") is not ("Annule" or "Absent"))
+                .Select(r => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.Parse(r.Texte("debut")!, CultureInfo.InvariantCulture), c.Fuseau).DateTime))
+                .ToList();
+            var aujourdhui = actifs.Count(d => d == c.Aujourdhui);
+            if (aujourdhui > 0)
+            {
+                return (true, $"{aujourdhui} rendez-vous aujourd'hui");
+            }
+
+            // Week-end, jour férié ou fin de journée : les rendez-vous sont au prochain jour ouvrable.
+            var premier = actifs.Count > 0 ? actifs.Min() : (DateOnly?)null;
+            return premier is { } jour
+                ? (true, $"aucun créneau libre aujourd'hui ; {actifs.Count(d => d == jour)} rendez-vous le prochain jour ouvrable ({jour:dd/MM/yyyy})")
+                : (false, "aucun rendez-vous dans les 14 prochains jours");
         });
 
         await Verifier("P1 Propositions poste-risque à valider", async () =>

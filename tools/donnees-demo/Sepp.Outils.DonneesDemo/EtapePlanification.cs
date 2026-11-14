@@ -22,8 +22,9 @@ internal static class Comptes
     ];
 
     /// <summary>
-    /// Les comptes <c>assistant</c> et <c>responsable</c> sont ajoutés au realm par le lot 0A (#390). Tant qu'ils manquent, ils sont créés
-    /// par l'API d'administration de Keycloak (poste de développement uniquement) ; le responsable est requis pour les lieux et ressources.
+    /// Les comptes <c>assistant</c> et <c>responsable</c> sont fournis par le realm local (lot 0A, #390). Sur un volume Keycloak plus ancien
+    /// qui ne les a pas, ils sont créés par l'API d'administration (poste de développement uniquement) ; le responsable est requis pour
+    /// les lieux et ressources.
     /// </summary>
     public static async Task AssurerAsync(Contexte c)
     {
@@ -37,7 +38,7 @@ internal static class Comptes
             {
                 if (await c.Keycloak.AssurerUtilisateurAsync(utilisateur, role, prenom, nom))
                 {
-                    c.Avertir($"Compte « {utilisateur} » absent du realm local (lot 0A, #390, non fusionné) : créé par l'API d'administration de Keycloak, rôle {role}, mot de passe {Jetons.MotDePasse}.");
+                    c.Avertir($"Compte « {utilisateur} » absent du realm local (volume Keycloak antérieur au lot 0A) : créé par l'API d'administration de Keycloak, rôle {role}, mot de passe {Jetons.MotDePasse}.");
                 }
             });
         }
@@ -54,7 +55,7 @@ internal static class EtapePlanification
 
     private static readonly string[] TypesConseiller = ["EVALUATION_PERIODIQUE", "EVALUATION_PREALABLE", "ACTES_MEDICAUX_SUPPLEMENTAIRES", "EXAMEN_REPRISE"];
 
-    private static readonly string[] JoursOuvres =["lundi", "mardi", "mercredi", "jeudi", "vendredi"];
+    private static readonly string[] JoursOuvres = ["lundi", "mardi", "mercredi", "jeudi", "vendredi"];
 
     public static async Task ExecuterAsync(Contexte c)
     {
@@ -249,21 +250,25 @@ internal static class EtapePlanification
     {
         var attendues = cles.Where(k => c.Personnes.ContainsKey(k)).ToList();
         var recalcule = false;
+        var dernier = -1;
+        var stable = 0;
         await c.AttendreAsync(
             $"obligations de {attendues.Count} travailleurs (bus de développement : affectations, profils de risques, projections)",
             async () =>
             {
-                var manquants = 0;
+                // Certains travailleurs n'ont aucune obligation (poste sans risque) : on attend que le nombre de travailleurs
+                // ayant des obligations cesse de croître, plutôt que de les exiger tous.
+                var avecObligations = 0;
                 foreach (var cle in attendues)
                 {
                     var liste = await c.Api.GetAsync(Service.Obligations, $"personnes/{c.Personnes[cle].Id}/obligations", "cpmt");
-                    if (!liste.Ok || liste.Liste().Count == 0)
+                    if (liste.Ok && liste.Liste().Count > 0)
                     {
-                        manquants++;
+                        avecObligations++;
                     }
                 }
 
-                if (manquants > 0 && !recalcule)
+                if (avecObligations == 0 && !recalcule)
                 {
                     // Une seule relance du calcul (SAN-04) si la première interrogation ne voit rien.
                     recalcule = true;
@@ -273,9 +278,12 @@ internal static class EtapePlanification
                     }
                 }
 
-                return manquants == 0;
+                stable = avecObligations == dernier ? stable + 1 : 0;
+                dernier = avecObligations;
+                return avecObligations > 0 && (avecObligations == attendues.Count || stable >= 3);
             },
             delaiSecondes: c.Options.DelaiAttenteSecondes * 2);
+        c.Info($"{Math.Max(dernier, 0)} travailleurs sur {attendues.Count} ont des obligations");
     }
 
     private static async Task<bool> PlanifierUnAsync(Contexte c, string clePersonne, string cleRessource, bool aujourdhui, int decalageJours)

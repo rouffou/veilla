@@ -148,6 +148,10 @@ internal sealed class Contexte
         {
             Avertir($"{description} : {ex.Message}");
         }
+        catch (Exception ex) when (ex is NullReferenceException or InvalidOperationException or FormatException or KeyNotFoundException or ArgumentException)
+        {
+            Avertir($"{description} : erreur inattendue ({ex.GetType().Name}) {ex.Message}");
+        }
     }
 
     /// <summary>Attend une condition en l'interrogeant ; message clair si le délai maximal est dépassé.</summary>

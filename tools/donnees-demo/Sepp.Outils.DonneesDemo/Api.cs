@@ -214,7 +214,8 @@ internal sealed class Jetons(string hote)
         var charge = jeton.Split('.')[1].Replace('-', '+').Replace('_', '/');
         charge = charge.PadRight(charge.Length + ((4 - (charge.Length % 4)) % 4), '=');
         var json = JsonNode.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(charge)))!;
-        return json["sub"]!.GetValue<string>();
+        return json["sub"]?.GetValue<string>()
+            ?? throw new EchecDemoException($"Le jeton de « {utilisateur} » ne porte pas de claim sub : recréez le volume Keycloak (realm local à jour, mapper « sub » de la portée sepp-api).");
     }
 }
 
@@ -225,11 +226,15 @@ internal sealed class KeycloakAdmin(string hote)
 
     private string? _jeton;
 
+    private DateTimeOffset _expire;
+
     private string Base => $"http://{hote}:8180";
 
     public async Task<JsonObject?> TrouverUtilisateurAsync(string nom)
     {
-        var reponse = await EnvoyerAsync(HttpMethod.Get, $"admin/realms/veilla/users?username={Uri.EscapeDataString(nom)}&exact=true", null);
+        var reponse = Api.Exiger(
+            await EnvoyerAsync(HttpMethod.Get, $"admin/realms/veilla/users?username={Uri.EscapeDataString(nom)}&exact=true", null),
+            $"Recherche de l'utilisateur Keycloak {nom}");
         var liste = reponse.Liste();
         return liste.Count > 0 ? liste[0] as JsonObject : null;
     }
@@ -274,7 +279,8 @@ internal sealed class KeycloakAdmin(string hote)
 
     private async Task<string> JetonAsync()
     {
-        if (_jeton is not null)
+        // Le jeton du realm master vit une minute : renouvelé après trente secondes.
+        if (_jeton is not null && DateTimeOffset.UtcNow < _expire)
         {
             return _jeton;
         }
@@ -297,6 +303,7 @@ internal sealed class KeycloakAdmin(string hote)
         }
 
         _jeton = JsonNode.Parse(texte)!["access_token"]!.GetValue<string>();
+        _expire = DateTimeOffset.UtcNow.AddSeconds(30);
         return _jeton;
     }
 
