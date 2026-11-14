@@ -239,7 +239,15 @@ public sealed class EcransDocuments(IDocumentsApi documents, IDocumentsMedicaleA
     }
 
     private static bool EstPourLaPersonne(DocumentAval d, Guid personneId) =>
-        d.Statut == "Publie" && d.TypeDestinataire == "Personne" && d.DestinataireId == personneId;
+        string.Equals(d.Statut, "Publie", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(d.TypeDestinataire, TypeDestinatairePersonne, StringComparison.OrdinalIgnoreCase)
+        && d.DestinataireId == personneId;
+
+    /// <summary>
+    /// Code du destinataire « travailleur » tel que le service Documents le publie (<c>TypesDestinataire.Code()</c> : « personne »,
+    /// en minuscules). Le BFF ne référence pas les services : la comparaison est donc insensible à la casse (#436).
+    /// </summary>
+    internal const string TypeDestinatairePersonne = "personne";
 
     internal static DocumentEcran ToEcran(DocumentAval d) =>
         new(d.Id, Categorie(d.CodeModele), d.CodeModele, d.Langue, d.PublieLe ?? d.Date, d.Format, d.Taille);
