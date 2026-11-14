@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Sepp.Outils.DonneesDemo</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- Outil de poste de développement : aucun projet de service n'est référencé (contrats recopiés, DTO minimaux). -->
+    <NoWarn>$(NoWarn);CA1303;CA1031;CA1822</NoWarn>
+  </PropertyGroup>
+
+</Project>

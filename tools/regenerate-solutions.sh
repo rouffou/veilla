@@ -42,4 +42,4 @@ generate src/Sagas/Sagas.slnx $sagas_tests $shared $shared_tests $(find src/Serv
 generate tools/pseudonymisation/Pseudonymisation.slnx $(find tools/pseudonymisation -name '*.csproj' | LC_ALL=C sort) $shared $shared_tests
 
 # shellcheck disable=SC2046
-generate Sepp.slnx $(find src tests tools/pseudonymisation -name '*.csproj' -not -path '*/node_modules/*' | LC_ALL=C sort)
+generate Sepp.slnx $(find src tests tools/pseudonymisation tools/donnees-demo -name '*.csproj' -not -path '*/node_modules/*' | LC_ALL=C sort)
