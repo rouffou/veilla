@@ -481,8 +481,12 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-# Worktrees des agents Claude Code
-.claude/
+# Claude Code : on versionne l'équipe d'agents (agents, commandes, permissions partagées),
+# pas les worktrees ni les réglages locaux.
+.claude/*
+!.claude/agents/
+!.claude/commands/
+!.claude/settings.json
 
 # ---------------------------------------------------------------------------
 # Projet SEPP (veilla) — compléments au modèle dotnet
@@ -536,3 +540,7 @@ graphify-out/
 *~
 Thumbs.db
 desktop.ini
+
+# Claude Code (fichiers locaux)
+.claude/settings.local.json
+CLAUDE.local.md
