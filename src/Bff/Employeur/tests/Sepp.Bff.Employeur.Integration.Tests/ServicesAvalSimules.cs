@@ -3,6 +3,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
+using Sepp.Testing.Contrats;
+
 namespace Sepp.Bff.Employeur.Integration.Tests;
 
 /// <summary>
@@ -20,12 +22,25 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
 
     private readonly ConcurrentDictionary<(string Hote, string Methode, string Chemin), (HttpStatusCode Status, string Corps)> _reponses = new();
 
+    // Contrôle de contrat (ARC-23) : réponses programmées et requêtes émises confrontées aux instantanés OpenAPI des fournisseurs.
+    private readonly ControleContratDouble _controle = new();
+
     public ConcurrentQueue<RequeteRecue> Requetes { get; } = new();
 
     public ConcurrentDictionary<string, bool> HotesInjoignables { get; } = new();
 
     public void Repondre(string hote, string chemin, object corps, HttpStatusCode status = HttpStatusCode.OK, string methode = "GET") =>
-        _reponses[(hote, methode, chemin)] = (status, JsonSerializer.Serialize(corps, Json));
+        _reponses[(hote, methode, chemin)] = (status, Controler(hote, methode, chemin, status, corps));
+
+    private string Controler(string hote, string methode, string chemin, HttpStatusCode status, object corps)
+    {
+        var json = JsonSerializer.Serialize(corps, Json);
+        _controle.ControlerReponse(hote, methode, chemin, (int)status, json);
+        return json;
+    }
+
+    /// <summary>Échoue si une requête émise vers un service simulé ne correspond pas à une opération de son contrat OpenAPI.</summary>
+    public void ExigerRequetesConformes() => _controle.ExigerRequetesConformes();
 
     public void Probleme(string hote, string chemin, HttpStatusCode status, string code, string methode = "GET") =>
         Repondre(hote, chemin, new { title = code, status = (int)status, detail = $"Détail {code}", code }, status, methode);
@@ -43,6 +58,7 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
             request.Headers.Authorization?.ToString(),
             request.Headers.TryGetValues("X-Correlation-Id", out var c) ? c.Single() : null,
             corps));
+        _controle.ControlerRequete(hote, request.Method.Method, request.RequestUri.PathAndQuery, corps);
 
         if (HotesInjoignables.ContainsKey(hote))
         {

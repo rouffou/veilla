@@ -3,6 +3,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
+using Sepp.Testing.Contrats;
+
 namespace Sepp.Bff.Interne.Integration.Tests;
 
 /// <summary>
@@ -15,6 +17,12 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
 
     private readonly ConcurrentDictionary<(string Hote, string Methode, string Chemin), (HttpStatusCode Status, string Corps)> _reponses = new();
 
+    // Contrôle de contrat (ARC-23) : réponses programmées et requêtes émises confrontées aux instantanés OpenAPI des fournisseurs.
+    // Périmètre : les lectures des clients typés (fiche personne, fiche affilié). Le relais générique transporte des routes
+    // fictives (/sonde, /ressource…) qui n'ont pas à exister chez les fournisseurs.
+    private readonly ControleContratDouble _controle = new(
+        perimetre: (methode, chemin) => methode == "GET" && (chemin.StartsWith("/api/v1/personnes/", StringComparison.Ordinal) || chemin.StartsWith("/api/v1/affilies/", StringComparison.Ordinal)));
+
     public ConcurrentQueue<RequeteRecue> Requetes { get; } = new();
 
     public ConcurrentDictionary<string, bool> HotesInjoignables { get; } = new();
@@ -22,7 +30,17 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
     public static string Hote(string service) => $"{service}.test";
 
     public void Repondre(string service, string chemin, object corps, HttpStatusCode status = HttpStatusCode.OK, string methode = "GET") =>
-        _reponses[(Hote(service), methode, chemin)] = (status, JsonSerializer.Serialize(corps, Json));
+        _reponses[(Hote(service), methode, chemin)] = (status, Controler(service, methode, chemin, status, corps));
+
+    private string Controler(string service, string methode, string chemin, HttpStatusCode status, object corps)
+    {
+        var json = JsonSerializer.Serialize(corps, Json);
+        _controle.ControlerReponse(Hote(service), methode, chemin, (int)status, json);
+        return json;
+    }
+
+    /// <summary>Échoue si une requête émise vers un service simulé ne correspond pas à une opération de son contrat OpenAPI.</summary>
+    public void ExigerRequetesConformes() => _controle.ExigerRequetesConformes();
 
     public void Injoignable(string service) => HotesInjoignables[Hote(service)] = true;
 
@@ -34,6 +52,7 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
             .Concat(request.Content?.Headers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
             .ToDictionary(h => h.Key, h => string.Join(",", h.Value), StringComparer.OrdinalIgnoreCase);
         Requetes.Enqueue(new RequeteRecue(request.Method.Method, hote, request.RequestUri.PathAndQuery, request.Headers.Host, entetes, corps));
+        _controle.ControlerRequete(hote, request.Method.Method, request.RequestUri.PathAndQuery, corps);
 
         if (HotesInjoignables.ContainsKey(hote))
         {

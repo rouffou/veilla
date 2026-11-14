@@ -69,7 +69,13 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
         return ValueTask.CompletedTask;
     }
 
-    public async ValueTask DisposeAsync() => await _factory.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        await _factory.DisposeAsync();
+
+        // Contrat (ARC-23) : toute requête émise vers un service simulé doit exister dans son instantané OpenAPI.
+        _aval.ExigerRequetesConformes();
+    }
 
     private static string Jeton(string role, IEnumerable<Guid> affilies, string audience = "sepp-api") =>
         new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
