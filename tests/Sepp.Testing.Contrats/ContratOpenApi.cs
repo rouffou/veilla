@@ -4,7 +4,10 @@ using System.Text.Json.Nodes;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 using Shouldly;
 
@@ -61,6 +64,17 @@ public static class ContratOpenApi
             });
 
             configurer?.Invoke(b);
+
+            // Isolement : le document ne dépend d'aucun traitement de fond. Les services hébergés du service (outbox, planificateurs,
+            // consommateurs) ne démarrent pas : ils ouvriraient un DbContext et figeraient, dans le modèle EF mis en cache par
+            // processus, le chiffreur de cet hôte (clés de développement) au détriment des autres tests de l'assemblée.
+            b.ConfigureTestServices(services =>
+            {
+                foreach (var d in services.Where(d => d.ServiceType == typeof(IHostedService) && !EstServiceHebergeDuFramework(d)).ToList())
+                {
+                    services.Remove(d);
+                }
+            });
         });
 
         using var client = factory.CreateClient();
@@ -100,6 +114,9 @@ public static class ContratOpenApi
         message.AppendLine(Consigne);
         throw new ShouldAssertException(message.ToString());
     }
+
+    private static bool EstServiceHebergeDuFramework(ServiceDescriptor d) =>
+        d.ImplementationType?.Assembly.GetName().Name?.StartsWith("Microsoft.", StringComparison.Ordinal) == true;
 
     /// <summary>Compare deux documents normalisés ; retourne les ruptures et les autres écarts.</summary>
     public static (List<string> Ruptures, List<string> Ajouts) Comparer(JsonNode reference, JsonNode courant)
