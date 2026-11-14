@@ -17,5 +17,8 @@ Les termes employés dans ces décisions (BFF, Outbox, saga, CQRS…) sont défi
 | [0011](0011-rattrapage-projections.md) | Rattrapage des projections : republication de l'état courant par les producteurs (instantanés dédiés, lots via l'outbox) | Proposée (à valider par l'architecte) | ARC-31, ARC-34, ARC-06, ARC-41 |
 | [0012](0012-chiffrement-champs-enveloppe.md) | Chiffrement des champs par enveloppe : clé racine non exportable par service, DEK déballées au démarrage, format v2 (prolonge la 0009) | Proposée (à valider par l'architecte) | ARC-44, ARC-45, ARC-04, NF-03, DAT-06 |
 | [0013](0013-bff-interne-relais-ecrans-composites.md) | BFF interne : relais vers une liste fermée de services et écrans composites | Proposée (à valider par l'architecte) | ARC-43, ARC-40, ARC-30, ARC-42 |
+| [0014](0014-trajectoire-decomposition.md) | Trajectoire de décomposition : maintien des 12 services, monolithe modulaire par zone en option conditionnelle | Proposée (à valider par le responsable produit) | ARC-01, ARC-02, §14.3 |
+| [0015](0015-services-prevus-sans-code.md) | Services prévus sans code : abandon d'`identite`, activation à leur lot, abonnements alignés sur le code | Proposée (à valider par le responsable produit) | ARC-01, ARC-05, CTR-13, ARC-51 |
+| [0016](0016-placement-lots-4-et-5.md) | Placement des capacités des lots 4 et 5 (prévention, psychosocial, prestations, reporting) | Proposée (à valider par le responsable produit ; point 4 par l'architecte sécurité) | ARC-04, ARC-06, ARC-09, ARC-32, ARC-33, PSY-20, NF-34 |
 
 Format : contexte, décision, alternatives, conséquences.
