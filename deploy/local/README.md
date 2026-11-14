@@ -28,6 +28,8 @@ docker compose -f deploy/local/compose.yaml up -d --build
 
 Définis dans [`keycloak/veilla-realm.json`](keycloak/veilla-realm.json), mot de passe commun `veilla-dev`. Les noms sont fictifs.
 
+Chaque utilisateur a un identifiant (claim `sub`) fixe, défini dans le realm (voir [Portées OIDC](#portées-oidc)).
+
 | Utilisateur | Nom affiché | Rôle |
 |---|---|---|
 | `cpmt` | Anne Martin | `cpmt` (conseiller en prévention-médecin du travail) |
@@ -125,4 +127,8 @@ Le script `init-databases.sql` ne s'exécute qu'à la création du volume Postgr
 
 ## Portées OIDC
 
-Le realm déclare les portées `profile`, `email`, `offline_access` (rôle `offline_access` donné aux utilisateurs de test) et `sepp-api` : les portails demandent `openid profile email offline_access`.
+Le realm déclare les portées `basic`, `profile`, `email`, `offline_access` (rôle `offline_access` donné aux utilisateurs de test) et `sepp-api` : les portails demandent `openid profile email offline_access`.
+
+La portée `basic` reprend le scope intégré de Keycloak (depuis la version 25), qu'un realm importé avec ses propres `clientScopes` ne reçoit pas : elle émet `sub` (identifiant de l'utilisateur lu par les services : audit, relation de soin, auteur des actions) et `auth_time`. Elle est une portée par défaut de tous les clients. `auth_time` n'apparaît qu'après une authentification par le navigateur (flux code des portails), pas dans les jetons du flux mot de passe de `veilla-dev-cli` ni des comptes techniques.
+
+Les utilisateurs et comptes de service du realm ont un identifiant fixe (`0192a5c8-0000-7000-8001-…` pour les utilisateurs de test, `…-8002-…` pour les comptes de service) : le claim `sub` reste le même quand le conteneur Keycloak est recréé, et les données déjà en base (auteurs, ressources de Planification, journal d'audit) restent rattachées au bon utilisateur.
