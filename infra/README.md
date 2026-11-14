@@ -427,8 +427,8 @@ le BFF interne aussi PUT et DELETE et les en-têtes `X-Motif-Acces` et `X-Bris-D
 
 `var.adapter_mode` (`Simulateur` par défaut) fixe le choix `Reel` ou `Simulateur` de chaque adaptateur déclaré dans
 `adapters` ; `Reel` n'est accepté par la validation Terraform qu'en production. Les `appsettings.json` choisissent
-`Simulateur` par défaut. Au démarrage, un adaptateur `Reel` encore à l'état de squelette fait échouer le service avec un
-message clair hors production (`SEPP__ENVIRONNEMENT` différent de `prod` ou absent) : `GardeAdaptateurs` dans
+`Simulateur` par défaut. Au démarrage, un adaptateur `Reel` (implémenté ou non) fait échouer le service avec un
+message clair hors production, sans dérogation, préproduction comprise (`SEPP__ENVIRONNEMENT` différent de `prod` ou absent) : `GardeAdaptateurs` dans
 `Sepp.BuildingBlocks.Infrastructure`. En production, `Reel` reste à implémenter avant le premier déploiement (README des
 services Intégrations, Documents, Planification, Communications). Surveillance médicale n'a pas d'adaptateur réel : son choix
 `Simulateur` est fixe.
