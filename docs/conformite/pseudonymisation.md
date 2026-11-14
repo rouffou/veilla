@@ -176,5 +176,9 @@ créer l'environnement GitHub et l'identité de déploiement, et écrire une pro
 copie pseudonymisée puis exécution de l'outil avec `--confirmer formation`). `GardeAdaptateurs` et `GardeCible`
 traitent déjà `formation` comme hors production.
 
-Décision proposée : option A tant que le volume de formation reste faible ; passer à l'option B quand les formations
-deviennent récurrentes ou quand la recette doit rester stable. À valider par le responsable de projet.
+| **C. Données fictives** (jeu de démonstration #393, sans copie de production) | aucune donnée personnelle, donc aucune contrainte RGPD ni avis du DPO ; scénarios d'exercice maîtrisés ; réinitialisation en une commande, avec le même outil que la démo commerciale ; disponible tout de suite, sans production | moins réaliste (volumes réduits, pas de cas réels) ; il faut un environnement pour l'héberger (recette, environnement dédié ou poste local) |
+
+**Décision (responsable produit, 2026-11-14) : option C.** La formation se fait sur les données fictives du jeu de
+démonstration (`deploy/local/demo.*`, #393), en local ou sur l'environnement de recette. On reverra la question quand
+les formations deviendront récurrentes ou quand la recette devra rester stable (option B). La copie pseudonymisée
+(§ 2) reste réservée aux besoins de recette qui exigent des volumes et des cas réels.
