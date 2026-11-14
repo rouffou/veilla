@@ -264,8 +264,9 @@ public static class SurveillanceMedicaleEndpoints
         decisions.MapPost("/{id:guid}/signature", async (Guid id, ICommandHandler<SignerDecision, DecisionResumeDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new SignerDecision(id), ct)).ToHttpResult())
             .RequirePermission(Permissions.DecisionEcrire)
+            .RequireAuthenticationStrength()
             .WithName("SignerDecision")
-            .WithSummary("SAN-32, SAN-33 : signature qualifiée du CPMT puis émission (DecisionEmise).");
+            .WithSummary("SAN-32, SAN-33 : signature qualifiée du CPMT puis émission (DecisionEmise) ; authentification forte exigée (NF-01).");
 
         decisions.MapPost("/{id:guid}/recours", async (Guid id, RecoursSaisi body, ICommandHandler<IntroduireRecours, RecoursDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new IntroduireRecours(id, body.Type, body.DateIntroduction), ct)).ToHttpResult(r => Results.Created($"/api/v1/decisions/{id}", r)))

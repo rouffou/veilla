@@ -78,13 +78,41 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
+        if (_factoryStricte is not null)
+        {
+            await _factoryStricte.DisposeAsync();
+        }
+
         await Factory.DisposeAsync();
         await _postgres.DisposeAsync();
     }
 
-    public HttpClient Client(string role, string user, Guid? affilieId = null, string? motif = null, bool brisDeGlace = false, Guid? personneId = null)
+    private WebApplicationFactory<Program>? _factoryStricte;
+
+    /// <summary>
+    /// Même service en mode strict d'authentification forte (NF-01, <c>Authentication:Strength:Mode = Enforce</c>), comme en
+    /// Azure ; valeurs acceptées de la démonstration locale (acr <c>mfa</c>, amr <c>otp</c> ou <c>mfa</c>).
+    /// </summary>
+    public WebApplicationFactory<Program> FactoryStricte =>
+        _factoryStricte ??= Factory.WithWebHostBuilder(b => b.UseSetting("Authentication:Strength:Mode", "Enforce"));
+
+    /// <summary>Client du service en mode strict ; <paramref name="amr"/> : méthodes d'authentification du jeton (claim <c>amr</c>).</summary>
+    public HttpClient ClientStrict(string role, string user, string? amr = null, Guid? affilieId = null, string? motif = null)
     {
-        var client = Factory.CreateClient();
+        var client = Configurer(FactoryStricte.CreateClient(), role, user, affilieId, motif, false, null);
+        if (amr is not null)
+        {
+            client.DefaultRequestHeaders.Add(TestAuth.AmrHeader, amr);
+        }
+
+        return client;
+    }
+
+    public HttpClient Client(string role, string user, Guid? affilieId = null, string? motif = null, bool brisDeGlace = false, Guid? personneId = null) =>
+        Configurer(Factory.CreateClient(), role, user, affilieId, motif, brisDeGlace, personneId);
+
+    private static HttpClient Configurer(HttpClient client, string role, string user, Guid? affilieId, string? motif, bool brisDeGlace, Guid? personneId)
+    {
         client.DefaultRequestHeaders.Add(TestAuth.RolesHeader, role);
         client.DefaultRequestHeaders.Add(TestAuth.UserHeader, user);
         if (personneId is { } personne)
@@ -203,7 +231,7 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
         return await commande.ExecuteScalarAsync(ct);
     }
 
-    /// <summary>Authentification de test : rôles, utilisateur et affilié (claim <c>affilie_id</c>) passés dans des en-têtes.</summary>
+    /// <summary>Authentification de test : rôles, utilisateur, affilié (claim <c>affilie_id</c>) et méthodes (claim <c>amr</c>) passés dans des en-têtes.</summary>
     private sealed class TestAuth(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
         : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
     {
@@ -212,6 +240,7 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
         public const string UserHeader = "X-Test-User";
         public const string AffilieHeader = "X-Test-Affilie";
         public const string PersonneHeader = "X-Test-Personne";
+        public const string AmrHeader = "X-Test-Amr";
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
@@ -231,6 +260,12 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
             if (Request.Headers.TryGetValue(PersonneHeader, out var personne))
             {
                 claims = claims.Append(new Claim("personne_id", personne.ToString()));
+            }
+
+            // NF-01 : méthodes d'authentification (claim amr multivalué), par ex. « pwd,otp ».
+            if (Request.Headers.TryGetValue(AmrHeader, out var amr))
+            {
+                claims = claims.Concat(amr.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries).Select(m => new Claim("amr", m)));
             }
 
             var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Name, "sub", "roles"));

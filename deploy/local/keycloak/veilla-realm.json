@@ -12,6 +12,16 @@
   "defaultLocale": "fr",
   "accessTokenLifespan": 300,
   "sslRequired": "none",
+  "attributes": {
+    "acr.loa.map": "{\"password\":\"1\",\"mfa\":\"2\"}"
+  },
+  "browserFlow": "veilla-navigateur",
+  "directGrantFlow": "veilla-acces-direct",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
   "roles": {
     "realm": [
       {
@@ -182,6 +192,26 @@
             "id.token.claim": "false",
             "userinfo.token.claim": "true",
             "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "acr",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-acr-mapper",
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "amr",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-amr-mapper",
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "introspection.token.claim": "true"
           }
         }
       ]
@@ -507,6 +537,32 @@
       ]
     },
     {
+      "id": "0192a5c8-0000-7000-8001-00000000000f",
+      "username": "cpmt.mfa",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Hélène",
+      "lastName": "Fontaine",
+      "email": "cpmt.mfa@veilla.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "veilla-dev",
+          "temporary": false
+        },
+        {
+          "type": "otp",
+          "userLabel": "Démo locale (secret fictif et public)",
+          "secretData": "{\"value\":\"VEILLA-DEMO-OTP-FICTIF\"}",
+          "credentialData": "{\"subType\":\"totp\",\"digits\":6,\"counter\":0,\"period\":30,\"algorithm\":\"HmacSHA1\"}"
+        }
+      ],
+      "realmRoles": [
+        "cpmt",
+        "offline_access"
+      ]
+    },
+    {
       "id": "0192a5c8-0000-7000-8001-000000000003",
       "username": "infirmier",
       "enabled": true,
@@ -824,5 +880,209 @@
         "offline_access"
       ]
     }
-  }
+  },
+  "authenticationFlows": [
+    {
+      "alias": "veilla-navigateur",
+      "description": "NF-01 : navigateur avec montée en niveau (acr) ; niveau 1 mot de passe, niveau 2 mot de passe puis OTP.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "identity-provider-redirector",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "veilla-navigateur formulaires",
+          "requirement": "ALTERNATIVE",
+          "priority": 30,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "veilla-navigateur formulaires",
+      "description": "Étapes selon le niveau demandé (acr_values ou claims acr).",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "veilla-niveau-1 mot de passe",
+          "requirement": "CONDITIONAL",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "veilla-niveau-2 otp",
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "veilla-niveau-1 mot de passe",
+      "description": "Niveau 1 (acr password) : identifiant et mot de passe.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorConfig": "veilla-loa-1",
+          "authenticator": "conditional-level-of-authentication",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorConfig": "veilla-amr-pwd",
+          "authenticator": "auth-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "veilla-niveau-2 otp",
+      "description": "Niveau 2 (acr mfa) : OTP, enrôlé à la première demande si l'utilisateur n'en a pas.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorConfig": "veilla-loa-2",
+          "authenticator": "conditional-level-of-authentication",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorConfig": "veilla-amr-otp",
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "veilla-acces-direct",
+      "description": "Flux mot de passe de veilla-dev-cli : OTP (paramètre totp) seulement pour un utilisateur qui en a configuré un.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "direct-grant-validate-username",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorConfig": "veilla-amr-pwd-direct",
+          "authenticator": "direct-grant-validate-password",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "veilla-acces-direct otp",
+          "requirement": "CONDITIONAL",
+          "priority": 30,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "veilla-acces-direct otp",
+      "description": "OTP du flux mot de passe, si l'utilisateur en a configuré un.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-configured",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorConfig": "veilla-amr-otp-direct",
+          "authenticator": "direct-grant-validate-otp",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "veilla-loa-1",
+      "config": {
+        "loa-condition-level": "1",
+        "loa-max-age": "36000"
+      }
+    },
+    {
+      "alias": "veilla-loa-2",
+      "config": {
+        "loa-condition-level": "2",
+        "loa-max-age": "3600"
+      }
+    },
+    {
+      "alias": "veilla-amr-pwd",
+      "config": {
+        "default.reference.value": "pwd",
+        "default.reference.maxAge": "36000"
+      }
+    },
+    {
+      "alias": "veilla-amr-otp",
+      "config": {
+        "default.reference.value": "otp",
+        "default.reference.maxAge": "3600"
+      }
+    },
+    {
+      "alias": "veilla-amr-pwd-direct",
+      "config": {
+        "default.reference.value": "pwd",
+        "default.reference.maxAge": "36000"
+      }
+    },
+    {
+      "alias": "veilla-amr-otp-direct",
+      "config": {
+        "default.reference.value": "otp",
+        "default.reference.maxAge": "3600"
+      }
+    }
+  ]
 }
