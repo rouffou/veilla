@@ -33,7 +33,7 @@
 - `src/Bff/{Interne,Employeur,Travailleur}` : un BFF par canal (ADR 0006, 0013).
 - `src/BuildingBlocks` : socle commun (sécurité `Security.cs`, messagerie, persistance, web).
 - `src/Contracts/Sepp.Contracts` : contrats d'événements ARC-06, catalogués dans `docs/architecture/evenements.md`.
-- `src/Sagas`, `tests/Sepp.Sagas.Tests` : sagas et tests de bout en bout entre services.
+- `src/Sagas`, `tests/Sepp.Sagas.Tests` : solution de tests de bout en bout entre services. Les sagas elles-mêmes vivent dans leur service propriétaire (ADR 0008 : `ProcessusReprise` dans Obligations, `Trajet` dans Réintégration).
 - `src/Frontends/veilla-web` : les fronts Angular.
 - `infra/` : Terraform (modules et environnements). `deploy/local/` : compose, Keycloak et PostgreSQL locaux.
 - `docs/` : `adr/`, `architecture/`, `securite/`, `conformite/`, `api/openapi/` (instantanés de contrat) et le cahier des charges.
@@ -46,7 +46,8 @@
   - ADR : `docs/adr/NNNN-titre.md`, avec l'index `docs/adr/README.md` (numérotation continue, vérifier le prochain numéro libre) ;
   - architecture : `docs/architecture/` ;
   - sécurité : `docs/securite/` ;
-  - conformité : `docs/conformite/`.
+  - conformité : `docs/conformite/` ;
+  - pilotage (état des lieux du backlog, registre RAID, comptes rendus) : `docs/00-pilotage/`.
 - **Tickets** : GitHub Issues de `rouffou/veilla`, avec un jalon par lot. On traite les lots **dans l'ordre** (Lot 0, puis 1, 2…). Chaque ticket est tenu à jour : commentaire au lancement, fermeture par la PR, ticket de suite pour ce qui reste.
 - **Git** :
   - main est protégée : jamais de push direct ;
