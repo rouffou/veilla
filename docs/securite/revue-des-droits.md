@@ -113,8 +113,12 @@ Répartition des routes de Surveillance médicale autrefois sous `decision:ecrir
 | `POST /examens/{id}/decision`, `PUT /decisions/{id}` | `decision:ecrire` | Rédaction et modification d'un brouillon, sans effet hors de la zone médicale |
 | `POST /decisions/{id}/signature` | `decision:signer` + authentification forte | Signature qualifiée et émission du formulaire : acte légal du CPMT (SAN-32) |
 | `POST /examens/{id}/propositions-frequence/{propositionId}` | `decision:signer` | Décision du CPMT sur la fréquence de surveillance (art. I.4-32, SAN-23) |
-| `POST /decisions/{id}/recours`, `POST /decisions/{id}/recours/{recoursId}/issue` | `decision:signer` | Procédure de concertation ou de recours sur une décision émise ; l'issue peut réformer et retransmettre la décision (SAN-34) |
-| `POST /dossiers/{id}/declarations-mp`, `POST /declarations-mp/{id}/envoi`, `/suivi`, `/demandes-information`, `/demandes-information/{id}/reponse` | `decision:signer` | Déclaration de maladie professionnelle (diagnostic, transmission à Fedris) : acte du médecin (SAN-70, SAN-71) |
+| `POST /decisions/{id}/recours` | `decision:ecrire` | Enregistrement de l'introduction d'une concertation ou d'un recours (SAN-34), ouvert à l'infirmier |
+| `POST /decisions/{id}/recours/{recoursId}/issue` | `decision:signer` | L'issue peut réformer et retransmettre la décision émise (SAN-34) |
+| `POST /dossiers/{id}/declarations-mp`, `POST /declarations-mp/{id}/envoi`, `/demandes-information/{id}/reponse` | `decision:signer` | Déclaration de maladie professionnelle elle-même (diagnostic, transmission et réponses à Fedris) : acte du médecin (SAN-70) |
+| `POST /declarations-mp/{id}/suivi`, `POST /declarations-mp/{id}/demandes-information` | `decision:ecrire` | Suivi administratif du statut Fedris et enregistrement d'une demande reçue (SAN-71), ouverts à l'infirmier |
 
 Une décision préparée par l'infirmier a pour auteur légal le CPMT gestionnaire du dossier (refus `decision.cpmt-requis` si
-le dossier n'en a pas) ; le rédacteur reste tracé dans le journal d'accès.
+le dossier n'en a pas). Le rédacteur réel est conservé sur la décision (`RedigeePar`, colonne `redigee_par`, rendu par
+`GET /decisions/{id}/complete` en zone médicale) et dans le journal d'accès. Ces trois arbitrages (auteur légal, routes
+ouvertes à l'infirmier, langue conservée dans `mes-employeurs`) ont été validés par le responsable produit sur la PR #488.

@@ -19,13 +19,20 @@ internal static class DeclarationsMp
         [.. d.DemandesInformation.Select(i => new DemandeInformationDto(i.Id, i.DateDemande, i.Echeance, i.Objet, i.DateReponse, i.Reponse))]);
 }
 
-/// <summary>Chargement d'une déclaration avec contrôle d'accès au dossier (secret médical).</summary>
+/// <summary>
+/// Chargement d'une déclaration avec contrôle d'accès au dossier (secret médical). Écriture : <c>decision:signer</c> pour la
+/// déclaration elle-même (préparation, envoi, réponse à Fedris), <c>decision:ecrire</c> pour le suivi administratif (statut
+/// Fedris, enregistrement d'une demande d'information), ouvert à l'infirmier (#401).
+/// </summary>
 public sealed class AccesDeclarationsMp(IDeclarationMpRepository declarations, GardeDossier garde, ICurrentUser user)
 {
-    public async Task<Result<DeclarationMaladieProfessionnelle>> ChargerAsync(Guid id, ActionAudit action, CancellationToken cancellationToken)
+    public async Task<Result<DeclarationMaladieProfessionnelle>> ChargerAsync(
+        Guid id, ActionAudit action, CancellationToken cancellationToken, string permission = Permissions.DecisionSigner)
     {
-        if (action != ActionAudit.Lecture
-            && Regles.Permission(user, Permissions.DecisionSigner, "La déclaration de maladie professionnelle est établie par le CPMT.") is { } interdit)
+        var message = permission == Permissions.DecisionSigner
+            ? "La déclaration de maladie professionnelle est établie par le CPMT."
+            : "Seuls le CPMT et l'infirmier suivent la déclaration de maladie professionnelle.";
+        if (action != ActionAudit.Lecture && Regles.Permission(user, permission, message) is { } interdit)
         {
             return interdit;
         }
@@ -149,7 +156,7 @@ public sealed class SuivreDeclarationMpHandler(AccesDeclarationsMp acces, IFedri
 {
     public async Task<Result<DeclarationMpDto>> HandleAsync(SuivreDeclarationMp command, CancellationToken cancellationToken)
     {
-        var acces1 = await acces.ChargerAsync(command.DeclarationId, ActionAudit.Modification, cancellationToken);
+        var acces1 = await acces.ChargerAsync(command.DeclarationId, ActionAudit.Modification, cancellationToken, Permissions.DecisionEcrire);
         if (!acces1.IsSuccess)
         {
             return acces1.Error!;
@@ -184,7 +191,7 @@ public sealed class EnregistrerDemandeInformationFedrisHandler(AccesDeclarations
 {
     public async Task<Result<Guid>> HandleAsync(EnregistrerDemandeInformationFedris command, CancellationToken cancellationToken)
     {
-        var declaration = await acces.ChargerAsync(command.DeclarationId, ActionAudit.Modification, cancellationToken);
+        var declaration = await acces.ChargerAsync(command.DeclarationId, ActionAudit.Modification, cancellationToken, Permissions.DecisionEcrire);
         if (!declaration.IsSuccess)
         {
             return declaration.Error!;

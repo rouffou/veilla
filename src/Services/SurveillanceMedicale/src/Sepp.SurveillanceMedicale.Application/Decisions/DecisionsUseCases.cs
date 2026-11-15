@@ -21,7 +21,7 @@ public sealed record RecoursDto(
     IssueRecours? Issue, DateOnly? DateIssue, string? Commentaire);
 
 /// <summary>Décision complète (zone médicale) : justification, recommandations et procédures.</summary>
-public sealed record DecisionDto(DecisionResumeDto Resume, string AuteurId, string? Justification, string? Recommandations, string? ReferenceSignature, IReadOnlyList<RecoursDto> Recours);
+public sealed record DecisionDto(DecisionResumeDto Resume, string AuteurId, string RedigeePar, string? Justification, string? Recommandations, string? ReferenceSignature, IReadOnlyList<RecoursDto> Recours);
 
 public static class DecisionProjections
 {
@@ -29,14 +29,14 @@ public static class DecisionProjections
         d.Id, d.PersonneId, d.AffilieId, d.TypeExamen, d.DateExamen, CodesDecision.Code(d.Categorie), d.Mesures, d.ValideJusquAu, d.Statut, d.SigneeLe, d.DocumentId);
 
     public static DecisionDto Complete(this Decision d) => new(
-        d.Resume(), d.AuteurId, d.Justification, d.Recommandations, d.ReferenceSignature,
+        d.Resume(), d.AuteurId, d.RedigeePar, d.Justification, d.Recommandations, d.ReferenceSignature,
         [.. d.Recours.OrderBy(r => r.DateIntroduction).Select(r => new RecoursDto(
             r.Id, r.Type, r.DateIntroduction, r.DateLimiteIntroduction, r.IntroduitDansLeDelai, r.DateLimiteIssue, r.Issue, r.DateIssue, r.Commentaire))]);
 }
 
 /// <summary>
 /// Accès aux décisions : rédaction et modification par le CPMT ou l'infirmier (<c>decision:ecrire</c>), signature et
-/// recours par le seul CPMT (<c>decision:signer</c>, #401), lecture du résumé selon la matrice §3.3.
+/// issue des recours par le seul CPMT (<c>decision:signer</c>, #401), lecture du résumé selon la matrice §3.3.
 /// </summary>
 public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier garde, ICurrentUser user, IContexteAcces contexte, IAuditTrail audit)
 {
@@ -44,11 +44,11 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
 
     public const string MessageEcrire = "Seuls le CPMT et l'infirmier rédigent les décisions d'évaluation de santé.";
 
-    public const string MessageSigner = "Seul le CPMT signe les décisions d'évaluation de santé et en traite les recours.";
+    public const string MessageSigner = "Seul le CPMT signe les décisions d'évaluation de santé et enregistre l'issue des recours.";
 
     /// <summary>
     /// Écriture sur une décision avec accès au dossier : <c>decision:ecrire</c> pour la modification du brouillon,
-    /// <c>decision:signer</c> pour la signature, les recours et leur issue (actes du CPMT).
+    /// et l'introduction d'un recours, <c>decision:signer</c> pour la signature et l'issue d'un recours (actes du CPMT).
     /// </summary>
     public async Task<Result<Decision>> EcrireAsync(
         Guid decisionId, ActionAudit action, CancellationToken cancellationToken, string permission = Permissions.DecisionEcrire)
@@ -134,7 +134,7 @@ public sealed record ContenuDecisionSaisi(CategorieDecision Categorie, IReadOnly
 /// <summary>
 /// SAN-31 : rédaction de la décision d'un examen (une décision par examen), par le CPMT ou l'infirmier (#401). L'auteur
 /// légal est toujours un CPMT, seul signataire : le CPMT qui rédige ou, quand l'infirmier prépare la décision, le CPMT
-/// gestionnaire du dossier (le rédacteur reste tracé dans le journal d'accès).
+/// gestionnaire du dossier. Le rédacteur réel est conservé sur la décision (<c>RedigeePar</c>) et dans le journal d'accès.
 /// </summary>
 public sealed record RedigerDecision(Guid ExamenId, ContenuDecisionSaisi Contenu);
 
@@ -178,7 +178,7 @@ public sealed class RedigerDecisionHandler(
         }
 
         var decision = Regles.Appliquer("decision.invalide", () => Decision.Rediger(
-            examen.Id, examen.DossierId, examen.PersonneId, examen.AffilieId, examen.TypeExamen, examen.Date, auteur, command.Contenu.ToContenu()));
+            examen.Id, examen.DossierId, examen.PersonneId, examen.AffilieId, examen.TypeExamen, examen.Date, auteur, command.Contenu.ToContenu(), user.UserId));
         if (!decision.IsSuccess)
         {
             return decision.Error!;
@@ -401,7 +401,7 @@ public sealed class IntroduireRecoursHandler(AccesDecisions acces, ParametresMed
 {
     public async Task<Result<RecoursDto>> HandleAsync(IntroduireRecours command, CancellationToken cancellationToken)
     {
-        var decision = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken, Permissions.DecisionSigner);
+        var decision = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
         if (!decision.IsSuccess)
         {
             return decision.Error!;

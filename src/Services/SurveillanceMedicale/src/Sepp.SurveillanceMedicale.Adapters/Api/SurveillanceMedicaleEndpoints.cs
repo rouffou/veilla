@@ -270,7 +270,7 @@ public static class SurveillanceMedicaleEndpoints
 
         decisions.MapPost("/{id:guid}/recours", async (Guid id, RecoursSaisi body, ICommandHandler<IntroduireRecours, RecoursDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new IntroduireRecours(id, body.Type, body.DateIntroduction), ct)).ToHttpResult(r => Results.Created($"/api/v1/decisions/{id}", r)))
-            .RequirePermission(Permissions.DecisionSigner)
+            .RequirePermission(Permissions.DecisionEcrire)
             .WithName("IntroduireRecours")
             .WithSummary("SAN-34 : concertation ou recours auprès du médecin-inspecteur social (délais calculés).");
 
@@ -398,7 +398,7 @@ public static class SurveillanceMedicaleEndpoints
 
         declarations.MapPost("/{id:guid}/suivi", async (Guid id, ICommandHandler<SuivreDeclarationMp, DeclarationMpDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new SuivreDeclarationMp(id), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionSigner)
+            .RequirePermission(Permissions.DecisionEcrire)
             .WithName("SuivreDeclarationMp")
             .WithSummary("SAN-71 : mise à jour du statut auprès de Fedris.");
 
@@ -406,7 +406,7 @@ public static class SurveillanceMedicaleEndpoints
                 ICommandHandler<EnregistrerDemandeInformationFedris, Guid> h, CancellationToken ct) =>
                 (await h.HandleAsync(new EnregistrerDemandeInformationFedris(id, body.DateDemande, body.Echeance, body.Objet), ct))
                 .ToHttpResult(d => Results.Created($"/api/v1/declarations-mp/{id}", new { id = d })))
-            .RequirePermission(Permissions.DecisionSigner)
+            .RequirePermission(Permissions.DecisionEcrire)
             .WithName("EnregistrerDemandeInformationFedris");
 
         declarations.MapPost("/{id:guid}/demandes-information/{demandeId:guid}/reponse", async (Guid id, Guid demandeId, ReponseInformationSaisie body,

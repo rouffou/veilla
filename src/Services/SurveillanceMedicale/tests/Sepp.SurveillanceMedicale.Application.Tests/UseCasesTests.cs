@@ -160,18 +160,20 @@ public sealed class SecretMedicalTests
         // #401 : l'infirmier rédige et modifie la décision (decision:ecrire) ; l'auteur légal reste le CPMT gestionnaire.
         var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store)
             .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
-        _monde.Store.Decisions.Single(d => d.Id == decisionId).AuteurId.ShouldBe("cpmt-1");
+        _monde.Store.Decisions.Single(d => d.Id == decisionId).ShouldSatisfyAllConditions(
+            d => d.AuteurId.ShouldBe("cpmt-1"), d => d.RedigeePar.ShouldBe("infirmier-1"));
         (await new ModifierDecisionHandler(_monde.AccesDecisions, _monde.Store)
             .HandleAsync(new ModifierDecision(decisionId, new ContenuDecisionSaisi(CategorieDecision.ApteAvecMesures, ["PAS_TRAVAIL_NUIT"], null, null, null)), _ct))
             .IsSuccess.ShouldBeTrue();
         (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
             .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
 
-        // Signature, recours et fréquence (art. I.4-32) : actes du CPMT (decision:signer), refusés à l'infirmier.
+        // Signature, issue d'un recours et fréquence (art. I.4-32) : actes du CPMT (decision:signer), refusés à l'infirmier.
         (await new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store)
             .HandleAsync(new SignerDecision(decisionId), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
-        (await new IntroduireRecoursHandler(_monde.AccesDecisions, _monde.Parametres, _monde.Store)
-            .HandleAsync(new IntroduireRecours(decisionId, TypeRecours.Concertation, new DateOnly(2026, 3, 3)), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await new EnregistrerIssueRecoursHandler(_monde.AccesDecisions, _monde.Store, _monde.Store)
+            .HandleAsync(new EnregistrerIssueRecours(decisionId, Guid.CreateVersion7(), IssueRecours.Confirmee, new DateOnly(2026, 3, 20), null, null), _ct))
+            .Error!.Kind.ShouldBe(ErrorKind.Forbidden);
         (await new DeciderPropositionFrequenceHandler(_monde.AccesExamens, _monde.Utilisateur, _monde.Store, _monde.Horloge)
             .HandleAsync(new DeciderPropositionFrequence(examenId, Guid.CreateVersion7(), true), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
         _monde.Signature.Demandes.ShouldBeEmpty();
@@ -182,6 +184,13 @@ public sealed class SecretMedicalTests
             .HandleAsync(new SignerDecision(decisionId), _ct);
         signee.Value.Statut.ShouldBe(StatutDecision.Emise);
         signee.Value.Mesures.ShouldBe(["PAS_TRAVAIL_NUIT"]);
+        (await new ObtenirDecisionCompleteHandler(_monde.AccesDecisions).HandleAsync(new ObtenirDecisionComplete(decisionId), _ct))
+            .Value.RedigeePar.ShouldBe("infirmier-1");
+
+        // L'infirmier enregistre l'introduction d'une concertation (#401).
+        _monde.Agir("infirmier-1", Roles.Infirmier);
+        (await new IntroduireRecoursHandler(_monde.AccesDecisions, _monde.Parametres, _monde.Store)
+            .HandleAsync(new IntroduireRecours(decisionId, TypeRecours.Concertation, new DateOnly(2026, 3, 3)), _ct)).IsSuccess.ShouldBeTrue();
     }
 
     [Fact]

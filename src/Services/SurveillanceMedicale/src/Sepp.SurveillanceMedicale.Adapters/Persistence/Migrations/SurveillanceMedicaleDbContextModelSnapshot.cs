@@ -300,6 +300,12 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
                         .HasColumnType("character varying(100000)")
                         .HasColumnName("recommandations_chiffre");
 
+                    b.Property<string>("RedigeePar")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("redigee_par");
+
                     b.Property<string>("ReferenceSignature")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")

@@ -173,7 +173,7 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
     }
 
     [Fact]
-    public async Task L_infirmier_redige_et_modifie_la_decision_mais_recoit_403_sur_la_signature_et_les_actes_du_cpmt()
+    public async Task L_infirmier_redige_modifie_et_introduit_un_recours_mais_recoit_403_sur_la_signature_et_les_actes_du_cpmt()
     {
         // #401 : decision:ecrire (rédaction, modification) pour l'infirmier ; decision:signer réservé au CPMT.
         var (dossierId, examenId) = await DossierAvecExamenAsync();
@@ -184,8 +184,6 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         await Ok(await Cpmt.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct), HttpStatusCode.NoContent);
 
         (await infirmier.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        (await infirmier.PostAsJsonAsync($"/api/v1/decisions/{decisionId}/recours", new { type = "Concertation", dateIntroduction = "2026-03-03" }, _ct))
-            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await infirmier.PostAsJsonAsync($"/api/v1/decisions/{decisionId}/recours/{Guid.CreateVersion7()}/issue", new { issue = "Confirmee", dateIssue = "2026-03-20" }, _ct))
             .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await infirmier.PostAsJsonAsync($"/api/v1/examens/{examenId}/propositions-frequence/{Guid.CreateVersion7()}", new { acceptee = true }, _ct))
@@ -197,7 +195,22 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         // Le CPMT gestionnaire du dossier, auteur légal, signe la décision préparée par l'infirmier.
         var signee = await Cpmt.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct);
         await Ok(signee);
-        (await signee.Content.ReadFromJsonAsync<DecisionResumeDto>(Json, _ct))!.Mesures.ShouldBe(["PROTECTION_AUDITIVE"]);
+        var resume = (await signee.Content.ReadFromJsonAsync<DecisionResumeDto>(Json, _ct))!;
+        resume.Mesures.ShouldBe(["PROTECTION_AUDITIVE"]);
+
+        // Le rédacteur réel reste tracé sur la décision : auteur légal le CPMT, rédigée par l'infirmier.
+        var complete = (await Cpmt.GetFromJsonAsync<DecisionDto>($"/api/v1/decisions/{decisionId}/complete", Json, _ct))!;
+        complete.AuteurId.ShouldBe("cpmt-1");
+        complete.RedigeePar.ShouldBe("inf-401");
+        ((string)(await fixture.ScalaireAsync("SELECT redigee_par FROM decision WHERE id = @id", _ct, ("id", decisionId)))!).ShouldBe("inf-401");
+
+        // L'infirmier enregistre l'introduction d'un recours (#401), mais pas son issue.
+        var dateIntroduction = DateOnly.FromDateTime(resume.SigneeLe!.Value.UtcDateTime).AddDays(1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        var recours = await infirmier.PostAsJsonAsync($"/api/v1/decisions/{decisionId}/recours", new { type = "Concertation", dateIntroduction }, _ct);
+        recours.StatusCode.ShouldBe(HttpStatusCode.Created, await recours.Content.ReadAsStringAsync(_ct));
+        var recoursId = (await recours.Content.ReadFromJsonAsync<RecoursDto>(Json, _ct))!.Id;
+        (await infirmier.PostAsJsonAsync($"/api/v1/decisions/{decisionId}/recours/{recoursId}/issue", new { issue = "Confirmee", dateIssue = dateIntroduction }, _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -390,14 +403,19 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         declaration.StatusCode.ShouldBe(HttpStatusCode.Created, await declaration.Content.ReadAsStringAsync(_ct));
         var declarationId = (await declaration.Content.ReadFromJsonAsync<JsonElement>(_ct)).GetProperty("id").GetGuid();
         (await declaration.Content.ReadAsStringAsync(_ct)).ShouldContain("BRUIT");
+        // #401 : l'envoi et la réponse à Fedris restent au CPMT ; le suivi et l'enregistrement d'une demande sont ouverts à l'infirmier.
+        var infirmier = fixture.Client(Roles.Infirmier, "inf-mp", motif: "Suivi de la déclaration Fedris");
+        (await infirmier.PostAsync($"/api/v1/declarations-mp/{declarationId}/envoi", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         var envoi = await Cpmt.PostAsync($"/api/v1/declarations-mp/{declarationId}/envoi", null, _ct);
         await Ok(envoi);
         (await envoi.Content.ReadAsStringAsync(_ct)).ShouldContain("SIM-FEDRIS-");
-        var demandeId = await Id(await Cpmt.PostAsJsonAsync($"/api/v1/declarations-mp/{declarationId}/demandes-information",
+        var demandeId = await Id(await infirmier.PostAsJsonAsync($"/api/v1/declarations-mp/{declarationId}/demandes-information",
             new { dateDemande = "2026-10-01", echeance = "2026-10-31", objet = "Audiogrammes antérieurs" }, _ct));
+        (await infirmier.PostAsJsonAsync($"/api/v1/declarations-mp/{declarationId}/demandes-information/{demandeId}/reponse",
+            new { date = "2026-10-05", reponse = "Audiogrammes 2022-2025 joints" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         await Ok(await Cpmt.PostAsJsonAsync($"/api/v1/declarations-mp/{declarationId}/demandes-information/{demandeId}/reponse",
             new { date = "2026-10-05", reponse = "Audiogrammes 2022-2025 joints" }, _ct), HttpStatusCode.NoContent);
-        await Ok(await Cpmt.PostAsync($"/api/v1/declarations-mp/{declarationId}/suivi", null, _ct));
+        await Ok(await infirmier.PostAsync($"/api/v1/declarations-mp/{declarationId}/suivi", null, _ct));
 
         // SAN-42 : transfert sortant (paquet chiffré, empreinte), puis réception contrôlée par empreinte.
         var transfertId = await Id(await Cpmt.PostAsJsonAsync($"/api/v1/dossiers/{dossierId}/transferts", new { contrepartie = "0123456789", motif = "ChangementEmployeur" }, _ct));

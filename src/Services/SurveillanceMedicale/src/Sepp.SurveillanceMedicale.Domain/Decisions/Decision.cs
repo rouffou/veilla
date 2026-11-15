@@ -65,7 +65,8 @@ public sealed class Decision : AggregateRoot
     {
     }
 
-    private Decision(Guid id, Guid examenId, Guid dossierId, Guid personneId, Guid affilieId, string typeExamen, DateOnly dateExamen, string auteurId)
+    private Decision(
+        Guid id, Guid examenId, Guid dossierId, Guid personneId, Guid affilieId, string typeExamen, DateOnly dateExamen, string auteurId, string redigeePar)
         : base(id)
     {
         ExamenId = Garde.Identifiant(examenId, "examen");
@@ -75,6 +76,7 @@ public sealed class Decision : AggregateRoot
         TypeExamen = typeExamen;
         DateExamen = dateExamen;
         AuteurId = Garde.Requis(auteurId, "auteur", 100);
+        RedigeePar = Garde.Requis(redigeePar, "rédacteur", 100);
         Statut = StatutDecision.Brouillon;
     }
 
@@ -104,7 +106,13 @@ public sealed class Decision : AggregateRoot
     /// <summary>Recommandations au travailleur (exemplaire travailleur) : chiffrées (ARC-45).</summary>
     public string? Recommandations { get; private set; }
 
+    /// <summary>Auteur légal : le CPMT qui signe (SAN-32).</summary>
     public string AuteurId { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Rédacteur réel du brouillon (#401) : le CPMT auteur, ou l'infirmier qui a préparé la décision pour le CPMT gestionnaire.
+    /// </summary>
+    public string RedigeePar { get; private set; } = string.Empty;
 
     public StatutDecision Statut { get; private set; }
 
@@ -118,9 +126,11 @@ public sealed class Decision : AggregateRoot
 
     public IReadOnlyList<Recours> Recours => _recours.AsReadOnly();
 
-    public static Decision Rediger(Guid examenId, Guid dossierId, Guid personneId, Guid affilieId, string typeExamen, DateOnly dateExamen, string auteurId, ContenuDecision contenu)
+    public static Decision Rediger(
+        Guid examenId, Guid dossierId, Guid personneId, Guid affilieId, string typeExamen, DateOnly dateExamen, string auteurId, ContenuDecision contenu,
+        string? redigeePar = null)
     {
-        var decision = new Decision(NewId(), examenId, dossierId, personneId, affilieId, typeExamen, dateExamen, auteurId);
+        var decision = new Decision(NewId(), examenId, dossierId, personneId, affilieId, typeExamen, dateExamen, auteurId, redigeePar ?? auteurId);
         decision.Appliquer(contenu);
         return decision;
     }

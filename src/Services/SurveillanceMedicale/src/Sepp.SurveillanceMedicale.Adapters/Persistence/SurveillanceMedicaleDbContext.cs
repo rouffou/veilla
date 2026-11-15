@@ -232,6 +232,7 @@ public sealed class SurveillanceMedicaleDbContext(
             b.Property(d => d.Categorie).HasConversion<string>().HasMaxLength(EnumLength);
             b.Property(d => d.Statut).HasConversion<string>().HasMaxLength(EnumLength);
             b.Property(d => d.AuteurId).HasMaxLength(UserLength);
+            b.Property(d => d.RedigeePar).HasMaxLength(UserLength);
             b.Property(d => d.ReferenceSignature).HasMaxLength(200);
             b.PrimitiveCollection(d => d.Mesures).HasField("_mesures");
             Chiffre(b.Property(d => d.Justification), texteChiffre, "justification_chiffre");

@@ -73,8 +73,9 @@ public static class Permissions
     public const string DossierSanteEcrire = "dossier-sante:ecrire";
     // Décision d'évaluation de santé (#401) : rédaction et modification du brouillon par le CPMT ou l'infirmier
     // (decision:ecrire) ; signature et actes médicaux à portée légale réservés au CPMT (decision:signer) : signature de la
-    // décision (SAN-32), décision sur la fréquence (art. I.4-32, SAN-23), recours et réformation (SAN-34), déclaration de
-    // maladie professionnelle à Fedris (SAN-70, SAN-71).
+    // décision (SAN-32), décision sur la fréquence (art. I.4-32, SAN-23), issue d'un recours (SAN-34), déclaration de
+    // maladie professionnelle à Fedris (SAN-70). L'introduction d'un recours et le suivi Fedris (SAN-71) restent sous
+    // decision:ecrire.
     public const string DecisionEcrire = "decision:ecrire";
     public const string DecisionSigner = "decision:signer";
     public const string DecisionLire = "decision:lire";
