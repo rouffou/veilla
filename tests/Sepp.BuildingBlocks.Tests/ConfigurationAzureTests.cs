@@ -1,5 +1,6 @@
 using Azure.Core;
 
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -7,6 +8,7 @@ using Npgsql;
 
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
+using Sepp.BuildingBlocks.Infrastructure.Security;
 
 using Shouldly;
 
@@ -74,6 +76,32 @@ public sealed class ConfigurationAzureTests
         services.AddSeppPersistence<ContexteDeTest>(configuration, "Test");
 
         services.ShouldNotContain(d => d.ServiceType == typeof(NpgsqlDataSource));
+    }
+
+    [Fact]
+    public void Le_chemin_ConnectionStrings_installe_la_cle_de_cache_du_modele_chiffre()
+    {
+        var configuration = Configuration(("ConnectionStrings:Test", "Host=localhost;Database=test;Username=u;Password=p"));
+
+        FabriqueDeCle(configuration).ShouldBeOfType<ModelCacheKeyFactoryChiffre>();
+    }
+
+    [Fact]
+    public void Le_chemin_identite_managee_installe_la_cle_de_cache_du_modele_chiffre()
+    {
+        var configuration = Configuration(("Postgres:Host", "serveur"), ("Postgres:Database", "base"), ("Postgres:User", "id-service"));
+
+        FabriqueDeCle(configuration).ShouldBeOfType<ModelCacheKeyFactoryChiffre>();
+    }
+
+    private static IModelCacheKeyFactory FabriqueDeCle(IConfiguration configuration)
+    {
+        var services = new ServiceCollection();
+        services.AddSeppPersistence<ContexteDeTest>(configuration, "Test");
+        using var fournisseur = services.BuildServiceProvider();
+        using var scope = fournisseur.CreateScope();
+        using var contexte = scope.ServiceProvider.GetRequiredService<ContexteDeTest>();
+        return ((IInfrastructure<IServiceProvider>)contexte).Instance.GetRequiredService<IModelCacheKeyFactory>();
     }
 
     [Fact]
