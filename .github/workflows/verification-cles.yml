@@ -1,0 +1,71 @@
+# Vérification des champs chiffrés avant tout changement de clés (#474, #482, ADR 0012).
+#   Lance, un service à la fois, les jobs Container Apps « verif-<service> » (vérification seule : rien n'est écrit) et
+#   échoue si l'un d'eux ne se termine pas avec le code 0 (plus aucune valeur n'utilise une autre clé que la DEK courante).
+#   Les jobs s'exécutent avec l'identité d'EXÉCUTION du service ; ce workflow n'utilise que l'identité fédérée de
+#   déploiement (démarrer un job et lire son état), sans rôle Key Vault ni accès aux données.
+#   Ne lance jamais « rech-<service> » (rechiffrement), qui reste une action manuelle de l'exploitant.
+# Deux usages :
+#   - à la demande (workflow_dispatch) : juste avant un « terraform apply » qui change encryption_key_ids ou
+#     encryption_legacy_key_ids (infra/README.md, « Rotation des DEK » et « Retrait des anciennes clés ») ;
+#   - appelé par controle-cles.yml, bloquant sur toute PR qui modifie ces variables dans un environnement.
+# L'environnement GitHub du même nom que l'environnement cible porte la confirmation humaine (Required reviewers) et
+# l'identité fédérée. En preprod et en prod, le script refuse de lancer le balayage hors des heures creuses.
+name: Vérification des clés
+
+on:
+  workflow_dispatch:
+    inputs:
+      environnement:
+        description: "Environnement cible (environnement GitHub du même nom)"
+        type: choice
+        options: [dev, test, recette, preprod, prod]
+        required: true
+  workflow_call:
+    inputs:
+      environnement:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+# Une seule vérification à la fois par environnement, jamais interrompue en cours de route.
+concurrency:
+  group: verification-cles-${{ inputs.environnement }}
+  cancel-in-progress: false
+
+env:
+  # Services dont le catalogue Terraform (infra/variables.tf) a un attribut encryption non vide ; un test
+  # (ConfigurationTerraformTests) échoue si cette liste diverge du catalogue.
+  SERVICES_CHIFFRANTS: "personnes integrations surveillance-medicale reintegration"
+
+jobs:
+  verification:
+    name: Vérification ${{ inputs.environnement }}
+    runs-on: ubuntu-latest
+    # Limite d'un job sur un runner hébergé par GitHub : 6 h. Si le balayage des quatre services la dépasse, le contrôle
+    # échoue (rien n'est vérifié) : lancer alors le job verif-<service> à la main, un service à la fois.
+    timeout-minutes: 355
+    # Règles d'approbation configurées sur l'environnement GitHub (preprod, prod).
+    environment: ${{ inputs.environnement }}
+    permissions:
+      contents: read
+      id-token: write # connexion Azure OIDC (identité fédérée, sans secret client)
+    steps:
+      - name: Récupération des scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Connexion Azure (OIDC)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Vérification seule des champs chiffrés (jobs verif-<service>)
+        env:
+          ENVIRONNEMENT: ${{ inputs.environnement }}
+          SERVICES: ${{ env.SERVICES_CHIFFRANTS }}
+        run: bash tools/deploy/verifier-rechiffrement.sh

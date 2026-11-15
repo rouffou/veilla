@@ -29,6 +29,7 @@ infra/
 │   ├── containerapps-env/  environnement Container Apps par zone
 │   ├── containerapp/       un microservice (sondes, KEDA, identité, secrets)
 │   ├── containerapp-migration-job/  job de migration de schéma d'un service (ADR 0010)
+│   ├── containerapp-rechiffrement-job/  jobs rech-<service> et verif-<service> : rechiffrement et vérification des champs (ADR 0012, #474)
 │   ├── apim/               Application Gateway WAF_v2 + API Management interne
 │   └── policy/             Azure Policy (registres, accès public, localisation)
 └── environments/
@@ -188,7 +189,7 @@ pas fournie par Terraform.
 | `BLINDINDEX__CLEENVELOPPEE` | `key_vault_secrets` du catalogue (secret `blindindex--cleenveloppee`, clé de l'index aveugle enveloppée par `personnes-fields-kek`) | personnes |
 | `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, documents-medicale, integrations, planification |
 | `DATABASE__MIGRATEANDEXIT` (`true`), `DATABASE__RUNTIMEROLE` ; `POSTGRES__USER` et `AZURE_CLIENT_ID` de l'identité de migration | `local.migration_environment` (job `mig-<service>` seulement, aucun secret) | services avec base |
-| `RECHIFFREMENT__EXECUTERPUISQUITTER` (`true`) ou `RECHIFFREMENT__VERIFIERSEULEMENT` (`true`) ; facultatifs `RECHIFFREMENT__TAILLELOT` (200), `RECHIFFREMENT__PAUSEENTRELOTS` (`00:00:00.050`) | jobs de rechiffrement et de vérification seulement (manuels en attendant #474), jamais la révision du service | personnes, integrations, surveillance-medicale, reintegration |
+| `RECHIFFREMENT__EXECUTERPUISQUITTER` (`true`) ou `RECHIFFREMENT__VERIFIERSEULEMENT` (`true`) ; facultatifs `RECHIFFREMENT__TAILLELOT` (200), `RECHIFFREMENT__PAUSEENTRELOTS` (`00:00:00.050`) | jobs `rech-<service>` et `verif-<service>` seulement (`local.rechiffrement_environment`, `local.verification_environment`), **jamais** la révision du service : une révision qui les recevrait quitterait au démarrage et redémarrerait en boucle (`ConfigurationTerraformTests` l'interdit) | personnes, integrations, surveillance-medicale, reintegration |
 
 Un secret est exposé au conteneur sous le nom du secret en majuscules, `-` devenant `_` : le secret
 `personnes--encryption--deks--d1` devient `ENCRYPTION__DEKS__D1`, soit la clé `Encryption:Deks:D1` de la configuration .NET.
@@ -424,7 +425,8 @@ d'une ancienne DEK. Sans lui, ni une ancienne DEK ni une ancienne clé v1 ne peu
 
 **Vérification seule** (`Rechiffrement__VerifierSeulement=true`, #482). Le même hôte vérifie sans rien écrire, puis
 s'arrête : code 0 si la base est prête pour le retrait d'une clé, 1 sinon (ou en cas d'échec). Ce mode est le garde-fou
-automatique avant tout retrait de clé : l'étape bloquante du pipeline (#474) l'exécute pour chacun des quatre services.
+automatique avant tout changement de clés : l'étape bloquante du pipeline (#474, « Garde-fou du pipeline » ci-dessous)
+l'exécute pour chacun des quatre services.
 Il l'emporte sur `ExecuterPuisQuitter` si les deux sont demandés. La vérification est **fondée sur les données**, et non
 sur la convention de nommage :
 
@@ -446,21 +448,110 @@ docker compose -f deploy/local/compose.yaml run --rm --no-deps -e Rechiffrement_
 docker compose -f deploy/local/compose.yaml run --rm --no-deps -e Rechiffrement__VerifierSeulement=true personnes; echo "code $?"
 ```
 
-**Exécution en Azure.** Le job Terraform `rech-<service>` reste à créer (#474). En attendant, l'exploitant crée à la main,
-depuis un poste relié au VNet, un job Container Apps manuel `rech-<service>` dans l'environnement de la zone du service :
+**Exécution en Azure (#474).** Terraform crée, pour chaque service dont `encryption` n'est pas vide (personnes,
+integrations, surveillance-medicale, reintegration), deux jobs Container Apps (module `containerapp-rechiffrement-job`),
+dans l'environnement de la zone du service :
 
-- même image, même identité d'exécution (`--mi-user-assigned`, `--registry-identity`) ;
-- mêmes références Key Vault (`--secrets`) que la Container App, lues par
-  `az containerapp show -g "$rg" -n "ca-$svc" --query properties.configuration.secrets` ;
-- mêmes variables (`--env-vars`), lues par `--query "properties.template.containers[0].env"`, plus
-  `RECHIFFREMENT__EXECUTERPUISQUITTER=true` (job `rech-<service>`) ou `RECHIFFREMENT__VERIFIERSEULEMENT=true` (job
-  `verif-<service>`) ;
-- `--trigger-type Manual --parallelism 1 --replica-completion-count 1 --replica-retry-limit 0`, et un délai maximal
-  (`--replica-timeout`) adapté au volume, à relancer s'il est dépassé.
+| Job | Mode | Rôle |
+|---|---|---|
+| `rech-<service>` | `RECHIFFREMENT__EXECUTERPUISQUITTER=true` | rechiffre, puis vérifie toute la base |
+| `verif-<service>` | `RECHIFFREMENT__VERIFIERSEULEMENT=true` | vérifie seulement, sans rien écrire |
 
-Le job se lance ensuite comme `mig-<service>` (`az containerapp job start`, suivi de l'exécution, puis
-`az containerapp job logs show … --container <nom du conteneur>`). Une exécution réussie (`Succeeded`) correspond au code
-0 : plus aucune valeur n'utilise une autre clé, et aucune valeur chiffrée n'est hors du modèle.
+- **Identité** : l'**identité d'exécution du service** (jamais l'identité de migration, ni une identité de pipeline
+  élargie). Elle porte déjà les droits DML, le déballage des DEK sur sa clé racine `<service>-fields-kek` et la lecture de
+  ses secrets Key Vault. Le job reçoit les mêmes secrets `--deks--` et `--keys--` que la Container App (références Key
+  Vault) et la même configuration (`local.app_environment`), plus un seul des deux modes. Seul `OTEL_SERVICE_NAME` change
+  (`<service>-rechiffrement`, `<service>-verification`).
+- **Déclenchement manuel, une exécution à la fois** : `manual_trigger_config` (parallélisme 1, une réplique), aucun
+  déclencheur planifié ni événementiel, `replica_retry_limit = 0`. Délai maximal d'une exécution :
+  `rechiffrement_replica_timeout_seconds` (défaut 14 400 s, contre 1 800 s pour la migration) ; si le délai est dépassé,
+  relancer le job : le traitement reprend les valeurs restantes.
+- **Jamais lancés par `deploy.yml`.** Le déploiement met seulement leur image à jour (`az containerapp job update`, comme
+  pour `mig-<service>`) pour qu'elle suive celle de la révision ; il ne les démarre pas. Un test
+  (`ConfigurationTerraformTests`) interdit aussi toute variable `RECHIFFREMENT__*` ailleurs que dans ces deux jobs.
+- **Droits de l'exploitant** : démarrer un job et lire ses journaux (`Microsoft.App/jobs/start/action`, lecture des
+  exécutions) dans les groupes `rg-sepp-<env>-*`. Ce droit ne donne ni accès aux données ni accès aux clés : seul le job,
+  avec l'identité du service, les utilise.
+
+Lancement du **rechiffrement** (action humaine, en heures creuses, voir « Procédure » ci-dessous) :
+
+```bash
+rg=rg-sepp-<env>-<zone>; svc=<service>
+execution=$(az containerapp job start -g "$rg" -n "rech-$svc" --query name -o tsv)
+until statut=$(az containerapp job execution show -g "$rg" -n "rech-$svc" --job-execution-name "$execution" --query properties.status -o tsv) \
+      && [ "$statut" != "Running" ] && [ "$statut" != "Processing" ]; do sleep 30; done
+echo "$statut"   # Succeeded = code 0 ; sinon relire le journal et relancer
+az containerapp job logs show -g "$rg" -n "rech-$svc" --execution "$execution" --container rechiffrement
+```
+
+Une exécution réussie (`Succeeded`) correspond au code 0 : plus aucune valeur n'utilise une autre clé que la DEK courante,
+et aucune valeur chiffrée n'est hors du modèle. `Failed` correspond au code 1 : lire le rapport (catégorie
+`Sepp.Rechiffrement`), corriger la cause, relancer.
+
+#### Garde-fou du pipeline : aucun changement de clés sans `verif-<service>` à 0 (#474)
+
+Toute modification de `encryption_key_ids` ou de `encryption_legacy_key_ids` dans les `terraform.tfvars` d'un
+environnement exige une exécution **récente** de `verif-<service>` qui a renvoyé 0, pour **chacun** des services qui
+chiffrent. Choix retenu, le plus simple et sûr : deux workflows, sans état à conserver ni à croire.
+
+1. **`verification-cles.yml`** (*Actions → Vérification des clés*, ou appel depuis un autre workflow) lance les
+   `verif-<service>` de l'environnement, **un service à la fois**, et échoue si l'un d'eux ne se termine pas par
+   `Succeeded` (job absent, exécution déjà en cours, échec, délai dépassé : « non vérifié »). Il ne lance jamais
+   `rech-<service>`. Il s'exécute dans l'environnement GitHub du même nom (`dev` à `prod`) :
+   - **confirmation humaine** : les règles d'approbation de l'environnement (*Required reviewers*, déjà posées sur
+     `preprod` et `prod` pour le déploiement) arrêtent le lancement tant qu'un relecteur ne l'a pas approuvé ;
+   - **heures creuses** : en `preprod` et `prod`, le script refuse de lancer le balayage hors de 18 h à 5 h UTC (la
+     vérification lit toute la base, séquentiellement, dans un instantané `REPEATABLE READ`) ;
+   - **identité** : l'identité fédérée de déploiement, qui ne sait que démarrer le job et lire son état. Elle n'a aucun
+     rôle Key Vault ni accès aux données ; le déballage des DEK reste porté par l'identité d'exécution du service
+     (revue de #498, P2-A) ;
+   - **liste des services** : `SERVICES_CHIFFRANTS` dans le workflow ; un test échoue si elle diverge du catalogue
+     (`infra/variables.tf`), pour qu'un nouveau service qui chiffre ne soit pas oublié.
+2. **`controle-cles.yml`** s'exécute sur chaque PR. Il compare les deux variables dans
+   `infra/environments/<env>/*.tfvars` entre la base et la PR (`tools/deploy/detecter-modification-cles.sh` : commentaires,
+   espaces et mise en forme ignorés ; ajout, retrait, réordonnancement, suppression du fichier comptent). Pour chaque
+   environnement touché, il appelle `verification-cles.yml` ; son statut **Statut contrôle des clés** reste rouge tant que
+   la vérification n'a pas renvoyé 0. Sans changement de clés, il passe tout de suite. Dans la file de fusion, la
+   vérification de la PR fait foi.
+
+À faire par le responsable du dépôt, hors code (réglages GitHub) :
+
+- ajouter **Statut contrôle des clés** aux contrôles exigés par la protection de `main` (comme « Statut Terraform ») ;
+- vérifier que les environnements `preprod` et `prod` ont des *Required reviewers* (et *Prevent self-review*), et qu'une
+  *federated credential* de sujet `repo:rouffou/veilla:environment:<env>` existe pour chaque environnement (prérequis
+  de « Déploiement progressif ») ;
+- le rôle de l'identité de déploiement doit permettre `az containerapp job start`, `job execution list` et `show`
+  sur `rg-sepp-<env>-*` (déjà le cas pour `mig-<service>`).
+
+Limites connues, à connaître avant de s'y fier :
+
+- le contrôle prouve la vérification **au moment de la PR**. L'`apply` a lieu plus tard : relancer
+  `verification-cles.yml` juste avant l'`apply` si des écritures ont pu réintroduire une ancienne clé entre-temps (une
+  réplique restée sur l'ancienne DEK, une restauration de sauvegarde) ;
+- un `apply` fait à la main hors du dépôt, ou une PR qui modifierait aussi le workflow, échappe à ce contrôle : la revue
+  de PR (relecture des fichiers `.github/workflows/`) et les approbations de l'environnement restent la dernière barrière ;
+- le contrôle couvre les `*.tfvars` d'`infra/environments/`. Les valeurs par défaut de `infra/variables.tf` ne servent
+  à aucun environnement (chacun déclare les deux variables, ce qu'un test vérifie).
+
+#### Procédure : rotation et retrait des clés, avec confirmation humaine
+
+Toute étape qui rechiffre ou change des clés se fait **en heures creuses** (le balayage lit toute la base ; en
+`preprod` et `prod`, 18 h à 5 h UTC), **service par service** (jamais deux jobs en parallèle sur la même base), et
+**après confirmation humaine** : le responsable de l'exploitation approuve par écrit (ticket de changement) le
+lancement de `rech-<service>`, puis l'approbation de l'environnement GitHub pour `verification-cles.yml`, puis
+le retrait des clés (irréversible au-delà de la suppression réversible du coffre).
+
+1. **Préparer** : créer la nouvelle DEK (rotation) ou rien (retrait) ; modifier `terraform.tfvars` dans une PR ;
+   `controle-cles.yml` détecte le changement.
+2. **Rotation** : mettre la nouvelle DEK en tête, `apply`, déployer les révisions, désactiver les anciennes révisions
+   (voir « Rotation des DEK »). Lancer ensuite `rech-<service>` pour chaque service, jusqu'au code 0.
+3. **Vérifier** : approuver l'exécution de `verification-cles.yml` (PR, ou à la demande juste avant l'`apply`) : les
+   quatre `verif-<service>` doivent renvoyer 0.
+4. **Retirer** : seulement alors, retirer l'ancienne DEK ou les anciennes clés v1 des `tfvars` (PR fusionnée, `apply`,
+   nouvelles révisions), puis désactiver et, après la rétention des sauvegardes, supprimer les secrets (voir
+   « Retrait des anciennes clés »).
+5. **En cas de code 1** : ne rien retirer. Lire le rapport du job (table, colonne, ligne), corriger, relancer
+   `rech-<service>`, puis refaire la vérification.
 
 **Requête de contrôle.** C'est le contrôle manuel, indépendant du code du service, qui double la vérification seule.
 Elle se lance dans la base du service, avec l'identité d'exécution ou un administrateur Entra (lecture seule). Comme la
@@ -505,14 +596,15 @@ suffixe.
    - `surveillance-medicale--zonemedicale--encryption--deks--d2` et `reintegration--zonemedicale--encryption--deks--d2`
      dans le coffre médical.
 2. **Mettre la nouvelle DEK en tête** : `encryption_key_ids = ["D2", "D1"]` dans le `terraform.tfvars` de
-   l'environnement, puis `plan` et `apply`. Déployer les nouvelles révisions, contrôler `/health/ready`, puis
+   l'environnement. La PR déclenche le contrôle des clés (il vérifie alors la DEK courante encore en service, `D1`).
+   Puis `plan` et `apply`. Déployer les nouvelles révisions, contrôler `/health/ready`, puis
    **désactiver les anciennes révisions** : une réplique encore sur `D1` continuerait d'écrire en `D1`.
 3. **Rechiffrer** : exécuter `rech-<service>` pour les quatre services, et relancer jusqu'au code 0. Les valeurs
    « restantes » d'une exécution viennent d'une réplique restée sur `D1` ou d'une valeur en erreur, à examiner (table,
    colonne, ligne).
-4. **Contrôler** : `verif-<service>` (vérification seule) se termine avec le code 0 pour les quatre services, et la
+4. **Contrôler** : `verif-<service>` (vérification seule, via `verification-cles.yml`) se termine avec le code 0 pour les quatre services, et la
    requête de contrôle, avec `(?!D2:)`, donne `hors_dek_courante` = 0 dans chaque base.
-5. **Retirer l'ancienne DEK** : `encryption_key_ids = ["D2"]`, `plan`, `apply`, nouvelles révisions. Ne **pas supprimer**
+5. **Retirer l'ancienne DEK** (le contrôle des clés de la PR exige la vérification à 0) : `encryption_key_ids = ["D2"]`, `plan`, `apply`, nouvelles révisions. Ne **pas supprimer**
    tout de suite les secrets `--deks--d1`. Une sauvegarde PostgreSQL antérieure au rechiffrement (restauration à un
    instant donné, rétention `postgres_backup_retention_days`) contient encore des valeurs `D1`. Désactiver ces secrets
    (`az keyvault secret set-attributes --enabled false`), puis les supprimer une fois la rétention écoulée.
