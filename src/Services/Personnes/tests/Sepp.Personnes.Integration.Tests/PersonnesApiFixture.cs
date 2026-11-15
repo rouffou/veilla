@@ -42,7 +42,13 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
     /// Service complet sur la base <paramref name="connexion"/>, avec ses propres clés de chiffrement et d'index aveugle
     /// (tirées au hasard à chaque appel) : plusieurs hôtes peuvent coexister dans le même processus (#442).
     /// </summary>
-    public static WebApplicationFactory<Program> CreerHote(string connexion, JournalCapture journal) =>
+    /// <param name="connexion">Base du service.</param>
+    /// <param name="journal">Capture des journaux.</param>
+    /// <param name="cles">
+    /// Configuration des clés (sections <c>Encryption</c> et <c>BlindIndex</c>) à la place de clés tirées au hasard :
+    /// plusieurs hôtes partagent alors les mêmes clés, par exemple avant, pendant et après une rotation de l'index aveugle (#473).
+    /// </param>
+    public static WebApplicationFactory<Program> CreerHote(string connexion, JournalCapture journal, IReadOnlyDictionary<string, string>? cles = null) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Testing");
@@ -52,7 +58,7 @@ public sealed class PersonnesApiFixture : IAsyncLifetime
             b.UseSetting("Republication:Intervalle", "00:00:00.100");
             b.UseSetting("Republication:TailleLot", "2");
             // ADR 0012 : DEK et clé de l'index aveugle enveloppées par une clé racine locale de test.
-            foreach (var (cle, valeur) in ChiffrementChamps.ConfigurationLocale("Encryption", "test",
+            foreach (var (cle, valeur) in cles ?? ChiffrementChamps.ConfigurationLocale("Encryption", "test",
                          new Dictionary<string, byte[]> { ["BlindIndex:CleEnveloppee"] = RandomNumberGenerator.GetBytes(32) }))
             {
                 b.UseSetting(cle, valeur);

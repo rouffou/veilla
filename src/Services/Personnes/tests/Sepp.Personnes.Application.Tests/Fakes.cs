@@ -32,8 +32,8 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IPer
     public Task<Personne?> GetAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Personnes.SingleOrDefault(p => p.Id == id));
 
-    public Task<Personne?> GetParNissHashAsync(string nissHash, CancellationToken cancellationToken) =>
-        Task.FromResult(Personnes.SingleOrDefault(p => p.NissHash == nissHash));
+    public Task<Personne?> GetParEmpreintesNissAsync(IReadOnlyList<string> empreintes, CancellationToken cancellationToken) =>
+        Task.FromResult(Personnes.Where(p => empreintes.Contains(p.NissHash)).OrderBy(p => empreintes.ToList().IndexOf(p.NissHash)).FirstOrDefault());
 
     public Task<Personne?> GetParReferenceDimonaAsync(string referenceDimona, CancellationToken cancellationToken) =>
         Task.FromResult(Personnes.SingleOrDefault(p => p.Occupations.Any(o => o.ReferenceDimona == referenceDimona)));
@@ -49,12 +49,20 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IPer
     public void Add(Personne personne) => Personnes.Add(personne);
 }
 
-/// <summary>Index aveugle de test : HMAC avec une clé fixe de test (jamais une vraie clé).</summary>
-internal sealed class FakeNissIndex : INissIndex
+/// <summary>
+/// Index aveugle de test : HMAC avec une clé fixe de test (jamais une vraie clé). Pendant une rotation simulée (#473), une
+/// clé précédente est acceptée en lecture.
+/// </summary>
+internal sealed class FakeNissIndex(string cle = FakeNissIndex.CleParDefaut, string? clePrecedente = null) : INissIndex
 {
-    private static readonly byte[] Cle = Encoding.UTF8.GetBytes("cle-de-test-uniquement-32-octets");
+    public const string CleParDefaut = "cle-de-test-uniquement-32-octets";
 
-    public string Calculer(Niss niss) => Convert.ToHexString(HMACSHA256.HashData(Cle, Encoding.UTF8.GetBytes(niss.Valeur)));
+    public string Calculer(Niss niss) => Hmac(cle, niss);
+
+    public IReadOnlyList<string> Empreintes(Niss niss) => clePrecedente is null ? [Hmac(cle, niss)] : [Hmac(cle, niss), Hmac(clePrecedente, niss)];
+
+    private static string Hmac(string cle, Niss niss) =>
+        Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(cle), Encoding.UTF8.GetBytes(niss.Valeur)));
 }
 
 internal sealed class FakeUser(params string[] roles) : ICurrentUser

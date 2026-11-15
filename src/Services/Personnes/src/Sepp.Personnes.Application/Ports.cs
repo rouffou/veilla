@@ -7,8 +7,12 @@ public interface IPersonneRepository
     /// <summary>Personne avec ses occupations, affectations et états particuliers.</summary>
     Task<Personne?> GetAsync(Guid id, CancellationToken cancellationToken);
 
-    /// <summary>Recherche par index aveugle du NISS (DAT-06) : le NISS en clair n'est jamais une clé de requête.</summary>
-    Task<Personne?> GetParNissHashAsync(string nissHash, CancellationToken cancellationToken);
+    /// <summary>
+    /// Recherche par index aveugle du NISS (DAT-06) : le NISS en clair n'est jamais une clé de requête. Toutes les
+    /// empreintes acceptées sont cherchées (<see cref="INissIndex.Empreintes"/>, rotation de la clé, #473) ; si deux lignes
+    /// correspondent, celle de la première empreinte (clé courante) l'emporte.
+    /// </summary>
+    Task<Personne?> GetParEmpreintesNissAsync(IReadOnlyList<string> empreintes, CancellationToken cancellationToken);
 
     Task<Personne?> GetParReferenceDimonaAsync(string referenceDimona, CancellationToken cancellationToken);
 
@@ -24,7 +28,14 @@ public interface IPersonneRepository
 /// <summary>Index de recherche par hachage à clé du NISS (DAT-06) ; la clé est détenue par l'infrastructure.</summary>
 public interface INissIndex
 {
+    /// <summary>Empreinte avec la clé courante : la seule qui soit écrite (création d'une personne).</summary>
     string Calculer(Niss niss);
+
+    /// <summary>
+    /// Empreintes acceptées en lecture : clé courante d'abord, puis clé précédente pendant une rotation de la clé (#473).
+    /// Toute recherche par NISS et tout contrôle de doublon portent sur toutes ces empreintes.
+    /// </summary>
+    IReadOnlyList<string> Empreintes(Niss niss);
 }
 
 /// <summary>Affilié porté par le jeton d'un utilisateur externe (claim <c>affilie_id</c>), s'il y en a un.</summary>

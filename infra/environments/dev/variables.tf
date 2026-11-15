@@ -126,6 +126,12 @@ variable "encryption_legacy_key_ids" {
   default     = []
 }
 
+variable "blind_index_previous_key_enabled" {
+  description = "Rotation de la clé de l'index aveugle du NISS (#473) : injecte la clé précédente blindindex--cleenveloppeeprecedente pendant le recalcul de l'index."
+  type        = bool
+  default     = false
+}
+
 variable "entra_tenant_id" {
   description = "Tenant Microsoft Entra de l'environnement (émetteur des jetons, ARC-40)."
   type        = string

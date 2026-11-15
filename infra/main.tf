@@ -137,7 +137,9 @@ locals {
   # service, même quand deux services lisent la même section Encryption). Les secrets sont créés hors du dépôt
   # (infra/README.md, « Secrets applicatifs ») : <préfixe>--deks--<id> (DEK enveloppée par la clé racine du service,
   # inutilisable hors du coffre) et, tant que des valeurs du format v1 subsistent, <préfixe>--keys--<id> (anciennes clés
-  # AES, lecture seule, var.encryption_legacy_key_ids). ---
+  # AES, lecture seule, var.encryption_legacy_key_ids). Pendant une rotation de la clé de l'index aveugle du NISS (#473,
+  # var.blind_index_previous_key_enabled), le service qui lit blindindex--cleenveloppee reçoit aussi la clé précédente
+  # blindindex--cleenveloppeeprecedente, en lecture seule. ---
   secret_name_prefix = {
     for n, s in local.services : n => { for prefixe in keys(s.encryption) : prefixe => lower(replace(prefixe, "_", "-")) }
   }
@@ -159,6 +161,9 @@ locals {
           "${local.secret_name_prefix[n][prefixe]}--keys--${lower(id)}" => "${module.keyvault[zone].key_vault_uri}secrets/${startswith(local.secret_name_prefix[n][prefixe], "${n}--") ? "" : "${n}--"}${local.secret_name_prefix[n][prefixe]}--keys--${lower(id)}"
         }
       ]...),
+      var.blind_index_previous_key_enabled && contains(keys(s.key_vault_secrets), "blindindex--cleenveloppee") ? {
+        "blindindex--cleenveloppeeprecedente" = "${module.keyvault[s.zone].key_vault_uri}secrets/blindindex--cleenveloppeeprecedente"
+      } : {},
     )
   }
 

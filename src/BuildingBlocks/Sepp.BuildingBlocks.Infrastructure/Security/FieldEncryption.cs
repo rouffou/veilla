@@ -97,15 +97,49 @@ public sealed class FieldEncryptor(IFieldKeyProvider keys)
 /// <summary>
 /// Index de recherche par hachage à clé (HMAC-SHA256) : permet de retrouver une personne par NISS
 /// sans stocker le NISS en clair ni en hachage simple, sensible aux attaques par dictionnaire (DAT-06).
-/// En Azure, la clé est enveloppée par la clé racine du service (ADR 0012) ; elle n'est pas tournée, car tout changement
-/// de clé exige de recalculer l'index.
+/// En Azure, la clé est enveloppée par la clé racine du service (ADR 0012).
 /// </summary>
-public sealed class BlindIndex(byte[] key)
+/// <remarks>
+/// Rotation (#473) : pendant le recalcul de l'index, une clé précédente peut être configurée. Seule la clé courante
+/// calcule l'empreinte écrite ; la recherche et le contrôle de doublon portent sur les deux empreintes
+/// (<see cref="Empreintes"/>), si bien qu'une ligne pas encore recalculée reste trouvée.
+/// </remarks>
+public sealed class BlindIndex
 {
-    public string Compute(string value)
+    private readonly byte[] _cle;
+    private readonly byte[]? _clePrecedente;
+
+    /// <param name="key">Clé courante (256 bits) : calcule l'empreinte écrite.</param>
+    /// <param name="clePrecedente">Clé précédente, en lecture seule pendant une rotation ; <c>null</c> hors rotation.</param>
+    public BlindIndex(byte[] key, byte[]? clePrecedente = null)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        if (clePrecedente is not null && CryptographicOperations.FixedTimeEquals(key, clePrecedente))
+        {
+            throw new ArgumentException("La clé précédente de l'index aveugle doit différer de la clé courante.", nameof(clePrecedente));
+        }
+
+        _cle = key;
+        _clePrecedente = clePrecedente;
+    }
+
+    /// <summary>Vrai pendant une rotation : une clé précédente est configurée.</summary>
+    public bool AvecClePrecedente => _clePrecedente is not null;
+
+    /// <summary>Empreinte avec la clé courante : la seule qui soit écrite.</summary>
+    public string Compute(string value) => Calculer(_cle, value);
+
+    /// <summary>Empreinte avec la clé précédente ; <c>null</c> hors rotation.</summary>
+    public string? ComputePrecedente(string value) => _clePrecedente is null ? null : Calculer(_clePrecedente, value);
+
+    /// <summary>Empreintes acceptées en lecture : clé courante d'abord, puis clé précédente pendant une rotation.</summary>
+    public IReadOnlyList<string> Empreintes(string value) =>
+        _clePrecedente is null ? [Compute(value)] : [Compute(value), Calculer(_clePrecedente, value)];
+
+    private static string Calculer(byte[] cle, string value)
     {
         var normalized = new string(value.Where(char.IsAsciiLetterOrDigit).ToArray()).ToUpperInvariant();
-        return Convert.ToHexString(HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(normalized)));
+        return Convert.ToHexString(HMACSHA256.HashData(cle, Encoding.UTF8.GetBytes(normalized)));
     }
 }
 

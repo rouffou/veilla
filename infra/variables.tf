@@ -586,6 +586,12 @@ variable "encryption_key_ids" {
   }
 }
 
+variable "blind_index_previous_key_enabled" {
+  description = "Rotation de la clé de l'index aveugle du NISS (#473) : injecte en plus, dans le service qui lit blindindex--cleenveloppee (personnes), la clé précédente blindindex--cleenveloppeeprecedente (secret enveloppé par personnes-fields-kek, à créer hors dépôt), acceptée en lecture seule pendant le recalcul de l'index. false hors rotation (infra/README.md, « Rotation de la clé de l'index aveugle »)."
+  type        = bool
+  default     = false
+}
+
 variable "encryption_legacy_key_ids" {
   description = "Identifiants des anciennes clés AES du format v1 (secrets <service>--<préfixe>--keys--<id>, antérieurs à l'ADR 0012), injectées en lecture seule tant que des valeurs v1 subsistent ; elles ne chiffrent plus jamais. Vide pour un environnement sans données antérieures."
   type        = list(string)

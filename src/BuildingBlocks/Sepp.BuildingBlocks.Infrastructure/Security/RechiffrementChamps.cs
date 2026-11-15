@@ -1,7 +1,6 @@
 using System.Data.Common;
 using System.Globalization;
 using System.Linq.Expressions;
-using System.Security.Cryptography;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -217,6 +216,9 @@ public sealed record RapportRechiffrement(
 /// annule le lot, qui est alors repris ligne par ligne, chacune dans sa transaction : seule la ligne en cause reste en
 /// erreur. Une erreur sur une colonne entière est comptée, et le traitement passe à la colonne suivante.
 /// </para>
+/// <para>
+/// Les lots passent par <see cref="MoteurLots"/>, partagé avec le recalcul de l'index aveugle (<see cref="RecalculIndexAveugle"/>, #473).
+/// </para>
 /// </remarks>
 public static partial class RechiffrementChamps
 {
@@ -232,11 +234,8 @@ public static partial class RechiffrementChamps
         ArgumentNullException.ThrowIfNull(connexion);
         ArgumentNullException.ThrowIfNull(chiffreur);
         ArgumentNullException.ThrowIfNull(colonnes);
-        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(journal);
-        ArgumentOutOfRangeException.ThrowIfLessThan(options.TailleLot, 1, nameof(options.TailleLot));
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.TailleLot, 10_000, nameof(options.TailleLot));
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(options.DelaiVerrou, TimeSpan.Zero, nameof(options.DelaiVerrou));
+        MoteurLots.Valider(options);
         horloge ??= TimeProvider.System;
 
         var prefixe = chiffreur.PrefixeCourant;
@@ -277,136 +276,12 @@ public static partial class RechiffrementChamps
         TimeProvider horloge,
         CancellationToken cancellationToken)
     {
-        var table = Sql.Table(colonne.Schema, colonne.Table);
-        var col = Sql.Identifiant(colonne.Colonne);
-        var cle = Sql.Identifiant(colonne.ColonneCle);
-        long examinees = 0, rechiffrees = 0, concurrentes = 0, enErreur = 0;
-        object? curseur = null;
-
-        try
-        {
-            while (true)
-            {
-                var lot = await LireLotAsync(connexion, table, col, cle, prefixe, curseur, options.TailleLot, cancellationToken);
-                var aEcrire = new List<ValeurRechiffree>(lot.Count);
-                foreach (var (identifiant, ancienne) in lot)
-                {
-                    try
-                    {
-                        aEcrire.Add(new ValeurRechiffree(identifiant, ancienne, chiffreur.Rechiffrer(ancienne)));
-                    }
-                    catch (Exception erreur) when (erreur is CryptographicException or FormatException)
-                    {
-                        // Clé non configurée, valeur altérée ou illisible : la valeur reste en place, le traitement continue.
-                        enErreur++;
-                        Signaler(erreurs, options, journal, new ErreurRechiffrement(colonne.Nom, Texte(identifiant),
-                            erreur.GetType().Name, erreur is CryptographicException ? erreur.Message : "Valeur chiffrée illisible (base64)."));
-                    }
-                }
-
-                try
-                {
-                    var (ecrites, modifiees) = await EcrireAsync(connexion, table, col, cle, aEcrire, options.DelaiVerrou, cancellationToken);
-                    rechiffrees += ecrites;
-                    concurrentes += modifiees;
-                }
-                catch (DbException)
-                {
-                    // Lot annulé (troncature, contrainte, verrou…) : reprise ligne par ligne, chacune dans sa transaction,
-                    // pour n'écarter que la ou les lignes en cause, sans sous-transaction.
-                    foreach (var valeur in aEcrire)
-                    {
-                        try
-                        {
-                            var (ecrites, modifiees) = await EcrireAsync(connexion, table, col, cle, [valeur], options.DelaiVerrou, cancellationToken);
-                            rechiffrees += ecrites;
-                            concurrentes += modifiees;
-                        }
-                        catch (DbException erreur)
-                        {
-                            enErreur++;
-                            Signaler(erreurs, options, journal, new ErreurRechiffrement(colonne.Nom, Texte(valeur.Cle), erreur.GetType().Name, MessageBase(erreur)));
-                        }
-                    }
-                }
-
-                examinees += lot.Count;
-                if (lot.Count < options.TailleLot)
-                {
-                    break;
-                }
-
-                curseur = lot[^1].Cle;
-                if (options.PauseEntreLots > TimeSpan.Zero)
-                {
-                    await Task.Delay(options.PauseEntreLots, horloge, cancellationToken);
-                }
-            }
-        }
-        catch (DbException erreur)
-        {
-            // Colonne inaccessible (droits, table absente, connexion perdue) : comptée en erreur, les autres colonnes sont traitées.
-            enErreur++;
-            Signaler(erreurs, options, journal, new ErreurRechiffrement(colonne.Nom, string.Empty, erreur.GetType().Name, MessageBase(erreur)));
-        }
-
-        return (colonne, examinees, rechiffrees, concurrentes, enErreur);
-    }
-
-    private static async Task<List<(object Cle, string Valeur)>> LireLotAsync(
-        DbConnection connexion, string table, string col, string cle, string prefixe, object? curseur, int taille, CancellationToken cancellationToken)
-    {
-        var lot = new List<(object Cle, string Valeur)>();
-        await using var lecture = Sql.Commande(connexion, null,
-            $"SELECT {cle}, {col} FROM {table} WHERE {col} IS NOT NULL AND NOT starts_with({col}, @prefixe)" +
-            (curseur is null ? string.Empty : $" AND {cle} > @curseur") +
-            $" ORDER BY {cle} LIMIT {taille.ToString(CultureInfo.InvariantCulture)}");
-        Sql.Parametre(lecture, "prefixe", prefixe);
-        if (curseur is not null)
-        {
-            Sql.Parametre(lecture, "curseur", curseur);
-        }
-
-        await using var lecteur = await lecture.ExecuteReaderAsync(cancellationToken);
-        while (await lecteur.ReadAsync(cancellationToken))
-        {
-            lot.Add((lecteur.GetValue(0), lecteur.GetString(1)));
-        }
-
-        return lot;
-    }
-
-    /// <summary>Écrit des valeurs rechiffrées dans une transaction courte, avec une attente de verrou bornée.</summary>
-    private static async Task<(long Ecrites, long Modifiees)> EcrireAsync(
-        DbConnection connexion, string table, string col, string cle, IReadOnlyList<ValeurRechiffree> valeurs, TimeSpan delaiVerrou, CancellationToken cancellationToken)
-    {
-        if (valeurs.Count == 0)
-        {
-            return (0, 0);
-        }
-
-        long ecrites = 0, modifiees = 0;
-        await using var transaction = await connexion.BeginTransactionAsync(cancellationToken);
-        await Sql.DelaiVerrouAsync(connexion, transaction, delaiVerrou, cancellationToken);
-        foreach (var valeur in valeurs)
-        {
-            await using var miseAJour = Sql.Commande(connexion, transaction, $"UPDATE {table} SET {col} = @nouvelle WHERE {cle} = @cle AND {col} = @ancienne");
-            Sql.Parametre(miseAJour, "nouvelle", valeur.Nouvelle);
-            Sql.Parametre(miseAJour, "cle", valeur.Cle);
-            Sql.Parametre(miseAJour, "ancienne", valeur.Ancienne);
-            if (await miseAJour.ExecuteNonQueryAsync(cancellationToken) == 1)
-            {
-                ecrites++;
-            }
-            else
-            {
-                // Modifiée ou supprimée par le service depuis la lecture : sa nouvelle valeur est déjà à jour.
-                modifiees++;
-            }
-        }
-
-        await transaction.CommitAsync(cancellationToken);
-        return (ecrites, modifiees);
+        // Seules les valeurs qui ne commencent pas par le préfixe de la DEK courante sont lues ; la colonne est à la fois
+        // la source et la destination.
+        var cible = new CibleLots(colonne.Nom, colonne.Schema, colonne.Table, colonne.ColonneCle, colonne.Colonne, colonne.Colonne, prefixe);
+        var bilan = await MoteurLots.ExecuterAsync(
+            connexion, cible, chiffreur.Rechiffrer, options, detail => Signaler(erreurs, options, journal, detail), horloge, cancellationToken);
+        return (colonne, bilan.Examinees, bilan.Ecrites, bilan.Concurrentes, bilan.Erreurs);
     }
 
     private static void Signaler(List<ErreurRechiffrement> erreurs, OptionsRechiffrement options, ILogger journal, ErreurRechiffrement detail)
@@ -422,10 +297,6 @@ public static partial class RechiffrementChamps
     /// <summary>Code SQLSTATE seulement : le message et le détail d'une erreur PostgreSQL peuvent citer une valeur.</summary>
     internal static string MessageBase(DbException erreur) =>
         erreur.SqlState is { Length: > 0 } etat ? $"Erreur de base de données (SQLSTATE {etat})." : "Erreur de base de données.";
-
-    private static string Texte(object identifiant) => Convert.ToString(identifiant, CultureInfo.InvariantCulture) ?? string.Empty;
-
-    private sealed record ValeurRechiffree(object Cle, string Ancienne, string Nouvelle);
 
     [LoggerMessage(EventId = 5101, Level = LogLevel.Information, Message = "Rechiffrement des champs : {Nombre} colonne(s) chiffrée(s), clé de données courante {PrefixeCourant}.")]
     private static partial void LogDebut(ILogger journal, int nombre, string prefixeCourant);

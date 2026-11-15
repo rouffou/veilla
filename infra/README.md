@@ -186,6 +186,7 @@ pas fournie par Terraform.
 | `<Préfixe>__Enveloppe__Type` (`KeyVault`), `<Préfixe>__Enveloppe__CleKek` (URI de `<service>-fields-kek` sans version), `<Préfixe>__CurrentKeyId` ; secrets `<Préfixe>__Deks__<id>` (DEK enveloppées) et, en lecture seule, `<Préfixe>__Keys__<id>` (format v1) | attribut `encryption`, module `keyvault` de la zone **du service**, `var.encryption_key_ids`, `var.encryption_legacy_key_ids` (ADR 0012) | personnes, integrations, surveillance-medicale, reintegration |
 | `DOCUMENTS__ZONES` (et `DOCUMENTS__ZONES__0`), `DOCUMENTS__ENVELOPPE__TYPE` (`KeyVault`), `DOCUMENTS__ENVELOPPE__CLEKEK` (URI de `documents-kek` sans version), `DOCUMENTS__BLOBENDPOINT` | zone de l'instance, module `keyvault` et module `storage` de la zone | documents, documents-medicale |
 | `BLINDINDEX__CLEENVELOPPEE` | `key_vault_secrets` du catalogue (secret `blindindex--cleenveloppee`, clé de l'index aveugle enveloppée par `personnes-fields-kek`) | personnes |
+| `BLINDINDEX__CLEENVELOPPEEPRECEDENTE` | pendant une rotation de la clé de l'index aveugle seulement : `var.blind_index_previous_key_enabled` (secret `blindindex--cleenveloppeeprecedente`, #473) | personnes |
 | `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, documents-medicale, integrations, planification |
 | `DATABASE__MIGRATEANDEXIT` (`true`), `DATABASE__RUNTIMEROLE` ; `POSTGRES__USER` et `AZURE_CLIENT_ID` de l'identité de migration | `local.migration_environment` (job `mig-<service>` seulement, aucun secret) | services avec base |
 | `RECHIFFREMENT__EXECUTERPUISQUITTER` (`true`) ou `RECHIFFREMENT__VERIFIERSEULEMENT` (`true`) ; facultatifs `RECHIFFREMENT__TAILLELOT` (200), `RECHIFFREMENT__PAUSEENTRELOTS` (`00:00:00.050`) | jobs de rechiffrement et de vérification seulement (manuels en attendant #474), jamais la révision du service | personnes, integrations, surveillance-medicale, reintegration |
@@ -316,6 +317,7 @@ agent relié au VNet, avec le rôle *Key Vault Secrets Officer* sur le coffre de
 | `personnes--encryption--deks--<id>` | standard | personnes |
 | `integrations--encryption--deks--<id>` | standard | integrations |
 | `blindindex--cleenveloppee` | standard | personnes |
+| `blindindex--cleenveloppeeprecedente` (pendant une rotation de la clé de l'index aveugle seulement, `blind_index_previous_key_enabled = true`) | standard | personnes |
 | `surveillance-medicale--zonemedicale--encryption--deks--<id>` | médicale | surveillance-medicale |
 | `reintegration--zonemedicale--encryption--deks--<id>` | médicale | reintegration |
 | `<mêmes préfixes>--keys--<id>` (anciennes clés AES du format v1, lecture seule, seulement pour les identifiants de `encryption_legacy_key_ids`) | zone du service | idem |
@@ -377,7 +379,9 @@ Rotation :
   anciens (déchiffrement), rechiffrer, et retirer un identifiant seulement quand plus aucune donnée ne l'utilise. Voir
   « Rotation des DEK » ci-dessous. Identifiants en majuscules et chiffres (`D1`, `D2`) ;
 - **clés AES historiques (format v1)** : `encryption_legacy_key_ids` les injecte en lecture seule (`--keys--<id>`). Les
-  retirer, avec `blindindex--key`, une fois toutes les valeurs v1 rechiffrées : voir « Retrait des anciennes clés ».
+  retirer, avec `blindindex--key`, une fois toutes les valeurs v1 rechiffrées : voir « Retrait des anciennes clés » ;
+- **clé de l'index aveugle** : jamais remplacée directement (toute recherche par NISS échouerait) ; voir « Rotation de la
+  clé de l'index aveugle ».
 
 Sauvegarde : comme pour `documents-kek` (ci-dessous), **toutes versions incluses**, avant la mise en service puis après
 chaque rotation. La perte de `<service>-fields-kek` rend illisibles les champs chiffrés du service.
@@ -418,6 +422,9 @@ d'une ancienne DEK. Sans lui, ni une ancienne DEK ni une ancienne clé v1 ne peu
 - **Code de sortie** : 0 si aucune erreur et si la vérification finale est complète, 1 sinon (erreurs, valeurs restantes,
   colonne chiffrée hors du modèle, colonne du modèle introuvable ou inaccessible, échec). Le journal est transmis avant
   l'arrêt du processus.
+- **Index aveugle du NISS (Personnes, #473)** : après le rechiffrement, le même mode recalcule `personne.niss_hash`
+  avec la clé courante de l'index (voir « Rotation de la clé de l'index aveugle »). Les deux traitements passent par le
+  même moteur de lots (curseur, transactions courtes, `lock_timeout`, rejouable, erreurs isolées ligne par ligne).
 - **Identité et secrets** : le traitement a besoin des clés du service. Il tourne donc avec l'**identité d'exécution** du
   service, ses secrets `--deks--` et `--keys--` et sa configuration, et non avec le job `mig-<service>`, qui n'a aucun
   secret (ADR 0010).
@@ -437,7 +444,10 @@ sur la convention de nommage :
   la valeur utilise la DEK courante, car le rechiffrement ne la traitera jamais ;
 - elle s'exécute avec l'identité d'exécution du service : le catalogue PostgreSQL ne montre que les colonnes sur
   lesquelles l'identité a un droit. Chaque table est lue une fois (balayage séquentiel) : la lancer en heures creuses
-  sur une grosse base.
+  sur une grosse base ;
+- pour Personnes, elle contrôle aussi l'index aveugle du NISS : chaque `niss_hash` doit être l'empreinte, avec la clé
+  courante de l'index, du NISS déchiffré (#473). Une empreinte de l'ancienne clé, d'une autre clé ou un NISS illisible
+  donne le code 1.
 
 **Exécution en local** (le service doit déjà tourner avec la même configuration) :
 
@@ -565,21 +575,87 @@ dans le registre RAID (`docs/00-pilotage/raid-log.md`), avec le motif, le demand
 produit, les clés nécessaires à sa relecture, son emplacement chiffré et sa date de destruction. Une exception en cours
 **interdit** le retrait des clés qu'elle utilise, tant que l'export n'est pas détruit ou rechiffré.
 
-#### Rotation de la clé de l'index aveugle (non disponible : #473)
+#### Rotation de la clé de l'index aveugle (#473)
 
-La clé HMAC de l'index aveugle du NISS (`blindindex--cleenveloppee`) n'est pas tournée par ce traitement. En changer
-impose de recalculer `niss_hash` pour toutes les personnes, en déchiffrant chaque NISS. Or `niss_hash` est sous index
-unique et sert à toutes les recherches par NISS (API, imports, mutations du registre national, Intégrations). Pendant
-le recalcul, une partie de l'index utiliserait l'ancienne clé et l'autre la nouvelle : des recherches échoueraient et
-des doublons deviendraient possibles.
+La clé HMAC de l'index aveugle du NISS (`blindindex--cleenveloppee`) se tourne en recalculant `personne.niss_hash` pour
+toutes les personnes. Cette colonne est sous index unique et sert à toutes les recherches par NISS : API, imports,
+mutations du registre national, DIMONA et identification pour Intégrations (`POST /api/v1/identifications`).
 
-Une rotation sûre exige une lecture à double clé (ancienne et nouvelle empreinte) pendant le recalcul : ticket #473. En
-attendant :
+> **Question ouverte (responsable produit)** : faut-il tourner cette clé hors compromission, et à quelle fréquence ?
+> Ce ticket livre la capacité, il ne tranche pas. Hors compromission, rien n'impose aujourd'hui de la tourner.
 
-- ne pas changer `blindindex--cleenveloppee` (une nouvelle version avec une autre clé casserait toute recherche par NISS) ;
-- après une rotation de `personnes-fields-kek`, la clé enveloppée existante reste déballable : rien à faire.
-- en cas de compromission avérée de la clé de l'index, ouvrir un incident. La procédure de secours passe par une fenêtre
-  de maintenance, service arrêté, et n'est pas outillée.
+**Lecture à double clé.** Pendant une rotation, Personnes reçoit deux clés, toutes deux enveloppées par
+`personnes-fields-kek` :
+
+- `BlindIndex:CleEnveloppee` (secret `blindindex--cleenveloppee`) : clé **courante**, la seule qui calcule une empreinte
+  écrite (création d'une personne) ;
+- `BlindIndex:CleEnveloppeePrecedente` (secret `blindindex--cleenveloppeeprecedente`, injecté seulement si
+  `blind_index_previous_key_enabled = true`) : autre clé acceptée **en lecture**.
+
+Toute recherche par NISS et tout contrôle de doublon portent alors sur les deux empreintes. Une personne pas encore
+recalculée reste trouvée, et un NISS déjà connu sous l'une ou l'autre empreinte n'est jamais recréé. Le service refuse
+de démarrer si les deux clés sont identiques.
+
+**Recalcul.** Le mode `Rechiffrement__ExecuterPuisQuitter` de Personnes recalcule l'index après le rechiffrement des
+champs. Pour chaque ligne, il déchiffre `niss_chiffre`, calcule l'empreinte avec la clé courante et ne réécrit que les
+empreintes qui diffèrent. Il passe par le même moteur de lots que le rechiffrement : curseur sur la clé primaire,
+transactions courtes, `lock_timeout`, erreurs isolées ligne par ligne, mise à jour conditionnée aux valeurs lues. Il est
+rejouable : après une interruption, il suffit de relancer.
+
+Une empreinte recalculée qui existe déjà sur une autre ligne est une **collision** : la base la refuse (SQLSTATE 23505)
+et la ligne reste inchangée. Le traitement la compte en erreur (événement 5111, « Collision sur un index unique », avec
+l'identifiant technique de la ligne), le code de sortie est 1, et aucune ligne n'est écrasée ni supprimée. Une collision
+révèle deux personnes pour le même NISS : elles sont à fusionner par le métier, puis le traitement est relancé.
+
+**Contrôle avant le retrait de l'ancienne clé : par recalcul.** La vérification (modes `ExecuterPuisQuitter` et
+`VerifierSeulement`, événement 5113) lit toutes les lignes dans un seul instantané, déchiffre chaque NISS et compare
+`niss_hash` à l'empreinte de la clé courante. Le code 0 n'est rendu que si **toutes** les empreintes sont celles de la
+clé courante. Le rapport compte les empreintes de la clé courante, de la clé précédente, d'une autre clé (ou altérées)
+et les NISS illisibles. Ce contrôle a été préféré à une colonne de version de l'index :
+
+- il prouve exactement la propriété exigée (l'empreinte stockée est celle de la clé courante), là où une version
+  pourrait mentir (empreinte calculée avec une clé, version d'une autre) ;
+- il ne demande ni migration de schéma (expand / contract) ni connaissance de la clé dans le domaine ;
+- il détecte aussi une empreinte altérée ou calculée avec une troisième clé.
+
+Son coût est un déchiffrement AES-GCM en mémoire par personne, sans appel au coffre, à chaque exécution : le lancer en
+heures creuses sur une grosse base.
+
+**Procédure.** Elle se fait en deux bascules, pour que deux révisions actives en même temps lisent toujours les deux
+empreintes : sans cela, une réplique qui ne connaît qu'une clé pourrait créer un doublon (la collision serait alors
+signalée par le recalcul).
+
+1. **Préparer** : sauvegarde de `personnes-fields-kek` à jour (toutes versions) ; tirer la nouvelle clé et l'envelopper
+   avec la clé publique de `personnes-fields-kek` dans le secret **`blindindex--cleenveloppeeprecedente`**, comme une
+   DEK (« Clés racines du chiffrement des champs », premier tube, `--name blindindex--cleenveloppeeprecedente`). Elle
+   n'est jamais écrite ni affichée en clair.
+2. **Introduire la nouvelle clé en lecture** : `blind_index_previous_key_enabled = true` dans le `terraform.tfvars`,
+   `plan` (seule la référence `BLINDINDEX__CLEENVELOPPEEPRECEDENTE` de `ca-personnes` s'ajoute), `apply`, nouvelle
+   révision, `/health/ready`, puis **désactiver les anciennes révisions**. Toutes les répliques écrivent encore avec
+   l'ancienne clé et lisent les deux.
+3. **Basculer** : échanger les valeurs des deux secrets (nouvelle version de chacun) : `blindindex--cleenveloppee` reçoit
+   la nouvelle clé enveloppée, `blindindex--cleenveloppeeprecedente` l'ancienne. Copier chaque valeur enveloppée telle
+   quelle (`az keyvault secret show … --query value -o tsv` vers `az keyvault secret set`), sans la déballer. Une
+   réplique qui démarrerait entre les deux écritures verrait deux clés identiques et refuserait de démarrer, sans effet
+   sur les données. Créer ensuite une nouvelle révision (les références sans version prennent la dernière version),
+   contrôler `/health/ready` et désactiver les anciennes révisions.
+4. **Recalculer** : exécuter `rech-personnes` (`RECHIFFREMENT__EXECUTERPUISQUITTER=true`, voir « Exécution en Azure »)
+   et relancer jusqu'au code 0. Le journal donne, pour `personne.niss_hash`, les lignes recalculées, déjà à jour,
+   modifiées entre-temps, les collisions et les erreurs (événements 5110 à 5113).
+5. **Contrôler** : `verif-personnes` (`RECHIFFREMENT__VERIFIERSEULEMENT=true`) se termine avec le code 0, et le journal
+   indique « 0 de la clé précédente, 0 autre(s), 0 source(s) illisible(s) ; complet : True ».
+6. **Retirer l'ancienne clé** : `blind_index_previous_key_enabled = false`, `plan`, `apply`, nouvelle révision,
+   `/health/ready`, une recherche par NISS aboutit. Désactiver `blindindex--cleenveloppeeprecedente`
+   (`az keyvault secret set-attributes --enabled false`), puis le supprimer après confirmation humaine. L'ancienne clé
+   n'est pas nécessaire pour relire une sauvegarde : après une restauration, relancer `rech-personnes`, qui recalcule
+   l'index avec la clé courante à partir des NISS chiffrés.
+
+En cas de compromission avérée de la clé de l'index, ouvrir un incident et réduire au minimum la durée des étapes 2 à
+5 : tant que l'ancienne clé est acceptée en lecture, elle reste utilisable pour une attaque par dictionnaire sur les
+empreintes non encore recalculées.
+
+`RecalculIndexAveuglePostgresTests` (socle) et `RotationIndexAveugleTests` (Personnes) couvrent la recherche pendant et
+après le recalcul, le doublon refusé pendant la transition, la collision et la reprise après interruption.
 
 ### Clés racines de Documents (décision #356, ADR 0009)
 

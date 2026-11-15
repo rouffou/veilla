@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,6 +12,7 @@ using Sepp.Personnes.Adapters.Persistence;
 using Sepp.Personnes.Adapters.Rattrapage;
 using Sepp.Personnes.Adapters.Security;
 using Sepp.Personnes.Application;
+using Sepp.Personnes.Domain.Personnes;
 
 namespace Sepp.Personnes.Adapters;
 
@@ -23,6 +25,12 @@ public static class DependencyInjection
     /// (<c>&lt;kid&gt;|&lt;base64&gt;</c>, ADR 0012).
     /// </summary>
     public const string BlindIndexWrappedKeySetting = "BlindIndex:CleEnveloppee";
+
+    /// <summary>
+    /// Clé précédente de l'index aveugle, enveloppée comme la clé courante : facultative, configurée seulement pendant une
+    /// rotation de la clé (#473). La recherche et le contrôle de doublon acceptent alors les deux empreintes.
+    /// </summary>
+    public const string BlindIndexPreviousWrappedKeySetting = "BlindIndex:CleEnveloppeePrecedente";
 
     /// <summary>Clé de l'index aveugle en clair : développement et tests seulement (clé racine locale).</summary>
     public const string BlindIndexKeySetting = "BlindIndex:Key";
@@ -38,7 +46,7 @@ public static class DependencyInjection
             sp.GetRequiredService<IConfiguration>().GetSection("Encryption"), sp.GetRequiredService<IHostEnvironment>(), sp.GetService<IOperationsCleRacine>()));
         services.AddSingleton(sp => sp.GetRequiredService<ChiffrementChamps>().Cles);
         services.AddSingleton<FieldEncryptor>();
-        services.AddSingleton(sp => new BlindIndex(LireCleIndexAveugle(sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<ChiffrementChamps>())));
+        services.AddSingleton(sp => CreerIndexAveugle(sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<ChiffrementChamps>()));
         services.AddSingleton<INissIndex, NissIndex>();
 
         services.AddScoped<IPersonneRepository, PersonneRepository>();
@@ -53,6 +61,21 @@ public static class DependencyInjection
         // Énumérations lisibles dans l'API (« Interimaire », « Grossesse »…).
         services.Configure<JsonOptions>(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
         return services;
+    }
+
+    /// <summary>
+    /// Index aveugle du NISS (<c>personne.niss_hash</c> sur <c>personne.niss_chiffre</c>) d'après le modèle EF Core : recalculé
+    /// et vérifié par les modes « rechiffrer puis quitter » et « vérifier seulement » (#473).
+    /// </summary>
+    public static IndexAveugleChiffre IndexAveugleNiss(IModel modele, BlindIndex index) =>
+        new(ColonneIndexAveugle.Depuis(modele, typeof(Personne), nameof(Personne.Niss), nameof(Personne.NissHash)), index);
+
+    private static BlindIndex CreerIndexAveugle(IConfiguration configuration, ChiffrementChamps chiffrement)
+    {
+        var precedente = configuration[BlindIndexPreviousWrappedKeySetting];
+        return new BlindIndex(
+            LireCleIndexAveugle(configuration, chiffrement),
+            string.IsNullOrWhiteSpace(precedente) ? null : chiffrement.Desenvelopper(precedente, BlindIndexPreviousWrappedKeySetting));
     }
 
     /// <summary>

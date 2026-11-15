@@ -13,8 +13,9 @@ public sealed class EnregistrementTravailleurs(IPersonneRepository repository, I
     public async Task<Result<(Personne Personne, bool Nouvelle)>> TrouverOuCreerAsync(
         Niss niss, Identite identite, Coordonnees? coordonnees, bool identiteDeReference, CancellationToken cancellationToken)
     {
-        var hash = index.Calculer(niss);
-        var existante = await repository.GetParNissHashAsync(hash, cancellationToken);
+        // Rotation de la clé de l'index (#473) : la personne est cherchée sous toutes les empreintes acceptées, pour qu'une
+        // ligne pas encore recalculée ne donne jamais lieu à un doublon ; une nouvelle personne reçoit l'empreinte courante.
+        var existante = await repository.GetParEmpreintesNissAsync(index.Empreintes(niss), cancellationToken);
         if (existante is not null)
         {
             if (identiteDeReference)
@@ -38,7 +39,7 @@ public sealed class EnregistrementTravailleurs(IPersonneRepository repository, I
         }
 
         return Regles.Appliquer<(Personne, bool)>("personne.invalide",
-            () => (Personne.Creer(niss, hash, identite, coordonnees ?? CoordonneesDto.Aucune.ToCoordonnees()), true));
+            () => (Personne.Creer(niss, index.Calculer(niss), identite, coordonnees ?? CoordonneesDto.Aucune.ToCoordonnees()), true));
     }
 }
 
@@ -137,7 +138,7 @@ public sealed class RechercherParNissHandler(
             return Error.Validation("personne.niss-invalide", erreur);
         }
 
-        var personne = await repository.GetParNissHashAsync(index.Calculer(niss), cancellationToken);
+        var personne = await repository.GetParEmpreintesNissAsync(index.Empreintes(niss), cancellationToken);
         if (personne is null || !perimetre.PeutVoir(personne))
         {
             return Error.NotFound("personne.inconnue", "Aucune personne ne correspond à ce NISS.");
@@ -174,7 +175,7 @@ public sealed class IdentifierPersonneHandler(IPersonneRepository repository, IN
             return Error.Validation("personne.niss-invalide", erreur);
         }
 
-        var personne = await repository.GetParNissHashAsync(index.Calculer(niss), cancellationToken);
+        var personne = await repository.GetParEmpreintesNissAsync(index.Empreintes(niss), cancellationToken);
         return personne is null
             ? Error.NotFound("personne.inconnue", "Aucune personne ne correspond à ce NISS.")
             : new IdentificationDto(personne.Id);

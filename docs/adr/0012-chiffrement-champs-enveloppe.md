@@ -75,6 +75,7 @@ par valeur (comme Documents par document) est exclu, pour la latence comme pour 
   produit un rapport sans donnée ni clé. Il tourne avec l'identité d'exécution du service (il lui faut les DEK), et non
   avec le job de migration. Le job Terraform `rech-<service>` reste à créer (#474). Procédures de rotation des DEK et de
   retrait des anciennes clés, avec la requête de contrôle : `infra/README.md`.
-- **Rotation de la clé de l'index aveugle** : non outillée. Elle exige une lecture à double clé pendant le recalcul de
-  l'index (#473).
+- **Rotation de la clé de l'index aveugle** : outillée par #473. Lecture à double clé
+  (`BlindIndex:CleEnveloppeePrecedente`) pendant le recalcul de l'index par le mode de rechiffrement de Personnes, et
+  contrôle par recalcul avant le retrait de l'ancienne clé. Procédure : `infra/README.md`.
 - **Activation du Managed HSM** et domaine de sécurité : manuels (#282), comme pour `documents-kek`.
