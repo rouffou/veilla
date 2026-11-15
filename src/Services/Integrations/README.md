@@ -101,21 +101,21 @@ Le NISS ne transite entre Intégrations et Personnes que dans le corps d'appels 
 
 - **Compte technique** : client OIDC confidentiel avec *service account* (flux *client credentials*, authentification
   `client_secret_post`), portant le rôle realm **`integrations`** (`Roles.Integrations`) et l'audience `sepp-api`.
-  Ce rôle n'a que `personne:ecrire` : il alimente DIMONA mais ne lit aucune fiche de travailleur.
+  Ce rôle n'a que `personne:alimenter` (permission technique, #491) et `personne:identifier` : il alimente DIMONA mais ne lit aucune fiche de travailleur.
 - **Configuration** `Integrations:Personnes` : `BaseAddress`, `TokenEndpoint`, `ClientId`, `ClientSecret`, `Scope`
   (facultatif). Le secret vient de Key Vault en Azure, des secrets utilisateur en local
   (`dotnet user-secrets set Integrations:Personnes:ClientSecret … --project src/Services/Integrations/src/Sepp.Integrations.Infrastructure`).
 - **À créer** : le client `veilla-integrations` (service account, rôle `integrations`, mappeur d'audience `sepp-api`)
   dans le realm Keycloak local et son équivalent Entra ID (application avec rôle d'application `integrations`).
   Le realm local n'est pas modifié par ce lot.
-- Côté Personnes, le groupe `/api/v1/dimona` n'exige plus `personne:lire` (seulement `personne:ecrire`) : le compte
+- Côté Personnes, le groupe `/api/v1/dimona` n'exige plus `personne:lire` (seulement `personne:alimenter`) : le compte
   technique y accède sans pouvoir lire les fiches (test `Le_compte_technique_integrations_alimente_dimona_sans_lire_les_fiches`).
 
 ## Mutations du registre national (AFF-20, AFF-22)
 
 Le flux `registre-national` récupère les mutations par `IRegistreNational.RecupererMutationsAsync`, les journalise
 (clé `mutation:<référence>`, charge utile chiffrée) puis les transmet à `POST /api/v1/registre-national/mutations` du
-service Personnes (même compte technique `integrations` que DIMONA, permission `personne:ecrire` seule).
+service Personnes (même compte technique `integrations` que DIMONA, permission `personne:alimenter` seule).
 
 - **Format canonique** `MutationRegistreNational` : référence de mutation, NISS, type (`ChangementAdresse`,
   `ChangementNom`, `ChangementPrenom`, `ChangementLangue`, `Deces`), date d'effet (pour un décès : la date du décès) et la

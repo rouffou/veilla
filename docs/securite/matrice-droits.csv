@@ -230,7 +230,7 @@ infirmier;reintegration:lire;hors-3.3
 infirmier;reprise:lire;hors-3.3
 infirmier;stock-vaccins:gerer;hors-3.3
 infirmier;surcharge-frequence:lire;hors-3.3
-integrations;personne:ecrire;hors-3.3
+integrations;personne:alimenter;hors-3.3
 integrations;personne:identifier;hors-3.3
 planificateur;affilie:lire;3.3
 planificateur;communications:envoyer;hors-3.3

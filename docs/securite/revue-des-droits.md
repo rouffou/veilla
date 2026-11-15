@@ -142,3 +142,21 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
 - **Limite du contrôle du gestionnaire.** Le service n'a pas d'annuaire. Il contrôle seulement que l'identifiant désigné
   n'est pas vide, et que seul un CPMT (`dossier-sante:gerer`) le désigne. Il ne peut pas vérifier que cet identifiant
   appartient à un CPMT.
+
+## Routes techniques de Personnes réservées au compte Intégrations (#491)
+
+Les routes `POST /api/v1/dimona/entrees`, `POST /api/v1/dimona/{reference}/sortie` et
+`POST /api/v1/registre-national/mutations` ne sont destinées qu'au compte de service du service Intégrations. Elles
+n'exigeaient que `personne:ecrire`, que détiennent aussi le gestionnaire des dossiers, le CPMT dirigeant (#401), l'employeur
+et le SIPP : un profil humain pouvait y fabriquer une occupation DIMONA ou une mutation du registre national.
+
+| Élément | Avant | Après |
+|---|---|---|
+| Droit exigé sur les trois routes (groupe d'endpoints et garde des cas d'usage) | `personne:ecrire` | `personne:alimenter` (nouveau, technique) |
+| Rôle `integrations` | `personne:ecrire`, `personne:identifier` | `personne:alimenter`, `personne:identifier` : plus aucun droit d'écriture générique |
+| Gestionnaire, CPMT dirigeant, employeur, SIPP | Accès (200) | 403 |
+
+`personne:alimenter` n'est accordé qu'au rôle technique `integrations` ; le test `MatriceDroitsTests` fixe la ligne
+`integrations;personne:alimenter;hors-3.3` et le test `PersonneAlimenterTests` vérifie qu'aucun autre rôle ne la reçoit.
+Le jeton de service d'Intégrations (client credentials, rôle `integrations`) ne change pas : ni Keycloak local ni Terraform
+ne sont à modifier, car les droits se déduisent du rôle dans `Security.cs`.

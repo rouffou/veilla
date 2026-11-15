@@ -159,7 +159,7 @@ public sealed class EnregistrerEntreeDimonaHandler(
 {
     public async Task<Result<DimonaEnregistreeDto>> HandleAsync(EnregistrerEntreeDimona command, CancellationToken cancellationToken)
     {
-        if (!currentUser.HasPermission(Permissions.PersonneEcrire) || perimetre.EstExterne)
+        if (!currentUser.HasPermission(Permissions.PersonneAlimenter) || perimetre.EstExterne)
         {
             return Error.Forbidden("personnes.interdit", "L'alimentation DIMONA est réservée au SEPP (service Intégrations).");
         }
@@ -224,7 +224,7 @@ public sealed class EnregistrerSortieDimonaHandler(
 {
     public async Task<Result<Unit>> HandleAsync(EnregistrerSortieDimona command, CancellationToken cancellationToken)
     {
-        if (!currentUser.HasPermission(Permissions.PersonneEcrire) || perimetre.EstExterne)
+        if (!currentUser.HasPermission(Permissions.PersonneAlimenter) || perimetre.EstExterne)
         {
             return Error.Forbidden("personnes.interdit", "L'alimentation DIMONA est réservée au SEPP (service Intégrations).");
         }

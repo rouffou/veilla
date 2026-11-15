@@ -108,6 +108,10 @@ public static class Permissions
     public const string PersonneLire = "personne:lire";
     public const string PersonneEcrire = "personne:ecrire";
 
+    // Permission technique (#491) : alimentation de Personnes par le compte de service d'Intégrations (entrées et sorties DIMONA,
+    // mutations du registre national). Réservée au rôle « integrations » : aucun profil humain ne la reçoit, même par personne:ecrire.
+    public const string PersonneAlimenter = "personne:alimenter";
+
     // Occupations actives de la personne du jeton (claim personne_id), pour le portail travailleur (POR-11) : rien d'autre.
     public const string PersonneLirePropres = "personne:lire-propres";
 
@@ -344,10 +348,10 @@ public static class RolePermissions
         Grant(Roles.Infirmier, Permissions.SurchargeFrequenceLire);
 
         // Intégrations — suivi et relance des flux (INT-02) par le gestionnaire et l'administrateur fonctionnel ;
-        // le compte technique du service n'écrit que les occupations issues de DIMONA (AFF-20), sans lecture des fiches.
+        // le compte technique du service n'alimente que les occupations issues de DIMONA et les mutations du registre national (AFF-20, #491), sans lecture des fiches.
         Grant(Roles.GestionnaireDossiers, Permissions.IntegrationsAdministrer);
         Grant(Roles.AdministrateurFonctionnel, Permissions.IntegrationsAdministrer);
-        Grant(Roles.Integrations, Permissions.PersonneEcrire);
+        Grant(Roles.Integrations, Permissions.PersonneAlimenter);
         Grant(Roles.Affilies, Permissions.IntegrationsBceLire);
 
         // Surveillance médicale — le CPMT dirigeant, responsable du traitement, valide la destruction des dossiers et les

@@ -225,7 +225,7 @@ public class UseCasesTests
     [Fact]
     public async Task L_entree_dimona_est_idempotente_sur_la_reference()
     {
-        var gestionnaire = Comme(Roles.GestionnaireDossiers);
+        var gestionnaire = Comme(Roles.Integrations);
 
         var premier = await Dimona(gestionnaire).HandleAsync(Entree("DIM0001"), _ct);
         var rejeu = await Dimona(gestionnaire).HandleAsync(Entree(" dim0001 "), _ct);
@@ -241,7 +241,7 @@ public class UseCasesTests
     [Fact]
     public async Task Une_reference_dimona_deja_attribuee_a_une_autre_personne_est_un_conflit()
     {
-        var gestionnaire = Comme(Roles.GestionnaireDossiers);
+        var gestionnaire = Comme(Roles.Integrations);
         await Dimona(gestionnaire).HandleAsync(Entree("DIM0001"), _ct);
 
         var result = await Dimona(gestionnaire).HandleAsync(Entree("DIM0001") with { Niss = Niss(43) }, _ct);
@@ -252,7 +252,7 @@ public class UseCasesTests
     [Fact]
     public async Task Une_reference_dimona_non_alphanumerique_est_refusee()
     {
-        var result = await Dimona(Comme(Roles.GestionnaireDossiers)).HandleAsync(Entree("DIM-0001"), _ct);
+        var result = await Dimona(Comme(Roles.Integrations)).HandleAsync(Entree("DIM-0001"), _ct);
 
         result.Error!.Kind.ShouldBe(ErrorKind.Validation);
     }
@@ -260,7 +260,7 @@ public class UseCasesTests
     [Fact]
     public async Task La_sortie_dimona_termine_l_occupation_une_seule_fois()
     {
-        var gestionnaire = Comme(Roles.GestionnaireDossiers);
+        var gestionnaire = Comme(Roles.Integrations);
         await Dimona(gestionnaire).HandleAsync(Entree("DIM1"), _ct);
         var sortie = new EnregistrerSortieDimonaHandler(_store, _store, _store, gestionnaire.User, gestionnaire.Perimetre);
 
@@ -269,6 +269,18 @@ public class UseCasesTests
 
         _store.Published.OfType<OccupationTerminee>().ShouldHaveSingleItem().DateFin.ShouldBe(new DateOnly(2026, 3, 31));
         (await sortie.HandleAsync(new EnregistrerSortieDimona("INCONNUE", Debut), _ct)).Error!.Kind.ShouldBe(ErrorKind.NotFound);
+    }
+
+    [Theory]
+    [InlineData(Roles.GestionnaireDossiers)]
+    [InlineData(Roles.CpmtDirigeant)]
+    public async Task L_alimentation_dimona_est_refusee_aux_profils_humains_qui_ecrivent_les_personnes(string role)
+    {
+        var humain = Comme(role);
+        var sortie = new EnregistrerSortieDimonaHandler(_store, _store, _store, humain.User, humain.Perimetre);
+
+        (await Dimona(humain).HandleAsync(Entree("DIM1"), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await sortie.HandleAsync(new EnregistrerSortieDimona("DIM1", Debut), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
     }
 
     [Fact]
