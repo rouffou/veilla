@@ -44,11 +44,11 @@ public static class PersonnesEndpoints
             .WithSummary("POR-11 : occupations actives de la personne du jeton (claim personne_id) ; l'affilié sans sa dénomination, aucune donnée d'identité.");
 
         // AFF-20 : points d'entrée internes appelés par le compte technique du service Intégrations (rôle « integrations »),
-        // qui n'a que personne:ecrire. Hors du groupe en lecture : la permission personne:lire n'y est pas exigée.
-        MapDimona(app.MapGroup("/api/v1/dimona").WithTags("Interne : alimentation DIMONA (service Intégrations)").RequirePermission(Permissions.PersonneEcrire));
+        // qui n'a que personne:alimenter (#491). Hors du groupe en lecture : la permission personne:lire n'y est pas exigée.
+        MapDimona(app.MapGroup("/api/v1/dimona").WithTags("Interne : alimentation DIMONA (service Intégrations)").RequirePermission(Permissions.PersonneAlimenter));
 
         // AFF-20, AFF-22 : mutations du registre national, même compte technique et mêmes garanties (NISS dans le corps uniquement).
-        MapRegistreNational(app.MapGroup("/api/v1/registre-national").WithTags("Interne : mutations du registre national (service Intégrations)").RequirePermission(Permissions.PersonneEcrire));
+        MapRegistreNational(app.MapGroup("/api/v1/registre-national").WithTags("Interne : mutations du registre national (service Intégrations)").RequirePermission(Permissions.PersonneAlimenter));
 
         // SAN-60 : identification par NISS (corps du POST) pour le compte technique d'Intégrations (flux des incapacités) ;
         // ne rend que personne_id, sans lecture de la fiche.

@@ -307,7 +307,7 @@ public sealed partial class PersonnesApiTests(PersonnesApiFixture fixture) : ICl
     [Fact]
     public async Task L_alimentation_dimona_est_idempotente()
     {
-        var client = fixture.Client(Roles.GestionnaireDossiers);
+        var client = fixture.Client(Roles.Integrations);
         var niss = NouveauNiss();
         var reference = $"DIM{Guid.CreateVersion7():N}"[..20];
         var entree = new
@@ -331,7 +331,7 @@ public sealed partial class PersonnesApiTests(PersonnesApiFixture fixture) : ICl
         (await client.PostAsJsonAsync($"/api/v1/dimona/{reference}/sortie", new { dateFin = "2026-08-31" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (await fixture.Client(Roles.Employeur, _affilie).PostAsJsonAsync("/api/v1/dimona/entrees", entree, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
-        var occupations = await client.GetFromJsonAsync<List<OccupationDto>>($"/api/v1/personnes/{premiere.PersonneId}/occupations", Json, _ct);
+        var occupations = await fixture.Client(Roles.GestionnaireDossiers).GetFromJsonAsync<List<OccupationDto>>($"/api/v1/personnes/{premiere.PersonneId}/occupations", Json, _ct);
         occupations!.ShouldHaveSingleItem().ReferenceDimona.ShouldBe(reference.ToUpperInvariant());
     }
 
@@ -590,6 +590,37 @@ public sealed partial class PersonnesApiTests(PersonnesApiFixture fixture) : ICl
         occupations.Count.ShouldBe(2);
         occupations.ShouldAllBe(o => o.DateFin == new DateOnly(2026, 9, 15));
         occupations.ShouldNotContain(o => string.Equals(o.ReferenceDimona, reference, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData(Roles.GestionnaireDossiers)]
+    [InlineData(Roles.CpmtDirigeant)]
+    [InlineData(Roles.Sipp)]
+    public async Task Les_routes_techniques_dimona_et_registre_national_sont_interdites_aux_profils_humains_meme_avec_personne_ecrire(string role)
+    {
+        var niss = NouveauNiss();
+        var reference = $"DIM{Guid.CreateVersion7():N}"[..20];
+        var humain = fixture.Client(role, _affilie);
+        var entree = new
+        {
+            referenceDimona = reference,
+            niss,
+            identite = Identite(),
+            affilieId = _affilie,
+            typeTravailleur = "Salarie",
+            typeContrat = "DureeIndeterminee",
+            dateDebut = "2026-09-01",
+        };
+
+        (await humain.PostAsJsonAsync("/api/v1/dimona/entrees", entree, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await humain.PostAsJsonAsync($"/api/v1/dimona/{reference}/sortie", new { dateFin = "2026-12-31" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await humain.PostAsJsonAsync("/api/v1/registre-national/mutations", Mutation(niss, $"RN{Guid.CreateVersion7():N}"[..16], "ChangementNom", "2026-09-01", nom: "Martin"), _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Rien n'a été créé : le compte technique rejoue la même entrée et c'est une première inscription.
+        var reponse = await fixture.Client(Roles.Integrations).PostAsJsonAsync("/api/v1/dimona/entrees", entree, _ct);
+        reponse.StatusCode.ShouldBe(HttpStatusCode.OK, await reponse.Content.ReadAsStringAsync(_ct));
+        (await reponse.Content.ReadFromJsonAsync<DimonaEnregistreeDto>(Json, _ct))!.DejaEnregistree.ShouldBeFalse();
     }
 
     [Fact]

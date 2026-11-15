@@ -55,7 +55,7 @@ public sealed class EnregistrerMutationRegistreNationalHandler(
 {
     public async Task<Result<MutationEnregistreeDto>> HandleAsync(EnregistrerMutationRegistreNational command, CancellationToken cancellationToken)
     {
-        if (!currentUser.HasPermission(Permissions.PersonneEcrire) || perimetre.EstExterne)
+        if (!currentUser.HasPermission(Permissions.PersonneAlimenter) || perimetre.EstExterne)
         {
             return Error.Forbidden("personnes.interdit", "Les mutations du registre national sont réservées au SEPP (service Intégrations).");
         }
