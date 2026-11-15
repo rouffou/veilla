@@ -41,7 +41,7 @@ public sealed class AuthentificationForteTests
     [InlineData(Permissions.DecisionSigner, true)]
     [InlineData(Permissions.DecisionLire, false)]
     [InlineData(Permissions.AffilieLire, false)]
-    public void Les_permissions_des_dossiers_sante_et_psy_exigent_l_authentification_forte(string permission, bool exigee)
+    public void Les_permissions_des_dossiers_sante_et_psy_et_les_ecritures_decision_exigent_l_authentification_forte(string permission, bool exigee)
     {
         AuthenticationStrength.IsRequiredFor(permission).ShouldBe(exigee);
     }

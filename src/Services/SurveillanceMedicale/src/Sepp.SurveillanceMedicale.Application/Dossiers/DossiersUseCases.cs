@@ -59,6 +59,10 @@ public sealed record OuvrirDossier(Guid PersonneId, string? GestionnaireCpmtId);
 public static class GestionDossier
 {
     public const string Message = "Seul un CPMT désigne le CPMT gestionnaire du dossier.";
+
+    public static readonly Error HorsRelation = Error.Forbidden(
+        "dossier-sante.gestion-hors-relation",
+        "Seul le gestionnaire actuel ou un CPMT en relation de soin désigne le gestionnaire ; sinon, bris de glace motivé (X-Bris-De-Glace), un simple motif ne suffit pas.");
 }
 
 public sealed class OuvrirDossierHandler(
@@ -156,6 +160,13 @@ public sealed class ChangerGestionnaireHandler(GardeDossier garde, IUnitOfWork u
         if (!dossier.IsSuccess)
         {
             return dossier.Error!;
+        }
+
+        // #496 : un simple motif ne suffit pas, sans quoi un CPMT hors relation se désignerait gestionnaire puis signerait
+        // sans bris de glace (ADR 0017).
+        if (!await garde.PeutDesignerGestionnaireAsync(dossier.Value, cancellationToken))
+        {
+            return GestionDossier.HorsRelation;
         }
 
         var resultat = Regles.Appliquer("dossier-sante.invalide", () => dossier.Value.ChangerGestionnaire((command.CpmtId ?? string.Empty).Trim()));

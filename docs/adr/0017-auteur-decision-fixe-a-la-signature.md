@@ -2,8 +2,11 @@
 
 ## Statut
 Acceptée le 2026-11-15 par le responsable produit (#401, PR #488). Modifie une règle du domaine de Surveillance médicale
-(agrégat `Decision`). Point 2 précisé le 2026-11-15 : relation de soin appréciée sur l'examen de la décision (#495) et
-authentification forte sur toutes les écritures `decision:*` (#494).
+(agrégat `Decision`). Précisée le 2026-11-15 par le responsable produit, après la revue de la PR #496 :
+- points 2 et 5 : relation de soin appréciée sur l'examen de la décision, même règle pour la signature et la modification,
+  CPMT compris (#495) ;
+- point 2 : authentification forte sur toutes les écritures `decision:*` (#494), vaccinateur confirmé hors relation ;
+- point 7 : désignation du CPMT gestionnaire.
 
 ## Contexte
 Avant #401, seul le CPMT rédigeait la décision d'évaluation de santé. Le CPMT qui créait le brouillon en était l'auteur
@@ -32,8 +35,10 @@ version qu'il a relue.
      produit sur P2-3) ;
    - un autre examen du dossier ne suffit pas non plus (#495) : un CPMT hors relation de soin pourrait sinon ouvrir sur
      motif un examen spontané, devenir « professionnel du dossier » et signer sans bris de glace. La règle est la même que
-     pour la modification du brouillon d'un autre (point 5). Un vaccinateur qui n'est ni gestionnaire ni professionnel
-     de l'examen passe lui aussi par le bris de glace ;
+     pour la modification du brouillon d'un autre (point 5) ;
+   - un vaccinateur qui n'est ni gestionnaire ni professionnel de l'examen passe lui aussi par le bris de glace (décision
+     du responsable produit du 2026-11-15) ;
+   - se désigner gestionnaire sur simple motif n'ouvre pas non plus la signature : la désignation suit le point 7 ;
    - l'authentification forte (NF-01), exigée depuis #494 sur toutes les écritures `decision:*`.
 
    L'empreinte envoyée au prestataire de signature porte sur le formulaire signataire compris.
@@ -51,12 +56,14 @@ version qu'il a relue.
      (`decision.version-obsolete`).
    - Ce contrôle s'ajoute au verrou optimiste technique (`version`, DAT-03), qui couvre les écritures concurrentes, mais
      pas la relecture par l'utilisateur.
-5. **Modification par l'infirmier du brouillon d'un autre.** Elle n'est permise qu'en relation de soin **sur l'examen
-   auquel la décision se rattache** : être le professionnel de cet examen (`decision.ExamenId`) ou le CPMT gestionnaire du
-   dossier (décision du responsable produit sur P2-1).
-   - Ni un simple motif ni un autre examen du dossier ne suffisent : un examen spontané ouvert sur motif ferait sinon de
-     l'infirmier un « professionnel du dossier » et contournerait la règle. Le refus est `decision.relation-de-soin-requise`.
-   - L'infirmier garde ses propres brouillons avec les règles ARC-41 habituelles.
+5. **Modification du brouillon d'un autre, par tout professionnel, CPMT compris.** Elle n'est permise qu'en relation de
+   soin **sur l'examen auquel la décision se rattache** : être le professionnel de cet examen (`decision.ExamenId`) ou le
+   CPMT gestionnaire du dossier. À défaut, un **bris de glace** motivé, tracé et signalé (ARC-41) est exigé. C'est la
+   même règle que pour la signature (décisions du responsable produit sur P2-1, revues de #488 et de #496).
+   - Ni un simple motif ni un autre examen du dossier ne suffisent : un examen spontané ouvert sur motif ferait sinon du
+     professionnel un « professionnel du dossier » et contournerait la règle. Le refus est
+     `decision.relation-de-soin-requise`.
+   - Chacun garde ses propres brouillons avec les règles ARC-41 habituelles.
 6. **Migration `AuteurDecisionALaSignature`.**
    - Les décisions existantes reçoivent `redigee_par = auteur_id` et `version_contenu = 1`.
    - Les décisions signées gardent leur auteur.
@@ -64,6 +71,16 @@ version qu'il a relue.
      auteur légal, et le signataire le remplacerait de toute façon. L'information n'est pas perdue, puisqu'elle passe
      dans `redigee_par`.
    - La migration inverse recopie `redigee_par` dans `auteur_id` quand ce dernier est vide.
+7. **Désignation du CPMT gestionnaire** (`PUT /dossiers/{id}/gestionnaire`, `dossier-sante:gerer`). Être gestionnaire
+   ouvre la signature et la modification (points 2 et 5) : la désignation est donc réservée au gestionnaire actuel ou à
+   un CPMT en relation de soin sur le dossier, sinon un bris de glace motivé est exigé (décision du responsable produit,
+   P1-1 de la revue de #496). Le refus est `dossier-sante.gestion-hors-relation`.
+   - Pour la désignation, la relation de soin s'entend du professionnel d'un examen du dossier **ouvert sur un
+     rendez-vous planifié** (relation établie sans motif). Un examen ouvert sur motif, spontané par exemple, et une
+     vaccination ne suffisent pas : sinon un CPMT ouvrirait un examen sur motif, se désignerait gestionnaire et signerait
+     sans bris de glace.
+   - L'ouverture d'un dossier avec un gestionnaire (`POST /dossiers`) n'est pas concernée : le dossier est unique par
+     personne (SAN-40) et n'existe pas encore, il n'y a donc ni gestionnaire à évincer ni brouillon à signer.
 
 ## Alternatives écartées
 - **Auteur = CPMT gestionnaire du dossier** (première itération) : refus sans gestionnaire, attribution d'un acte non

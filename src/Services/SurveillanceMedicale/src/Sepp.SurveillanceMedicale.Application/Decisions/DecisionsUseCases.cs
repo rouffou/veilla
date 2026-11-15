@@ -56,7 +56,7 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
 
     public static readonly Error RelationDeSoinRequise = Error.Forbidden(
         "decision.relation-de-soin-requise",
-        "Le brouillon d'un autre professionnel ne se modifie qu'en relation de soin sur l'examen de la décision, jamais sur simple motif.");
+        "Le brouillon d'un autre professionnel ne se modifie qu'en relation de soin sur l'examen de la décision ou par bris de glace motivé (X-Bris-De-Glace), jamais sur simple motif.");
 
     public static readonly Error SignatureHorsRelation = Error.Forbidden(
         "decision.signature-hors-relation",
@@ -67,10 +67,10 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
         SeulementDecision(await AccederAsync(decisionId, action, Permissions.DecisionEcrire, MessageEcrire, cancellationToken));
 
     /// <summary>
-    /// Modification d'un brouillon (<c>decision:ecrire</c>). Celui qui n'a pas <c>decision:signer</c> (l'infirmier) ne
-    /// modifie le brouillon d'un autre qu'en relation de soin sur l'examen de la décision (professionnel de cet examen ou
-    /// gestionnaire du dossier), jamais sur simple motif ni par un autre examen (#401, ADR 0017) ; ses propres brouillons
-    /// suivent les règles habituelles (ARC-41).
+    /// Modification d'un brouillon (<c>decision:ecrire</c>). Le brouillon d'un autre ne se modifie qu'en relation de soin sur
+    /// l'examen de la décision (professionnel de cet examen ou CPMT gestionnaire du dossier) ou par bris de glace motivé,
+    /// jamais sur simple motif ni par un autre examen. La règle vaut pour tous, CPMT compris (#401, ADR 0017). Ses propres
+    /// brouillons suivent les règles habituelles (ARC-41).
     /// </summary>
     public async Task<Result<Decision>> ModifierAsync(Guid decisionId, CancellationToken cancellationToken)
     {
@@ -82,13 +82,9 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
 
         var (decision, dossier) = acces.Value;
         var brouillonDUnAutre = !string.Equals(decision.RedigeePar, user.UserId, StringComparison.Ordinal);
-        if (brouillonDUnAutre && !user.HasPermission(Permissions.DecisionSigner)
-            && !await garde.EstEnRelationDeSoinSurExamenAsync(dossier, decision.ExamenId, cancellationToken))
-        {
-            return RelationDeSoinRequise;
-        }
-
-        return decision;
+        return !brouillonDUnAutre || await EnRelationSurExamenOuBrisDeGlaceAsync(decision, dossier, cancellationToken)
+            ? decision
+            : RelationDeSoinRequise;
     }
 
     /// <summary>
@@ -105,11 +101,16 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
         }
 
         var (decision, dossier) = acces.Value;
-        var brisDeGlace = contexte.BrisDeGlace && MotifAcces.Normaliser(contexte.Motif) is not null;
-        return brisDeGlace || await garde.EstEnRelationDeSoinSurExamenAsync(dossier, decision.ExamenId, cancellationToken)
-            ? decision
-            : SignatureHorsRelation;
+        return await EnRelationSurExamenOuBrisDeGlaceAsync(decision, dossier, cancellationToken) ? decision : SignatureHorsRelation;
     }
+
+    /// <summary>
+    /// Bris de glace motivé (tracé et signalé, ARC-41), ou relation de soin sur l'examen de la décision : professionnel de
+    /// cet examen ou CPMT gestionnaire du dossier (ADR 0017).
+    /// </summary>
+    private async Task<bool> EnRelationSurExamenOuBrisDeGlaceAsync(Decision decision, DossierSante dossier, CancellationToken cancellationToken) =>
+        (contexte.BrisDeGlace && MotifAcces.Normaliser(contexte.Motif) is not null)
+        || await garde.EstEnRelationDeSoinSurExamenAsync(dossier, decision.ExamenId, cancellationToken);
 
     /// <summary>Acte réservé au CPMT (<c>decision:signer</c>) : issue d'un recours.</summary>
     public async Task<Result<Decision>> ActeCpmtAsync(Guid decisionId, ActionAudit action, CancellationToken cancellationToken) =>

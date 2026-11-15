@@ -1,8 +1,15 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.BuildingBlocks.Web;
 
 using Shouldly;
 
@@ -13,7 +20,7 @@ namespace Sepp.SurveillanceMedicale.Integration.Tests;
 /// l'authentification forte ; sans elle, 401 avec le défi de montée en niveau (RFC 9470). En mode souple (défaut local et des
 /// autres tests), l'accès reste accordé.
 /// </summary>
-public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fixture) : IClassFixture<SurveillanceMedicaleFixture>
+public sealed partial class AuthentificationForteApiTests(SurveillanceMedicaleFixture fixture) : IClassFixture<SurveillanceMedicaleFixture>
 {
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
 
@@ -57,43 +64,38 @@ public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fi
     }
 
     [Theory]
-    [InlineData(Roles.Infirmier)]
-    [InlineData(Roles.Cpmt)]
-    public async Task Les_ecritures_decision_exigent_l_authentification_forte(string role)
+    [InlineData(Roles.Infirmier, Permissions.DecisionEcrire, 5)]
+    [InlineData(Roles.Cpmt, Permissions.DecisionEcrire, 5)]
+    [InlineData(Roles.Cpmt, Permissions.DecisionSigner, 7)]
+    public async Task Les_ecritures_decision_exigent_l_authentification_forte(string role, string permission, int routesAttendues)
     {
         // #494 : toute route decision:ecrire ou decision:signer exige l'authentification forte (préfixe decision:), sans
-        // déclaration route par route. L'autorisation précède le chargement : des identifiants inconnus suffisent.
+        // déclaration route par route. Les routes sont énumérées depuis l'application : une route ajoutée plus tard est
+        // couverte. L'autorisation précède le chargement et la lecture du corps : des identifiants inconnus suffisent.
         var faible = fixture.ClientStrict(role, $"{role}-pwd", amr: "pwd");
-        var (examen, decision, dossier, declaration, autre) =
-            (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var routes = RoutesProtegeesPar(permission);
+        routes.Count.ShouldBe(routesAttendues, string.Join(", ", routes.Select(r => $"{r.Methode} {r.Gabarit}")));
 
-        // decision:ecrire (CPMT et infirmier).
-        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/examens/{examen}/decision",
-            new { categorie = "Apte", justification = "Justification médicale" }, _ct));
-        var modification = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/decisions/{decision}") { Content = JsonContent.Create(new { categorie = "Apte" }) };
-        modification.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
-        DefiDeMonteeEnNiveau(await faible.SendAsync(modification, _ct));
-        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/decisions/{decision}/recours",
-            new { type = "Concertation", dateIntroduction = "2026-03-03" }, _ct));
-        DefiDeMonteeEnNiveau(await faible.PostAsync($"/api/v1/declarations-mp/{declaration}/suivi", null, _ct));
-        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/declarations-mp/{declaration}/demandes-information",
-            new { dateDemande = "2026-03-03", echeance = "2026-03-17", objet = "Objet" }, _ct));
-
-        if (role != Roles.Cpmt)
+        foreach (var (methode, gabarit) in routes)
         {
-            return;
+            var chemin = ParametreDeRoute().Replace(gabarit, _ => Guid.CreateVersion7().ToString());
+            using var requete = new HttpRequestMessage(new HttpMethod(methode), chemin) { Content = JsonContent.Create(new { }) };
+            requete.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+            var reponse = await faible.SendAsync(requete, _ct);
+            reponse.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, $"{methode} {gabarit}");
+            DefiDeMonteeEnNiveau(reponse);
         }
-
-        // decision:signer (CPMT seulement ; l'infirmier reçoit 403 sur ces routes, voir le test des permissions).
-        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/decisions/{decision}/recours/{autre}/issue",
-            new { issue = "Confirmee", dateIssue = "2026-03-20" }, _ct));
-        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/examens/{examen}/propositions-frequence/{autre}", new { acceptee = true }, _ct));
-        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/dossiers/{dossier}/declarations-mp",
-            new { codeMaladie = "1.1", description = "Description", agentCausal = "Agent" }, _ct));
-        DefiDeMonteeEnNiveau(await faible.PostAsync($"/api/v1/declarations-mp/{declaration}/envoi", null, _ct));
-        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/declarations-mp/{declaration}/demandes-information/{autre}/reponse",
-            new { date = "2026-03-10", reponse = "Réponse" }, _ct));
     }
+
+    /// <summary>Routes de l'application protégées par <paramref name="permission"/> (méthode, gabarit).</summary>
+    private List<(string Methode, string Gabarit)> RoutesProtegeesPar(string permission) =>
+        [.. fixture.Factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>()
+            .Where(e => e.Metadata.GetOrderedMetadata<IAuthorizeData>().Any(a => a.Policy == PermissionPolicy.Name(permission)))
+            .SelectMany(e => (e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? [])
+                .Select(m => (m, "/" + e.RoutePattern.RawText!.TrimStart('/'))))];
+
+    [GeneratedRegex("\\{[^}]+\\}")]
+    private static partial Regex ParametreDeRoute();
 
     [Fact]
     public async Task La_redaction_d_une_decision_par_l_infirmier_est_acceptee_apres_montee_en_niveau()

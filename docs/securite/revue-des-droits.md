@@ -128,15 +128,19 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
   - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin sur l'examen de la décision
     (professionnel de cet examen ou CPMT gestionnaire du dossier) ou, à défaut, un bris de glace motivé, tracé et signalé
     (ARC-41), ainsi que l'authentification forte. Ni un simple motif ni un autre examen du dossier, même un examen
-    spontané ouvert sur motif, ne suffisent pour signer (#495).
+    spontané ouvert sur motif, ne suffisent pour signer (#495). Un vaccinateur hors de cette relation passe aussi par le
+    bris de glace (décision du responsable produit du 2026-11-15).
   - Un dossier sans CPMT gestionnaire ne bloque plus la rédaction.
   - La règle « seul l'auteur signe » est supprimée.
 - **Version relue.** La modification et la signature exigent `If-Match`, avec la valeur `Version` rendue par
   `GET /decisions/{id}/complete` (zone médicale seulement). Sans cet en-tête, la réponse est 400 ; avec une version
   dépassée, 409.
-- **Brouillon d'un autre.** L'infirmier ne modifie le brouillon d'un autre professionnel qu'en relation de soin sur
-  l'examen de la décision : professionnel de cet examen ou gestionnaire du dossier. Ni un simple motif ni un autre
-  examen du dossier, même un examen spontané, ne suffisent.
+- **Brouillon d'un autre.** Tout professionnel, CPMT compris, ne modifie le brouillon d'un autre qu'en relation de soin
+  sur l'examen de la décision (professionnel de cet examen ou gestionnaire du dossier), sinon par bris de glace motivé.
+  Ni un simple motif ni un autre examen du dossier, même un examen spontané, ne suffisent (revue de #496, P2-1).
+- **Désignation du gestionnaire.** Seul le gestionnaire actuel ou un CPMT en relation de soin sur le dossier (examen
+  ouvert sur un rendez-vous planifié) désigne le gestionnaire. Sinon, un bris de glace motivé est exigé, car un simple
+  motif permettrait de se désigner gestionnaire puis de signer (revue de #496, P1-1, ADR 0017 point 7).
 - **Authentification forte.** La clôture d'examen (`decision:signer`) l'exige explicitement. Les routes
   `dossier-sante:gerer` l'exigent par leur préfixe. Depuis #494, toutes les routes `decision:ecrire` et `decision:signer`
   l'exigent aussi par leur préfixe (`decision:lire` excepté) : la rédaction et la modification ouvertes à l'infirmier par

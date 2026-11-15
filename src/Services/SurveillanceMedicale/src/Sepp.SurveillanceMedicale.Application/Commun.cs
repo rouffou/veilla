@@ -139,6 +139,18 @@ public sealed class GardeDossier(
         string.Equals(dossier.GestionnaireCpmtId, user.UserId, StringComparison.Ordinal)
         || string.Equals((await examens.GetAsync(examenId, cancellationToken))?.ProfessionnelId, user.UserId, StringComparison.Ordinal);
 
+    /// <summary>
+    /// Relation de soin qui permet de désigner le CPMT gestionnaire (#496) : gestionnaire actuel, ou professionnel d'un examen
+    /// du dossier ouvert sur un rendez-vous planifié. Un examen ouvert sur motif (spontané) ou une vaccination ne suffisent
+    /// pas : sinon un CPMT hors relation ouvrirait un examen sur motif, se désignerait gestionnaire et signerait sans bris de
+    /// glace. À défaut, bris de glace motivé.
+    /// </summary>
+    public async Task<bool> PeutDesignerGestionnaireAsync(DossierSante dossier, CancellationToken cancellationToken) =>
+        (contexte.BrisDeGlace && MotifAcces.Normaliser(contexte.Motif) is not null)
+        || string.Equals(dossier.GestionnaireCpmtId, user.UserId, StringComparison.Ordinal)
+        || (await examens.ListerParDossierAsync(dossier.Id, cancellationToken))
+            .Any(e => e.RendezVousId is not null && string.Equals(e.ProfessionnelId, user.UserId, StringComparison.Ordinal));
+
     /// <summary>Relation de soin (§3.3, ARC-41) : CPMT gestionnaire, professionnel d'un examen du dossier, ou vaccinateur.</summary>
     public async Task<bool> EstEnRelationDeSoinAsync(DossierSante dossier, CancellationToken cancellationToken) =>
         dossier.EstSuiviPar(user.UserId) || await examens.ExisteExamenDuProfessionnelAsync(dossier.Id, user.UserId, cancellationToken);
