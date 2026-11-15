@@ -10,5 +10,7 @@
     <ProjectReference Include="..\..\src\BuildingBlocks\Sepp.BuildingBlocks.Infrastructure\Sepp.BuildingBlocks.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Sepp.BuildingBlocks.Web\Sepp.BuildingBlocks.Web.csproj" />
     <ProjectReference Include="..\Sepp.Testing.Contrats\Sepp.Testing.Contrats.csproj" />
+    <!-- Détection partagée de « actif = false » dans le catalogue Terraform (VariablesTerraform.EstActif). -->
+    <ProjectReference Include="..\Sepp.Testing.Architecture\Sepp.Testing.Architecture.csproj" />
   </ItemGroup>
 </Project>

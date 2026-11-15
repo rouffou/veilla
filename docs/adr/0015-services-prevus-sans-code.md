@@ -42,13 +42,23 @@ y est déjà implémentée. Aucun besoin connu n'exige un service `identite`.
    - Le test existant vérifie que les abonnements du code sont inclus dans ceux de Terraform.
    - Un nouveau test vérifie l'inverse : un abonnement Terraform sans gestionnaire n'est permis que vers un producteur
      inactif.
-   - Première application : retirer `integrations` et `affilies` des abonnements de Personnes.
+   - Première application : retirer `integrations` et `affilies` des abonnements de Personnes. **Fait (#489)** : Personnes
+     et Référentiels n'ont aucun gestionnaire et ne s'abonnent à rien ; leurs `AbonnementsTerraformTests` vérifient les
+     deux sens.
+   - Une validation de `var.services` interdit à un service actif d'avoir dans `internal_services` un service inactif,
+     absent ou en zone `platform` : sans elle, `service_url_by_name` fait échouer le `plan` sur « Invalid index ».
 5. **Les rubriques des BFF sont supprimées** (`publishes_events = false` pour `bff-employeur` et `bff-travailleur`). Le
    contrat `bff-employeur.reprise-annoncee.v1` reste dans `src/Contracts` pour la rétrocompatibilité (ADR 0008), mais
    n'a plus de rubrique.
    - Cela suppose de retirer le gestionnaire `RepriseAnnonceeHandler` et l'abonnement d'Obligations, ce que l'ADR 0008
      doit confirmer.
    - **Point à valider par l'architecte, à défaut de quoi on garde la rubrique `bff-employeur`.**
+   - **Application (#489).** L'ADR 0016 (point 2) a retiré les abonnements `prevention ← bff-employeur` et
+     `psychosocial ← bff-travailleur`. La rubrique `bff-travailleur` n'a plus ni producteur ni abonné : elle est
+     supprimée (`publishes_events = false`). La rubrique `bff-employeur` est **conservée** : Obligations la consomme encore
+     par `RepriseAnnonceeHandler` (rétrocompatibilité, ADR 0008, point 4), et le retrait de ce gestionnaire n'est pas
+     décidé. Elle n'a aucun producteur ; elle sera supprimée avec le gestionnaire et l'abonnement d'Obligations, par une
+     décision de l'architecte qui clôt la rétrocompatibilité de `bff-employeur.reprise-annoncee.v1`.
 
 ## Alternatives
 - **Statu quo.** Il coûte 5 Container Apps, 5 bases, 2 serveurs PostgreSQL et environ 22 abonnements par

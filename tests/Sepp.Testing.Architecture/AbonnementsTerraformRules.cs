@@ -31,6 +31,12 @@ public abstract class AbonnementsTerraformRules
     /// </summary>
     protected abstract IServiceCollection Composer(IConfiguration configuration);
 
+    /// <summary>
+    /// Vrai pour un service sans aucun gestionnaire d'événement (ADR 0015, point 4) : il ne doit alors rien déclarer dans
+    /// <c>subscribes_to</c>, et le test échoue dès qu'un gestionnaire apparaît (retirer alors cette surcharge).
+    /// </summary>
+    protected virtual bool SansGestionnaire => false;
+
     [Fact]
     public void Le_service_est_declare_dans_le_catalogue_terraform() =>
         VariablesTerraform.Lire().Services.ContainsKey(Service)
@@ -46,7 +52,14 @@ public abstract class AbonnementsTerraformRules
             .AddInMemoryCollection(new Dictionary<string, string?> { [$"ConnectionStrings:{ConnectionStringName}"] = "Host=localhost;Database=abonnements-terraform" })
             .Build();
         var souscrites = RubriquesSouscrites(Composer(configuration));
-        souscrites.ShouldNotBeEmpty($"Aucun gestionnaire d'événement enregistré pour '{Service}' : le service n'a pas à porter ce test.");
+        if (SansGestionnaire)
+        {
+            souscrites.ShouldBeEmpty($"'{Service}' déclare SansGestionnaire mais le code s'abonne à : {string.Join(", ", souscrites)}. Retirer la surcharge et aligner subscribes_to.");
+        }
+        else
+        {
+            souscrites.ShouldNotBeEmpty($"Aucun gestionnaire d'événement enregistré pour '{Service}' : le service n'a pas à porter ce test.");
+        }
 
         var declarees = VariablesTerraform.Lire().Services[Service].SubscribesTo;
         var manquantes = souscrites.Except(declarees, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
@@ -114,7 +127,7 @@ public sealed record VariablesTerraform(IReadOnlyDictionary<string, ServiceTerra
     /// <summary>Extrait le catalogue <c>default = { ... }</c> de <c>variable "services"</c> ; les commentaires sont ignorés.</summary>
     public static VariablesTerraform Analyser(string contenu)
     {
-        var texte = Regex.Replace(contenu, @"#[^\r\n]*", string.Empty);
+        var texte = SansCommentaires(contenu);
         var debutVariable = texte.IndexOf("variable \"services\"", StringComparison.Ordinal);
         debutVariable.ShouldBeGreaterThanOrEqualTo(0, "variable \"services\" introuvable.");
         var marqueur = Regex.Match(texte[debutVariable..], @"default\s*=\s*\{");
@@ -136,11 +149,27 @@ public sealed record VariablesTerraform(IReadOnlyDictionary<string, ServiceTerra
             services[entree.Groups["nom"].Value] = new ServiceTerraform(
                 Liste(bloc, "subscribes_to"),
                 FiltresSujets(bloc),
-                !Regex.IsMatch(bloc, @"\bactif\s*=\s*false"));
+                EstActif(bloc));
         }
 
         return new VariablesTerraform(services);
     }
+
+    /// <summary>
+    /// Vrai sauf si le bloc d'un service porte <c>actif = false</c> (ADR 0015 ; <c>true</c> par défaut). Source unique de la
+    /// détection, partagée avec <c>ConfigurationTerraformTests</c> : les commentaires (<c>#</c>, <c>//</c>, <c>/* */</c>) sont
+    /// ignorés hors des chaînes, de sorte qu'un « actif = false » commenté n'inactive pas le service.
+    /// </summary>
+    public static bool EstActif(string blocService) =>
+        !Regex.IsMatch(SansCommentaires(blocService), @"(?<![\w""-])actif\s*=\s*false\b");
+
+    /// <summary>Retire les commentaires HCL (<c>#</c>, <c>//</c>, <c>/* */</c>) sans toucher au contenu des chaînes entre guillemets.</summary>
+    public static string SansCommentaires(string contenu) =>
+        Regex.Replace(
+            contenu,
+            @"""(?:\\.|[^""\\\r\n])*""|(?<c>#[^\r\n]*|//[^\r\n]*|/\*.*?\*/)",
+            m => m.Groups["c"].Success ? string.Empty : m.Value,
+            RegexOptions.Singleline);
 
     private static int FinAccolade(string texte, int ouvrante)
     {
