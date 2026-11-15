@@ -236,8 +236,11 @@ public sealed class BffInterneApiTests : IAsyncLifetime
         await client.GetAsync("/referentiels/api/v1/parametres-legaux", Ct);
 
         var correlation = _aval.Requetes.ShouldHaveSingleItem().EnTetes["X-Correlation-Id"];
-        correlation.ShouldNotContain("abc");
-        (Guid.TryParse(correlation, out _) || correlation.Length == 32).ShouldBeTrue();
+        // L'identifiant régénéré est hexadécimal aléatoire : « abc » peut y apparaître par hasard. On vérifie donc
+        // que la valeur injectée n'est pas relayée et que la valeur relayée est un identifiant bien formé.
+        correlation.ShouldNotContain("Injection");
+        correlation.IndexOfAny(['\r', '\n']).ShouldBe(-1);
+        (Guid.TryParse(correlation, out _) || (correlation.Length == 32 && correlation.All(Uri.IsHexDigit))).ShouldBeTrue();
     }
 
     [Theory]
