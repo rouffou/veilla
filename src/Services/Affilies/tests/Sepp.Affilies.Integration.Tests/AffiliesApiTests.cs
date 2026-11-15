@@ -485,7 +485,7 @@ public sealed class AffiliesApiTests : IAsyncLifetime
         element.GetProperty("affilieId").GetGuid().ShouldBe(employeur);
         element.GetProperty("denomination").GetString().ShouldBe("Boulangerie Dupont");
         element.GetProperty("langue").GetString().ShouldBe("Fr");
-        element.EnumerateObject().Select(p => p.Name).Order().ShouldBe(["affilieId", "denomination", "langue", "regimeLinguistique"]);
+        element.EnumerateObject().Select(p => p.Name).Order().ShouldBe(["affilieId", "denomination", "langue"]);
     }
 
     [Fact]
@@ -531,6 +531,39 @@ public sealed class AffiliesApiTests : IAsyncLifetime
     [InlineData(Roles.GestionnaireDossiers)]
     public async Task Les_autres_roles_n_ont_pas_la_route_des_employeurs_du_travailleur(string role) =>
         (await Client(role).GetAsync("/api/v1/mes-employeurs", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+    /// <summary>#401, point 2 : le CPMT dirigeant, gestionnaire des dossiers (§3.1), crée et modifie les affiliés ; le CPMT non.</summary>
+    [Fact]
+    public async Task Le_cpmt_dirigeant_ecrit_les_affilies_comme_le_gestionnaire()
+    {
+        var dirigeant = Client(Roles.CpmtDirigeant);
+        var creation = await dirigeant.PostAsJsonAsync("/api/v1/affilies", new { numeroBce = "0403.170.701", fiche = Fiche(), dateAffiliation = "2024-01-01" }, Ct);
+        creation.StatusCode.ShouldBe(HttpStatusCode.Created, await creation.Content.ReadAsStringAsync(Ct));
+        var id = await IdAsync(creation);
+        (await dirigeant.PutAsJsonAsync($"/api/v1/affilies/{id}", new { fiche = Fiche("Boulangerie Dupont et fils") }, Ct)).IsSuccessStatusCode.ShouldBeTrue();
+        (await ObtenirAsync(id)).Fiche.Denomination.ShouldBe("Boulangerie Dupont et fils");
+
+        (await Client(Roles.Cpmt).PutAsJsonAsync($"/api/v1/affilies/{id}", new { fiche = Fiche("Autre") }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>#401, point 5 : le SIPP, aligné sur l'employeur, reste limité à son affilié (claim affilie_id).</summary>
+    [Fact]
+    public async Task Le_sipp_ne_lit_et_n_ecrit_que_son_propre_affilie()
+    {
+        var id = await CreerAsync();
+        var autre = await CreerAsync("0403.170.701");
+        var sipp = Client(Roles.Sipp, id);
+        var contact = new { nom = "Paul Martin", fonction = "Conseiller en prévention", role = "PersonneDeConfiance", email = "paul@exemple.test", valideDu = "2025-01-01" };
+
+        (await sipp.GetAsync($"/api/v1/affilies/{id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await sipp.PostAsJsonAsync($"/api/v1/affilies/{id}/contacts", contact, Ct)).StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        (await sipp.GetAsync($"/api/v1/affilies/{autre}", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await sipp.PostAsJsonAsync($"/api/v1/affilies/{autre}/contacts", contact, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await sipp.PutAsJsonAsync($"/api/v1/affilies/{id}", new { fiche = Fiche("Autre nom") }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await sipp.GetFromJsonAsync<PageDto<AffilieResumeDto>>("/api/v1/affilies", Json, Ct))!.Elements.ShouldHaveSingleItem().Id.ShouldBe(id);
+        (await Client(Roles.Sipp).GetAsync($"/api/v1/affilies/{id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
 
     [Fact]
     public async Task Le_travailleur_ne_lit_toujours_aucune_fiche_d_affilie()

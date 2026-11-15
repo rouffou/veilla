@@ -7,6 +7,7 @@ using Sepp.BuildingBlocks.Application.Auditing;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.SurveillanceMedicale.Application.Examens;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
+using Sepp.SurveillanceMedicale.Domain.Dossiers;
 using Sepp.SurveillanceMedicale.Domain.Examens;
 
 namespace Sepp.SurveillanceMedicale.Application.Decisions;
@@ -21,7 +22,14 @@ public sealed record RecoursDto(
     IssueRecours? Issue, DateOnly? DateIssue, string? Commentaire);
 
 /// <summary>Décision complète (zone médicale) : justification, recommandations et procédures.</summary>
-public sealed record DecisionDto(DecisionResumeDto Resume, string AuteurId, string? Justification, string? Recommandations, string? ReferenceSignature, IReadOnlyList<RecoursDto> Recours);
+/// <remarks>
+/// <c>AuteurId</c> : CPMT signataire, vide tant que la décision est un brouillon (ADR 0017). <c>RedigeePar</c>,
+/// <c>ModifieePar</c>, <c>ModifieeLe</c> : qui a préparé ou modifié le brouillon, visible du CPMT avant de signer.
+/// <c>Version</c> : à renvoyer dans l'en-tête <c>If-Match</c> pour modifier ou signer cette version.
+/// </remarks>
+public sealed record DecisionDto(
+    DecisionResumeDto Resume, string? AuteurId, string RedigeePar, string? ModifieePar, DateTimeOffset? ModifieeLe, int Version,
+    string? Justification, string? Recommandations, string? ReferenceSignature, IReadOnlyList<RecoursDto> Recours);
 
 public static class DecisionProjections
 {
@@ -29,20 +37,85 @@ public static class DecisionProjections
         d.Id, d.PersonneId, d.AffilieId, d.TypeExamen, d.DateExamen, CodesDecision.Code(d.Categorie), d.Mesures, d.ValideJusquAu, d.Statut, d.SigneeLe, d.DocumentId);
 
     public static DecisionDto Complete(this Decision d) => new(
-        d.Resume(), d.AuteurId, d.Justification, d.Recommandations, d.ReferenceSignature,
+        d.Resume(), d.AuteurId, d.RedigeePar, d.ModifieePar, d.ModifieeLe, d.VersionContenu, d.Justification, d.Recommandations, d.ReferenceSignature,
         [.. d.Recours.OrderBy(r => r.DateIntroduction).Select(r => new RecoursDto(
             r.Id, r.Type, r.DateIntroduction, r.DateLimiteIntroduction, r.IntroduitDansLeDelai, r.DateLimiteIssue, r.Issue, r.DateIssue, r.Commentaire))]);
 }
 
-/// <summary>Accès aux décisions : rédaction par le CPMT (zone médicale) et lecture du résumé selon la matrice §3.3.</summary>
+/// <summary>
+/// Accès aux décisions : rédaction et modification par le CPMT ou l'infirmier (<c>decision:ecrire</c>), signature et
+/// issue des recours par le seul CPMT (<c>decision:signer</c>, #401), lecture du résumé selon la matrice §3.3.
+/// </summary>
 public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier garde, ICurrentUser user, IContexteAcces contexte, IAuditTrail audit)
 {
     public static readonly Error Inconnue = Error.NotFound("decision.inconnue", "Décision inconnue.");
 
-    /// <summary>Rédaction, signature, recours : CPMT (<c>decision:ecrire</c>) avec accès au dossier.</summary>
-    public async Task<Result<Decision>> EcrireAsync(Guid decisionId, ActionAudit action, CancellationToken cancellationToken)
+    public const string MessageEcrire = "Seuls les CPMT, CPMT dirigeant compris, et l'infirmier rédigent les décisions d'évaluation de santé.";
+
+    public const string MessageSigner = "Seul un CPMT signe les décisions d'évaluation de santé et enregistre l'issue des recours.";
+
+    public static readonly Error RelationDeSoinRequise = Error.Forbidden(
+        "decision.relation-de-soin-requise",
+        "Le brouillon d'un autre professionnel ne se modifie qu'en relation de soin sur l'examen de la décision, jamais sur simple motif.");
+
+    public static readonly Error SignatureHorsRelation = Error.Forbidden(
+        "decision.signature-hors-relation",
+        "Hors relation de soin, la signature exige un bris de glace motivé (X-Bris-De-Glace), un simple motif ne suffit pas.");
+
+    /// <summary>Écriture courante (<c>decision:ecrire</c>) : introduction d'un recours ou d'une concertation.</summary>
+    public async Task<Result<Decision>> EcrireAsync(Guid decisionId, ActionAudit action, CancellationToken cancellationToken) =>
+        SeulementDecision(await AccederAsync(decisionId, action, Permissions.DecisionEcrire, MessageEcrire, cancellationToken));
+
+    /// <summary>
+    /// Modification d'un brouillon (<c>decision:ecrire</c>). Celui qui n'a pas <c>decision:signer</c> (l'infirmier) ne
+    /// modifie le brouillon d'un autre qu'en relation de soin sur l'examen de la décision (professionnel de cet examen ou
+    /// gestionnaire du dossier), jamais sur simple motif ni par un autre examen (#401, ADR 0017) ; ses propres brouillons
+    /// suivent les règles habituelles (ARC-41).
+    /// </summary>
+    public async Task<Result<Decision>> ModifierAsync(Guid decisionId, CancellationToken cancellationToken)
     {
-        if (Regles.Permission(user, Permissions.DecisionEcrire, "Seul le CPMT rédige et signe les décisions d'évaluation de santé.") is { } interdit)
+        var acces = await AccederAsync(decisionId, ActionAudit.Modification, Permissions.DecisionEcrire, MessageEcrire, cancellationToken);
+        if (!acces.IsSuccess)
+        {
+            return acces.Error!;
+        }
+
+        var (decision, dossier) = acces.Value;
+        var brouillonDUnAutre = !string.Equals(decision.RedigeePar, user.UserId, StringComparison.Ordinal);
+        if (brouillonDUnAutre && !user.HasPermission(Permissions.DecisionSigner)
+            && !await garde.EstEnRelationDeSoinSurExamenAsync(dossier, decision.ExamenId, cancellationToken))
+        {
+            return RelationDeSoinRequise;
+        }
+
+        return decision;
+    }
+
+    /// <summary>
+    /// Signature (<c>decision:signer</c>, ADR 0017) : en relation de soin avec le travailleur, ou par bris de glace motivé,
+    /// tracé et signalé (ARC-41). Un simple motif ne suffit pas.
+    /// </summary>
+    public async Task<Result<Decision>> SignerAsync(Guid decisionId, CancellationToken cancellationToken)
+    {
+        var acces = await AccederAsync(decisionId, ActionAudit.Modification, Permissions.DecisionSigner, MessageSigner, cancellationToken);
+        if (!acces.IsSuccess)
+        {
+            return acces.Error!;
+        }
+
+        var (decision, dossier) = acces.Value;
+        var brisDeGlace = contexte.BrisDeGlace && MotifAcces.Normaliser(contexte.Motif) is not null;
+        return brisDeGlace || await garde.EstEnRelationDeSoinAsync(dossier, cancellationToken) ? decision : SignatureHorsRelation;
+    }
+
+    /// <summary>Acte réservé au CPMT (<c>decision:signer</c>) : issue d'un recours.</summary>
+    public async Task<Result<Decision>> ActeCpmtAsync(Guid decisionId, ActionAudit action, CancellationToken cancellationToken) =>
+        SeulementDecision(await AccederAsync(decisionId, action, Permissions.DecisionSigner, MessageSigner, cancellationToken));
+
+    private async Task<Result<(Decision Decision, DossierSante Dossier)>> AccederAsync(
+        Guid decisionId, ActionAudit action, string permission, string message, CancellationToken cancellationToken)
+    {
+        if (Regles.Permission(user, permission, message) is { } interdit)
         {
             return interdit;
         }
@@ -54,8 +127,11 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
         }
 
         var dossier = await garde.EcrireAsync(decision.DossierId, PartiesDossier.Decision, action, cancellationToken);
-        return dossier.IsSuccess ? decision : dossier.Error!;
+        return dossier.IsSuccess ? Result<(Decision, DossierSante)>.Success((decision, dossier.Value)) : dossier.Error!;
     }
+
+    private static Result<Decision> SeulementDecision(Result<(Decision Decision, DossierSante Dossier)> acces) =>
+        acces.IsSuccess ? acces.Value.Decision : acces.Error!;
 
     /// <summary>Lecture complète (justification, recommandations) : personnel médical, secret médical.</summary>
     public async Task<Result<Decision>> LireCompleteAsync(Guid decisionId, CancellationToken cancellationToken)
@@ -119,7 +195,10 @@ public sealed record ContenuDecisionSaisi(CategorieDecision Categorie, IReadOnly
     public override string ToString() => $"ContenuDecisionSaisi {{ Categorie = {Categorie} }}";
 }
 
-/// <summary>SAN-31 : rédaction de la décision d'un examen (une décision par examen).</summary>
+/// <summary>
+/// SAN-31 : rédaction de la décision d'un examen (une décision par examen), par le CPMT ou l'infirmier (#401). Le brouillon
+/// porte son rédacteur réel (<c>RedigeePar</c>) ; l'auteur légal n'est fixé qu'à la signature (ADR 0017).
+/// </summary>
 public sealed record RedigerDecision(Guid ExamenId, ContenuDecisionSaisi Contenu);
 
 public sealed class RedigerDecisionHandler(AccesExamens examens, IDecisionRepository decisions, ICurrentUser user, IUnitOfWork unitOfWork)
@@ -127,7 +206,7 @@ public sealed class RedigerDecisionHandler(AccesExamens examens, IDecisionReposi
 {
     public async Task<Result<Guid>> HandleAsync(RedigerDecision command, CancellationToken cancellationToken)
     {
-        if (Regles.Permission(user, Permissions.DecisionEcrire, "Seul le CPMT rédige les décisions d'évaluation de santé.") is { } interdit)
+        if (Regles.Permission(user, Permissions.DecisionEcrire, AccesDecisions.MessageEcrire) is { } interdit)
         {
             return interdit;
         }
@@ -162,19 +241,39 @@ public sealed class RedigerDecisionHandler(AccesExamens examens, IDecisionReposi
     }
 }
 
-public sealed record ModifierDecision(Guid DecisionId, ContenuDecisionSaisi Contenu);
+/// <summary>Contrôle de concurrence optimiste (#401) : la modification et la signature portent sur la version relue.</summary>
+public static class VersionsDecision
+{
+    public static readonly Error Requise = Error.Validation(
+        "decision.version-requise", "Indiquez la version relue de la décision (en-tête If-Match).");
 
-public sealed class ModifierDecisionHandler(AccesDecisions acces, IUnitOfWork unitOfWork) : ICommandHandler<ModifierDecision, Unit>
+    public static readonly Error Obsolete = Error.Conflict(
+        "decision.version-obsolete", "La décision a été modifiée depuis votre lecture : relisez-la avant de continuer.");
+
+    public static Error? Verifier(Decision decision, int? versionAttendue) =>
+        versionAttendue is not { } version ? Requise : decision.EstALaVersion(version) ? null : Obsolete;
+}
+
+/// <param name="VersionAttendue">Version relue (<see cref="DecisionDto.Version"/>), transmise par l'en-tête <c>If-Match</c>.</param>
+public sealed record ModifierDecision(Guid DecisionId, ContenuDecisionSaisi Contenu, int? VersionAttendue);
+
+public sealed class ModifierDecisionHandler(AccesDecisions acces, ICurrentUser user, IUnitOfWork unitOfWork, TimeProvider horloge)
+    : ICommandHandler<ModifierDecision, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(ModifierDecision command, CancellationToken cancellationToken)
     {
-        var decision = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
+        var decision = await acces.ModifierAsync(command.DecisionId, cancellationToken);
         if (!decision.IsSuccess)
         {
             return decision.Error!;
         }
 
-        var resultat = Regles.Appliquer("decision.invalide", () => decision.Value.Modifier(command.Contenu.ToContenu()));
+        if (VersionsDecision.Verifier(decision.Value, command.VersionAttendue) is { } conflit)
+        {
+            return conflit;
+        }
+
+        var resultat = Regles.Appliquer("decision.invalide", () => decision.Value.Modifier(command.Contenu.ToContenu(), user.UserId, horloge.GetUtcNow()));
         if (resultat.IsSuccess)
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -189,7 +288,8 @@ public sealed class ModifierDecisionHandler(AccesDecisions acces, IUnitOfWork un
 /// <c>DecisionEmise</c> (catégorie, mesures codées, validité) déclenche la génération du formulaire en trois
 /// exemplaires par le service Documents et sa transmission à l'employeur et au travailleur. L'examen doit être clôturé.
 /// </summary>
-public sealed record SignerDecision(Guid DecisionId);
+/// <param name="VersionAttendue">Version relue et signée (<see cref="DecisionDto.Version"/>), en-tête <c>If-Match</c>.</param>
+public sealed record SignerDecision(Guid DecisionId, int? VersionAttendue);
 
 public sealed class SignerDecisionHandler(
     AccesDecisions acces, IExamenRepository examens, ISignatureQualifiee signature, ICurrentUser user, ParametresMedicaux parametres,
@@ -198,7 +298,7 @@ public sealed class SignerDecisionHandler(
 {
     public async Task<Result<DecisionResumeDto>> HandleAsync(SignerDecision command, CancellationToken cancellationToken)
     {
-        var acces1 = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
+        var acces1 = await acces.SignerAsync(command.DecisionId, cancellationToken);
         if (!acces1.IsSuccess)
         {
             return acces1.Error!;
@@ -210,9 +310,9 @@ public sealed class SignerDecisionHandler(
             return Error.Conflict("decision.deja-signee", "Cette décision est déjà signée.");
         }
 
-        if (!string.Equals(decision.AuteurId, user.UserId, StringComparison.Ordinal))
+        if (VersionsDecision.Verifier(decision, command.VersionAttendue) is { } conflit)
         {
-            return Error.Forbidden("decision.signataire", "Seul le CPMT auteur de la décision peut la signer.");
+            return conflit;
         }
 
         var examen = await examens.GetAsync(decision.ExamenId, cancellationToken);
@@ -221,7 +321,10 @@ public sealed class SignerDecisionHandler(
             return Error.Validation("decision.examen-non-cloture", "Clôturez l'examen avant de signer la décision.");
         }
 
-        var formulaire = Formulaires.Construire(decision, ExemplaireFormulaire.Dossier, await parametres.DelaisRecoursAsync(decision.DateExamen, cancellationToken), await parametres.PolitiqueRecoursAsync(decision.DateExamen, cancellationToken));
+        // L'empreinte signée porte sur le formulaire tel qu'il sera émis, signataire compris (auteur légal, ADR 0017).
+        var delais = await parametres.DelaisRecoursAsync(decision.DateExamen, cancellationToken);
+        var politique = await parametres.PolitiqueRecoursAsync(decision.DateExamen, cancellationToken);
+        var formulaire = Formulaires.Construire(decision, ExemplaireFormulaire.Dossier, delais, politique) with { CpmtId = user.UserId };
         var empreinte = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(formulaire))));
         var signee = await signature.SignerAsync(new DemandeSignature(decision.Id, user.UserId, empreinte), cancellationToken);
 
@@ -319,7 +422,7 @@ public sealed record FormulaireEvaluationSanteDto(
     string Categorie,
     IReadOnlyList<string> Mesures,
     DateOnly? ValideJusquAu,
-    string CpmtId,
+    string? CpmtId,
     DateTimeOffset? SigneeLe,
     string? ReferenceSignature,
     IReadOnlyList<VoieRecoursDto> VoiesDeRecours,
@@ -406,7 +509,7 @@ public sealed class EnregistrerIssueRecoursHandler(AccesDecisions acces, IIntegr
 {
     public async Task<Result<Unit>> HandleAsync(EnregistrerIssueRecours command, CancellationToken cancellationToken)
     {
-        var decision = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
+        var decision = await acces.ActeCpmtAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
         if (!decision.IsSuccess)
         {
             return decision.Error!;

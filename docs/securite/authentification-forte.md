@@ -16,7 +16,9 @@ Deux niveaux de contrôle :
 | Route | Mécanisme |
 |---|---|
 | Toute route `RequirePermission(dossier-sante:*)` ou `RequirePermission(dossier-psy:*)` | Automatique : la politique de la permission inclut l'exigence (`AuthenticationStrength.IsRequiredFor`), y compris pour les routes à venir du service psychosocial |
-| `POST /api/v1/decisions/{id}/signature` (Surveillance médicale, SAN-32) | Explicite : `.RequireAuthenticationStrength()` en plus de `decision:ecrire` |
+| `POST /api/v1/decisions/{id}/signature` (Surveillance médicale, SAN-32) | Explicite : `.RequireAuthenticationStrength()` en plus de `decision:signer` (#401) |
+| `POST /api/v1/examens/{id}/cloture` (Surveillance médicale) | Explicite : `.RequireAuthenticationStrength()` en plus de `decision:signer` (#401) ; avant #401, couverte par `dossier-sante:ecrire` |
+| `PUT /api/v1/dossiers/{id}/gestionnaire`, `POST /api/v1/dossiers/{id}/transferts`, `POST /api/v1/transferts/{id}/transmission` | Automatique : `dossier-sante:gerer` (#401) a le préfixe `dossier-sante:` |
 
 Deux permissions de ces zones sont exemptées, car elles n'ouvrent aucun contenu médical à une personne interne :
 `dossier-sante:copie-demander` (le travailleur dépose sa demande de copie depuis le portail, authentifié par CSAM en Azure) et

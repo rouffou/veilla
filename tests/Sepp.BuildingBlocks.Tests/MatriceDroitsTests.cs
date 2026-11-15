@@ -136,6 +136,35 @@ public class MatriceDroitsTests
         }
     }
 
+    /// <summary>#401, point 1 : l'infirmier rédige et modifie la décision, seul le CPMT (et le CPMT dirigeant) la signe.</summary>
+    [Fact]
+    public void Seul_le_cpmt_signe_la_decision_que_l_infirmier_peut_rediger()
+    {
+        RolePermissions.For([Roles.Infirmier]).ShouldContain(Permissions.DecisionEcrire);
+        RolePermissions.Matrice().Where(e => e.Value.Contains(Permissions.DecisionSigner)).Select(e => e.Key).Order(StringComparer.Ordinal)
+            .ShouldBe([Roles.Cpmt, Roles.CpmtDirigeant]);
+    }
+
+    /// <summary>#401, point 4 : le droit aux publications psychosociales du travailleur n'ouvre pas le dossier psychosocial.</summary>
+    [Fact]
+    public void Le_travailleur_lit_ses_publications_psychosociales_sans_acceder_au_dossier_psychosocial()
+    {
+        RolePermissions.Matrice().Where(e => e.Value.Contains(Permissions.DossierPsyPublicationsPropresLire)).Select(e => e.Key).ShouldBe([Roles.Travailleur]);
+        RolePermissions.For([Roles.Travailleur]).ShouldNotContain(Permissions.DossierPsyLire);
+        RolePermissions.For([Roles.Travailleur]).ShouldNotContain(Permissions.DossierPsyEcrire);
+    }
+
+    /// <summary>
+    /// #401, point 5 (décision du responsable produit) : le SIPP, absent de la synthèse §3.3, reste aligné sur l'employeur et
+    /// n'a jamais plus de droits que lui. Son périmètre (claim <c>affilie_id</c>) est vérifié par chaque service propriétaire.
+    /// </summary>
+    [Fact]
+    public void Le_sipp_n_a_jamais_plus_de_droits_que_l_employeur()
+    {
+        var employeur = RolePermissions.For([Roles.Employeur]);
+        RolePermissions.For([Roles.Sipp]).Where(p => !employeur.Contains(p)).ShouldBeEmpty("le SIPP a des droits que l'employeur n'a pas");
+    }
+
     [Fact]
     public void La_matrice_est_triee_pour_des_diff_lisibles() =>
         Lignes.Value.ShouldBe([.. Lignes.Value.OrderBy(l => l.Role, StringComparer.Ordinal).ThenBy(l => l.Permission, StringComparer.Ordinal)]);

@@ -16,12 +16,14 @@ using Sepp.SurveillanceMedicale.Application.Decisions;
 using Sepp.SurveillanceMedicale.Application.Dossiers;
 using Sepp.SurveillanceMedicale.Application.Examens;
 using Sepp.SurveillanceMedicale.Application.Projections;
+using Sepp.SurveillanceMedicale.Application.Transferts;
 using Sepp.SurveillanceMedicale.Application.Vaccinations;
 using Sepp.SurveillanceMedicale.Domain;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
 using Sepp.SurveillanceMedicale.Domain.Dossiers;
 using Sepp.SurveillanceMedicale.Domain.Examens;
 using Sepp.SurveillanceMedicale.Domain.Projections;
+using Sepp.SurveillanceMedicale.Domain.Transferts;
 using Sepp.SurveillanceMedicale.Domain.Vaccinations;
 
 using Shouldly;
@@ -157,10 +159,128 @@ public sealed class SecretMedicalTests
 
         (await new ObtenirDossierHandler(_monde.Garde).HandleAsync(new ObtenirDossier(dossierId), _ct)).IsSuccess.ShouldBeTrue();
 
-        // L'infirmier ne rédige pas de décision (decision:ecrire réservé au CPMT).
-        (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
-            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        // #401, ADR 0017 : l'infirmier rédige et modifie la décision (decision:ecrire) ; l'auteur légal n'est fixé qu'à la signature.
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+        _monde.Store.Decisions.Single(d => d.Id == decisionId).ShouldSatisfyAllConditions(
+            d => d.AuteurId.ShouldBeNull(), d => d.RedigeePar.ShouldBe("infirmier-1"), d => d.VersionContenu.ShouldBe(1));
+        (await Modifier(decisionId, 1, ["PAS_TRAVAIL_NUIT"])).IsSuccess.ShouldBeTrue();
+        (await Modifier(decisionId, 1, ["PAS_TRAVAIL_NUIT"])).Error!.Code.ShouldBe("decision.version-obsolete");
+        (await Modifier(decisionId, null, ["PAS_TRAVAIL_NUIT"])).Error!.Code.ShouldBe("decision.version-requise");
+
+        // Actes du CPMT refusés à l'infirmier : clôture, signature, issue d'un recours, fréquence (art. I.4-32), gestion du dossier.
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await Signer(decisionId, 2)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await new EnregistrerIssueRecoursHandler(_monde.AccesDecisions, _monde.Store, _monde.Store)
+            .HandleAsync(new EnregistrerIssueRecours(decisionId, Guid.CreateVersion7(), IssueRecours.Confirmee, new DateOnly(2026, 3, 20), null, null), _ct))
+            .Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await new DeciderPropositionFrequenceHandler(_monde.AccesExamens, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new DeciderPropositionFrequence(examenId, Guid.CreateVersion7(), true), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await new ChangerGestionnaireHandler(_monde.Garde, _monde.Store).HandleAsync(new ChangerGestionnaire(dossierId, "infirmier-1"), _ct))
+            .Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await new DemanderTransfertHandler(_monde.Garde, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new DemanderTransfert(dossierId, "0123456789", MotifTransfert.ChangementEmployeur), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        _monde.Signature.Demandes.ShouldBeEmpty();
+
+        // Un CPMT qui n'est pas le gestionnaire (cpmt-1) : un motif lui permet de clôturer, pas de signer (ADR 0017).
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Remplacement du Dr gestionnaire");
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
+        var complete = (await new ObtenirDecisionCompleteHandler(_monde.AccesDecisions).HandleAsync(new ObtenirDecisionComplete(decisionId), _ct)).Value;
+        complete.ShouldSatisfyAllConditions(
+            d => d.AuteurId.ShouldBeNull(), d => d.RedigeePar.ShouldBe("infirmier-1"), d => d.ModifieePar.ShouldBe("infirmier-1"),
+            d => d.ModifieeLe.ShouldBe(_monde.Horloge.GetUtcNow()), d => d.Version.ShouldBe(2));
+        (await Signer(decisionId, complete.Version)).Error!.Code.ShouldBe("decision.signature-hors-relation");
+
+        // Par bris de glace motivé (tracé et signalé), il signe la version relue et devient l'auteur légal.
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Remplacement du Dr gestionnaire", brisDeGlace: true);
+        (await Signer(decisionId, 1)).Error!.Code.ShouldBe("decision.version-obsolete");
+        var signee = await Signer(decisionId, complete.Version);
+        signee.Value.Statut.ShouldBe(StatutDecision.Emise);
+        signee.Value.Mesures.ShouldBe(["PAS_TRAVAIL_NUIT"]);
+        _monde.Store.Decisions.Single(d => d.Id == decisionId).AuteurId.ShouldBe("cpmt-2");
+        _monde.Audit.Traces.ShouldContain(t => t.Action == ActionAudit.Modification && t.Motif == "Remplacement du Dr gestionnaire" && t.BrisDeGlace);
+
+        // L'infirmier enregistre l'introduction d'une concertation (#401).
+        _monde.Agir("infirmier-1", Roles.Infirmier);
+        (await new IntroduireRecoursHandler(_monde.AccesDecisions, _monde.Parametres, _monde.Store)
+            .HandleAsync(new IntroduireRecours(decisionId, TypeRecours.Concertation, new DateOnly(2026, 3, 3)), _ct)).IsSuccess.ShouldBeTrue();
     }
+
+    [Fact]
+    public async Task Sans_cpmt_gestionnaire_l_infirmier_redige_quand_meme_et_n_en_devient_pas_gestionnaire()
+    {
+        var affilie = Guid.CreateVersion7();
+        var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
+        _monde.Store.Obligations.Add(obligation);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        _monde.Store.RendezVous.Add(rdv);
+
+        // L'infirmier qui ouvre le dossier n'en devient pas gestionnaire et ne peut en désigner un (dossier-sante:gerer).
+        _monde.Agir("infirmier-1", Roles.Infirmier);
+        (await new OuvrirDossierHandler(_monde.Store, _monde.Garde, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirDossier(_personne, "cpmt-1"), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        _monde.Store.Dossiers.Single(d => d.Id == dossierId).GestionnaireCpmtId.ShouldBeNull();
+        var examenId = (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, null, null, rdv.RendezVousId, null), _ct)).Value;
+
+        // ADR 0017 : plus de refus « decision.cpmt-requis », l'auteur légal sera le CPMT qui signera.
+        (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).IsSuccess.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task L_infirmier_ne_modifie_le_brouillon_d_un_cpmt_que_sur_l_examen_de_la_decision()
+    {
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+
+        // Sur simple motif : refus.
+        _monde.Agir("infirmier-2", Roles.Infirmier, motif: "Aide au Dr pour la décision");
+        (await Modifier(decisionId, 1, ["PAS_TRAVAIL_NUIT"])).Error!.Code.ShouldBe("decision.relation-de-soin-requise");
+
+        // Contournement : un examen spontané ouvert sur motif fait de l'infirmier un professionnel du dossier, mais pas de
+        // l'examen de la décision : refus (ADR 0017).
+        (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, TypesExamen.ConsultationSpontanee, Guid.CreateVersion7(), null, null), _ct)).IsSuccess.ShouldBeTrue();
+        _monde.Agir("infirmier-2", Roles.Infirmier);
+        (await Modifier(decisionId, 1, ["PAS_TRAVAIL_NUIT"])).Error!.Code.ShouldBe("decision.relation-de-soin-requise");
+        _monde.Store.Decisions.Single().VersionContenu.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task L_infirmier_professionnel_de_l_examen_modifie_le_brouillon_redige_par_le_cpmt()
+    {
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var affilie = Guid.CreateVersion7();
+        var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
+        _monde.Store.Obligations.Add(obligation);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        _monde.Store.RendezVous.Add(rdv);
+
+        // L'infirmier réalise l'examen ; le CPMT gestionnaire rédige la décision de cet examen ; l'infirmier la complète.
+        _monde.Agir("infirmier-2", Roles.Infirmier);
+        var examenId = (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, null, null, rdv.RendezVousId, null), _ct)).Value;
+        _monde.Agir("cpmt-1", Roles.Cpmt);
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+
+        _monde.Agir("infirmier-2", Roles.Infirmier);
+        (await Modifier(decisionId, 1, ["PAS_TRAVAIL_NUIT"])).IsSuccess.ShouldBeTrue();
+    }
+
+    private Task<Result<Unit>> Modifier(Guid decisionId, int? version, string[] mesures) =>
+        new ModifierDecisionHandler(_monde.AccesDecisions, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new ModifierDecision(decisionId, new ContenuDecisionSaisi(CategorieDecision.ApteAvecMesures, mesures, null, null, null), version), _ct);
+
+    private Task<Result<DecisionResumeDto>> Signer(Guid decisionId, int? version) =>
+        new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store)
+            .HandleAsync(new SignerDecision(decisionId, version), _ct);
 }
 
 public sealed class DecisionsEtExamensTests
@@ -244,18 +364,13 @@ public sealed class DecisionsEtExamensTests
             .HandleAsync(new RedigerDecision(examenId, contenu), _ct)).Value;
 
         var signer = new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store);
-        (await signer.HandleAsync(new SignerDecision(decisionId), _ct)).Error!.Code.ShouldBe("decision.examen-non-cloture");
+        (await signer.HandleAsync(new SignerDecision(decisionId, 1), _ct)).Error!.Code.ShouldBe("decision.examen-non-cloture");
 
         await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
             .HandleAsync(new CloturerExamen(examenId, null), _ct);
 
-        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Relecture");
-        (await new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store)
-            .HandleAsync(new SignerDecision(decisionId), _ct)).Error!.Code.ShouldBe("decision.signataire");
-
-        _monde.Agir("cpmt-1", Roles.Cpmt);
         var signee = await new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store)
-            .HandleAsync(new SignerDecision(decisionId), _ct);
+            .HandleAsync(new SignerDecision(decisionId, 1), _ct);
         signee.Value.Statut.ShouldBe(StatutDecision.Emise);
         _monde.Signature.Demandes.Single().EmpreinteFormulaire.Length.ShouldBe(64);
 
@@ -288,7 +403,7 @@ public sealed class DecisionsEtExamensTests
         _monde.Agir("cpmt-1", Roles.Cpmt);
         await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge).HandleAsync(new CloturerExamen(examenId, null), _ct);
         await new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store)
-            .HandleAsync(new SignerDecision(decisionId), _ct);
+            .HandleAsync(new SignerDecision(decisionId, 1), _ct);
 
         _monde.Agir("employeur-1", Roles.Employeur, affilie: _affilie);
         (await lire()).Value.Categorie.ShouldBe(CategoriesDecision.InaptitudeDefinitive);

@@ -71,10 +71,22 @@ public static class Permissions
 {
     public const string DossierSanteLire = "dossier-sante:lire";
     public const string DossierSanteEcrire = "dossier-sante:ecrire";
+    // Décision d'évaluation de santé (#401) : rédaction et modification du brouillon par le CPMT ou l'infirmier
+    // (decision:ecrire) ; signature et actes médicaux à portée légale réservés au CPMT (decision:signer) : signature de la
+    // décision (SAN-32), clôture de l'examen, décision sur la fréquence (art. I.4-32, SAN-23), issue d'un recours (SAN-34), déclaration de
+    // maladie professionnelle à Fedris (SAN-70). L'introduction d'un recours et le suivi Fedris (SAN-71) restent sous
+    // decision:ecrire.
     public const string DecisionEcrire = "decision:ecrire";
+    public const string DecisionSigner = "decision:signer";
     public const string DecisionLire = "decision:lire";
     public const string DossierPsyLire = "dossier-psy:lire";
     public const string DossierPsyEcrire = "dossier-psy:ecrire";
+
+    // §3.3 « Dossier psychosocial — travailleur : ses propres documents » (#401) : lecture, par le travailleur, des seules
+    // publications que le CPAP lui adresse explicitement (personne du jeton, claim personne_id), sur le modèle des
+    // publications à l'employeur (dossier-psy:publications-lire, procédure d'accès psychosocial de l'employeur). Jamais
+    // d'accès direct au dossier psychosocial (ARC-06). Déclaré sans route : le service Psychosocial (lot 5) l'appliquera.
+    public const string DossierPsyPublicationsPropresLire = "dossier-psy:publications-propres-lire";
     public const string AnalyseRisquesLire = "analyse-risques:lire";
     public const string AnalyseRisquesEcrire = "analyse-risques:ecrire";
     public const string AffilieLire = "affilie:lire";
@@ -116,6 +128,10 @@ public static class Permissions
     // protocoles médicaux (valeurs de référence, schémas vaccinaux, questionnaires, durées de conservation),
     // stock de vaccins par centre (SAN-51) et remplissage d'un questionnaire de santé sans lecture du dossier (SAN-22).
     public const string DossierSantePurger = "dossier-sante:purger";
+
+    // Gestion du dossier de santé réservée au CPMT (#401) : désignation du CPMT gestionnaire (à l'ouverture ou ensuite) et
+    // transfert du dossier vers un autre SEPP ou SIPP (SAN-42). Authentification forte comme tout droit dossier-sante:*.
+    public const string DossierSanteGerer = "dossier-sante:gerer";
     public const string ProtocolesMedicauxAdministrer = "protocoles-medicaux:administrer";
     public const string StockVaccinsGerer = "stock-vaccins:gerer";
     public const string QuestionnaireSanteRemplir = "questionnaire-sante:remplir";
@@ -237,8 +253,14 @@ public static class RolePermissions
                 Permissions.AnalyseRisquesEcrire, Permissions.AffilieLire, Permissions.DecisionLire);
         }
 
-        Grant(Roles.Cpmt, Permissions.DecisionEcrire);
-        Grant(Roles.CpmtDirigeant, Permissions.DecisionEcrire);
+        // #401 : l'infirmier rédige et modifie la décision ; seul le CPMT la signe et pose les actes médicaux à portée légale.
+        foreach (var role in new[] { Roles.Cpmt, Roles.CpmtDirigeant, Roles.Infirmier })
+        {
+            Grant(role, Permissions.DecisionEcrire);
+        }
+
+        Grant(Roles.Cpmt, Permissions.DecisionSigner, Permissions.DossierSanteGerer);
+        Grant(Roles.CpmtDirigeant, Permissions.DecisionSigner, Permissions.DossierSanteGerer);
 
         // §3.3 — Dossier psychosocial : CPAP uniquement.
         foreach (var role in new[] { Roles.Cpap, Roles.CpapDirigeant })
@@ -310,6 +332,9 @@ public static class RolePermissions
             Grant(role, Permissions.PersonneEcrire);
             Grant(role, Permissions.PosteEcrire);
         }
+
+        // §3.1 (#401) : le CPMT dirigeant est aussi gestionnaire des dossiers (affiliés et travailleurs).
+        Grant(Roles.CpmtDirigeant, Permissions.AffilieEcrire, Permissions.PersonneEcrire);
 
         foreach (var role in new[] { Roles.Cpmt, Roles.CpmtDirigeant })
         {
@@ -401,6 +426,10 @@ public static class RolePermissions
         // a une occupation active (projection locale de personnes.occupation-debutee / -terminee) ; le travailleur n'a toujours
         // pas affilie:lire (#340).
         Grant(Roles.Travailleur, Permissions.AffilieLireEmployeurs);
+
+        // §3.3 « Dossier psychosocial — travailleur : ses propres documents » (#401) : publications que le CPAP lui adresse
+        // explicitement, sans aucune lecture du dossier psychosocial (ARC-06). Aucune route ne l'exige encore (lot 5).
+        Grant(Roles.Travailleur, Permissions.DossierPsyPublicationsPropresLire);
 
         // Documents — DOC-01 : l'administrateur fonctionnel gère, valide et publie les modèles ; les modèles médicaux sont
         // validés par le CPMT dirigeant et les modèles psychosociaux par le CPAP dirigeant. Génération et lecture de la zone

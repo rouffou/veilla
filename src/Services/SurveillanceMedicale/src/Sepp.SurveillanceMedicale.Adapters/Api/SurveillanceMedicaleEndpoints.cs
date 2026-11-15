@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
 using Sepp.BuildingBlocks.Application;
@@ -101,7 +102,7 @@ public static class SurveillanceMedicaleEndpoints
 
         dossiers.MapPut("/{id:guid}/gestionnaire", async (Guid id, GestionnaireSaisi body, ICommandHandler<ChangerGestionnaire, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ChangerGestionnaire(id, body.CpmtId), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DossierSanteEcrire)
+            .RequirePermission(Permissions.DossierSanteGerer)
             .WithName("ChangerGestionnaireDossier");
 
         dossiers.MapPost("/{id:guid}/groupes-exposition", async (Guid id, GroupeSaisi body, ICommandHandler<RattacherGroupeExposition, Guid> h, CancellationToken ct) =>
@@ -169,13 +170,13 @@ public static class SurveillanceMedicaleEndpoints
         dossiers.MapPost("/{id:guid}/declarations-mp", async (Guid id, DeclarationMpSaisie body, ICommandHandler<PreparerDeclarationMp, DeclarationMpDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new PreparerDeclarationMp(id, body.CodeMaladie, body.Description, body.AgentCausal), ct))
                 .ToHttpResult(d => Results.Created($"/api/v1/declarations-mp/{d.Id}", d)))
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("PreparerDeclarationMp")
             .WithSummary("SAN-70 : déclaration de maladie professionnelle préremplie depuis le dossier.");
 
         dossiers.MapPost("/{id:guid}/transferts", async (Guid id, TransfertSaisi body, ICommandHandler<DemanderTransfert, Guid> h, CancellationToken ct) =>
                 (await h.HandleAsync(new DemanderTransfert(id, body.Contrepartie, body.Motif), ct)).ToHttpResult(t => Results.Created($"/api/v1/transferts/{t}", new { id = t })))
-            .RequirePermission(Permissions.DossierSanteEcrire)
+            .RequirePermission(Permissions.DossierSanteGerer)
             .WithName("DemanderTransfertDossier")
             .WithSummary("SAN-42 : demande de transfert du dossier vers un autre SEPP ou SIPP.");
     }
@@ -214,13 +215,14 @@ public static class SurveillanceMedicaleEndpoints
         examens.MapPost("/{id:guid}/propositions-frequence/{propositionId:guid}", async (Guid id, Guid propositionId, DecisionPropositionSaisie body,
                 ICommandHandler<DeciderPropositionFrequence, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new DeciderPropositionFrequence(id, propositionId, body.Acceptee), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("DeciderPropositionFrequence")
             .WithSummary("SAN-23 : acceptation ou refus de l'augmentation de fréquence (art. I.4-32).");
 
         examens.MapPost("/{id:guid}/cloture", async (Guid id, ClotureSaisie? body, ICommandHandler<CloturerExamen, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new CloturerExamen(id, body?.Date), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DossierSanteEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
+            .RequireAuthenticationStrength()
             .WithName("CloturerExamen")
             .WithSummary("Clôture : obligations satisfaites, ExamenCloture publié (type et date uniquement).");
 
@@ -256,17 +258,20 @@ public static class SurveillanceMedicaleEndpoints
             .WithName("ObtenirFormulaireEvaluationSante")
             .WithSummary("SAN-30 : données du formulaire (annexe I.4-2) par exemplaire : Employeur, Travailleur, Dossier.");
 
-        decisions.MapPut("/{id:guid}", async (Guid id, ContenuDecisionSaisi body, ICommandHandler<ModifierDecision, Unit> h, CancellationToken ct) =>
-                (await h.HandleAsync(new ModifierDecision(id, body), ct)).ToHttpResult())
+        decisions.MapPut("/{id:guid}", async (Guid id, ContenuDecisionSaisi body, [FromHeader(Name = "If-Match")] string? ifMatch,
+                ICommandHandler<ModifierDecision, Unit> h, CancellationToken ct) =>
+                (await h.HandleAsync(new ModifierDecision(id, body, VersionRelue(ifMatch)), ct)).ToHttpResult())
             .RequirePermission(Permissions.DecisionEcrire)
-            .WithName("ModifierDecision");
+            .WithName("ModifierDecision")
+            .WithSummary("Modification du brouillon ; If-Match : version relue (409 si la décision a changé depuis).");
 
-        decisions.MapPost("/{id:guid}/signature", async (Guid id, ICommandHandler<SignerDecision, DecisionResumeDto> h, CancellationToken ct) =>
-                (await h.HandleAsync(new SignerDecision(id), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+        decisions.MapPost("/{id:guid}/signature", async (Guid id, [FromHeader(Name = "If-Match")] string? ifMatch,
+                ICommandHandler<SignerDecision, DecisionResumeDto> h, CancellationToken ct) =>
+                (await h.HandleAsync(new SignerDecision(id, VersionRelue(ifMatch)), ct)).ToHttpResult())
+            .RequirePermission(Permissions.DecisionSigner)
             .RequireAuthenticationStrength()
             .WithName("SignerDecision")
-            .WithSummary("SAN-32, SAN-33 : signature qualifiée du CPMT puis émission (DecisionEmise) ; authentification forte exigée (NF-01).");
+            .WithSummary("SAN-32, SAN-33 : signature qualifiée par un CPMT, qui devient l'auteur, puis émission (DecisionEmise) ; authentification forte (NF-01) ; If-Match : version relue (409 si obsolète).");
 
         decisions.MapPost("/{id:guid}/recours", async (Guid id, RecoursSaisi body, ICommandHandler<IntroduireRecours, RecoursDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new IntroduireRecours(id, body.Type, body.DateIntroduction), ct)).ToHttpResult(r => Results.Created($"/api/v1/decisions/{id}", r)))
@@ -277,9 +282,28 @@ public static class SurveillanceMedicaleEndpoints
         decisions.MapPost("/{id:guid}/recours/{recoursId:guid}/issue", async (Guid id, Guid recoursId, IssueSaisie body,
                 ICommandHandler<EnregistrerIssueRecours, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new EnregistrerIssueRecours(id, recoursId, body.Issue, body.DateIssue, body.Reformation, body.Commentaire), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("EnregistrerIssueRecours")
             .WithSummary("SAN-34 : issue (décision du médecin-inspecteur social) ; une décision réformée est retransmise.");
+    }
+
+    /// <summary>Version relue d'une décision, portée par l'en-tête If-Match (<c>3</c>, <c>"3"</c> ou <c>W/"3"</c>).</summary>
+    internal static int? VersionRelue(string? ifMatch)
+    {
+        var valeur = ifMatch?.Trim();
+        if (valeur is null)
+        {
+            return null;
+        }
+
+        if (valeur.StartsWith("W/", StringComparison.Ordinal))
+        {
+            valeur = valeur[2..];
+        }
+
+        return int.TryParse(valeur.Trim('"'), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var version)
+            ? version
+            : null;
     }
 
     private static void MapVaccins(RouteGroupBuilder api)
@@ -392,7 +416,7 @@ public static class SurveillanceMedicaleEndpoints
 
         declarations.MapPost("/{id:guid}/envoi", async (Guid id, ICommandHandler<EnvoyerDeclarationMp, DeclarationMpDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new EnvoyerDeclarationMp(id), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("EnvoyerDeclarationMp")
             .WithSummary("SAN-70 : envoi à Fedris (et au médecin-inspecteur social).");
 
@@ -412,7 +436,7 @@ public static class SurveillanceMedicaleEndpoints
         declarations.MapPost("/{id:guid}/demandes-information/{demandeId:guid}/reponse", async (Guid id, Guid demandeId, ReponseInformationSaisie body,
                 ICommandHandler<RepondreDemandeInformationFedris, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new RepondreDemandeInformationFedris(id, demandeId, body.Date, body.Reponse), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("RepondreDemandeInformationFedris");
     }
 
@@ -425,7 +449,7 @@ public static class SurveillanceMedicaleEndpoints
 
         transferts.MapPost("/{id:guid}/transmission", async (Guid id, ICommandHandler<TransmettreTransfert, TransfertDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new TransmettreTransfert(id), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DossierSanteEcrire)
+            .RequirePermission(Permissions.DossierSanteGerer)
             .WithName("TransmettreTransfert")
             .WithSummary("SAN-42 : export chiffré du dossier et transmission par le canal sécurisé (à confirmer).");
 

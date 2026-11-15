@@ -19,13 +19,31 @@ internal static class DeclarationsMp
         [.. d.DemandesInformation.Select(i => new DemandeInformationDto(i.Id, i.DateDemande, i.Echeance, i.Objet, i.DateReponse, i.Reponse))]);
 }
 
-/// <summary>Chargement d'une déclaration avec contrôle d'accès au dossier (secret médical).</summary>
+/// <summary>
+/// Chargement d'une déclaration avec contrôle d'accès au dossier (secret médical). Écriture : <c>decision:signer</c> pour la
+/// déclaration elle-même (préparation, envoi, réponse à Fedris), <c>decision:ecrire</c> pour le suivi administratif (statut
+/// Fedris, enregistrement d'une demande d'information), ouvert à l'infirmier (#401).
+/// </summary>
 public sealed class AccesDeclarationsMp(IDeclarationMpRepository declarations, GardeDossier garde, ICurrentUser user)
 {
-    public async Task<Result<DeclarationMaladieProfessionnelle>> ChargerAsync(Guid id, ActionAudit action, CancellationToken cancellationToken)
+    public const string MessageDeclarer = "La déclaration de maladie professionnelle est établie par le CPMT.";
+
+    public Task<Result<DeclarationMaladieProfessionnelle>> LireAsync(Guid id, CancellationToken cancellationToken) =>
+        ChargerAsync(id, ActionAudit.Lecture, null, null, cancellationToken);
+
+    /// <summary>Acte du CPMT sur la déclaration elle-même (<c>decision:signer</c>) : envoi, réponse à Fedris.</summary>
+    public Task<Result<DeclarationMaladieProfessionnelle>> DeclarerAsync(Guid id, ActionAudit action, CancellationToken cancellationToken) =>
+        ChargerAsync(id, action, Permissions.DecisionSigner, MessageDeclarer, cancellationToken);
+
+    /// <summary>Suivi administratif (<c>decision:ecrire</c>) : statut Fedris, demande d'information reçue.</summary>
+    public Task<Result<DeclarationMaladieProfessionnelle>> SuivreAsync(Guid id, CancellationToken cancellationToken) =>
+        ChargerAsync(id, ActionAudit.Modification, Permissions.DecisionEcrire,
+            "Seuls les CPMT et l'infirmier suivent la déclaration de maladie professionnelle.", cancellationToken);
+
+    private async Task<Result<DeclarationMaladieProfessionnelle>> ChargerAsync(
+        Guid id, ActionAudit action, string? permission, string? message, CancellationToken cancellationToken)
     {
-        if (action != ActionAudit.Lecture
-            && Regles.Permission(user, Permissions.DecisionEcrire, "La déclaration de maladie professionnelle est établie par le CPMT.") is { } interdit)
+        if (permission is not null && Regles.Permission(user, permission, message!) is { } interdit)
         {
             return interdit;
         }
@@ -64,7 +82,7 @@ public sealed class PreparerDeclarationMpHandler(
 {
     public async Task<Result<DeclarationMpDto>> HandleAsync(PreparerDeclarationMp command, CancellationToken cancellationToken)
     {
-        if (Regles.Permission(user, Permissions.DecisionEcrire, "La déclaration de maladie professionnelle est établie par le CPMT.") is { } interdit)
+        if (Regles.Permission(user, Permissions.DecisionSigner, AccesDeclarationsMp.MessageDeclarer) is { } interdit)
         {
             return interdit;
         }
@@ -104,7 +122,7 @@ public sealed class ObtenirDeclarationMpHandler(AccesDeclarationsMp acces) : IQu
 {
     public async Task<Result<DeclarationMpDto>> HandleAsync(ObtenirDeclarationMp query, CancellationToken cancellationToken)
     {
-        var declaration = await acces.ChargerAsync(query.DeclarationId, ActionAudit.Lecture, cancellationToken);
+        var declaration = await acces.LireAsync(query.DeclarationId, cancellationToken);
         return declaration.IsSuccess ? declaration.Value.Dto() : declaration.Error!;
     }
 }
@@ -117,7 +135,7 @@ public sealed class EnvoyerDeclarationMpHandler(AccesDeclarationsMp acces, IFedr
 {
     public async Task<Result<DeclarationMpDto>> HandleAsync(EnvoyerDeclarationMp command, CancellationToken cancellationToken)
     {
-        var acces1 = await acces.ChargerAsync(command.DeclarationId, ActionAudit.Export, cancellationToken);
+        var acces1 = await acces.DeclarerAsync(command.DeclarationId, ActionAudit.Export, cancellationToken);
         if (!acces1.IsSuccess)
         {
             return acces1.Error!;
@@ -149,7 +167,7 @@ public sealed class SuivreDeclarationMpHandler(AccesDeclarationsMp acces, IFedri
 {
     public async Task<Result<DeclarationMpDto>> HandleAsync(SuivreDeclarationMp command, CancellationToken cancellationToken)
     {
-        var acces1 = await acces.ChargerAsync(command.DeclarationId, ActionAudit.Modification, cancellationToken);
+        var acces1 = await acces.SuivreAsync(command.DeclarationId, cancellationToken);
         if (!acces1.IsSuccess)
         {
             return acces1.Error!;
@@ -184,7 +202,7 @@ public sealed class EnregistrerDemandeInformationFedrisHandler(AccesDeclarations
 {
     public async Task<Result<Guid>> HandleAsync(EnregistrerDemandeInformationFedris command, CancellationToken cancellationToken)
     {
-        var declaration = await acces.ChargerAsync(command.DeclarationId, ActionAudit.Modification, cancellationToken);
+        var declaration = await acces.SuivreAsync(command.DeclarationId, cancellationToken);
         if (!declaration.IsSuccess)
         {
             return declaration.Error!;
@@ -211,7 +229,7 @@ public sealed class RepondreDemandeInformationFedrisHandler(AccesDeclarationsMp 
 {
     public async Task<Result<Unit>> HandleAsync(RepondreDemandeInformationFedris command, CancellationToken cancellationToken)
     {
-        var declaration = await acces.ChargerAsync(command.DeclarationId, ActionAudit.Modification, cancellationToken);
+        var declaration = await acces.DeclarerAsync(command.DeclarationId, ActionAudit.Modification, cancellationToken);
         if (!declaration.IsSuccess)
         {
             return declaration.Error!;

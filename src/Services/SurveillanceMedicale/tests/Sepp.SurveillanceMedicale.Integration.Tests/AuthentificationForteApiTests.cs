@@ -41,14 +41,18 @@ public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fi
         var dossierId = await Id(await fort.PostAsJsonAsync("/api/v1/dossiers", new { personneId = Guid.CreateVersion7() }, _ct));
         var examenId = await Id(await fort.PostAsJsonAsync("/api/v1/examens",
             new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", affilieId = affilie, date = "2026-03-02" }, _ct));
+        // #401 : la clôture (decision:signer) et la gestion du dossier (dossier-sante:gerer) exigent aussi l'authentification forte.
+        DefiDeMonteeEnNiveau(await faible.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct));
+        DefiDeMonteeEnNiveau(await faible.PutAsJsonAsync($"/api/v1/dossiers/{dossierId}/gestionnaire", new { cpmtId = "cpmt-mfa" }, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/dossiers/{dossierId}/transferts", new { contrepartie = "0123456789", motif = "ChangementEmployeur" }, _ct));
         (await fort.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         var decisionId = await Id(await fort.PostAsJsonAsync($"/api/v1/examens/{examenId}/decision",
             new { categorie = "Apte", valideJusquAu = "2027-03-01" }, _ct));
 
-        DefiDeMonteeEnNiveau(await faible.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct));
+        DefiDeMonteeEnNiveau(await faible.SendAsync(Signature(decisionId), _ct));
         DefiDeMonteeEnNiveau(await faible.GetAsync($"/api/v1/dossiers/{dossierId}", _ct));
 
-        var signee = await fort.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct);
+        var signee = await fort.SendAsync(Signature(decisionId), _ct);
         signee.StatusCode.ShouldBe(HttpStatusCode.OK, await signee.Content.ReadAsStringAsync(_ct));
     }
 
@@ -77,5 +81,13 @@ public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fi
 
         response.StatusCode.ShouldNotBe(HttpStatusCode.Unauthorized);
         fixture.Journal.Entrees.ShouldContain(e => e.Contains("NF-01", StringComparison.Ordinal) && e.Contains("accès accordé en mode Log", StringComparison.Ordinal));
+    }
+
+    /// <summary>Signature de la version 1 (décision tout juste rédigée), en-tête If-Match (#401).</summary>
+    private static HttpRequestMessage Signature(Guid decisionId)
+    {
+        var requete = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/decisions/{decisionId}/signature");
+        requete.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+        return requete;
     }
 }

@@ -1103,7 +1103,7 @@ La saisie passe par le relais :
 
 **Droits par rôle** :
 - Lecture et saisie : `dossier-sante:lire|ecrire` (cpmt, cpmt-dirigeant, infirmier).
-- Décision sur la proposition de fréquence : `decision:ecrire` (cpmt, cpmt-dirigeant). L'infirmier ne la voit pas.
+- Décision sur la proposition de fréquence (art. I.4-32) : `decision:signer` (cpmt, cpmt-dirigeant, #401). L'infirmier ne la voit pas.
 - Les autres rôles n'ont pas la route (`roleGuard`) et reçoivent 403 du service.
 - Hors relation de soin, un motif est obligatoire (dialogue livré par DEMO-T1).
 
@@ -1225,9 +1225,10 @@ Les exemplaires travailleur et dossier sont en zone médicale : DEMO-C4.
 - La valeur `objetType` des documents de décision est à confirmer dans le service Documents.
 
 **Droits par rôle** :
-- Rédiger, modifier et signer : `decision:ecrire` (cpmt, cpmt-dirigeant).
+- Rédiger et modifier : `decision:ecrire` (cpmt, cpmt-dirigeant, infirmier, #401).
+- Signer : `decision:signer` (cpmt, cpmt-dirigeant), avec `If-Match` sur la version relue. Le CPMT qui signe devient l'auteur légal (ADR 0017). L'écran affiche avant la signature qui a rédigé et qui a modifié le brouillon (`redigeePar`, `modifieePar`, `modifieeLe`).
 - Décision complète : `dossier-sante:lire` (cpmt*, infirmier).
-- L'infirmier n'a pas les boutons « Rédiger » ni « Signer ».
+- L'infirmier a le bouton « Rédiger », pas le bouton « Signer ».
 
 **Critères d'acceptation**
 

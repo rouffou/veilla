@@ -8,10 +8,11 @@ using Sepp.Contracts.Personnes;
 namespace Sepp.Affilies.Application.Occupations;
 
 /// <summary>
-/// POR-11, #340 : employeur du travailleur connecté. Dénomination et langue seulement (aucune autre donnée de la fiche).
-/// <see cref="Langue"/> est la langue de correspondance de l'affilié, <see cref="RegimeLinguistique"/> son régime linguistique (NF-41).
+/// POR-11, #340 : employeur du travailleur connecté. Identifiant, dénomination et langue de correspondance seulement : aucune
+/// autre donnée de la fiche (BCE, adresse, régime linguistique, contacts). Décision du responsable produit (#401, point 5) :
+/// extension de la synthèse §3.3 maintenue, limitée à ces trois champs.
 /// </summary>
-public sealed record MonEmployeurDto(Guid AffilieId, string Denomination, Language Langue, RegimeLinguistique RegimeLinguistique);
+public sealed record MonEmployeurDto(Guid AffilieId, string Denomination, Language Langue);
 
 /// <summary>
 /// Employeurs de la personne du jeton (claim <c>personne_id</c>) à une date : les affiliés chez qui elle a une occupation

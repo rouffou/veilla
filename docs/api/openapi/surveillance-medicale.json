@@ -1221,6 +1221,13 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -1245,6 +1252,7 @@
             ]
           }
         ],
+        "summary": "Modification du brouillon ; If-Match : version relue (409 si la d\u00E9cision a chang\u00E9 depuis).",
         "tags": [
           "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
         ]
@@ -1427,6 +1435,13 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1441,7 +1456,7 @@
             ]
           }
         ],
-        "summary": "SAN-32, SAN-33 : signature qualifi\u00E9e du CPMT puis \u00E9mission (DecisionEmise) ; authentification forte exig\u00E9e (NF-01).",
+        "summary": "SAN-32, SAN-33 : signature qualifi\u00E9e par un CPMT, qui devient l\u0027auteur, puis \u00E9mission (DecisionEmise) ; authentification forte (NF-01) ; If-Match : version relue (409 si obsol\u00E8te).",
         "tags": [
           "D\u00E9cisions et formulaire d\u0027\u00E9valuation de sant\u00E9"
         ]

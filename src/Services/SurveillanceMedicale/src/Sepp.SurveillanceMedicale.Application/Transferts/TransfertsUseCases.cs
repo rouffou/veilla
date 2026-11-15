@@ -29,11 +29,22 @@ internal static class Transferts
 
 public sealed record DemanderTransfert(Guid DossierId, string Contrepartie, MotifTransfert Motif);
 
+/// <summary>#401 : le transfert du dossier vers un autre SEPP ou SIPP (SAN-42) est un acte du CPMT.</summary>
+public static class TransfertsCpmt
+{
+    public const string Message = "Seul un CPMT transfère le dossier de santé.";
+}
+
 public sealed class DemanderTransfertHandler(GardeDossier garde, ITransfertRepository transferts, ICurrentUser user, IUnitOfWork unitOfWork, TimeProvider horloge)
     : ICommandHandler<DemanderTransfert, Guid>
 {
     public async Task<Result<Guid>> HandleAsync(DemanderTransfert command, CancellationToken cancellationToken)
     {
+        if (garde.Exiger(Permissions.DossierSanteGerer, TransfertsCpmt.Message) is { } interdit)
+        {
+            return interdit;
+        }
+
         var dossier = await garde.EcrireAsync(command.DossierId, PartiesDossier.Transfert, ActionAudit.Creation, cancellationToken);
         if (!dossier.IsSuccess)
         {
@@ -62,7 +73,7 @@ public sealed class TransmettreTransfertHandler(
 {
     public async Task<Result<TransfertDto>> HandleAsync(TransmettreTransfert command, CancellationToken cancellationToken)
     {
-        if (garde.VerifierPermission(ActionAudit.Modification) is { } interdit)
+        if ((garde.Exiger(Permissions.DossierSanteGerer, TransfertsCpmt.Message) ?? garde.VerifierPermission(ActionAudit.Modification)) is { } interdit)
         {
             return interdit;
         }

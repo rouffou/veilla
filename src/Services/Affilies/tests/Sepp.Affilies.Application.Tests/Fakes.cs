@@ -79,7 +79,7 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IAff
         Task.FromResult<IReadOnlyList<MonEmployeurDto>>(Affilies
             .Where(a => affilieIds.Contains(a.Id))
             .OrderBy(a => a.Denomination, StringComparer.Ordinal)
-            .Select(a => new MonEmployeurDto(a.Id, a.Denomination, a.Langue, a.RegimeLinguistique))
+            .Select(a => new MonEmployeurDto(a.Id, a.Denomination, a.Langue))
             .ToList());
 
     public void Add(Affilie affilie) => Affilies.Add(affilie);

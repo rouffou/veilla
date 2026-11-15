@@ -65,7 +65,7 @@ public sealed class Decision : AggregateRoot
     {
     }
 
-    private Decision(Guid id, Guid examenId, Guid dossierId, Guid personneId, Guid affilieId, string typeExamen, DateOnly dateExamen, string auteurId)
+    private Decision(Guid id, Guid examenId, Guid dossierId, Guid personneId, Guid affilieId, string typeExamen, DateOnly dateExamen, string redigeePar)
         : base(id)
     {
         ExamenId = Garde.Identifiant(examenId, "examen");
@@ -74,7 +74,8 @@ public sealed class Decision : AggregateRoot
         AffilieId = affilieId;
         TypeExamen = typeExamen;
         DateExamen = dateExamen;
-        AuteurId = Garde.Requis(auteurId, "auteur", 100);
+        RedigeePar = Garde.Requis(redigeePar, "rédacteur", 100);
+        VersionContenu = 1;
         Statut = StatutDecision.Brouillon;
     }
 
@@ -104,7 +105,25 @@ public sealed class Decision : AggregateRoot
     /// <summary>Recommandations au travailleur (exemplaire travailleur) : chiffrées (ARC-45).</summary>
     public string? Recommandations { get; private set; }
 
-    public string AuteurId { get; private set; } = string.Empty;
+    /// <summary>
+    /// Auteur légal (ADR 0017, #401) : le CPMT qui signe, fixé à la signature (SAN-32). Vide tant que la décision est un
+    /// brouillon : le brouillon n'engage personne.
+    /// </summary>
+    public string? AuteurId { get; private set; }
+
+    /// <summary>Rédacteur réel du brouillon (#401) : CPMT ou infirmier qui l'a créé.</summary>
+    public string RedigeePar { get; private set; } = string.Empty;
+
+    /// <summary>Dernier utilisateur qui a modifié le brouillon, et quand (#401) : visible du CPMT avant de signer.</summary>
+    public string? ModifieePar { get; private set; }
+
+    public DateTimeOffset? ModifieeLe { get; private set; }
+
+    /// <summary>
+    /// Version du contenu (1 à la rédaction, +1 à chaque modification) : la modification et la signature portent sur la
+    /// version relue (contrôle de concurrence optimiste, If-Match).
+    /// </summary>
+    public int VersionContenu { get; private set; }
 
     public StatutDecision Statut { get; private set; }
 
@@ -118,14 +137,18 @@ public sealed class Decision : AggregateRoot
 
     public IReadOnlyList<Recours> Recours => _recours.AsReadOnly();
 
-    public static Decision Rediger(Guid examenId, Guid dossierId, Guid personneId, Guid affilieId, string typeExamen, DateOnly dateExamen, string auteurId, ContenuDecision contenu)
+    public static Decision Rediger(
+        Guid examenId, Guid dossierId, Guid personneId, Guid affilieId, string typeExamen, DateOnly dateExamen, string redigeePar, ContenuDecision contenu)
     {
-        var decision = new Decision(NewId(), examenId, dossierId, personneId, affilieId, typeExamen, dateExamen, auteurId);
+        var decision = new Decision(NewId(), examenId, dossierId, personneId, affilieId, typeExamen, dateExamen, redigeePar);
         decision.Appliquer(contenu);
         return decision;
     }
 
-    public void Modifier(ContenuDecision contenu)
+    /// <summary>La version relue par l'appelant est-elle la version courante ?</summary>
+    public bool EstALaVersion(int versionAttendue) => versionAttendue == VersionContenu;
+
+    public void Modifier(ContenuDecision contenu, string modifieePar, DateTimeOffset modifieeLe)
     {
         if (Statut != StatutDecision.Brouillon)
         {
@@ -133,9 +156,15 @@ public sealed class Decision : AggregateRoot
         }
 
         Appliquer(contenu);
+        ModifieePar = Garde.Requis(modifieePar, "auteur de la modification", 100);
+        ModifieeLe = modifieeLe;
+        VersionContenu++;
     }
 
-    /// <summary>SAN-32 : signature qualifiée par le CPMT auteur, puis transmission (SAN-33).</summary>
+    /// <summary>
+    /// SAN-32 : signature qualifiée par un CPMT, qui devient l'auteur légal de la décision (ADR 0017), puis transmission
+    /// (SAN-33). Le droit de signer, la relation de soin ou le motif et l'authentification forte sont vérifiés en amont.
+    /// </summary>
     public void Signer(string signataireId, string referenceSignature, DateTimeOffset signeeLe)
     {
         if (Statut != StatutDecision.Brouillon)
@@ -143,16 +172,12 @@ public sealed class Decision : AggregateRoot
             throw new DomainException("Cette décision est déjà signée.");
         }
 
-        if (!string.Equals(signataireId, AuteurId, StringComparison.Ordinal))
-        {
-            throw new DomainException("Seul le CPMT auteur de la décision peut la signer.");
-        }
-
         if (ValideJusquAu is { } fin && fin < DateOnly.FromDateTime(signeeLe.UtcDateTime))
         {
             throw new DomainException("La validité de la décision est déjà dépassée.");
         }
 
+        AuteurId = Garde.Requis(signataireId, "signataire", 100);
         ReferenceSignature = Garde.Requis(referenceSignature, "référence de signature", 200);
         SigneeLe = signeeLe;
         Statut = StatutDecision.Emise;

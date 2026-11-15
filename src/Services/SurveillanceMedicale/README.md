@@ -11,7 +11,13 @@ Point de passage unique : `Application/Commun.cs` → `GardeDossier`.
 
 1. **Matrice des droits** : le contenu du dossier n'est accessible qu'avec `dossier-sante:lire` / `dossier-sante:ecrire`
    (CPMT, CPMT dirigeant, infirmier). Un conseiller en prévention, le gestionnaire, l'employeur, le CPAP, l'assistant
-   médical reçoivent `403` sur tout le dossier. Les décisions (`decision:ecrire`) sont rédigées et signées par le CPMT.
+   médical reçoivent `403` sur tout le dossier. Les décisions sont rédigées et modifiées
+   par le CPMT ou l'infirmier (`decision:ecrire`), et signées par le seul CPMT (`decision:signer`, #401), qui en devient
+   l'auteur légal (ADR 0017) et pose aussi les autres actes à portée légale : clôture de l'examen, fréquence
+   (art. I.4-32), issue d'un recours, déclaration de maladie professionnelle. Le gestionnaire et les transferts du
+   dossier relèvent de `dossier-sante:gerer` (CPMT). Déploiement de la migration `AuteurDecisionALaSignature` : basculer
+   tout le trafic sur la nouvelle révision avant d'ouvrir la rédaction aux infirmiers (coexistence et retour arrière :
+   ADR 0017, Conséquences).
 2. **Relation de soin** (définition retenue, ARC-41) : l'utilisateur est en relation de soin avec la personne s'il est
    - le **CPMT gestionnaire** du dossier (celui qui l'ouvre, ou désigné par `PUT /dossiers/{id}/gestionnaire`) ;
    - le **professionnel d'un examen** (en cours ou clôturé) du dossier ;

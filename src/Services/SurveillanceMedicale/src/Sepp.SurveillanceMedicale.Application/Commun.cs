@@ -78,6 +78,9 @@ public sealed class GardeDossier(
             ? null
             : Interdit;
 
+    /// <summary>Acte réservé à un droit précis (CPMT, #401), vérifié avant tout chargement.</summary>
+    public Error? Exiger(string permission, string message) => Regles.Permission(user, permission, message);
+
     /// <summary>Trace d'un accès dont l'autorisation a été vérifiée autrement (création de dossier, purge, questionnaire pré-rempli).</summary>
     public void Journaliser(ActionAudit action, string partie, Guid dossierId)
     {
@@ -127,6 +130,14 @@ public sealed class GardeDossier(
 
         return dossier;
     }
+
+    /// <summary>
+    /// Relation de soin appréciée sur un examen précis (#401, ADR 0017) : CPMT gestionnaire du dossier, ou professionnel de
+    /// cet examen. Un autre examen du dossier (par exemple un examen spontané ouvert sur motif) ne suffit pas.
+    /// </summary>
+    public async Task<bool> EstEnRelationDeSoinSurExamenAsync(DossierSante dossier, Guid examenId, CancellationToken cancellationToken) =>
+        string.Equals(dossier.GestionnaireCpmtId, user.UserId, StringComparison.Ordinal)
+        || string.Equals((await examens.GetAsync(examenId, cancellationToken))?.ProfessionnelId, user.UserId, StringComparison.Ordinal);
 
     /// <summary>Relation de soin (§3.3, ARC-41) : CPMT gestionnaire, professionnel d'un examen du dossier, ou vaccinateur.</summary>
     public async Task<bool> EstEnRelationDeSoinAsync(DossierSante dossier, CancellationToken cancellationToken) =>

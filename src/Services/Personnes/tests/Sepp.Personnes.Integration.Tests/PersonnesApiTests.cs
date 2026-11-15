@@ -98,6 +98,18 @@ public sealed partial class PersonnesApiTests(PersonnesApiFixture fixture) : ICl
         return (await response.Content.ReadFromJsonAsync<PersonneEnregistreeDto>(Json, _ct))!;
     }
 
+    /// <summary>#401, point 2 : le CPMT dirigeant, gestionnaire des dossiers (§3.1), crée et modifie les personnes ; le CPMT non.</summary>
+    [Fact]
+    public async Task Le_cpmt_dirigeant_ecrit_les_personnes_comme_le_gestionnaire()
+    {
+        var dirigeant = fixture.Client(Roles.CpmtDirigeant);
+        var creee = await Creer(NouveauNiss(), dirigeant);
+        (await dirigeant.PutAsJsonAsync($"/api/v1/personnes/{creee.PersonneId}/identite", Identite("Durand"), _ct)).IsSuccessStatusCode.ShouldBeTrue();
+
+        (await fixture.Client(Roles.Cpmt).PutAsJsonAsync($"/api/v1/personnes/{creee.PersonneId}/identite", Identite("Autre"), _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
     [Fact]
     public async Task Les_sondes_de_sante_repondent_et_une_requete_anonyme_est_refusee()
     {

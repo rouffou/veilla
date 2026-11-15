@@ -94,7 +94,8 @@ internal static class EtapeSurveillance
         var date = c.Aujourdhui.AddDays(-Math.Min(joursAvant, Math.Max(10, p.Def.JoursDepuisDebut - 14)));
         var examenId = await ExamenClotureAsync(c, p, type, date);
         var decisionId = await RedigerAsync(c, examenId, spec, date);
-        var signature = await c.Api.PostAsync(Service.SurveillanceMedicale, $"decisions/{decisionId}/signature", UtilisateurMedical, motif: true);
+        // Version 1 : la décision vient d'être rédigée et n'a pas été modifiée (If-Match, #401).
+        var signature = await c.Api.PostSurVersionAsync(Service.SurveillanceMedicale, $"decisions/{decisionId}/signature", UtilisateurMedical, 1, motif: true);
         Api.Exiger(signature, $"Signature de la décision de {p.Def.NomComplet}");
         c.Info($"décision signée : {p.Def.NomComplet} ({p.Def.Langue}), {spec.Categorie}");
         return decisionId;

@@ -76,7 +76,8 @@ décisions sont consignées dans le registre de revue (ticket de suivi du trimes
 
 ## Écarts constatés entre le cahier des charges (§3.3, §3.1) et le code
 
-Relevés le 2026-10-25, **non corrigés** (les droits n'ont pas été modifiés ; à arbitrer par le métier) :
+Relevés le 2026-10-25 (#157), puis arbitrés par le responsable produit le 2026-11-15 (#401). Les décisions sont
+consignées dans la section suivante ; la liste ci-dessous garde le constat initial.
 
 1. **Décision d'évaluation de santé, écriture** : le cahier indique « Écriture » pour la colonne « CPMT / infirmier ». Le code
    donne `decision:ecrire` au seul CPMT et au CPMT dirigeant ; l'infirmier n'a que `decision:lire`. Écart probable
@@ -93,3 +94,51 @@ Relevés le 2026-10-25, **non corrigés** (les droits n'ont pas été modifiés 
    Le SIPP, absent de la synthèse, est aligné sur l'employeur.
 6. La synthèse ne couvre que cinq familles de données ; les autres permissions du CSV (colonne `hors-3.3`) sont des
    répartitions proposées « à valider » dans les commentaires du code (reprise, réintégration, planification, etc.).
+
+## Décisions du responsable produit (#401, 2026-11-15)
+
+| Écart | Décision | Mise en œuvre |
+|---|---|---|
+| 1. Décision d'évaluation | Validée : l'infirmier rédige et modifie ; seul le CPMT signe | `decision:ecrire` accordé à l'infirmier ; nouveau `decision:signer` (CPMT, CPMT dirigeant) sur la signature et les autres actes à portée légale (voir ci-dessous) |
+| 2. CPMT dirigeant | Validée : gestionnaire des dossiers | `affilie:ecrire` et `personne:ecrire` accordés au CPMT dirigeant |
+| 3. Psychosocial, employeur « selon procédure » | **Ouverte** : procédure à définir, proposition en cours | Aucun droit accordé (comportement le plus restrictif) |
+| 4. Psychosocial, travailleur « ses propres documents » | Validée : droit dédié | `dossier-psy:publications-propres-lire` accordé au travailleur : il ne voit que les publications que le CPAP lui adresse explicitement, jamais le dossier (même mécanisme que `dossier-psy:publications-lire` pour l'employeur). Droit déclaré sans route : à appliquer par le service Psychosocial (lot 5) |
+| 5a. Travailleur, `affilie:lire-employeurs` (POR-11) | Validée : extension maintenue et encadrée | `GET /api/v1/mes-employeurs` ne rend que l'identifiant, la dénomination et la langue des affiliés où la personne du jeton a une occupation active (le régime linguistique, inutilisé, est retiré) |
+| 5b. SIPP aligné sur l'employeur | Validée : alignement maintenu et encadré | Test `MatriceDroitsTests.Le_sipp_n_a_jamais_plus_de_droits_que_l_employeur` ; périmètre limité à l'affilié du jeton (claim `affilie_id`), vérifié par chaque service |
+
+Répartition des routes de Surveillance médicale autrefois sous `decision:ecrire` :
+
+| Route | Droit | Motif |
+|---|---|---|
+| `POST /examens/{id}/decision`, `PUT /decisions/{id}` | `decision:ecrire` | Rédaction et modification d'un brouillon, sans effet hors de la zone médicale |
+| `POST /decisions/{id}/signature` | `decision:signer` + authentification forte + `If-Match` | Signature qualifiée et émission du formulaire : acte légal du CPMT, qui en devient l'auteur (SAN-32, ADR 0017) |
+| `POST /examens/{id}/cloture` | `decision:signer` | La clôture valide l'examen et satisfait les obligations légales : acte du CPMT |
+| `PUT /dossiers/{id}/gestionnaire`, `POST /dossiers` avec `gestionnaireCpmtId` | `dossier-sante:gerer` (CPMT, CPMT dirigeant) | Désignation du CPMT gestionnaire |
+| `POST /dossiers/{id}/transferts`, `POST /transferts/{id}/transmission` | `dossier-sante:gerer` | Transfert du dossier vers un autre SEPP ou SIPP (SAN-42) : acte du CPMT |
+| `POST /examens/{id}/propositions-frequence/{propositionId}` | `decision:signer` | Décision du CPMT sur la fréquence de surveillance (art. I.4-32, SAN-23) |
+| `POST /decisions/{id}/recours` | `decision:ecrire` | Enregistrement de l'introduction d'une concertation ou d'un recours (SAN-34), ouvert à l'infirmier |
+| `POST /decisions/{id}/recours/{recoursId}/issue` | `decision:signer` | L'issue peut réformer et retransmettre la décision émise (SAN-34) |
+| `POST /dossiers/{id}/declarations-mp`, `POST /declarations-mp/{id}/envoi`, `/demandes-information/{id}/reponse` | `decision:signer` | Déclaration de maladie professionnelle elle-même (diagnostic, transmission et réponses à Fedris) : acte du médecin (SAN-70) |
+| `POST /declarations-mp/{id}/suivi`, `POST /declarations-mp/{id}/demandes-information` | `decision:ecrire` | Suivi administratif du statut Fedris et enregistrement d'une demande reçue (SAN-71), ouverts à l'infirmier |
+
+Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
+
+- **Auteur légal fixé à la signature.** Le brouillon n'a pas d'auteur légal. Il porte son rédacteur réel (`RedigeePar`),
+  son dernier modificateur et la date de modification (`ModifieePar`, `ModifieeLe`), ainsi qu'une version de contenu.
+  - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin avec le travailleur ou, à
+    défaut, un bris de glace motivé, tracé et signalé (ARC-41), ainsi que l'authentification forte. Un simple motif ne
+    suffit pas pour signer.
+  - Un dossier sans CPMT gestionnaire ne bloque plus la rédaction.
+  - La règle « seul l'auteur signe » est supprimée.
+- **Version relue.** La modification et la signature exigent `If-Match`, avec la valeur `Version` rendue par
+  `GET /decisions/{id}/complete` (zone médicale seulement). Sans cet en-tête, la réponse est 400 ; avec une version
+  dépassée, 409.
+- **Brouillon d'un autre.** L'infirmier ne modifie le brouillon d'un autre professionnel qu'en relation de soin sur
+  l'examen de la décision : professionnel de cet examen ou gestionnaire du dossier. Ni un simple motif ni un autre
+  examen du dossier, même un examen spontané, ne suffisent.
+- **Authentification forte.** La clôture d'examen (`decision:signer`) l'exige explicitement. Les routes
+  `dossier-sante:gerer` l'exigent par leur préfixe.
+- **Langue.** Elle est conservée dans `mes-employeurs`.
+- **Limite du contrôle du gestionnaire.** Le service n'a pas d'annuaire. Il contrôle seulement que l'identifiant désigné
+  n'est pas vide, et que seul un CPMT (`dossier-sante:gerer`) le désigne. Il ne peut pas vérifier que cet identifiant
+  appartient à un CPMT.
