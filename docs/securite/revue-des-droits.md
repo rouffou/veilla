@@ -125,15 +125,19 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
 
 - **Auteur légal fixé à la signature.** Le brouillon n'a pas d'auteur légal. Il porte son rédacteur réel (`RedigeePar`),
   son dernier modificateur et la date de modification (`ModifieePar`, `ModifieeLe`), ainsi qu'une version de contenu.
-  - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin ou un motif (ARC-41) et
-    l'authentification forte.
+  - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin avec le travailleur ou, à
+    défaut, un bris de glace motivé, tracé et signalé (ARC-41), ainsi que l'authentification forte. Un simple motif ne
+    suffit pas pour signer.
   - Un dossier sans CPMT gestionnaire ne bloque plus la rédaction.
   - La règle « seul l'auteur signe » est supprimée.
 - **Version relue.** La modification et la signature exigent `If-Match`, avec la valeur `Version` rendue par
   `GET /decisions/{id}/complete` (zone médicale seulement). Sans cet en-tête, la réponse est 400 ; avec une version
   dépassée, 409.
-- **Brouillon d'un autre.** L'infirmier ne modifie le brouillon d'un autre professionnel qu'en relation de soin avec le
-  travailleur, jamais sur simple motif.
+- **Brouillon d'un autre.** L'infirmier ne modifie le brouillon d'un autre professionnel qu'en relation de soin sur
+  l'examen de la décision : professionnel de cet examen ou gestionnaire du dossier. Ni un simple motif ni un autre
+  examen du dossier, même un examen spontané, ne suffisent.
+- **Authentification forte.** La clôture d'examen (`decision:signer`) l'exige explicitement. Les routes
+  `dossier-sante:gerer` l'exigent par leur préfixe.
 - **Langue.** Elle est conservée dans `mes-employeurs`.
 - **Limite du contrôle du gestionnaire.** Le service n'a pas d'annuaire. Il contrôle seulement que l'identifiant désigné
   n'est pas vide, et que seul un CPMT (`dossier-sante:gerer`) le désigne. Il ne peut pas vérifier que cet identifiant

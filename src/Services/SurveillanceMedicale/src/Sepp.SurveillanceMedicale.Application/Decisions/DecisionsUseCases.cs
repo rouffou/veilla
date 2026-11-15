@@ -56,7 +56,11 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
 
     public static readonly Error RelationDeSoinRequise = Error.Forbidden(
         "decision.relation-de-soin-requise",
-        "Le brouillon d'un autre professionnel ne se modifie qu'en relation de soin avec le travailleur, jamais sur simple motif.");
+        "Le brouillon d'un autre professionnel ne se modifie qu'en relation de soin sur l'examen de la décision, jamais sur simple motif.");
+
+    public static readonly Error SignatureHorsRelation = Error.Forbidden(
+        "decision.signature-hors-relation",
+        "Hors relation de soin, la signature exige un bris de glace motivé (X-Bris-De-Glace), un simple motif ne suffit pas.");
 
     /// <summary>Écriture courante (<c>decision:ecrire</c>) : introduction d'un recours ou d'une concertation.</summary>
     public async Task<Result<Decision>> EcrireAsync(Guid decisionId, ActionAudit action, CancellationToken cancellationToken) =>
@@ -64,8 +68,9 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
 
     /// <summary>
     /// Modification d'un brouillon (<c>decision:ecrire</c>). Celui qui n'a pas <c>decision:signer</c> (l'infirmier) ne
-    /// modifie le brouillon d'un autre qu'en relation de soin avec le travailleur, jamais sur simple motif (#401) ; ses propres
-    /// brouillons suivent les règles habituelles (ARC-41).
+    /// modifie le brouillon d'un autre qu'en relation de soin sur l'examen de la décision (professionnel de cet examen ou
+    /// gestionnaire du dossier), jamais sur simple motif ni par un autre examen (#401, ADR 0017) ; ses propres brouillons
+    /// suivent les règles habituelles (ARC-41).
     /// </summary>
     public async Task<Result<Decision>> ModifierAsync(Guid decisionId, CancellationToken cancellationToken)
     {
@@ -77,7 +82,8 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
 
         var (decision, dossier) = acces.Value;
         var brouillonDUnAutre = !string.Equals(decision.RedigeePar, user.UserId, StringComparison.Ordinal);
-        if (brouillonDUnAutre && !user.HasPermission(Permissions.DecisionSigner) && !await garde.EstEnRelationDeSoinAsync(dossier, cancellationToken))
+        if (brouillonDUnAutre && !user.HasPermission(Permissions.DecisionSigner)
+            && !await garde.EstEnRelationDeSoinSurExamenAsync(dossier, decision.ExamenId, cancellationToken))
         {
             return RelationDeSoinRequise;
         }
@@ -85,7 +91,24 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
         return decision;
     }
 
-    /// <summary>Acte réservé au CPMT (<c>decision:signer</c>) : signature, issue d'un recours.</summary>
+    /// <summary>
+    /// Signature (<c>decision:signer</c>, ADR 0017) : en relation de soin avec le travailleur, ou par bris de glace motivé,
+    /// tracé et signalé (ARC-41). Un simple motif ne suffit pas.
+    /// </summary>
+    public async Task<Result<Decision>> SignerAsync(Guid decisionId, CancellationToken cancellationToken)
+    {
+        var acces = await AccederAsync(decisionId, ActionAudit.Modification, Permissions.DecisionSigner, MessageSigner, cancellationToken);
+        if (!acces.IsSuccess)
+        {
+            return acces.Error!;
+        }
+
+        var (decision, dossier) = acces.Value;
+        var brisDeGlace = contexte.BrisDeGlace && MotifAcces.Normaliser(contexte.Motif) is not null;
+        return brisDeGlace || await garde.EstEnRelationDeSoinAsync(dossier, cancellationToken) ? decision : SignatureHorsRelation;
+    }
+
+    /// <summary>Acte réservé au CPMT (<c>decision:signer</c>) : issue d'un recours.</summary>
     public async Task<Result<Decision>> ActeCpmtAsync(Guid decisionId, ActionAudit action, CancellationToken cancellationToken) =>
         SeulementDecision(await AccederAsync(decisionId, action, Permissions.DecisionSigner, MessageSigner, cancellationToken));
 
@@ -275,7 +298,7 @@ public sealed class SignerDecisionHandler(
 {
     public async Task<Result<DecisionResumeDto>> HandleAsync(SignerDecision command, CancellationToken cancellationToken)
     {
-        var acces1 = await acces.ActeCpmtAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
+        var acces1 = await acces.SignerAsync(command.DecisionId, cancellationToken);
         if (!acces1.IsSuccess)
         {
             return acces1.Error!;

@@ -25,7 +25,9 @@ version qu'il a relue.
 2. **Le CPMT qui signe devient l'auteur légal.** `Decision.Signer` fixe `AuteurId` au signataire. Les conditions sont
    vérifiées en amont du domaine :
    - le droit `decision:signer` (CPMT, CPMT dirigeant) ;
-   - une relation de soin avec le travailleur, ou un motif d'accès (ARC-41) ;
+   - une relation de soin avec le travailleur (CPMT gestionnaire, professionnel d'un examen du dossier, vaccinateur) ou,
+     à défaut, un **bris de glace** motivé, tracé et signalé (ARC-41). Un simple motif ne suffit pas pour signer
+     (`decision.signature-hors-relation`, décision du responsable produit sur P2-3) ;
    - l'authentification forte (NF-01).
 
    L'empreinte envoyée au prestataire de signature porte sur le formulaire signataire compris.
@@ -43,9 +45,12 @@ version qu'il a relue.
      (`decision.version-obsolete`).
    - Ce contrôle s'ajoute au verrou optimiste technique (`version`, DAT-03), qui couvre les écritures concurrentes, mais
      pas la relecture par l'utilisateur.
-5. **Modification par l'infirmier du brouillon d'un autre.** Elle n'est permise qu'en relation de soin avec le
-   travailleur, jamais sur simple motif (`decision.relation-de-soin-requise`). L'infirmier garde ses propres brouillons
-   avec les règles ARC-41 habituelles.
+5. **Modification par l'infirmier du brouillon d'un autre.** Elle n'est permise qu'en relation de soin **sur l'examen
+   auquel la décision se rattache** : être le professionnel de cet examen (`decision.ExamenId`) ou le CPMT gestionnaire du
+   dossier (décision du responsable produit sur P2-1).
+   - Ni un simple motif ni un autre examen du dossier ne suffisent : un examen spontané ouvert sur motif ferait sinon de
+     l'infirmier un « professionnel du dossier » et contournerait la règle. Le refus est `decision.relation-de-soin-requise`.
+   - L'infirmier garde ses propres brouillons avec les règles ARC-41 habituelles.
 6. **Migration `AuteurDecisionALaSignature`.**
    - Les décisions existantes reçoivent `redigee_par = auteur_id` et `version_contenu = 1`.
    - Les décisions signées gardent leur auteur.
@@ -67,5 +72,21 @@ version qu'il a relue.
   `Version`. Le formulaire expose `CpmtId`, vide tant que la décision n'est pas signée.
 - Les clients qui signent ou modifient une décision envoient `If-Match`. Sont concernés l'outil de données de démo et la
   solution de tests de bout en bout. Les instantanés OpenAPI de Surveillance médicale déclarent l'en-tête.
+- **Retour arrière (Down de la migration).** Il est possible, mais il perd :
+  - `modifiee_par` et `modifiee_le` ;
+  - la version de contenu ;
+  - l'identité du rédacteur quand elle diffère de l'auteur.
+
+  Un brouillon rédigé par un infirmier reprend l'infirmier comme `auteur_id` : sous l'ancienne règle « seul l'auteur
+  signe », ce brouillon ne pourrait plus être signé par aucun CPMT et devrait être réécrit. Un retour arrière se prépare
+  donc en signant ou en supprimant d'abord ces brouillons.
+- **Coexistence des révisions pendant un déploiement progressif.**
+  - L'ancienne révision ne connaît pas les nouvelles colonnes : elle les ignore en lecture et les laisse à leur valeur
+    par défaut en écriture.
+  - Un brouillon rédigé par l'ancienne révision après la migration aurait `redigee_par = ''` et `version_contenu = 0`.
+    L'ancienne révision exige aussi `auteur_id` non nul, ce qui reste compatible avec la colonne devenue nullable.
+  - En sens inverse, l'ancienne révision ne peut pas signer un brouillon de la nouvelle, dont l'auteur est vide.
+  - Il faut donc basculer tout le trafic sur la nouvelle révision avant d'ouvrir la rédaction aux infirmiers, et éviter
+    une longue période de coexistence.
 - Le BFF interne et l'application interne ne relaient pas encore la signature. L'écran de décision (DEMO-C*) devra
   afficher le rédacteur et le dernier modificateur, puis signer avec `If-Match`.

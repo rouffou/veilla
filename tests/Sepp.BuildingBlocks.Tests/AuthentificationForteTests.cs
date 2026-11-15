@@ -32,6 +32,7 @@ public sealed class AuthentificationForteTests
     [InlineData(Permissions.DossierSanteEcrire, true)]
     [InlineData(Permissions.DossierSantePurger, true)]
     [InlineData(Permissions.CopieDossierTraiter, true)]
+    [InlineData(Permissions.DossierSanteGerer, true)]
     [InlineData(Permissions.DossierPsyLire, true)]
     [InlineData(Permissions.DossierPsyEcrire, true)]
     [InlineData(Permissions.CopieDossierDemander, false)]

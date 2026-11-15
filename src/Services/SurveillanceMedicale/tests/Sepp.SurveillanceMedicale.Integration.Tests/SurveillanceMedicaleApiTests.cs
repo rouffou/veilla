@@ -200,15 +200,18 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         (await infirmier.PostAsJsonAsync("/api/v1/dossiers", new { personneId = Guid.CreateVersion7(), gestionnaireCpmtId = "cpmt-1" }, _ct))
             .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
-        // Un autre CPMT que le gestionnaire (cpmt-1), sur motif, voit qui a préparé et modifié le brouillon, puis signe la version relue.
+        // Un autre CPMT que le gestionnaire (cpmt-1) voit qui a préparé et modifié le brouillon. Sur simple motif il ne signe
+        // pas (403) ; par bris de glace motivé, il signe la version relue (ADR 0017).
         var autreCpmt = fixture.Client(Roles.Cpmt, "cpmt-2", motif: "Remplacement du Dr gestionnaire");
         await Ok(await autreCpmt.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct), HttpStatusCode.NoContent);
         var brouillon = (await autreCpmt.GetFromJsonAsync<DecisionDto>($"/api/v1/decisions/{decisionId}/complete", Json, _ct))!;
         brouillon.ShouldSatisfyAllConditions(
             d => d.AuteurId.ShouldBeNull(), d => d.RedigeePar.ShouldBe("inf-401"), d => d.ModifieePar.ShouldBe("inf-401"),
             d => d.ModifieeLe.ShouldNotBeNull(), d => d.Version.ShouldBe(2));
-        (await autreCpmt.SendAsync(Signature(decisionId, 1), _ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        var signee = await autreCpmt.SendAsync(Signature(decisionId, brouillon.Version), _ct);
+        (await autreCpmt.SendAsync(Signature(decisionId, brouillon.Version), _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        var brisDeGlace = fixture.Client(Roles.Cpmt, "cpmt-2", motif: "Remplacement du Dr gestionnaire", brisDeGlace: true);
+        (await brisDeGlace.SendAsync(Signature(decisionId, 1), _ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        var signee = await brisDeGlace.SendAsync(Signature(decisionId, brouillon.Version), _ct);
         await Ok(signee);
         var resume = (await signee.Content.ReadFromJsonAsync<DecisionResumeDto>(Json, _ct))!;
         resume.Mesures.ShouldBe(["PROTECTION_AUDITIVE"]);

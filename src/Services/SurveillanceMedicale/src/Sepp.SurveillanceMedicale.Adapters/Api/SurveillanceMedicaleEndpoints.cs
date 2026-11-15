@@ -222,6 +222,7 @@ public static class SurveillanceMedicaleEndpoints
         examens.MapPost("/{id:guid}/cloture", async (Guid id, ClotureSaisie? body, ICommandHandler<CloturerExamen, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new CloturerExamen(id, body?.Date), ct)).ToHttpResult())
             .RequirePermission(Permissions.DecisionSigner)
+            .RequireAuthenticationStrength()
             .WithName("CloturerExamen")
             .WithSummary("Clôture : obligations satisfaites, ExamenCloture publié (type et date uniquement).");
 
