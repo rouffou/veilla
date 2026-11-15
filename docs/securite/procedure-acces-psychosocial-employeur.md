@@ -12,8 +12,9 @@ psychosocial « selon procédure », mais ne définit pas cette procédure. Le c
 espace fermé : seul le CPAP en charge (et son éventuel remplaçant désigné) y accède, et chaque document communiqué suit
 les règles de destinataire du Code ».
 
-Ce document est une **proposition à valider par le responsable produit**. Il ne modifie ni `Security.cs` ni
-`matrice-droits.csv`. Les droits proposés seront créés au lot 5, avec le service Psychosocial (ADR 0016).
+Ce document était une proposition soumise au responsable produit. Il a tranché le **2026-11-15** : ses décisions sont
+reportées dans les sections 4 et 5. Il reste des points juridiques ouverts. Le document ne modifie ni `Security.cs` ni
+`matrice-droits.csv`. Les droits seront créés au lot 5, avec le service Psychosocial (ADR 0016).
 
 **Principe retenu** : l'employeur n'accède **jamais** au dossier psychosocial. Il reçoit seulement les documents que
 le Code lui destine, quand le CPAP les lui **publie** par une action explicite. « Selon procédure » signifie donc
@@ -197,7 +198,7 @@ Les autres destinataires de ces décisions (demandeur, Comité, SIPP) sont infor
 Le service Psychosocial (zone psychosociale, ADR 0016) porte un agrégat **`Publication`** distinct du `DossierPsy`.
 
 - Une publication associe : un exemplaire de document figé, un **type de document publiable** (E1 à E13), un
-  destinataire (`Employeur` ou `ConseillerDirectionServiceInterne`), l'affilié, une **référence de procédure** opaque,
+  destinataire (`Employeur`, `ConseillerDirectionServiceInterne`, `PersonneDeConfiance` ou `Travailleur`, voir §3.7 et §3.8), l'affilié, une **référence de procédure** opaque,
   l'auteur, la date de publication et la date de première consultation.
 - La **référence de procédure** est un identifiant aléatoire propre aux publications. Elle permet à l'employeur de
   regrouper les documents d'une même demande, sans jamais exposer l'identifiant du dossier.
@@ -227,8 +228,15 @@ Le service Psychosocial (zone psychosociale, ADR 0016) porte un agrégat **`Publ
 | `DossierPsyPublicationRetirer` | `dossier-psy:publication-retirer` | `cpap-dirigeant` | `hors-3.3` | Retirer une publication erronée, avec motif (option O6) |
 | `DossierPsyPublicationsLire` | `dossier-psy:publications-lire` | `employeur`, `sipp` | `3.3` | Lister et lire les publications de son affilié qui lui sont destinées. **Aucun accès au dossier** |
 | `DossierPsyDecisionEmployeurDeposer` | `dossier-psy:decision-employeur-deposer` | `employeur` | `3.3` | Déposer R1 à R4 sur une référence de procédure de son affilié |
-| `RegistreFaitsTiersLire` | `registre-faits-tiers:lire` | `employeur`, `sipp`, `cpap`, `cpap-dirigeant` | `hors-3.3` | PSY-21, option O9 |
-| `RegistreFaitsTiersEcrire` | `registre-faits-tiers:ecrire` | `cpap`, `cpap-dirigeant` | `hors-3.3` | PSY-21, option O9 |
+| `DossierPsyPublicationsLirePropres` | `dossier-psy:publications-lire-propres` | `travailleur` | `3.3` | Lire les seules publications dont il est le destinataire (claim `personne_id`), §3.8 (Q9) |
+| `DossierPsyInformelLire` | `dossier-psy:informel-lire` | `personne-confiance` | `hors-3.3` | Lire ses propres interventions informelles, §3.7 (Q2) |
+| `DossierPsyInformelEcrire` | `dossier-psy:informel-ecrire` | `personne-confiance` | `hors-3.3` | Enregistrer ses interventions informelles, §3.7 (Q2) |
+| `RegistreFaitsTiersLire` | `registre-faits-tiers:lire` | `employeur`, `sipp`, `personne-confiance`, `cpap`, `cpap-dirigeant` | `hors-3.3` | PSY-21, accès de l'art. I.3-3 (O9, Q3) |
+| `RegistreFaitsTiersEcrire` | `registre-faits-tiers:ecrire` | `cpap`, `cpap-dirigeant` | `hors-3.3` | PSY-21, tenue du registre par le CPAP (O9, Q3) |
+
+`DossierPsyPublicationsLire` est aussi accordé à `personne-confiance`, pour le seul destinataire `PersonneDeConfiance` :
+c'est l'avis remis avec l'accord du demandeur (art. I.3-25, 2°). Le rôle proposé `personne-confiance` est décrit au
+§3.7.
 
 Remarques :
 
@@ -254,11 +262,14 @@ Ces trois filtres s'appliquent **dans le service Psychosocial**. Le BFF ne filtr
    403. Le service répond 404, et non 403, pour une publication d'un autre affilié, afin de ne pas révéler son existence.
 2. **Destinataire** : le rôle `employeur` ne voit que les publications `Employeur`, le rôle `sipp` que les publications
    `ConseillerDirectionServiceInterne`. Un utilisateur qui porte les deux rôles voit les deux.
-3. **Contact désigné** (option O2, recommandée) : en plus du rôle, l'utilisateur (claim `sub`) doit figurer dans la liste
+3. **Contact désigné** (O2, décidé le 2026-11-15) : en plus du rôle, l'utilisateur (claim `sub`) doit figurer dans la liste
    des destinataires psychosociaux de l'affilié. L'affilié désigne ces contacts par écrit et le CPAP les enregistre. Au
    moment de publier, le CPAP peut exclure un contact désigné, par exemple s'il est partie à la demande.
 4. L'affilié publié est **toujours** celui du dossier (`dossier_psy.affilie_id`). Le cas de l'entreprise extérieure
    (art. I.3-43) reste une question ouverte (Q5).
+5. **Après une désaffiliation ou un changement de SEPP** (Q6, décidé le 2026-11-15) : l'affilié garde un accès en
+   **lecture seule** à ses publications pendant une durée paramétrée dans Référentiels, à fixer avec le DPO. Il ne peut
+   plus déposer. À l'échéance, l'accès est fermé ; les exemplaires restent dans le dossier, sous la garde du CPAP.
 
 ### 3.4 Journalisation (NF-04, PSY-20)
 
@@ -320,35 +331,86 @@ Ces trois filtres s'appliquent **dans le service Psychosocial**. Le BFF ne filtr
 | 3. Seules les mesures collectives anonymes vont au plan d'action | E12 et les mesures collectives d'E7 peuvent alimenter `MesurePreventionCreee`. Une mesure individuelle (E3, E11) n'y va jamais. |
 | 4. Saga de la procédure formelle | Les publications E2, E5, E7, E11 et les dépôts R1 à R3 sont des jalons de la saga. Leurs minuteries viennent des délais de Référentiels. |
 | 4. `documents-psychosociale` | Il est requis dès la première publication. |
-| 4. Journal d'accès dans la zone | Recommandation : instance `audit-psychosociale` (§3.4). Elle tranche la variante laissée à l'architecte sécurité, sous réserve de validation. |
+| 4. Journal d'accès dans la zone | Instance `audit-psychosociale` (§3.4, O4), retenue par l'orchestrateur le 2026-11-15. Elle tranche la variante laissée à l'architecte sécurité et sera figée dans un ADR. |
 
-## 4. Options soumises au responsable produit
+### 3.7 Personne de confiance (Q2)
 
-| # | Choix | Options | Recommandation |
+Décidé le 2026-11-15 : la personne de confiance de l'entreprise a un **profil dédié**. Rôle proposé :
+`PersonneConfiance = "personne-confiance"` dans `Roles`.
+
+- **Qui** : une personne désignée par l'affilié (art. I.3-56 et suivants), extérieure au SEPP. Elle est authentifiée par
+  la fédération CSAM avec un niveau élevé (préfixe `dossier-psy:`, NF-01).
+- **Zone** : ses données vivent dans la **zone psychosociale**, dans le service Psychosocial, comme celles du CPAP.
+- **Périmètre limité à ses interventions informelles** (art. I.3-11, I.3-12) : premier contact, attestation d'entretien
+  et document du type d'intervention choisi. Elle ne voit que les interventions dont elle est l'intervenante, pour
+  l'affilié de son jeton.
+- **Ce qu'elle ne voit jamais** :
+  - les demandes formelles et le dossier individuel du CPAP ;
+  - les interventions d'une autre personne de confiance.
+- **Ce qu'elle reçoit** :
+  - l'avis, si le demandeur l'accepte et si elle est intervenue dans la même situation (art. I.3-25, 2°). Il lui est
+    publié par le mécanisme du §3.1, avec le destinataire `PersonneDeConfiance` ;
+  - la lecture du registre des faits de tiers (art. I.3-3).
+- **Pas de partage automatique** avec le CPAP (PSY-06). La concertation (art. I.3-63) et la transmission annuelle des
+  incidents répétés (art. I.3-64) passent par une action explicite, sans accès croisé aux interventions.
+- **Journalisation** : même règle que pour le CPAP, dans `audit-psychosociale`. Le CPAP dirigeant et le DPO consultent
+  ces traces.
+
+### 3.8 Travailleur : « ses propres documents » (#401, point 4, Q9)
+
+Décidé le 2026-11-15 : le travailleur passe par le **même mécanisme de publication**, avec le destinataire `Travailleur`
+et la permission `dossier-psy:publications-lire-propres`. Le filtre est le claim `personne_id` : seul le travailleur
+désigné comme destinataire de la publication la voit. Il ne s'agit jamais d'un accès au dossier.
+
+| # | Document | Destinataire | Base légale |
 |---|---|---|---|
-| O1 | Valeur de la publication sur le portail | (a) Canal officiel unique de la communication écrite. (b) Canal complémentaire : l'envoi officiel reste le courrier, recommandé ou électronique (e-Box entreprise). (c) Notification seule, document envoyé par courrier. | **(b)** jusqu'à l'avis du juriste sur la valeur d'un dépôt électronique pour faire courir les délais (art. I.3-19, I.3-28, I.3-29). Le modèle permet de passer à (a) sans refonte, avec la première consultation comme preuve. |
-| O2 | Qui, chez l'affilié, voit les publications | (a) Tout utilisateur portant le rôle `employeur` ou `sipp`. (b) Rôle plus **contacts désignés** par l'affilié, enregistrés par le CPAP. (c) Rôle CSAM dédié (mandat spécifique). | **(b)**. (a) expose des identités à tout le personnel administratif de l'affilié. (c) dépend des mandats CSAM (hypothèse H4 de l'état des lieux). |
-| O3 | Emplacement des exemplaires employeur | (a) Zone psychosociale, lus par le BFF en flux. (b) Copie dans Documents standard. | **(a)**. (b) sort de la zone des identités de parties, contre ARC-06. |
-| O4 | Journal d'accès psychosocial (ADR 0016, point 4) | (a) Instance `audit-psychosociale` avec une rubrique dédiée. (b) Journal propre au service Psychosocial. | **(a)** : réutilise la chaîne infalsifiable et la consultation par zone, sans second journal à maintenir. |
-| O5 | Contenu de la notification | (a) Générique, sans « psychosocial » ni nom. (b) Explicite (type de document). | **(a)** : la boîte de l'affilié peut être lue par des tiers. |
-| O6 | Retrait d'une publication | (a) Impossible ; rectification par un nouveau document. (b) Retrait par le CPAP dirigeant, motif obligatoire, trace conservée. | **(b)**, limité à l'erreur de destinataire (violation de données, RGPD art. 33). L'exemplaire reste dans le dossier. |
-| O7 | Dépôt des décisions de l'employeur dans le portail | (a) Oui (R1 à R4). (b) Non, courrier uniquement. | **(a)** : il ferme la boucle des délais de la saga (PSY-05). |
-| O8 | Durée de mise à disposition sur le portail | Valeur paramétrée dans Référentiels | À fixer avec le DPO. Elle part de la publication et ne se confond pas avec la garde de vingt ans du dossier. |
-| O9 | Registre des faits de tiers (PSY-21) dans le portail | (a) Tenu par le CPAP dans Psychosocial, lu par l'employeur et le SIPP. (b) Hors de veilla. | **(a)**, mais voir Q3 : PSY-21 dit « tenu par l'employeur », le Code dit « tenu par la personne de confiance ou le CPAP ». |
+| T1 | Attestation d'entretien préalable (à sa demande) | Demandeur | Art. I.3-11 |
+| T2 | Document du type d'intervention informelle | Demandeur | Art. I.3-12 |
+| T3 | Attestation de l'entretien personnel obligatoire | Demandeur | Art. I.3-14, § 2 |
+| T4 | Accusé de réception, puis refus ou acceptation de la demande | Demandeur | Art. I.3-15, I.3-35 |
+| T5 | Information du traitement collectif et de la date de décision de l'employeur | Demandeur | Art. I.3-17, 2° |
+| T6 | Information de la décision de l'employeur (demande collective) | Demandeur | Art. I.3-19, 1° |
+| T7 | Motifs de prolongation du délai d'avis | Demandeur, autre personne directement impliquée | Art. I.3-25, al. 2 |
+| T8 | Date de remise de l'avis et propositions de mesures | Demandeur, autre personne directement impliquée | Art. I.3-26 |
+| T9 | Faits reprochés | Personne mise en cause | Art. I.3-37, 1° |
+| T10 | Copie de sa propre déclaration | Personne entendue | Art. I.3-23, al. 2 ; I.3-37, al. 2 |
 
-## 5. Questions ouvertes
+Le travailleur ne reçoit pas l'avis du SEPP : c'est l'employeur qui le lui remet (art. I.3-28, I.3-42). La liste fermée
+des types et les filtres du §3.3 s'appliquent de la même façon. La notification reste générique (O5).
 
-| # | Question | Destinataire |
-|---|---|---|
-| Q1 | Un dépôt sur le portail vaut-il « communication écrite » et date de réception pour les délais du Code ? Faut-il une clause dans le contrat d'affiliation ? | Juriste, DPO, responsable produit |
-| Q2 | La personne de confiance de l'entreprise (art. I.3-25, 2° ; PSY-06) doit-elle devenir un profil du portail ? Ce document ne le prévoit pas : elle reçoit l'avis hors de veilla. | Responsable produit |
-| Q3 | Registre des faits de tiers : qui le tient dans veilla ? Le Code (art. I.3-3) contredit la formulation de PSY-21. | Responsable produit, juriste |
-| Q4 | Identité de la personne mise en cause : peut-elle être communiquée à l'employeur avant l'avis, hors des mesures conservatoires (§1.6) ? | Juriste |
-| Q5 | Entreprise extérieure (art. I.3-43) : faut-il publier à un affilié autre que celui du dossier ? | Juriste, responsable produit |
-| Q6 | Après une désaffiliation ou un changement de SEPP (art. I.3-34), l'affilié garde-t-il l'accès à ses anciennes publications ? | Responsable produit, DPO |
-| Q7 | Moment exact de l'information de l'art. I.3-22 (après acceptation ?) : le texte ne le précise pas. | Juriste |
-| Q8 | Numéro d'article de la loi du 4 août 1996 sur le secret professionnel du CPAP, et vérification du titre 3 sur la version consolidée en vigueur. | Juriste |
-| Q9 | Le point 4 de #401 (travailleur, « ses propres documents ») peut-il réutiliser ce mécanisme avec un destinataire `Travailleur` et la permission `dossier-psy:publications-lire-propres` ? | Responsable produit (décision séparée) |
+## 4. Options et décisions
+
+| # | Choix | Options | Recommandation | Décision |
+|---|---|---|---|---|
+| O1 | Valeur de la publication sur le portail | (a) Canal officiel unique de la communication écrite. (b) Canal complémentaire : l'envoi officiel reste le courrier, recommandé ou électronique (e-Box entreprise). (c) Notification seule, document envoyé par courrier. | **(b)** jusqu'à l'avis du juriste sur la valeur d'un dépôt électronique pour faire courir les délais (art. I.3-19, I.3-28, I.3-29). Le modèle permet de passer à (a) sans refonte, avec la première consultation comme preuve. | **Décidé le 2026-11-15** par le responsable produit : (b), canal complémentaire en attendant l'avis d'un juriste (Q1). |
+| O2 | Qui, chez l'affilié, voit les publications | (a) Tout utilisateur portant le rôle `employeur` ou `sipp`. (b) Rôle plus **contacts désignés** par l'affilié, enregistrés par le CPAP. (c) Rôle CSAM dédié (mandat spécifique). | **(b)**. (a) expose des identités à tout le personnel administratif de l'affilié. (c) dépend des mandats CSAM (hypothèse H4 de l'état des lieux). | **Décidé le 2026-11-15** par le responsable produit : (b), contacts désignés. |
+| O3 | Emplacement des exemplaires employeur | (a) Zone psychosociale, lus par le BFF en flux. (b) Copie dans Documents standard. | **(a)**. (b) sort de la zone des identités de parties, contre ARC-06. | **Décidé le 2026-11-15** par l'orchestrateur : (a), à figer dans un ADR. |
+| O4 | Journal d'accès psychosocial (ADR 0016, point 4) | (a) Instance `audit-psychosociale` avec une rubrique dédiée. (b) Journal propre au service Psychosocial. | **(a)** : réutilise la chaîne infalsifiable et la consultation par zone, sans second journal à maintenir. | **Décidé le 2026-11-15** par l'orchestrateur : (a), à figer dans un ADR. |
+| O5 | Contenu de la notification | (a) Générique, sans « psychosocial » ni nom. (b) Explicite (type de document). | **(a)** : la boîte de l'affilié peut être lue par des tiers. | **Décidé le 2026-11-15** par le responsable produit : (a), message générique. |
+| O6 | Retrait d'une publication | (a) Impossible ; rectification par un nouveau document. (b) Retrait par le CPAP dirigeant, motif obligatoire, trace conservée. | **(b)**, limité à l'erreur de destinataire (violation de données, RGPD art. 33). L'exemplaire reste dans le dossier. | **Décidé le 2026-11-15** par le responsable produit : (b), retrait par le CPAP dirigeant avec motif. |
+| O7 | Dépôt des décisions de l'employeur dans le portail | (a) Oui (R1 à R4). (b) Non, courrier uniquement. | **(a)** : il ferme la boucle des délais de la saga (PSY-05). | **Décidé le 2026-11-15** par le responsable produit : (a), oui. |
+| O8 | Durée de mise à disposition sur le portail | Valeur paramétrée dans Référentiels | À fixer avec le DPO. Elle part de la publication et ne se confond pas avec la garde de vingt ans du dossier. | **Ouverte** : valeur à fixer avec le DPO. |
+| O9 | Registre des faits de tiers (PSY-21) dans le portail | (a) Tenu par le CPAP dans Psychosocial, lu par l'employeur, le SIPP et la personne de confiance. (b) Hors de veilla. | **(a)**, voir Q3. | **Décidé le 2026-11-15** par le responsable produit (avec Q3) : (a), registre tenu par le CPAP selon l'art. I.3-3, sous réserve de confirmation par un juriste. |
+
+**Écart avec le cahier des charges (PSY-21)** : PSY-21 décrit un « registre des faits de tiers tenu par l'employeur ».
+Le Code (art. I.3-3) le fait tenir par la personne de confiance ou le CPAP. Il donne seulement à l'employeur un accès au
+registre et la conservation des déclarations pendant cinq ans. veilla suit le Code : le CPAP tient le registre et
+l'employeur le consulte en lecture seule. Cet écart doit être confirmé par un juriste et signalé dans la couverture du
+cahier des charges.
+
+## 5. Questions
+
+| # | Question | Destinataire | Statut |
+|---|---|---|---|
+| Q1 | Un dépôt sur le portail vaut-il « communication écrite » et date de réception pour les délais du Code ? Faut-il une clause dans le contrat d'affiliation ? | Juriste, DPO, responsable produit | **Ouverte** |
+| Q2 | La personne de confiance de l'entreprise (art. I.3-25, 2° ; PSY-06) doit-elle devenir un profil du portail ? | Responsable produit | **Décidé le 2026-11-15** : profil dédié, rôle proposé `personne-confiance` en zone psychosociale, limité à ses interventions informelles (§3.7). |
+| Q3 | Registre des faits de tiers : qui le tient dans veilla ? Le Code (art. I.3-3) contredit la formulation de PSY-21. | Responsable produit, juriste | **Décidé le 2026-11-15** : registre tenu par le CPAP selon le Code, **sous réserve de confirmation par un juriste**. Écart avec PSY-21 signalé (section 4). |
+| Q4 | Identité de la personne mise en cause : peut-elle être communiquée à l'employeur avant l'avis, hors des mesures conservatoires (§1.6) ? | Juriste | **Ouverte** |
+| Q5 | Entreprise extérieure (art. I.3-43) : faut-il publier à un affilié autre que celui du dossier ? | Juriste, responsable produit | **Ouverte** |
+| Q6 | Après une désaffiliation ou un changement de SEPP (art. I.3-34), l'affilié garde-t-il l'accès à ses anciennes publications ? | Responsable produit, DPO | **Décidé le 2026-11-15** : lecture seule pendant une durée paramétrée dans Référentiels, à fixer avec le DPO (§3.3, point 5). |
+| Q7 | Moment exact de l'information de l'art. I.3-22 (après acceptation ?) : le texte ne le précise pas. | Juriste | **Ouverte** |
+| Q8 | Numéro d'article de la loi du 4 août 1996 sur le secret professionnel du CPAP, et vérification du titre 3 sur la version consolidée en vigueur. | Juriste | **Ouverte** |
+| Q9 | Le point 4 de #401 (travailleur, « ses propres documents ») peut-il réutiliser ce mécanisme avec un destinataire `Travailleur` et la permission `dossier-psy:publications-lire-propres` ? | Responsable produit (décision séparée) | **Décidé le 2026-11-15** : oui, même mécanisme de publication (§3.8). |
 
 ## Hypothèses
 
@@ -363,9 +425,11 @@ Ces trois filtres s'appliquent **dans le service Psychosocial**. Le BFF ne filtr
 
 ## Suite
 
-Après validation :
-
-1. Rédiger un ADR (prochain numéro libre dans `docs/adr/README.md`) qui fige O1 à O9 et tranche le point 4 de
-   l'ADR 0016.
-2. Ouvrir les tickets du lot 5 : droits et matrice, agrégat `Publication`, routes employeur, exemplaires de
-   `documents-psychosociale`, instance `audit-psychosociale`, notification et écrans du portail employeur.
+1. Rédiger un ADR (prochain numéro libre dans `docs/adr/README.md`) qui fige les décisions du 2026-11-15, en
+   particulier O3 et O4, et tranche le point 4 de l'ADR 0016.
+2. Obtenir l'avis d'un juriste sur Q1, Q3, Q4, Q5, Q7 et Q8. Fixer avec le DPO les durées d'O8 et de Q6.
+3. Ouvrir les tickets du lot 5 :
+   - droits et matrice, rôle `personne-confiance` ;
+   - agrégat `Publication`, routes employeur, travailleur et personne de confiance ;
+   - exemplaires de `documents-psychosociale`, instance `audit-psychosociale` ;
+   - notification et écrans des portails.
