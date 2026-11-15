@@ -50,7 +50,7 @@ output "documents_kek_uris" {
 
 output "field_kek_uris" {
   description = "URI (sans version) de la clé racine <service>-fields-kek de chaque service qui chiffre des champs (ADR 0012)."
-  value       = { for n, s in var.services : n => module.keyvault[s.zone].field_kek_uris["${n}-fields-kek"] if length(s.encryption) > 0 }
+  value       = { for n, s in local.services : n => module.keyvault[s.zone].field_kek_uris["${n}-fields-kek"] if length(s.encryption) > 0 }
 }
 
 output "gateway_public_ip" {
@@ -70,7 +70,7 @@ output "migration_identities" {
 
 output "migration_jobs" {
   description = "Job de migration de chaque service doté d'une base : nom et groupe de ressources (az containerapp job start)."
-  value       = { for n, job in module.migration_job : n => { name = job.name, resource_group = azurerm_resource_group.zone[var.services[n].zone].name } }
+  value       = { for n, job in module.migration_job : n => { name = job.name, resource_group = azurerm_resource_group.zone[local.services[n].zone].name } }
 }
 
 output "action_group_id" {

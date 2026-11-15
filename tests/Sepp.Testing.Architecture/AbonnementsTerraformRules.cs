@@ -54,6 +54,32 @@ public abstract class AbonnementsTerraformRules
             $"'{Service}' s'abonne par le code à des rubriques absentes de subscribes_to (infra/variables.tf) : {string.Join(", ", manquantes)}.");
     }
 
+    /// <summary>
+    /// Sens inverse (ADR 0015) : un abonnement Terraform sans gestionnaire dans le code n'est permis que vers un producteur
+    /// inactif (<c>actif = false</c>). Sinon les messages s'accumuleraient dans la subscription et la règle KEDA maintiendrait
+    /// le service à son maximum de répliques.
+    /// </summary>
+    [Fact]
+    public void Les_abonnements_terraform_sans_gestionnaire_ne_visent_que_des_producteurs_inactifs()
+    {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true)
+            .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddInMemoryCollection(new Dictionary<string, string?> { [$"ConnectionStrings:{ConnectionStringName}"] = "Host=localhost;Database=abonnements-terraform" })
+            .Build();
+        var souscrites = RubriquesSouscrites(Composer(configuration));
+        var catalogue = VariablesTerraform.Lire().Services;
+
+        var sansGestionnaire = catalogue[Service].SubscribesTo
+            .Except(souscrites, StringComparer.Ordinal)
+            .Where(topic => !catalogue.TryGetValue(topic, out var producteur) || producteur.Actif)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        sansGestionnaire.ShouldBeEmpty(
+            $"'{Service}' a dans subscribes_to (infra/variables.tf) des rubriques d'un producteur actif sans gestionnaire dans le code : {string.Join(", ", sansGestionnaire)}.");
+    }
+
     /// <summary>Rubriques des gestionnaires enregistrés (registre <see cref="IntegrationEventSubscriptions"/>).</summary>
     public static IReadOnlyCollection<string> RubriquesSouscrites(IServiceCollection services)
     {
@@ -109,7 +135,8 @@ public sealed record VariablesTerraform(IReadOnlyDictionary<string, ServiceTerra
 
             services[entree.Groups["nom"].Value] = new ServiceTerraform(
                 Liste(bloc, "subscribes_to"),
-                FiltresSujets(bloc));
+                FiltresSujets(bloc),
+                !Regex.IsMatch(bloc, @"\bactif\s*=\s*false"));
         }
 
         return new VariablesTerraform(services);
@@ -153,5 +180,5 @@ public sealed record VariablesTerraform(IReadOnlyDictionary<string, ServiceTerra
     }
 }
 
-/// <summary>Service du catalogue Terraform : rubriques souscrites et sujets acceptés par rubrique.</summary>
-public sealed record ServiceTerraform(IReadOnlyList<string> SubscribesTo, IReadOnlyDictionary<string, IReadOnlyList<string>> SubjectFilters);
+/// <summary>Service du catalogue Terraform : rubriques souscrites, sujets acceptés par rubrique et état d'activation (ADR 0015).</summary>
+public sealed record ServiceTerraform(IReadOnlyList<string> SubscribesTo, IReadOnlyDictionary<string, IReadOnlyList<string>> SubjectFilters, bool Actif = true);

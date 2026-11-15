@@ -70,6 +70,10 @@ variable "tags" {
 # Catalogue des microservices conteneurisés (§14.3). Clé = nom du service, qui est aussi
 # le nom de son topic Service Bus s'il publie des événements. Attributs :
 # - zone : platform | standard | medicale | psychosociale (CTR-10) ;
+# - actif : `true` par défaut (ADR 0015). Un service inactif (code pas encore livré) reste au catalogue pour garder sa zone
+#   et ses abonnements prévus, mais ne crée rien : ni Container App, ni base, ni job de migration, ni identité, ni rubrique,
+#   ni abonnement, ni règle KEDA. Les abonnements vers un service inactif sont ignorés, et un serveur PostgreSQL n'est créé
+#   dans une zone que si un service actif y a une base. Activation : voir « Activer un service » dans infra/README.md ;
 # - cpu / memory : ressources du conteneur (CTR-13) ;
 # - min_replicas / max_replicas : bornes de mise à l'échelle (minimum forcé à 2 en prod, CTR-14) ;
 # - database : base PostgreSQL dédiée sur le serveur de la zone (ARC-02) ;
@@ -109,6 +113,7 @@ variable "services" {
   description = "Catalogue des microservices (zone, ressources, mise à l'échelle, base de données, événements). Voir le commentaire ci-dessus."
   type = map(object({
     zone              = string
+    actif             = optional(bool, true)
     cpu               = optional(number, 0.5)
     memory            = optional(string, "1Gi")
     min_replicas      = optional(number)
@@ -129,11 +134,10 @@ variable "services" {
     adapters          = optional(list(string), [])
   }))
   default = {
-    # --- Zone plateforme : BFF (ARC-43) et identité (ARC-40) ---
+    # --- Zone plateforme : BFF (ARC-43). L'identité relève du fournisseur d'identité et du socle (ADR 0005, ADR 0015) ---
     "bff-interne"     = { zone = "platform", publishes_events = false }
     "bff-employeur"   = { zone = "platform" }
     "bff-travailleur" = { zone = "platform" }
-    "identite"        = { zone = "platform", database = true }
 
     # --- Zone standard / transverse ---
     # Les abonnements suivent les gestionnaires d'événements réellement enregistrés dans chaque service (saga de
@@ -191,20 +195,20 @@ variable "services" {
       subscribes_to = ["obligations", "referentiels", "communications"]
       adapters      = ["Planification__Adaptateurs__OutilRh", "Planification__Adaptateurs__AgendaExterne"]
     }
-    "prevention"  = { zone = "standard", database = true, subscribes_to = ["affilies", "postes-risques", "bff-employeur"] }
-    "prestations" = { zone = "standard", database = true, subscribes_to = ["planification", "prevention", "surveillance-medicale", "reintegration", "psychosocial"] }
+    "prevention"  = { zone = "standard", actif = false, database = true, subscribes_to = ["affilies", "postes-risques", "bff-employeur"] }
+    "prestations" = { zone = "standard", actif = false, database = true, subscribes_to = ["planification", "prevention", "surveillance-medicale", "reintegration", "psychosocial"] }
     # Documents : une instance par zone qui produit des documents (décision #356). Celle-ci est l'instance de la zone
     # standard ; documents-medicale (zone médicale) exécute le même code avec sa base, son stockage et sa clé racine.
     "documents" = {
       zone     = "standard"
       database = true
       # surveillance-medicale : seul abonnement avec gestionnaire pour la zone standard (formulaire d'évaluation de santé,
-      # SAN-30, exemplaire employeur) ; les autres producteurs (reintegration, psychosocial, prevention) ne sont pas
+      # SAN-30, exemplaire employeur) ; les autres producteurs (psychosocial, prevention : inactifs, ADR 0015) ne sont pas
       # encore écrits. La copie du dossier et le carnet de vaccination sont traités par documents-medicale.
       # affilies, personnes : projection du contexte linguistique (ProjectionLinguistiqueHandler, NF-41, ADR 0009), tenue
       # par chaque instance ; l'instance standard la tient prête mais lit la langue par HTTP (DOCUMENTS__SOURCELINGUISTIQUE).
       # Les instantanés affilie-instantane et personne-instantanee la rattrapent à la mise en service (ADR 0011).
-      subscribes_to = ["surveillance-medicale", "reintegration", "psychosocial", "prevention", "affilies", "personnes"]
+      subscribes_to = ["surveillance-medicale", "psychosocial", "prevention", "affilies", "personnes"]
       subject_filters = {
         surveillance-medicale = ["surveillance-medicale.decision-emise.v1"]
         affilies              = ["affilies.affilie-cree.v1", "affilies.affilie-modifie.v1", "affilies.affilie-instantane.v1"]
@@ -300,6 +304,7 @@ variable "services" {
     "referentiels" = { zone = "standard", database = true }
     "reporting" = {
       zone             = "standard"
+      actif            = false
       database         = true
       publishes_events = false
       subscribes_to    = ["affilies", "personnes", "obligations", "planification", "prestations", "prevention", "surveillance-medicale", "psychosocial", "reintegration"]
@@ -354,6 +359,7 @@ variable "services" {
     # --- Zone psychosociale (ARC-04) ---
     "psychosocial" = {
       zone          = "psychosociale"
+      actif         = false
       database      = true
       subscribes_to = ["personnes", "affilies", "bff-travailleur"]
       # Service pas encore écrit : liste prévue, à confirmer avec ses gestionnaires (état particulier réservé à Obligations).
@@ -409,6 +415,14 @@ variable "services" {
       )
     ])
     error_message = "instance_de doit désigner un service existant qui n'est pas lui-même une instance, et l'instance ne doit pas avoir de topic propre (publishes_events = false : émetteur partagé du service d'origine)."
+  }
+
+  # Un service actif ne peut pas être l'instance d'un service inactif (ADR 0015) : l'image et le topic n'existeraient pas.
+  validation {
+    condition = alltrue([
+      for n, s in var.services : !s.actif || s.instance_de == null || try(var.services[s.instance_de].actif, false)
+    ])
+    error_message = "Un service actif ne peut pas être l'instance (instance_de) d'un service inactif."
   }
 
   validation {

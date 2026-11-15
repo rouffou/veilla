@@ -48,16 +48,16 @@ identiques ; seules les valeurs de `terraform.tfvars` diffèrent.
 Internet ──► Application Gateway WAF_v2 (IP publique, TLS, OWASP/DRS 2.1, limitation de débit)
                 │  HTTPS
                 ▼
-           API Management (VNet interne) ──► BFF interne / employeur / travailleur, identité
+           API Management (VNet interne) ──► BFF interne / employeur / travailleur
                                               [Container Apps env « platform »]
                                                  │ REST/gRPC (VNet uniquement)
                  ┌───────────────────────────────┼──────────────────────────────┐
                  ▼                               ▼                              ▼
       env « standard »                 env « medicale »              env « psychosociale »
-   affiliés, personnes, ...        surveillance-medicale,              psychosocial
-   audit, reporting               reintegration
-   PostgreSQL std, KV std,        PostgreSQL méd., KV Premium       PostgreSQL psy., KV Premium
-   documents, stockage WORM       documents-medicale, stockage      (+ Managed HSM)
+   affiliés, personnes, ...        surveillance-medicale,              (psychosocial, inactif :
+   audit                          reintegration                        ADR 0015)
+   PostgreSQL std, KV std,        PostgreSQL méd., KV Premium       KV Premium (PostgreSQL à
+   documents, stockage WORM       documents-medicale, stockage      l'activation du service) (+ HSM)
    + clé racine documents-kek     WORM + clé racine (+ Managed HSM)
                  └─────────────── Service Bus Premium (point privé, plateforme) ──────┘
 ```
@@ -95,12 +95,44 @@ Internet ──► Application Gateway WAF_v2 (IP publique, TLS, OWASP/DRS 2.1, 
   `documents` par l'émetteur partagé (`shared_topic_senders`) et sa subscription porte son nom
   (`SERVICEBUS__SUBSCRIPTIONNAME`). Aucun service ne référence le coffre d'une autre zone et aucune règle NSG n'ouvre la zone
   standard vers les zones médicale et psychosociale (tests `ConfigurationTerraformTests`).
+- **Services inactifs** (ADR 0015) : l'attribut `actif` du catalogue (`true` par défaut) distingue les services dont le code
+  existe de ceux qui sont seulement prévus. Un service inactif garde son entrée (zone, abonnements prévus) mais ne crée
+  **rien** : ni Container App, ni base, ni job de migration, ni identité, ni rubrique, ni abonnement, ni règle KEDA. Les
+  abonnements *vers* un service inactif sont ignorés, et un serveur PostgreSQL n'est créé dans une zone que si un service
+  actif y a une base. Les éléments propres à une zone (environnement Container Apps, coffre, sous-réseau) sont conservés :
+  ils coûtent peu à vide et le cloisonnement (ARC-04) reste démontrable. Tous les `for` de `main.tf` lisent `local.services`
+  (le catalogue filtré) ; `var.services` n'est lu que par les validations. Aujourd'hui, `prevention`, `prestations`,
+  `psychosocial` et `reporting` sont inactifs ; `identite` est retiré (l'identité relève du fournisseur d'identité et du socle,
+  ADR 0005). Voir [Activer un service](#activer-un-service) ci-dessous.
 - **Filtres par sujet** : `subject_filters` (topic -> sujets) crée une règle SQL
   `sys.Label IN (...)` par subscription filtrée. Le sujet du message est le nom versionné
   du contrat (`audit.bris-de-glace-signale.v1`, ADR 0004). Utilisé pour limiter
   Communications au bris de glace du topic `audit` et pour réserver
   `personnes.etat-particulier-declare.v1` à Obligations (une validation Terraform impose
   aux autres abonnés du topic `personnes` de déclarer leurs sujets).
+
+### Activer un service
+
+À faire dans la PR qui livre le premier code du service (ADR 0015), dans cet ordre :
+
+1. **Catalogue** : dans `variables.tf`, retirer `actif = false` du service (ou le passer à `true`). Relire ses `subscribes_to` :
+   chaque rubrique d'un producteur actif doit avoir un gestionnaire (`AddIntegrationEventHandler`) dans le code, sinon le test
+   `Les_abonnements_terraform_sans_gestionnaire_ne_visent_que_des_producteurs_inactifs` échoue. Ajouter aussi, si ses
+   producteurs deviennent actifs, les abonnements des services déjà actifs vers lui.
+2. **Tests** : retirer le service de `ServicesSansCode` dans `ConfigurationTerraformTests` et déclarer ses clés obligatoires
+   dans `ClesObligatoires` (le test `Les_services_sans_code_sont_exactement_les_services_inactifs_du_catalogue` le vérifie), et
+   ajouter son `AbonnementsTerraformTests` s'il s'abonne à des rubriques.
+3. **Plan relu** : `terraform plan` sur l'environnement cible, relu par un humain avant tout `apply`. L'activation crée la
+   Container App, la base (et le serveur PostgreSQL de la zone s'il est le premier service actif à y avoir une base), le job
+   et les identités de migration, la rubrique et les abonnements.
+4. **Rôles PostgreSQL** : amorcer le rôle d'exécution et le rôle de migration de la nouvelle base (ADR 0010, voir
+   « Rôles PostgreSQL »). Sur un serveur créé par l'activation, désigner d'abord l'administrateur Entra
+   (`postgres_entra_admin`).
+5. **Rattrapage des projections** : si le service tient des projections, lancer leur rattrapage (ADR 0011) pour récupérer
+   l'historique que les rubriques n'ont pas conservé.
+
+Désactiver un service (`actif = false`) **supprime** ses ressources, base comprise : le `plan` doit être relu avec la même
+attention, et la sauvegarde de la base vérifiée au préalable.
 
 ### Règle `$Default` des subscriptions filtrées
 
