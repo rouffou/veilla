@@ -25,7 +25,7 @@ public sealed class AccesDeclarationsMp(IDeclarationMpRepository declarations, G
     public async Task<Result<DeclarationMaladieProfessionnelle>> ChargerAsync(Guid id, ActionAudit action, CancellationToken cancellationToken)
     {
         if (action != ActionAudit.Lecture
-            && Regles.Permission(user, Permissions.DecisionEcrire, "La déclaration de maladie professionnelle est établie par le CPMT.") is { } interdit)
+            && Regles.Permission(user, Permissions.DecisionSigner, "La déclaration de maladie professionnelle est établie par le CPMT.") is { } interdit)
         {
             return interdit;
         }
@@ -64,7 +64,7 @@ public sealed class PreparerDeclarationMpHandler(
 {
     public async Task<Result<DeclarationMpDto>> HandleAsync(PreparerDeclarationMp command, CancellationToken cancellationToken)
     {
-        if (Regles.Permission(user, Permissions.DecisionEcrire, "La déclaration de maladie professionnelle est établie par le CPMT.") is { } interdit)
+        if (Regles.Permission(user, Permissions.DecisionSigner, "La déclaration de maladie professionnelle est établie par le CPMT.") is { } interdit)
         {
             return interdit;
         }

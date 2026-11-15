@@ -267,7 +267,7 @@ public sealed class DeciderPropositionFrequenceHandler(AccesExamens acces, ICurr
 {
     public async Task<Result<Unit>> HandleAsync(DeciderPropositionFrequence command, CancellationToken cancellationToken)
     {
-        if (Regles.Permission(user, Permissions.DecisionEcrire, "La fréquence de surveillance est décidée par le CPMT.") is { } interdit)
+        if (Regles.Permission(user, Permissions.DecisionSigner, "La fréquence de surveillance est décidée par le CPMT.") is { } interdit)
         {
             return interdit;
         }

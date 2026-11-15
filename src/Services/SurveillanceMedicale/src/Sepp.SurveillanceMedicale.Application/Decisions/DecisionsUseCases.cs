@@ -34,15 +34,27 @@ public static class DecisionProjections
             r.Id, r.Type, r.DateIntroduction, r.DateLimiteIntroduction, r.IntroduitDansLeDelai, r.DateLimiteIssue, r.Issue, r.DateIssue, r.Commentaire))]);
 }
 
-/// <summary>Accès aux décisions : rédaction par le CPMT (zone médicale) et lecture du résumé selon la matrice §3.3.</summary>
+/// <summary>
+/// Accès aux décisions : rédaction et modification par le CPMT ou l'infirmier (<c>decision:ecrire</c>), signature et
+/// recours par le seul CPMT (<c>decision:signer</c>, #401), lecture du résumé selon la matrice §3.3.
+/// </summary>
 public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier garde, ICurrentUser user, IContexteAcces contexte, IAuditTrail audit)
 {
     public static readonly Error Inconnue = Error.NotFound("decision.inconnue", "Décision inconnue.");
 
-    /// <summary>Rédaction, signature, recours : CPMT (<c>decision:ecrire</c>) avec accès au dossier.</summary>
-    public async Task<Result<Decision>> EcrireAsync(Guid decisionId, ActionAudit action, CancellationToken cancellationToken)
+    public const string MessageEcrire = "Seuls le CPMT et l'infirmier rédigent les décisions d'évaluation de santé.";
+
+    public const string MessageSigner = "Seul le CPMT signe les décisions d'évaluation de santé et en traite les recours.";
+
+    /// <summary>
+    /// Écriture sur une décision avec accès au dossier : <c>decision:ecrire</c> pour la modification du brouillon,
+    /// <c>decision:signer</c> pour la signature, les recours et leur issue (actes du CPMT).
+    /// </summary>
+    public async Task<Result<Decision>> EcrireAsync(
+        Guid decisionId, ActionAudit action, CancellationToken cancellationToken, string permission = Permissions.DecisionEcrire)
     {
-        if (Regles.Permission(user, Permissions.DecisionEcrire, "Seul le CPMT rédige et signe les décisions d'évaluation de santé.") is { } interdit)
+        var message = permission == Permissions.DecisionSigner ? MessageSigner : MessageEcrire;
+        if (Regles.Permission(user, permission, message) is { } interdit)
         {
             return interdit;
         }
@@ -119,15 +131,23 @@ public sealed record ContenuDecisionSaisi(CategorieDecision Categorie, IReadOnly
     public override string ToString() => $"ContenuDecisionSaisi {{ Categorie = {Categorie} }}";
 }
 
-/// <summary>SAN-31 : rédaction de la décision d'un examen (une décision par examen).</summary>
+/// <summary>
+/// SAN-31 : rédaction de la décision d'un examen (une décision par examen), par le CPMT ou l'infirmier (#401). L'auteur
+/// légal est toujours un CPMT, seul signataire : le CPMT qui rédige ou, quand l'infirmier prépare la décision, le CPMT
+/// gestionnaire du dossier (le rédacteur reste tracé dans le journal d'accès).
+/// </summary>
 public sealed record RedigerDecision(Guid ExamenId, ContenuDecisionSaisi Contenu);
 
-public sealed class RedigerDecisionHandler(AccesExamens examens, IDecisionRepository decisions, ICurrentUser user, IUnitOfWork unitOfWork)
+public sealed class RedigerDecisionHandler(
+    AccesExamens examens, IDecisionRepository decisions, IDossierSanteRepository dossiers, ICurrentUser user, IUnitOfWork unitOfWork)
     : ICommandHandler<RedigerDecision, Guid>
 {
+    public static readonly Error CpmtRequis = Error.Validation(
+        "decision.cpmt-requis", "Le dossier n'a pas de CPMT gestionnaire : la décision préparée par l'infirmier n'aurait pas de signataire.");
+
     public async Task<Result<Guid>> HandleAsync(RedigerDecision command, CancellationToken cancellationToken)
     {
-        if (Regles.Permission(user, Permissions.DecisionEcrire, "Seul le CPMT rédige les décisions d'évaluation de santé.") is { } interdit)
+        if (Regles.Permission(user, Permissions.DecisionEcrire, AccesDecisions.MessageEcrire) is { } interdit)
         {
             return interdit;
         }
@@ -149,8 +169,16 @@ public sealed class RedigerDecisionHandler(AccesExamens examens, IDecisionReposi
             return Error.Conflict("decision.existe", "Cet examen a déjà une décision.");
         }
 
+        var auteur = user.HasPermission(Permissions.DecisionSigner)
+            ? user.UserId
+            : (await dossiers.GetAsync(examen.DossierId, cancellationToken))?.GestionnaireCpmtId;
+        if (auteur is null)
+        {
+            return CpmtRequis;
+        }
+
         var decision = Regles.Appliquer("decision.invalide", () => Decision.Rediger(
-            examen.Id, examen.DossierId, examen.PersonneId, examen.AffilieId, examen.TypeExamen, examen.Date, user.UserId, command.Contenu.ToContenu()));
+            examen.Id, examen.DossierId, examen.PersonneId, examen.AffilieId, examen.TypeExamen, examen.Date, auteur, command.Contenu.ToContenu()));
         if (!decision.IsSuccess)
         {
             return decision.Error!;
@@ -198,7 +226,7 @@ public sealed class SignerDecisionHandler(
 {
     public async Task<Result<DecisionResumeDto>> HandleAsync(SignerDecision command, CancellationToken cancellationToken)
     {
-        var acces1 = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
+        var acces1 = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken, Permissions.DecisionSigner);
         if (!acces1.IsSuccess)
         {
             return acces1.Error!;
@@ -373,7 +401,7 @@ public sealed class IntroduireRecoursHandler(AccesDecisions acces, ParametresMed
 {
     public async Task<Result<RecoursDto>> HandleAsync(IntroduireRecours command, CancellationToken cancellationToken)
     {
-        var decision = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
+        var decision = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken, Permissions.DecisionSigner);
         if (!decision.IsSuccess)
         {
             return decision.Error!;
@@ -406,7 +434,7 @@ public sealed class EnregistrerIssueRecoursHandler(AccesDecisions acces, IIntegr
 {
     public async Task<Result<Unit>> HandleAsync(EnregistrerIssueRecours command, CancellationToken cancellationToken)
     {
-        var decision = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken);
+        var decision = await acces.EcrireAsync(command.DecisionId, ActionAudit.Modification, cancellationToken, Permissions.DecisionSigner);
         if (!decision.IsSuccess)
         {
             return decision.Error!;

@@ -169,7 +169,7 @@ public static class SurveillanceMedicaleEndpoints
         dossiers.MapPost("/{id:guid}/declarations-mp", async (Guid id, DeclarationMpSaisie body, ICommandHandler<PreparerDeclarationMp, DeclarationMpDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new PreparerDeclarationMp(id, body.CodeMaladie, body.Description, body.AgentCausal), ct))
                 .ToHttpResult(d => Results.Created($"/api/v1/declarations-mp/{d.Id}", d)))
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("PreparerDeclarationMp")
             .WithSummary("SAN-70 : déclaration de maladie professionnelle préremplie depuis le dossier.");
 
@@ -214,7 +214,7 @@ public static class SurveillanceMedicaleEndpoints
         examens.MapPost("/{id:guid}/propositions-frequence/{propositionId:guid}", async (Guid id, Guid propositionId, DecisionPropositionSaisie body,
                 ICommandHandler<DeciderPropositionFrequence, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new DeciderPropositionFrequence(id, propositionId, body.Acceptee), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("DeciderPropositionFrequence")
             .WithSummary("SAN-23 : acceptation ou refus de l'augmentation de fréquence (art. I.4-32).");
 
@@ -263,21 +263,21 @@ public static class SurveillanceMedicaleEndpoints
 
         decisions.MapPost("/{id:guid}/signature", async (Guid id, ICommandHandler<SignerDecision, DecisionResumeDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new SignerDecision(id), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .RequireAuthenticationStrength()
             .WithName("SignerDecision")
             .WithSummary("SAN-32, SAN-33 : signature qualifiée du CPMT puis émission (DecisionEmise) ; authentification forte exigée (NF-01).");
 
         decisions.MapPost("/{id:guid}/recours", async (Guid id, RecoursSaisi body, ICommandHandler<IntroduireRecours, RecoursDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new IntroduireRecours(id, body.Type, body.DateIntroduction), ct)).ToHttpResult(r => Results.Created($"/api/v1/decisions/{id}", r)))
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("IntroduireRecours")
             .WithSummary("SAN-34 : concertation ou recours auprès du médecin-inspecteur social (délais calculés).");
 
         decisions.MapPost("/{id:guid}/recours/{recoursId:guid}/issue", async (Guid id, Guid recoursId, IssueSaisie body,
                 ICommandHandler<EnregistrerIssueRecours, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new EnregistrerIssueRecours(id, recoursId, body.Issue, body.DateIssue, body.Reformation, body.Commentaire), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("EnregistrerIssueRecours")
             .WithSummary("SAN-34 : issue (décision du médecin-inspecteur social) ; une décision réformée est retransmise.");
     }
@@ -392,13 +392,13 @@ public static class SurveillanceMedicaleEndpoints
 
         declarations.MapPost("/{id:guid}/envoi", async (Guid id, ICommandHandler<EnvoyerDeclarationMp, DeclarationMpDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new EnvoyerDeclarationMp(id), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("EnvoyerDeclarationMp")
             .WithSummary("SAN-70 : envoi à Fedris (et au médecin-inspecteur social).");
 
         declarations.MapPost("/{id:guid}/suivi", async (Guid id, ICommandHandler<SuivreDeclarationMp, DeclarationMpDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new SuivreDeclarationMp(id), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("SuivreDeclarationMp")
             .WithSummary("SAN-71 : mise à jour du statut auprès de Fedris.");
 
@@ -406,13 +406,13 @@ public static class SurveillanceMedicaleEndpoints
                 ICommandHandler<EnregistrerDemandeInformationFedris, Guid> h, CancellationToken ct) =>
                 (await h.HandleAsync(new EnregistrerDemandeInformationFedris(id, body.DateDemande, body.Echeance, body.Objet), ct))
                 .ToHttpResult(d => Results.Created($"/api/v1/declarations-mp/{id}", new { id = d })))
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("EnregistrerDemandeInformationFedris");
 
         declarations.MapPost("/{id:guid}/demandes-information/{demandeId:guid}/reponse", async (Guid id, Guid demandeId, ReponseInformationSaisie body,
                 ICommandHandler<RepondreDemandeInformationFedris, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new RepondreDemandeInformationFedris(id, demandeId, body.Date, body.Reponse), ct)).ToHttpResult())
-            .RequirePermission(Permissions.DecisionEcrire)
+            .RequirePermission(Permissions.DecisionSigner)
             .WithName("RepondreDemandeInformationFedris");
     }
 

@@ -52,6 +52,11 @@ public class MesEmployeursTests
         resultat.Value.Single(e => e.AffilieId == dupont.Id).Langue.ShouldBe(Language.Nl);
     }
 
+    /// <summary>#401, point 5 : extension maintenue, mais limitée à l'identifiant, la dénomination et la langue.</summary>
+    [Fact]
+    public void Le_contrat_ne_porte_aucune_autre_donnee_de_l_affilie() =>
+        typeof(MonEmployeurDto).GetProperties().Select(p => p.Name).Order(StringComparer.Ordinal).ShouldBe(["AffilieId", "Denomination", "Langue"]);
+
     [Fact]
     public async Task Un_affilie_chez_qui_la_personne_n_a_pas_d_occupation_n_est_pas_rendu()
     {

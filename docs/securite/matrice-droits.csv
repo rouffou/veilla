@@ -94,6 +94,7 @@ cpmt;analyse-risques:lire;3.3
 cpmt;communications:lire;hors-3.3
 cpmt;decision:ecrire;3.3
 cpmt;decision:lire;3.3
+cpmt;decision:signer;3.3
 cpmt;documents:generer;hors-3.3
 cpmt;documents:lire;hors-3.3
 cpmt;documents:modele-lire;hors-3.3
@@ -116,6 +117,7 @@ cpmt;risque-poste:valider;hors-3.3
 cpmt;stock-vaccins:gerer;hors-3.3
 cpmt;surcharge-frequence:ecrire;hors-3.3
 cpmt;surcharge-frequence:lire;hors-3.3
+cpmt-dirigeant;affilie:ecrire;3.3
 cpmt-dirigeant;affilie:lire;3.3
 cpmt-dirigeant;analyse-risques:ecrire;3.3
 cpmt-dirigeant;analyse-risques:lire;3.3
@@ -124,6 +126,7 @@ cpmt-dirigeant;audit:zone-medicale;hors-3.3
 cpmt-dirigeant;communications:lire;hors-3.3
 cpmt-dirigeant;decision:ecrire;3.3
 cpmt-dirigeant;decision:lire;3.3
+cpmt-dirigeant;decision:signer;3.3
 cpmt-dirigeant;documents:generer;hors-3.3
 cpmt-dirigeant;documents:lire;hors-3.3
 cpmt-dirigeant;documents:modele-lire;hors-3.3
@@ -134,6 +137,7 @@ cpmt-dirigeant;dossier-sante:lire;3.3
 cpmt-dirigeant;dossier-sante:purger;hors-3.3
 cpmt-dirigeant;obligation:gerer;hors-3.3
 cpmt-dirigeant;obligation:lire;hors-3.3
+cpmt-dirigeant;personne:ecrire;hors-3.3
 cpmt-dirigeant;personne:lire;hors-3.3
 cpmt-dirigeant;planification:lire;hors-3.3
 cpmt-dirigeant;planification:modeles-agenda;hors-3.3
@@ -205,6 +209,7 @@ infirmier;affilie:lire;3.3
 infirmier;analyse-risques:ecrire;3.3
 infirmier;analyse-risques:lire;3.3
 infirmier;communications:lire;hors-3.3
+infirmier;decision:ecrire;3.3
 infirmier;decision:lire;3.3
 infirmier;documents:generer;hors-3.3
 infirmier;documents:lire;hors-3.3
@@ -270,6 +275,7 @@ sipp;reprise:lire;hors-3.3
 travailleur;affilie:lire-employeurs;hors-3.3
 travailleur;decision:lire;3.3
 travailleur;documents:lire;hors-3.3
+travailleur;dossier-psy:publications-propres-lire;3.3
 travailleur;dossier-sante:copie-demander;3.3
 travailleur;obligation:demander;hors-3.3
 travailleur;obligation:lire-propres;hors-3.3

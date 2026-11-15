@@ -157,9 +157,53 @@ public sealed class SecretMedicalTests
 
         (await new ObtenirDossierHandler(_monde.Garde).HandleAsync(new ObtenirDossier(dossierId), _ct)).IsSuccess.ShouldBeTrue();
 
-        // L'infirmier ne rédige pas de décision (decision:ecrire réservé au CPMT).
-        (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
-            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        // #401 : l'infirmier rédige et modifie la décision (decision:ecrire) ; l'auteur légal reste le CPMT gestionnaire.
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+        _monde.Store.Decisions.Single(d => d.Id == decisionId).AuteurId.ShouldBe("cpmt-1");
+        (await new ModifierDecisionHandler(_monde.AccesDecisions, _monde.Store)
+            .HandleAsync(new ModifierDecision(decisionId, new ContenuDecisionSaisi(CategorieDecision.ApteAvecMesures, ["PAS_TRAVAIL_NUIT"], null, null, null)), _ct))
+            .IsSuccess.ShouldBeTrue();
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
+
+        // Signature, recours et fréquence (art. I.4-32) : actes du CPMT (decision:signer), refusés à l'infirmier.
+        (await new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store)
+            .HandleAsync(new SignerDecision(decisionId), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await new IntroduireRecoursHandler(_monde.AccesDecisions, _monde.Parametres, _monde.Store)
+            .HandleAsync(new IntroduireRecours(decisionId, TypeRecours.Concertation, new DateOnly(2026, 3, 3)), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        (await new DeciderPropositionFrequenceHandler(_monde.AccesExamens, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new DeciderPropositionFrequence(examenId, Guid.CreateVersion7(), true), _ct)).Error!.Kind.ShouldBe(ErrorKind.Forbidden);
+        _monde.Signature.Demandes.ShouldBeEmpty();
+
+        // Le CPMT gestionnaire signe la décision préparée par l'infirmier.
+        _monde.Agir("cpmt-1", Roles.Cpmt);
+        var signee = await new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store)
+            .HandleAsync(new SignerDecision(decisionId), _ct);
+        signee.Value.Statut.ShouldBe(StatutDecision.Emise);
+        signee.Value.Mesures.ShouldBe(["PAS_TRAVAIL_NUIT"]);
+    }
+
+    [Fact]
+    public async Task Sans_cpmt_gestionnaire_l_infirmier_ne_prepare_pas_une_decision_sans_signataire()
+    {
+        var affilie = Guid.CreateVersion7();
+        var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
+        _monde.Store.Obligations.Add(obligation);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        _monde.Store.RendezVous.Add(rdv);
+
+        // L'infirmier qui ouvre le dossier n'en devient pas le CPMT gestionnaire (decision:signer requis).
+        _monde.Agir("infirmier-1", Roles.Infirmier);
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        _monde.Store.Dossiers.Single(d => d.Id == dossierId).GestionnaireCpmtId.ShouldBeNull();
+        var examenId = (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, null, null, rdv.RendezVousId, null), _ct)).Value;
+
+        (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct))
+            .Error!.Code.ShouldBe("decision.cpmt-requis");
+        _monde.Store.Decisions.ShouldBeEmpty();
     }
 }
 
@@ -240,7 +284,7 @@ public sealed class DecisionsEtExamensTests
             .HandleAsync(new SaisirObservation(examenId, "Lombalgie chronique depuis 2019", "Raideur lombaire"), _ct)).IsSuccess.ShouldBeTrue();
 
         var contenu = new ContenuDecisionSaisi(CategorieDecision.ApteAvecMesures, ["PAS_PORT_CHARGES_LOURDES"], new DateOnly(2027, 3, 1), "Hernie discale L5-S1", "Kinésithérapie");
-        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store)
             .HandleAsync(new RedigerDecision(examenId, contenu), _ct)).Value;
 
         var signer = new SignerDecisionHandler(_monde.AccesDecisions, _monde.Store, _monde.Signature, _monde.Utilisateur, _monde.Parametres, _monde.Store, _monde.Store);
@@ -278,7 +322,7 @@ public sealed class DecisionsEtExamensTests
     {
         var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
         var examenId = await _monde.OuvrirExamenAsync(dossierId, _affilie, _ct);
-        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store)
             .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.InaptitudeDefinitive, null, null, "Motif secret", null)), _ct)).Value;
 
         _monde.Agir("employeur-1", Roles.Employeur, affilie: _affilie);

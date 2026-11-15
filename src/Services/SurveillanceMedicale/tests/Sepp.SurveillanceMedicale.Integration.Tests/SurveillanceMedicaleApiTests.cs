@@ -173,6 +173,34 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
     }
 
     [Fact]
+    public async Task L_infirmier_redige_et_modifie_la_decision_mais_recoit_403_sur_la_signature_et_les_actes_du_cpmt()
+    {
+        // #401 : decision:ecrire (rédaction, modification) pour l'infirmier ; decision:signer réservé au CPMT.
+        var (dossierId, examenId) = await DossierAvecExamenAsync();
+        var infirmier = fixture.Client(Roles.Infirmier, "inf-401", motif: "Préparation de la décision pour le Dr");
+        var decisionId = await Id(await infirmier.PostAsJsonAsync($"/api/v1/examens/{examenId}/decision", new { categorie = "Apte" }, _ct));
+        await Ok(await infirmier.PutAsJsonAsync($"/api/v1/decisions/{decisionId}", new { categorie = "ApteAvecMesures", mesures = new[] { "PROTECTION_AUDITIVE" } }, _ct),
+            HttpStatusCode.NoContent);
+        await Ok(await Cpmt.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct), HttpStatusCode.NoContent);
+
+        (await infirmier.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PostAsJsonAsync($"/api/v1/decisions/{decisionId}/recours", new { type = "Concertation", dateIntroduction = "2026-03-03" }, _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PostAsJsonAsync($"/api/v1/decisions/{decisionId}/recours/{Guid.CreateVersion7()}/issue", new { issue = "Confirmee", dateIssue = "2026-03-20" }, _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PostAsJsonAsync($"/api/v1/examens/{examenId}/propositions-frequence/{Guid.CreateVersion7()}", new { acceptee = true }, _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PostAsJsonAsync($"/api/v1/dossiers/{dossierId}/declarations-mp", new { codeMaladie = "1.2", description = "x" }, _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PostAsync($"/api/v1/declarations-mp/{Guid.CreateVersion7()}/envoi", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Le CPMT gestionnaire du dossier, auteur légal, signe la décision préparée par l'infirmier.
+        var signee = await Cpmt.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct);
+        await Ok(signee);
+        (await signee.Content.ReadFromJsonAsync<DecisionResumeDto>(Json, _ct))!.Mesures.ShouldBe(["PROTECTION_AUDITIVE"]);
+    }
+
+    [Fact]
     public async Task Decision_recours_et_lecture_par_l_employeur_de_son_seul_affilie()
     {
         var (_, examenId) = await DossierAvecExamenAsync();

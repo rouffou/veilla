@@ -76,7 +76,8 @@ décisions sont consignées dans le registre de revue (ticket de suivi du trimes
 
 ## Écarts constatés entre le cahier des charges (§3.3, §3.1) et le code
 
-Relevés le 2026-10-25, **non corrigés** (les droits n'ont pas été modifiés ; à arbitrer par le métier) :
+Relevés le 2026-10-25 (#157), puis arbitrés par le responsable produit le 2026-11-15 (#401). Les décisions sont
+consignées dans la section suivante ; la liste ci-dessous garde le constat initial.
 
 1. **Décision d'évaluation de santé, écriture** : le cahier indique « Écriture » pour la colonne « CPMT / infirmier ». Le code
    donne `decision:ecrire` au seul CPMT et au CPMT dirigeant ; l'infirmier n'a que `decision:lire`. Écart probable
@@ -93,3 +94,27 @@ Relevés le 2026-10-25, **non corrigés** (les droits n'ont pas été modifiés 
    Le SIPP, absent de la synthèse, est aligné sur l'employeur.
 6. La synthèse ne couvre que cinq familles de données ; les autres permissions du CSV (colonne `hors-3.3`) sont des
    répartitions proposées « à valider » dans les commentaires du code (reprise, réintégration, planification, etc.).
+
+## Décisions du responsable produit (#401, 2026-11-15)
+
+| Écart | Décision | Mise en œuvre |
+|---|---|---|
+| 1. Décision d'évaluation | Validée : l'infirmier rédige et modifie ; seul le CPMT signe | `decision:ecrire` accordé à l'infirmier ; nouveau `decision:signer` (CPMT, CPMT dirigeant) sur la signature et les autres actes à portée légale (voir ci-dessous) |
+| 2. CPMT dirigeant | Validée : gestionnaire des dossiers | `affilie:ecrire` et `personne:ecrire` accordés au CPMT dirigeant |
+| 3. Psychosocial, employeur « selon procédure » | **Ouverte** : procédure à définir, proposition en cours | Aucun droit accordé (comportement le plus restrictif) |
+| 4. Psychosocial, travailleur « ses propres documents » | Validée : droit dédié | `dossier-psy:publications-propres-lire` accordé au travailleur : il ne voit que les publications que le CPAP lui adresse explicitement, jamais le dossier (même mécanisme que `dossier-psy:publications-lire` pour l'employeur). Droit déclaré sans route : à appliquer par le service Psychosocial (lot 5) |
+| 5a. Travailleur, `affilie:lire-employeurs` (POR-11) | Validée : extension maintenue et encadrée | `GET /api/v1/mes-employeurs` ne rend que l'identifiant, la dénomination et la langue des affiliés où la personne du jeton a une occupation active (le régime linguistique, inutilisé, est retiré) |
+| 5b. SIPP aligné sur l'employeur | Validée : alignement maintenu et encadré | Test `MatriceDroitsTests.Le_sipp_n_a_jamais_plus_de_droits_que_l_employeur` ; périmètre limité à l'affilié du jeton (claim `affilie_id`), vérifié par chaque service |
+
+Répartition des routes de Surveillance médicale autrefois sous `decision:ecrire` :
+
+| Route | Droit | Motif |
+|---|---|---|
+| `POST /examens/{id}/decision`, `PUT /decisions/{id}` | `decision:ecrire` | Rédaction et modification d'un brouillon, sans effet hors de la zone médicale |
+| `POST /decisions/{id}/signature` | `decision:signer` + authentification forte | Signature qualifiée et émission du formulaire : acte légal du CPMT (SAN-32) |
+| `POST /examens/{id}/propositions-frequence/{propositionId}` | `decision:signer` | Décision du CPMT sur la fréquence de surveillance (art. I.4-32, SAN-23) |
+| `POST /decisions/{id}/recours`, `POST /decisions/{id}/recours/{recoursId}/issue` | `decision:signer` | Procédure de concertation ou de recours sur une décision émise ; l'issue peut réformer et retransmettre la décision (SAN-34) |
+| `POST /dossiers/{id}/declarations-mp`, `POST /declarations-mp/{id}/envoi`, `/suivi`, `/demandes-information`, `/demandes-information/{id}/reponse` | `decision:signer` | Déclaration de maladie professionnelle (diagnostic, transmission à Fedris) : acte du médecin (SAN-70, SAN-71) |
+
+Une décision préparée par l'infirmier a pour auteur légal le CPMT gestionnaire du dossier (refus `decision.cpmt-requis` si
+le dossier n'en a pas) ; le rédacteur reste tracé dans le journal d'accès.

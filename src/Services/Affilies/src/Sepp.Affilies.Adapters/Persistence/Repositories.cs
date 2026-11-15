@@ -74,7 +74,7 @@ internal sealed class AffilieRepository(AffiliesDbContext db) : IAffilieReposito
         return await db.Affilies.IgnoreAutoIncludes().AsNoTracking()
             .Where(a => ids.Contains(a.Id))
             .OrderBy(a => a.Denomination).ThenBy(a => a.Id)
-            .Select(a => new MonEmployeurDto(a.Id, a.Denomination, a.Langue, a.RegimeLinguistique))
+            .Select(a => new MonEmployeurDto(a.Id, a.Denomination, a.Langue))
             .ToListAsync(cancellationToken);
     }
 

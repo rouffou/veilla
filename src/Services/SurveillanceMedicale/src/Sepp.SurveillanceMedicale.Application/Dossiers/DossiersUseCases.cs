@@ -69,7 +69,7 @@ public sealed class OuvrirDossierHandler(
             return Error.Conflict("dossier-sante.existe", "Cette personne a déjà un dossier de santé (dossier unique, SAN-40).");
         }
 
-        var gestionnaire = command.GestionnaireCpmtId ?? (user.HasPermission(Permissions.DecisionEcrire) ? user.UserId : null);
+        var gestionnaire = command.GestionnaireCpmtId ?? (user.HasPermission(Permissions.DecisionSigner) ? user.UserId : null);
         var ouvert = Regles.Appliquer("dossier-sante.invalide", () => DossierSante.Ouvrir(command.PersonneId, gestionnaire, horloge.Aujourdhui()));
         if (!ouvert.IsSuccess)
         {
