@@ -15,6 +15,29 @@ namespace Sepp.Integrations.Integration.Tests;
 /// </summary>
 public sealed partial class IntegrationsApiTests
 {
+    /// <summary>
+    /// Garde-fou d'architecture et de données (#482) : tout convertisseur qui chiffre porte le marqueur et le suffixe
+    /// (sinon <see cref="ColonnesChiffrees.Depuis"/> échoue), et la vérification fondée sur les données ne trouve aucune
+    /// valeur chiffrée dans une colonne que le modèle ne déclare pas chiffrée.
+    /// </summary>
+    [Fact]
+    public async Task Les_convertisseurs_de_chiffrement_sont_marques_et_aucune_valeur_chiffree_n_est_hors_du_modele()
+    {
+        IReadOnlyList<ColonneChiffree> colonnes;
+        await using (var scope = fixture.Factory.Services.CreateAsyncScope())
+        {
+            colonnes = ColonnesChiffrees.Depuis(scope.ServiceProvider.GetRequiredService<IntegrationsDbContext>().Model);
+        }
+
+        var verification = await RechiffrementHote.VerifierAsync<IntegrationsDbContext>(
+            fixture.Factory.Services, s => s.GetRequiredService<FieldEncryptor>(), new OptionsRechiffrement(), NullLogger.Instance, _ct);
+
+        colonnes.ShouldNotBeEmpty();
+        verification.ColonnesHorsModele.ShouldBeEmpty();
+        verification.ColonnesAbsentes.ShouldBeEmpty();
+        verification.Colonnes.Where(c => c.DuModele).Select(c => c.Colonne).ShouldBe(colonnes.Select(c => c.Nom));
+    }
+
     [Fact]
     public async Task Le_rechiffrement_couvre_toutes_les_colonnes_chiffrees_et_ne_reecrit_pas_les_valeurs_a_jour()
     {

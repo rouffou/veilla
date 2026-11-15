@@ -55,10 +55,39 @@ public sealed class RechiffrementTestDbContext(DbContextOptions<RechiffrementTes
             b.Property(f => f.Id).HasColumnName("id");
             b.Property(f => f.Texte).HasColumnName("texte_chiffre").HasConversion((ValueConverter)converti);
             b.Property(f => f.Charge).HasColumnName("charge_chiffree")
-                .HasConversion(new ValueConverter<string?, string?>(v => v == null ? null : chiffreur.Encrypt(v), v => v == null ? null : chiffreur.Decrypt(v)));
+                .HasConversion((ValueConverter)new ConvertisseurChiffre<string>(chiffreur, v => v, v => v));
             b.Property(f => f.Libelle).HasColumnName("libelle");
         });
     }
+}
+
+/// <summary>Contexte mal configuré : convertisseur de chiffrement marqué sur une colonne sans suffixe (#482).</summary>
+public sealed class ColonneMarqueeSansSuffixeDbContext(DbContextOptions<ColonneMarqueeSansSuffixeDbContext> options, FieldEncryptor chiffreur) : DbContext(options)
+{
+    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<FicheChiffree>(b =>
+        {
+            b.ToTable("fiche");
+            b.HasKey(f => f.Id);
+            b.Property(f => f.Texte).HasColumnName("texte_chiffre").HasConversion((ValueConverter)new EncryptedStringConverter(chiffreur));
+            b.Property(f => f.Libelle).HasColumnName("note").HasConversion((ValueConverter)new EncryptedStringConverter(chiffreur));
+            b.Ignore(f => f.Charge);
+        });
+}
+
+/// <summary>Contexte mal configuré : convertisseur écrit à la main, qui chiffre sans porter le marqueur (#482).</summary>
+public sealed class ConvertisseurNonMarqueDbContext(DbContextOptions<ConvertisseurNonMarqueDbContext> options, FieldEncryptor chiffreur) : DbContext(options)
+{
+    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<FicheChiffree>(b =>
+        {
+            b.ToTable("fiche");
+            b.HasKey(f => f.Id);
+            b.Property(f => f.Texte).HasColumnName("texte_chiffre").HasConversion((ValueConverter)new EncryptedStringConverter(chiffreur));
+            b.Property(f => f.Libelle).HasColumnName("note")
+                .HasConversion(new ValueConverter<string, string>(v => chiffreur.Encrypt(v), v => chiffreur.Decrypt(v)));
+            b.Ignore(f => f.Charge);
+        });
 }
 
 public sealed class FicheChiffree
@@ -141,6 +170,36 @@ public sealed class RechiffrementChampsTests
         using var contexte = new ColonneSansConvertisseurDbContext(new DbContextOptionsBuilder<ColonneSansConvertisseurDbContext>().UseNpgsql(Connexion).Options);
 
         Should.Throw<InvalidOperationException>(() => ColonnesChiffrees.Depuis(contexte.Model)).Message.ShouldContain("fiche.texte_chiffre");
+    }
+
+    [Fact]
+    public void Une_colonne_marquee_chiffree_sans_suffixe_est_refusee()
+    {
+        using var contexte = new ColonneMarqueeSansSuffixeDbContext(new DbContextOptionsBuilder<ColonneMarqueeSansSuffixeDbContext>().UseNpgsql(Connexion).Options, Chiffreur("d1"));
+
+        Should.Throw<InvalidOperationException>(() => ColonnesChiffrees.Depuis(contexte.Model)).Message.ShouldContain("fiche.note");
+    }
+
+    [Fact]
+    public void Un_convertisseur_qui_chiffre_sans_le_marqueur_est_refuse_quel_que_soit_le_nom_de_colonne()
+    {
+        using var contexte = new ConvertisseurNonMarqueDbContext(new DbContextOptionsBuilder<ConvertisseurNonMarqueDbContext>().UseNpgsql(Connexion).Options, Chiffreur("d1"));
+
+        Should.Throw<InvalidOperationException>(() => ColonnesChiffrees.Depuis(contexte.Model)).Message.ShouldContain(nameof(IConvertisseurChiffrement));
+    }
+
+    [Fact]
+    public void Le_convertisseur_chiffre_generique_chiffre_le_texte_de_la_valeur_et_la_relit()
+    {
+        var chiffreur = Chiffreur("d1");
+        var convertisseur = new ConvertisseurChiffre<DayOfWeek>(chiffreur, j => j.ToString(), Enum.Parse<DayOfWeek>);
+
+        var stocke = (string)convertisseur.ConvertToProvider(DayOfWeek.Friday)!;
+
+        stocke.ShouldStartWith("v2:d1:");
+        chiffreur.Decrypt(stocke).ShouldBe("Friday");
+        convertisseur.ConvertFromProvider(stocke).ShouldBe(DayOfWeek.Friday);
+        convertisseur.ShouldBeAssignableTo<IConvertisseurChiffrement>();
     }
 
     [Fact]
@@ -472,28 +531,226 @@ public sealed class RechiffrementChampsPostgresTests(ServeurPostgresRechiffremen
         }
 
         // Requête de infra/README.md, telle qu'écrite, avec la DEK courante du test à la place de D2.
-        var controle = RequeteDeControle().Replace("'v2:D2:'", "'v2:d2:'", StringComparison.Ordinal);
-        controle.ShouldNotContain("v2:D2:", Case.Sensitive);
+        var controle = RequeteDeControle().Replace("(?!D2:)", "(?!d2:)", StringComparison.Ordinal);
+        controle.ShouldNotContain("D2:", Case.Sensitive);
 
         (await ControlerAsync(connexion, controle)).ShouldBe(
         [
-            ("fiche", "charge_chiffree", 1L, 2L),
-            ("fiche", "texte_chiffre", 1L, 2L),
+            ("fiche", "charge_chiffree", 2L, 1L, 2L),
+            ("fiche", "texte_chiffre", 3L, 1L, 2L),
         ]);
 
         await ExecuterAsync(connexion, d2, Petit);
         (await ControlerAsync(connexion, controle)).ShouldAllBe(l => l.V1 == 0 && l.HorsCourante == 0);
     }
 
-    private static async Task<List<(string Table, string Colonne, long V1, long HorsCourante)>> ControlerAsync(string connexion, string requete)
+    [Fact]
+    public async Task La_requete_de_controle_documentee_trouve_une_colonne_chiffree_sans_suffixe_et_un_contenu_json()
+    {
+        var connexion = await serveur.CreerBaseAsync();
+        var d1 = RechiffrementChampsTests.Chiffreur("d1");
+        var d2 = RechiffrementChampsTests.Chiffreur("d2");
+        await using (var db = await OuvrirAsync(connexion))
+        {
+            await AjouterColonneJsonAsync(db);
+            await InsererAsync(db, Guid.CreateVersion7(), d2.Encrypt("a"), null, libelle: d1.Encrypt("note sans suffixe"));
+            var id = Guid.CreateVersion7();
+            await InsererAsync(db, id, d2.Encrypt("b"), null);
+            await EcrireJsonAsync(db, id, RechiffrementChampsTests.ChiffrerV1("réponse"));
+        }
+
+        var controle = RequeteDeControle().Replace("(?!D2:)", "(?!d2:)", StringComparison.Ordinal);
+
+        (await ControlerAsync(connexion, controle)).ShouldBe(
+        [
+            ("fiche", "donnees", 1L, 1L, 1L),
+            ("fiche", "libelle", 1L, 0L, 1L),
+            ("fiche", "texte_chiffre", 2L, 0L, 0L),
+        ]);
+    }
+
+    [Fact]
+    public async Task Une_valeur_chiffree_hors_du_modele_rend_le_rapport_incomplet_meme_avec_la_DEK_courante()
+    {
+        var connexion = await serveur.CreerBaseAsync();
+        var d2 = RechiffrementChampsTests.Chiffreur("d2");
+        await using (var db = await OuvrirAsync(connexion))
+        {
+            await AjouterColonneJsonAsync(db);
+            await InsererAsync(db, Guid.CreateVersion7(), RechiffrementChampsTests.ChiffrerV1("a"), null, libelle: d2.Encrypt("note sans suffixe"));
+            var id = Guid.CreateVersion7();
+            await InsererAsync(db, id, d2.Encrypt("b"), null);
+            await EcrireJsonAsync(db, id, RechiffrementChampsTests.ChiffrerV1("réponse"));
+        }
+
+        var journal = new JournalCapture();
+        var rapport = await ExecuterAsync(connexion, d2, Petit, journal);
+
+        rapport.Erreurs.ShouldBe(0);
+        Colonne(rapport, "texte_chiffre").Rechiffrees.ShouldBe(1);
+        rapport.Complet.ShouldBeFalse();
+        rapport.Verification.ColonnesHorsModele.Select(c => (c.Colonne, c.Chiffrees, c.HorsDekCourante, c.V1)).ShouldBe(
+        [
+            ("fiche.donnees", 1L, 1L, 1L),
+            ("fiche.libelle", 1L, 0L, 0L),
+        ]);
+        journal.Messages.ShouldContain(m => m.Contains("Colonne fiche.libelle", StringComparison.Ordinal) && m.Contains("ne la déclare pas chiffrée", StringComparison.Ordinal));
+        journal.Messages.ShouldAllBe(m => !m.Contains("note sans suffixe", StringComparison.Ordinal) && !m.Contains("v1:k1:", StringComparison.Ordinal));
+
+        using var hote = Hote(connexion, d2, verifierSeulement: true);
+        (await hote.RechiffrerChampsAsync<RechiffrementTestDbContext>(s => s.GetRequiredService<FieldEncryptor>(), Ct)).ShouldBe(RechiffrementHote.CodeIncomplet);
+    }
+
+    [Fact]
+    public async Task Le_mode_verification_seule_n_ecrit_rien_l_emporte_et_retourne_1_puis_0_apres_rechiffrement()
+    {
+        var connexion = await serveur.CreerBaseAsync();
+        await using (var db = await OuvrirAsync(connexion))
+        {
+            await InsererAsync(db, Guid.CreateVersion7(), RechiffrementChampsTests.ChiffrerV1("x"), RechiffrementChampsTests.Chiffreur("d1").Encrypt("y"));
+        }
+
+        var avant = await ValeursAsync(connexion);
+        var journal = new JournalCapture();
+
+        // Les deux modes demandés : la vérification l'emporte, rien n'est écrit.
+        using (var verification = Hote(connexion, RechiffrementChampsTests.Chiffreur("d2"), journal, verifierSeulement: true))
+        {
+            (await verification.RechiffrerChampsAsync<RechiffrementTestDbContext>(s => s.GetRequiredService<FieldEncryptor>(), Ct)).ShouldBe(RechiffrementHote.CodeIncomplet);
+        }
+
+        (await ValeursAsync(connexion)).ShouldBe(avant);
+        journal.Messages.ShouldContain(m => m.Contains("Vérification du chiffrement (v2:d2:)", StringComparison.Ordinal) && m.Contains("2 valeur(s) hors DEK courante dont 1 au format v1", StringComparison.Ordinal));
+        journal.Messages.ShouldNotContain(m => m.Contains("Rechiffrement des champs", StringComparison.Ordinal));
+
+        (await ExecuterAsync(connexion, RechiffrementChampsTests.Chiffreur("d2"), Petit)).Complet.ShouldBeTrue();
+
+        using var apres = Hote(connexion, RechiffrementChampsTests.Chiffreur("d2"), verifierSeulement: true);
+        (await apres.RechiffrerChampsAsync<RechiffrementTestDbContext>(s => s.GetRequiredService<FieldEncryptor>(), Ct)).ShouldBe(RechiffrementHote.CodeComplet);
+    }
+
+    [Fact]
+    public async Task Une_ligne_verrouillee_par_une_transaction_ouverte_reste_en_erreur_apres_le_delai_sans_bloquer_les_autres()
+    {
+        var connexion = await serveur.CreerBaseAsync();
+        var d1 = RechiffrementChampsTests.Chiffreur("d1");
+        var ids = Enumerable.Range(0, 4).Select(_ => Guid.CreateVersion7()).ToList();
+        await using (var db = await OuvrirAsync(connexion))
+        {
+            foreach (var id in ids)
+            {
+                await InsererAsync(db, id, d1.Encrypt("t"), null);
+            }
+        }
+
+        // Une transaction du service, restée ouverte, verrouille la deuxième ligne.
+        await using var service = await OuvrirAsync(connexion);
+        await using var transaction = await service.BeginTransactionAsync(Ct);
+        await using (var verrou = new NpgsqlCommand("SELECT 1 FROM fiche WHERE id = @id FOR UPDATE", service, transaction))
+        {
+            verrou.Parameters.AddWithValue("id", ids[1]);
+            await verrou.ExecuteScalarAsync(Ct);
+        }
+
+        var chrono = System.Diagnostics.Stopwatch.StartNew();
+        var rapport = await ExecuterAsync(connexion, RechiffrementChampsTests.Chiffreur("d2"), Petit with { DelaiVerrou = TimeSpan.FromMilliseconds(200) });
+        chrono.Stop();
+
+        chrono.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(30));
+        Colonne(rapport, "texte_chiffre").Rechiffrees.ShouldBe(3);
+        Colonne(rapport, "texte_chiffre").Erreurs.ShouldBe(1);
+        rapport.ErreursDetaillees.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+            e => e.Cle.ShouldBe(ids[1].ToString()),
+            e => e.Message.ShouldContain("55P03"));
+        rapport.Restantes.ShouldBe(1);
+        rapport.Complet.ShouldBeFalse();
+
+        // Le service libère la ligne : la relance termine.
+        await transaction.RollbackAsync(Ct);
+        var relance = await ExecuterAsync(connexion, RechiffrementChampsTests.Chiffreur("d2"), Petit);
+        relance.Complet.ShouldBeTrue();
+        Colonne(relance, "texte_chiffre").Rechiffrees.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Une_erreur_de_base_sur_une_ligne_n_ecarte_que_cette_ligne_sans_journaliser_de_valeur()
+    {
+        var connexion = await serveur.CreerBaseAsync();
+        var bloquee = Guid.CreateVersion7();
+        await using (var db = await OuvrirAsync(connexion))
+        {
+            // Contrainte qui refuse la nouvelle valeur d'une seule ligne (comme une troncature ou une contrainte métier).
+            await using (var contrainte = new NpgsqlCommand("ALTER TABLE fiche ADD CONSTRAINT reste_v1 CHECK (libelle <> 'bloquee' OR starts_with(texte_chiffre, 'v1:'))", db))
+            {
+                await contrainte.ExecuteNonQueryAsync(Ct);
+            }
+
+            for (var i = 0; i < 5; i++)
+            {
+                await InsererAsync(db, i == 2 ? bloquee : Guid.CreateVersion7(), RechiffrementChampsTests.ChiffrerV1($"texte fictif {i}"), null, i == 2 ? "bloquee" : "l");
+            }
+        }
+
+        var journal = new JournalCapture();
+        var rapport = await ExecuterAsync(connexion, RechiffrementChampsTests.Chiffreur("d2"), Petit, journal);
+
+        Colonne(rapport, "texte_chiffre").Rechiffrees.ShouldBe(4);
+        Colonne(rapport, "texte_chiffre").Erreurs.ShouldBe(1);
+        rapport.ErreursDetaillees.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+            e => e.Cle.ShouldBe(bloquee.ToString()),
+            e => e.TypeErreur.ShouldBe("PostgresException"),
+            e => e.Message.ShouldBe("Erreur de base de données (SQLSTATE 23514)."));
+        rapport.RestantesV1.ShouldBe(1);
+        rapport.Complet.ShouldBeFalse();
+        journal.Messages.ShouldAllBe(m => !m.Contains("fictif", StringComparison.Ordinal) && !m.Contains("reste_v1", StringComparison.Ordinal)
+                                          && !m.Contains("v1:k1:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Une_erreur_sur_une_colonne_entiere_est_comptee_et_les_autres_colonnes_sont_traitees()
+    {
+        var connexion = await serveur.CreerBaseAsync();
+        await using (var db = await OuvrirAsync(connexion))
+        {
+            await InsererAsync(db, Guid.CreateVersion7(), RechiffrementChampsTests.ChiffrerV1("a"), RechiffrementChampsTests.ChiffrerV1("b"));
+        }
+
+        var rapport = await ExecuterAsync(connexion, RechiffrementChampsTests.Chiffreur("d2"), Petit,
+            colonnesEnTete: [new ColonneChiffree(null, "fiche", "absente_chiffre", "id")]);
+
+        Colonne(rapport, "absente_chiffre").Erreurs.ShouldBe(1);
+        rapport.ErreursDetaillees.ShouldContain(e => e.Colonne == "fiche.absente_chiffre" && e.Message.Contains("42703", StringComparison.Ordinal));
+        Colonne(rapport, "texte_chiffre").Rechiffrees.ShouldBe(1);
+        Colonne(rapport, "charge_chiffree").Rechiffrees.ShouldBe(1);
+        rapport.Verification.ColonnesAbsentes.ShouldBe(["fiche.absente_chiffre"]);
+        rapport.Restantes.ShouldBe(0);
+        rapport.Complet.ShouldBeFalse();
+    }
+
+    private static async Task AjouterColonneJsonAsync(NpgsqlConnection db)
+    {
+        await using var commande = new NpgsqlCommand("ALTER TABLE fiche ADD COLUMN donnees jsonb", db);
+        await commande.ExecuteNonQueryAsync(Ct);
+    }
+
+    private static async Task EcrireJsonAsync(NpgsqlConnection db, Guid id, string valeurChiffree)
+    {
+        await using var commande = new NpgsqlCommand("UPDATE fiche SET donnees = jsonb_build_object('reponse', @v::text) WHERE id = @id", db);
+        commande.Parameters.AddWithValue("v", valeurChiffree);
+        commande.Parameters.AddWithValue("id", id);
+        await commande.ExecuteNonQueryAsync(Ct);
+    }
+
+    private static async Task<List<(string Table, string Colonne, long Chiffrees, long V1, long HorsCourante)>> ControlerAsync(string connexion, string requete)
     {
         await using var db = await OuvrirAsync(connexion);
         await using var commande = new NpgsqlCommand(requete, db);
         await using var lecteur = await commande.ExecuteReaderAsync(Ct);
-        var lignes = new List<(string, string, long, long)>();
+        var lignes = new List<(string, string, long, long, long)>();
         while (await lecteur.ReadAsync(Ct))
         {
-            lignes.Add((lecteur.GetString(0), lecteur.GetString(1), lecteur.GetInt64(2), lecteur.GetInt64(3)));
+            lecteur.GetString(0).ShouldBe("public");
+            lignes.Add((lecteur.GetString(1), lecteur.GetString(2), lecteur.GetInt64(3), lecteur.GetInt64(4), lecteur.GetInt64(5)));
         }
 
         return lignes;
@@ -510,18 +767,19 @@ public sealed class RechiffrementChampsPostgresTests(ServeurPostgresRechiffremen
 
         dossier.ShouldNotBeNull("Racine du dépôt introuvable.");
         var readme = File.ReadAllText(Path.Combine(dossier.FullName, "infra", "README.md")).ReplaceLineEndings("\n");
-        var debut = readme.IndexOf("-- Contrôle du rechiffrement (#396)", StringComparison.Ordinal);
+        var debut = readme.IndexOf("-- Contrôle du rechiffrement (#396, #482)", StringComparison.Ordinal);
         debut.ShouldBeGreaterThanOrEqualTo(0, "Requête de contrôle absente de infra/README.md.");
         var fin = readme.IndexOf("\n```", debut, StringComparison.Ordinal);
         return readme[debut..fin];
     }
 
-    private static IHost Hote(string connexion, FieldEncryptor chiffreur, JournalCapture? journal = null)
+    private static IHost Hote(string connexion, FieldEncryptor chiffreur, JournalCapture? journal = null, bool verifierSeulement = false)
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             [RechiffrementHote.CleExecuterPuisQuitter] = "true",
+            [RechiffrementHote.CleVerifierSeulement] = verifierSeulement ? "true" : "false",
             ["Rechiffrement:PauseEntreLots"] = "00:00:00",
         });
         builder.Logging.ClearProviders();
@@ -532,24 +790,27 @@ public sealed class RechiffrementChampsPostgresTests(ServeurPostgresRechiffremen
     }
 
     private static async Task<RapportRechiffrement> ExecuterAsync(
-        string connexion, FieldEncryptor chiffreur, OptionsRechiffrement options, JournalCapture? journal = null, TimeProvider? horloge = null, CancellationToken? annulation = null)
+        string connexion, FieldEncryptor chiffreur, OptionsRechiffrement options, JournalCapture? journal = null, TimeProvider? horloge = null,
+        CancellationToken? annulation = null, IReadOnlyList<ColonneChiffree>? colonnesEnTete = null)
     {
         await using var contexte = ServeurPostgresRechiffrement.Contexte(connexion, chiffreur);
         await contexte.Database.OpenConnectionAsync(Ct);
         using var fabrique = LoggerFactory.Create(b => b.AddProvider(journal ?? new JournalCapture()));
         return await RechiffrementChamps.ExecuterAsync(
-            contexte.Database.GetDbConnection(), chiffreur, ColonnesChiffrees.Depuis(contexte.Model), options, fabrique.CreateLogger("test"), horloge, annulation ?? Ct);
+            contexte.Database.GetDbConnection(), chiffreur, [.. colonnesEnTete ?? [], .. ColonnesChiffrees.Depuis(contexte.Model)], options,
+            fabrique.CreateLogger("test"), horloge, annulation ?? Ct);
     }
 
     private static RapportColonneRechiffrement Colonne(RapportRechiffrement rapport, string colonne) =>
         rapport.Colonnes.Single(c => c.Colonne == $"fiche.{colonne}");
 
-    private static async Task InsererAsync(NpgsqlConnection db, Guid id, string texte, string? charge)
+    private static async Task InsererAsync(NpgsqlConnection db, Guid id, string texte, string? charge, string libelle = "l")
     {
-        await using var commande = new NpgsqlCommand("INSERT INTO fiche (id, texte_chiffre, charge_chiffree, libelle) VALUES (@id, @t, @c, 'l')", db);
+        await using var commande = new NpgsqlCommand("INSERT INTO fiche (id, texte_chiffre, charge_chiffree, libelle) VALUES (@id, @t, @c, @l)", db);
         commande.Parameters.AddWithValue("id", id);
         commande.Parameters.AddWithValue("t", texte);
         commande.Parameters.AddWithValue("c", (object?)charge ?? DBNull.Value);
+        commande.Parameters.AddWithValue("l", libelle);
         await commande.ExecuteNonQueryAsync(Ct);
     }
 

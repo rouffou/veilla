@@ -188,7 +188,7 @@ pas fournie par Terraform.
 | `BLINDINDEX__CLEENVELOPPEE` | `key_vault_secrets` du catalogue (secret `blindindex--cleenveloppee`, clé de l'index aveugle enveloppée par `personnes-fields-kek`) | personnes |
 | `<Section>__Adaptateurs__<Port>` | attribut `adapters` du catalogue, `var.adapter_mode` | communications, documents, documents-medicale, integrations, planification |
 | `DATABASE__MIGRATEANDEXIT` (`true`), `DATABASE__RUNTIMEROLE` ; `POSTGRES__USER` et `AZURE_CLIENT_ID` de l'identité de migration | `local.migration_environment` (job `mig-<service>` seulement, aucun secret) | services avec base |
-| `RECHIFFREMENT__EXECUTERPUISQUITTER` (`true`) ; facultatifs `RECHIFFREMENT__TAILLELOT` (200), `RECHIFFREMENT__PAUSEENTRELOTS` (`00:00:00.050`) | job de rechiffrement seulement (manuel en attendant #474), jamais la révision du service | personnes, integrations, surveillance-medicale, reintegration |
+| `RECHIFFREMENT__EXECUTERPUISQUITTER` (`true`) ou `RECHIFFREMENT__VERIFIERSEULEMENT` (`true`) ; facultatifs `RECHIFFREMENT__TAILLELOT` (200), `RECHIFFREMENT__PAUSEENTRELOTS` (`00:00:00.050`) | jobs de rechiffrement et de vérification seulement (manuels en attendant #474), jamais la révision du service | personnes, integrations, surveillance-medicale, reintegration |
 
 Un secret est exposé au conteneur sous le nom du secret en majuscules, `-` devenant `_` : le secret
 `personnes--encryption--deks--d1` devient `ENCRYPTION__DEKS__D1`, soit la clé `Encryption:Deks:D1` de la configuration .NET.
@@ -391,30 +391,59 @@ d'une ancienne DEK. Sans lui, ni une ancienne DEK ni une ancienne clé v1 ne peu
 **Fonctionnement.** C'est un mode de l'hôte du service, sur le modèle de « migrer puis quitter » :
 `Rechiffrement__ExecuterPuisQuitter=true` rechiffre, journalise le rapport puis arrête le processus.
 
-- **Colonnes traitées** : toutes les colonnes chiffrées du modèle EF Core du service, c'est-à-dire celles suffixées
-  `_chiffre` ou `_chiffree` et munies d'un convertisseur. Un test par service fige la liste.
-- **Lecture par lots** : curseur sur la clé primaire, `Rechiffrement__TailleLot` valeurs (200 par défaut) par transaction
-  courte, avec une pause de `Rechiffrement__PauseEntreLots` (50 ms) entre deux lots. Seules les valeurs qui ne commencent pas
-  par `v2:<DEK courante>:` sont lues.
+- **Colonnes traitées** : toutes les colonnes du modèle EF Core du service dont le convertisseur porte le marqueur
+  `IConvertisseurChiffrement` (`EncryptedStringConverter`, `ConvertisseurChiffre<T>`). Le marqueur et le suffixe
+  `_chiffre`/`_chiffree` vont ensemble, dans les deux sens : une colonne marquée sans suffixe, une colonne suffixée sans
+  marqueur, ou un convertisseur non marqué qui utilise `FieldEncryptor` font échouer le traitement (code 1) au lieu de
+  laisser une colonne de côté. Un test par service fige la liste (#482).
+- **Lecture par lots** : curseur sur la clé primaire, `Rechiffrement__TailleLot` valeurs (200 par défaut) par lot, avec une
+  pause de `Rechiffrement__PauseEntreLots` (50 ms) entre deux lots. Seules les valeurs qui ne commencent pas par
+  `v2:<DEK courante>:` sont lues. Les écritures d'un lot passent dans une transaction courte.
 - **Service non bloqué** : le traitement tourne pendant que le service sert les requêtes, et ne pose aucun verrou de
   table. Chaque mise à jour est conditionnée à la valeur lue : une valeur que le service vient de modifier n'est pas
-  écrasée (« modifiée entre-temps » dans le rapport).
+  écrasée (« modifiée entre-temps » dans le rapport). L'attente d'un verrou de ligne est bornée à 5 secondes
+  (`SET LOCAL lock_timeout`, par transaction) : une ligne verrouillée plus longtemps par le service reste en erreur.
+- **Erreur sur une ligne** (troncature, contrainte, verrou non obtenu) : le lot est annulé puis repris ligne par ligne,
+  chacune dans sa transaction ; seule la ligne en cause reste en erreur, avec son code SQLSTATE. Une erreur sur une
+  colonne entière (droits, table absente) est comptée, et le traitement passe à la colonne suivante.
 - **Rejouable et idempotent** : après une interruption (arrêt, délai dépassé, erreur de base), il suffit de relancer.
   Les lots déjà validés sont acquis et ne sont pas relus.
-- **Rapport** dans le journal (catégorie `Sepp.Rechiffrement`, événements 5101 à 5105) : par colonne, valeurs examinées,
+- **Vérification finale** : en fin d'exécution, toute la base est recomptée dans un seul instantané (transaction
+  `REPEATABLE READ` en lecture seule) : voir « Vérification seule » ci-dessous.
+- **Rapport** dans le journal (catégorie `Sepp.Rechiffrement`, événements 5101 à 5109) : par colonne, valeurs examinées,
   rechiffrées, modifiées entre-temps, en erreur, à jour, restantes et restantes au format v1. Une valeur en erreur (clé non
-  configurée, valeur altérée) est signalée par sa table, sa colonne et l'identifiant technique de sa ligne, puis laissée
-  en place. Le journal ne contient jamais ni valeur, en clair comme chiffrée, ni clé.
-- **Code de sortie** : 0 si plus aucune valeur n'utilise une autre clé que la DEK courante, 1 sinon (erreurs, valeurs
-  restantes, échec).
+  configurée, valeur altérée, erreur de base) est signalée par sa table, sa colonne et l'identifiant technique de sa
+  ligne, puis laissée en place. Le journal ne contient jamais ni valeur, en clair comme chiffrée, ni clé, ni message
+  d'erreur PostgreSQL (seulement le code SQLSTATE).
+- **Code de sortie** : 0 si aucune erreur et si la vérification finale est complète, 1 sinon (erreurs, valeurs restantes,
+  colonne chiffrée hors du modèle, colonne du modèle introuvable ou inaccessible, échec). Le journal est transmis avant
+  l'arrêt du processus.
 - **Identité et secrets** : le traitement a besoin des clés du service. Il tourne donc avec l'**identité d'exécution** du
   service, ses secrets `--deks--` et `--keys--` et sa configuration, et non avec le job `mig-<service>`, qui n'a aucun
   secret (ADR 0010).
+
+**Vérification seule** (`Rechiffrement__VerifierSeulement=true`, #482). Le même hôte vérifie sans rien écrire, puis
+s'arrête : code 0 si la base est prête pour le retrait d'une clé, 1 sinon (ou en cas d'échec). Ce mode est le garde-fou
+automatique avant tout retrait de clé : l'étape bloquante du pipeline (#474) l'exécute pour chacun des quatre services.
+Il l'emporte sur `ExecuterPuisQuitter` si les deux sont demandés. La vérification est **fondée sur les données**, et non
+sur la convention de nommage :
+
+- elle lit, dans un seul instantané, **toutes les colonnes texte et JSON** de la base (`text`, `character varying`,
+  `character`, `json`, `jsonb`), quel que soit leur nom ;
+- pour une colonne chiffrée du modèle, toute valeur non nulle qui ne commence pas par `v2:<DEK courante>:` est
+  « restante » (ancienne DEK, v1 ou valeur illisible) ;
+- pour toute autre colonne, une valeur de la forme `v1:<clé>:` ou `v2:<clé>:` (en tête du texte, ou en tête d'une chaîne
+  JSON) est une **valeur chiffrée hors du modèle** : la colonne est signalée (événement 5107) et le code est 1, même si
+  la valeur utilise la DEK courante, car le rechiffrement ne la traitera jamais ;
+- elle s'exécute avec l'identité d'exécution du service : le catalogue PostgreSQL ne montre que les colonnes sur
+  lesquelles l'identité a un droit. Chaque table est lue une fois (balayage séquentiel) : la lancer en heures creuses
+  sur une grosse base.
 
 **Exécution en local** (le service doit déjà tourner avec la même configuration) :
 
 ```bash
 docker compose -f deploy/local/compose.yaml run --rm --no-deps -e Rechiffrement__ExecuterPuisQuitter=true personnes
+docker compose -f deploy/local/compose.yaml run --rm --no-deps -e Rechiffrement__VerifierSeulement=true personnes; echo "code $?"
 ```
 
 **Exécution en Azure.** Le job Terraform `rech-<service>` reste à créer (#474). En attendant, l'exploitant crée à la main,
@@ -424,34 +453,48 @@ depuis un poste relié au VNet, un job Container Apps manuel `rech-<service>` da
 - mêmes références Key Vault (`--secrets`) que la Container App, lues par
   `az containerapp show -g "$rg" -n "ca-$svc" --query properties.configuration.secrets` ;
 - mêmes variables (`--env-vars`), lues par `--query "properties.template.containers[0].env"`, plus
-  `RECHIFFREMENT__EXECUTERPUISQUITTER=true` ;
+  `RECHIFFREMENT__EXECUTERPUISQUITTER=true` (job `rech-<service>`) ou `RECHIFFREMENT__VERIFIERSEULEMENT=true` (job
+  `verif-<service>`) ;
 - `--trigger-type Manual --parallelism 1 --replica-completion-count 1 --replica-retry-limit 0`, et un délai maximal
   (`--replica-timeout`) adapté au volume, à relancer s'il est dépassé.
 
 Le job se lance ensuite comme `mig-<service>` (`az containerapp job start`, suivi de l'exécution, puis
 `az containerapp job logs show … --container <nom du conteneur>`). Une exécution réussie (`Succeeded`) correspond au code
-0 : plus aucune valeur n'utilise une autre clé.
+0 : plus aucune valeur n'utilise une autre clé, et aucune valeur chiffrée n'est hors du modèle.
 
-**Requête de contrôle.** Elle se lance dans la base du service, avec l'identité d'exécution ou un administrateur Entra
-(lecture seule). Elle donne, par colonne chiffrée, le nombre de valeurs encore au format v1 et le nombre de valeurs
-chiffrées avec une autre clé que la DEK courante. Remplacer `v2:D2:` par `v2:<DEK courante>:`.
+**Requête de contrôle.** C'est le contrôle manuel, indépendant du code du service, qui double la vérification seule.
+Elle se lance dans la base du service, avec l'identité d'exécution ou un administrateur Entra (lecture seule). Comme la
+vérification, elle est **fondée sur les données** : elle lit toutes les colonnes texte et JSON, quel que soit leur nom,
+et donne chaque colonne qui contient au moins une valeur chiffrée (`v1:<clé>:` ou `v2:<clé>:`), avec le nombre de
+valeurs chiffrées, de valeurs v1 et de valeurs chiffrées avec une autre clé que la DEK courante. Remplacer `D2` (dans
+`(?!D2:)`) par la DEK courante.
 
 ```sql
--- Contrôle du rechiffrement (#396) : attendu 0 et 0 sur chaque ligne avant de retirer une clé.
-SELECT c.table_name AS table_chiffree, c.column_name AS colonne,
-       (xpath('/row/n/text()', query_to_xml(format(
-           'SELECT count(*) AS n FROM %I.%I WHERE starts_with(%I, %L)',
-           c.table_schema, c.table_name, c.column_name, 'v1:'), false, true, '')))[1]::text::bigint AS valeurs_v1,
-       (xpath('/row/n/text()', query_to_xml(format(
-           'SELECT count(*) AS n FROM %I.%I WHERE %I IS NOT NULL AND NOT starts_with(%I, %L)',
-           c.table_schema, c.table_name, c.column_name, c.column_name, 'v2:D2:'), false, true, '')))[1]::text::bigint AS hors_dek_courante
+-- Contrôle du rechiffrement (#396, #482), fondé sur les données : toutes les colonnes texte et JSON, quel que soit leur nom.
+-- Attendu avant de retirer une clé : hors_dek_courante = 0 sur chaque ligne, et seules les colonnes chiffrées du rapport du job.
+SELECT c.table_schema, c.table_name, c.column_name,
+       (xpath('/row/chiffrees/text()', q.x))[1]::text::bigint AS valeurs_chiffrees,
+       (xpath('/row/v1/text()', q.x))[1]::text::bigint AS valeurs_v1,
+       (xpath('/row/hors/text()', q.x))[1]::text::bigint AS hors_dek_courante
 FROM information_schema.columns c
 JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name AND t.table_type = 'BASE TABLE'
-WHERE c.table_schema = 'public' AND (c.column_name LIKE '%\_chiffre' OR c.column_name LIKE '%\_chiffree')
-ORDER BY 1, 2;
+CROSS JOIN LATERAL (SELECT CASE WHEN c.data_type IN ('json', 'jsonb') THEN '"' ELSE '^' END AS debut) d
+CROSS JOIN LATERAL (SELECT query_to_xml(format(
+    'SELECT count(*) FILTER (WHERE %1$I::text ~ %4$L) AS chiffrees, count(*) FILTER (WHERE %1$I::text ~ %5$L) AS v1, '
+    'count(*) FILTER (WHERE %1$I::text ~ %6$L) AS hors FROM %2$I.%3$I',
+    c.column_name, c.table_schema, c.table_name,
+    d.debut || 'v[12]:[^:"]+:', d.debut || 'v1:[^:"]+:', d.debut || '(v1:[^:"]+:|v2:(?!D2:)[^:"]+:)'), false, true, '') AS x) q
+WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema') AND c.table_schema NOT LIKE 'pg\_%'
+  AND c.data_type IN ('text', 'character varying', 'character', 'json', 'jsonb')
+  AND (xpath('/row/chiffrees/text()', q.x))[1]::text::bigint > 0
+ORDER BY 1, 2, 3;
 ```
 
-`RechiffrementChampsPostgresTests` exécute cette requête telle qu'écrite ici.
+Toute colonne de ce résultat absente du rapport du job (`Rechiffrement de <table>.<colonne>`) contient des valeurs
+chiffrées que le rechiffrement ne traite pas : ne retirer **aucune** clé, et ouvrir un ticket de sécurité.
+
+`RechiffrementChampsPostgresTests` exécute cette requête telle qu'écrite ici, y compris sur une colonne chiffrée sans
+suffixe.
 
 #### Rotation des DEK
 
@@ -467,7 +510,8 @@ ORDER BY 1, 2;
 3. **Rechiffrer** : exécuter `rech-<service>` pour les quatre services, et relancer jusqu'au code 0. Les valeurs
    « restantes » d'une exécution viennent d'une réplique restée sur `D1` ou d'une valeur en erreur, à examiner (table,
    colonne, ligne).
-4. **Contrôler** : la requête de contrôle, avec `v2:D2:`, donne 0 dans chaque base.
+4. **Contrôler** : `verif-<service>` (vérification seule) se termine avec le code 0 pour les quatre services, et la
+   requête de contrôle, avec `(?!D2:)`, donne `hors_dek_courante` = 0 dans chaque base.
 5. **Retirer l'ancienne DEK** : `encryption_key_ids = ["D2"]`, `plan`, `apply`, nouvelles révisions. Ne **pas supprimer**
    tout de suite les secrets `--deks--d1`. Une sauvegarde PostgreSQL antérieure au rechiffrement (restauration à un
    instant donné, rétention `postgres_backup_retention_days`) contient encore des valeurs `D1`. Désactiver ces secrets
@@ -485,7 +529,9 @@ Vérifications préalables, dans chaque environnement :
 
 1. **Rechiffrement complet** : une exécution de `rech-<service>` terminée avec le code 0 pour chacun des quatre services.
    Le journal indique « 0 au format v1 » et « complet : True ».
-2. **Requête de contrôle** dans les quatre bases : `valeurs_v1` = 0 et `hors_dek_courante` = 0 sur chaque ligne.
+2. **Vérification seule** (`verif-<service>`, puis l'étape bloquante de #474) terminée avec le code 0 pour les quatre
+   services, et **requête de contrôle** dans les quatre bases : `valeurs_v1` = 0 et `hors_dek_courante` = 0 sur chaque
+   ligne, et aucune colonne hors du rapport du job.
 3. **Index aveugle** : Personnes démarre avec `blindindex--cleenveloppee` (révision « Healthy ») et une recherche par NISS
    aboutit. `blindindex--key` n'est plus injecté, mais c'est la copie en clair de la même clé.
 4. **Sauvegarde** de `personnes-fields-kek` à jour, toutes versions incluses : après le retrait, la clé de l'index et les
@@ -501,6 +547,23 @@ Retrait :
 3. Une fois la rétention des sauvegardes écoulée depuis le rechiffrement (aucune sauvegarde ne contient plus de valeur
    v1), et après confirmation : supprimer ces secrets (`az keyvault secret delete`). La protection contre la purge
    les garde récupérables pendant la durée de suppression réversible du coffre.
+
+#### Exports logiques des données chiffrées (`pg_dump`) : interdits hors PITR
+
+Décision du responsable produit (2026-11-15, D-013 du registre RAID, #482) : les exports logiques de données chiffrées
+(`pg_dump`, `COPY … TO`, copies manuelles de tables ou de bases) sont **interdits** en dehors des sauvegardes Azure
+gérées (restauration à un instant donné, PITR). Raisons :
+
+- un export contient les valeurs chiffrées telles quelles, avec la clé qui les chiffrait à cet instant : après une
+  rotation ou le retrait d'une clé, il ne se relit **qu'avec les anciennes clés**. Le garder obligerait à conserver ces
+  clés, contrairement à l'ADR 0012, ou le rendrait illisible ;
+- il échappe à la rétention `postgres_backup_retention_days`, qui fixe le moment où une ancienne clé peut être supprimée ;
+- il sort des données de santé (ARC-06, RGPD art. 9) du périmètre chiffré et journalisé de la zone.
+
+Toute exception (migration de serveur, demande d'une autorité, copie qui en exigerait une) est **tracée avant l'export**
+dans le registre RAID (`docs/00-pilotage/raid-log.md`), avec le motif, le demandeur, l'approbation du responsable
+produit, les clés nécessaires à sa relecture, son emplacement chiffré et sa date de destruction. Une exception en cours
+**interdit** le retrait des clés qu'elle utilise, tant que l'export n'est pas détruit ou rechiffré.
 
 #### Rotation de la clé de l'index aveugle (non disponible : #473)
 
