@@ -7,7 +7,7 @@ namespace Sepp.Bff.Interne.Integration.Tests;
 /// confrontés à l'instantané OpenAPI du service. Le relais générique (YARP, <c>Relais/RelaisServices.cs</c>) ne consomme aucune route
 /// précise : il transmet les appels des écrans internes tels quels, son contrat est celui des services eux-mêmes.
 /// </summary>
-public sealed class ContratConsommateurTests
+public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
 {
     private const string Bff = "bff-interne";
 
@@ -20,5 +20,5 @@ public sealed class ContratConsommateurTests
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_du_BFF_sont_satisfaits_par_les_contrats_des_services() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart();
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
 }
