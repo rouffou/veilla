@@ -1,8 +1,8 @@
 # ADR 0016 — Placement des capacités des lots 4 et 5 (prévention, psychosocial, prestations, reporting)
 
 ## Statut
-Proposée le 2026-11-14 par l'architecte solution, à valider par le responsable produit. Le point 4 est aussi à valider
-par l'architecte sécurité. Référence : [état des lieux de l'architecture](../architecture/etat-des-lieux-architecture.md),
+Acceptée le 2026-11-15 par le responsable produit (proposée le 2026-11-14 par l'architecte solution). Le point 4 reste
+à valider par l'architecte sécurité (voir `docs/securite/procedure-acces-psychosocial-employeur.md`, option O4). Référence : [état des lieux de l'architecture](../architecture/etat-des-lieux-architecture.md),
 §3.5. Prolonge les ADR 0008, 0009 et 0011.
 
 ## Contexte

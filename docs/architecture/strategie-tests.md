@@ -56,7 +56,7 @@ Le contrat de chaque service et BFF est déjà versionné : `docs/api/openapi/<n
 | Mécanisme | Où | Ce qu'il détecte |
 |---|---|---|
 | **Attentes du consommateur** (`AttenteConsommateur`, `ContratConsommateur.Verifier`) | `ContratConsommateurTests` dans le projet d'intégration de chaque consommateur | opération supprimée ou renommée, paramètre de requête supprimé ou devenu obligatoire, champ de corps supprimé ou devenu obligatoire, code de succès modifié, champ de réponse supprimé (si la réponse est décrite) |
-| **Doubles de test conformes** (`ControleContratDouble`, branché dans `ServicesAvalSimules` des 3 BFF) | à chaque `Repondre(...)` | un double qui répond sur une route inexistante ; une réponse décrite par le fournisseur dont les champs ou les valeurs d'énumération (casse comprise) ne correspondent pas : c'est la classe du bug #436 (« Personne » au lieu de « personne ») |
+| **Doubles de test conformes** (`ControleContratDouble`, branché dans `ServicesAvalSimules` des 3 BFF) | à chaque `Repondre(...)` | un double qui répond sur une route inexistante ; une réponse décrite par le fournisseur dont les champs ou les valeurs d'énumération (casse comprise) ne correspondent pas : c'est la classe du bug #436 (« Personne » au lieu de « personne »). **Actif dès que les réponses seront typées, voir #476** : tant qu'aucune réponse n'est décrite par les instantanés, seule la route est contrôlée |
 | **Requêtes réellement émises** (même contrôle, vérifié dans `DisposeAsync` des tests d'API des BFF) | chaque test d'API | le code du BFF appelle une route, un paramètre ou un champ de corps qui n'existe pas chez le service |
 
 Consommateurs couverts :
@@ -74,10 +74,10 @@ Consommateurs couverts :
 Le compte technique (jeton OIDC en client credentials) appelle le fournisseur d'identité, pas un service interne : il n'a pas de contrat OpenAPI interne et reste couvert par ses tests unitaires.
 
 ### 4.3 Limites connues
-1. **Les réponses ne sont pas décrites.** Aucun endpoint des services ne déclare le type de sa réponse (`Produces<T>`) : aucune opération des services ne décrit un corps de réponse (un code `200` sans schéma). Les « champs de réponse lus » déclarés par les consommateurs sont donc signalés comme non vérifiables (la vérification s'active dès qu'un service typera sa réponse), et la casse des énumérations dans les réponses n'est contrôlée que sur les doubles dont la réponse est décrite. Suite : typer les réponses des endpoints consommés par les BFF et les services (ticket de suite).
+1. **Les réponses ne sont pas décrites.** Aucun endpoint des services ne déclare le type de sa réponse (`Produces<T>`) : aucune opération des services ne décrit un corps de réponse (un code `200` sans schéma). Les « champs de réponse lus » déclarés par les consommateurs sont donc signalés comme non vérifiables (la vérification s'active dès qu'un service typera sa réponse, voir #476), et la casse des énumérations dans les réponses n'est contrôlée que sur les doubles dont la réponse est décrite. Suite : typer les réponses des endpoints consommés par les BFF et les services (ticket de suite).
 2. **Codes d'erreur** (404, 409…) : non déclarés dans les instantanés (réponses `problem+json` génériques), donc non contrôlés.
 3. **`required` n'est pas fiable** : le générateur OpenAPI de .NET marque comme requises toutes les propriétés d'un record, nullables comprises. Le contrôle n'exige que les propriétés non nullables.
-4. **Enumération `TypeDestinataire`** : l'instantané de Documents annonce `Affilie, Personne, Dossier` (PascalCase) alors que le service publie `personne` (#436). Écart à corriger côté Documents quand ses réponses seront typées ; le BFF Travailleur compare sans casse en attendant.
+4. **Enumération `TypeDestinataire`** : l'instantané de Documents annonce `Affilie, Personne, Dossier` (PascalCase) alors que le service publie `personne` (#436). Écart à corriger côté Documents quand ses réponses seront typées (#476) ; le BFF Travailleur compare sans casse en attendant.
 5. Les adaptateurs HTTP de service à service (annuaire, source linguistique, BCE, DIMONA) n'ont pas encore de test avec un double HTTP : leurs attentes sont vérifiées contre les instantanés, pas leur lecture des réponses.
 
 ### 4.4 Ajouter ou changer un appel
@@ -94,7 +94,8 @@ Mise en œuvre : `tools/verifier-couverture.py`, étape « Seuil de couverture D
 
 - Les rapports Cobertura des projets de tests d'une solution sont fusionnés (une ligne est couverte si un projet de tests l'exerce).
 - Seuils dans `tools/couverture-seuils.json`. Un service absent est tenu à la cible de 80 %.
-- Un service sous la cible porte un **seuil propre au niveau actuel** (cliquet) : il ne peut que monter. Le script signale quand un seuil peut être relevé. Un seuil ne se baisse jamais ; il se relève dans la PR qui ajoute des tests.
+- **Une couche absente fait échouer la CI** (code 1) : rapport vide, assembly renommé ou préfixe erroné ne passent pas au vert. Seules les solutions listées dans `sans_couches` (Sagas, BFF Employeur, Interne et Travailleur, Pseudonymisation) n'ont pas de couches Domain/Application et sont dispensées.
+- Un service sous la cible porte un **seuil propre au niveau actuel** (cliquet) : il ne peut que monter. Le script signale quand un seuil peut être relevé. Un seuil ne se baisse jamais ; il se relève dans la PR qui ajoute des tests. Le cliquet est **contrôlé en PR** : l'étape « Cliquet des seuils de couverture » du job `style` exécute `tools/verifier-cliquet.py`, qui compare le fichier à celui de `main` (retirer une entrée relève le seuil jusqu'à la cible, c'est permis).
 - Les PR qui ne touchent pas au .NET ne l'exécutent pas : le job `build-test` est ignoré (job `changements`) et « Statut .NET » reste vert.
 - La synthèse `irongut/CodeCoverageSummary` reste informative (`fail_below_min: false`) : elle agrège tous les assemblies, tests et adaptateurs compris, et ne sait pas appliquer un seuil par couche.
 

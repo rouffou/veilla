@@ -146,6 +146,18 @@ public sealed class ContratConsommateurComparaisonTests
     }
 
     [Fact]
+    public void Les_non_verifiables_sont_ecrits_dans_la_sortie_du_test()
+    {
+        var resultat = Verifier(Attente("GET", "/api/v1/documents/{id}") with { ChampsReponse = ["id"] });
+        var sortie = new List<string>();
+
+        resultat.ExigerSansEcart(sortie.Add);
+
+        sortie.ShouldContain(l => l.Contains("non vérifiable", StringComparison.Ordinal));
+        sortie.ShouldContain(l => l.Contains("/api/v1/documents/{id}", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Un_code_de_succes_non_declare_est_detecte()
     {
         Verifier(Attente("GET", "/api/v1/documents/{id}") with { CodeSucces = "204" }).Ecarts.ShouldHaveSingleItem().ShouldContain("code de succès 204");
@@ -156,7 +168,7 @@ public sealed class ContratConsommateurComparaisonTests
     {
         var resultat = Verifier(Attente("GET", "/api/v1/archives"));
 
-        Should.Throw<ShouldAssertException>(resultat.ExigerSansEcart).Message.ShouldContain("/api/v1/archives");
+        Should.Throw<ShouldAssertException>(() => resultat.ExigerSansEcart()).Message.ShouldContain("/api/v1/archives");
     }
 
     [Theory]
