@@ -19,6 +19,16 @@ updates:
       # PR #412) : à décider par le responsable produit avant toute montée de version.
       - dependency-name: "PDFsharp"
         versions: [">= 6.5.0"]
+      # Les paquets liés au runtime suivent la version majeure de .NET (net10.0) : le passage
+      # à .NET 11 est une migration planifiée à part, pas une montée automatique (#427, #432).
+      - dependency-name: "Microsoft.AspNetCore.*"
+        versions: [">= 11.0.0"]
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        versions: [">= 11.0.0"]
+      - dependency-name: "Microsoft.Extensions.*"
+        versions: [">= 11.0.0"]
+      - dependency-name: "System.*"
+        versions: [">= 11.0.0"]
     groups:
       aspnetcore-efcore:
         patterns:
@@ -106,6 +116,13 @@ updates:
       timezone: Europe/Brussels
     commit-message:
       prefix: "deps(docker)"
+    ignore:
+      # Les images .NET suivent la version majeure du projet (net10.0) : pas de montée automatique
+      # vers .NET 11 (la restauration échoue, #427).
+      - dependency-name: "*dotnet/sdk"
+        versions: [">= 11.0"]
+      - dependency-name: "*dotnet/aspnet"
+        versions: [">= 11.0"]
     groups:
       images-de-base:
         patterns: ["*"]

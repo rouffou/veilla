@@ -16,9 +16,9 @@ Criticité = probabilité × impact (échelle 1 à 5). Les probabilités et impa
 |---|---|---|---|
 | DA-01 | Scinder le Lot 0 : les tickets qui ne se ferment qu'au déploiement Azure passent dans un jalon « Mise en service Azure » ? | #282, #158, #204, #206, #208, #214, #236, #399 | le Lot 0 reste ouvert, et la règle « lots dans l'ordre » bloque les Lots 1 et suivants |
 | DA-02 | Valider le chemin critique et les P0 et P1 de la démo, et autoriser la création des tickets A à H | #389 | écrans de démo non découpés, donc pas de projection possible |
-| DA-03 | Trancher les 5 écarts de droits entre le cahier des charges et le code | #401 | droits de l'infirmier et du CPMT dirigeant incertains dans la démo ; #260 bloqué |
-| DA-04 | Délais légaux initiaux : validation par le département médical, ou acceptation provisoire pour la démo | #404 (#53, #59) | valeurs non validées affichées en démo |
-| DA-05 | Incapacités : quelle source fait foi (manuel ou eHealth), quelle tolérance sur la date de début | #385 | doublons de dossiers dans le parcours E |
+| DA-03 | ~~Trancher les 5 écarts de droits entre le cahier des charges et le code~~ **tranchée le 2026-11-15 (D-008)** | #401 | droits de l'infirmier et du CPMT dirigeant incertains dans la démo ; #260 bloqué |
+| DA-04 | ~~Délais légaux initiaux : validation par le département médical, ou acceptation provisoire pour la démo~~ **tranchée le 2026-11-15 (D-009)** | #404 (#53, #59) | valeurs non validées affichées en démo |
+| DA-05 | ~~Incapacités : quelle source fait foi (manuel ou eHealth), quelle tolérance sur la date de début~~ **tranchée le 2026-11-15 (D-010)** | #385 | doublons de dossiers dans le parcours E |
 | DA-06 | Fermer les 5 schémas initiaux et les 6 épiques soldés, après vérification | #269, #270, #271, #276, #277 ; #2, #3, #4, #11, #14, #15 | avancement sous-estimé, bruit dans le backlog |
 | DA-07 | Appliquer l'organisation du board proposée (champs, vues, commandes de la section 6) | board 7 | pilotage sans priorité ni blocage visibles |
 
@@ -77,3 +77,10 @@ Décisions déjà prises et tracées dans le dépôt.
 | D-005 | Rattrapage des projections par republication des producteurs | 2026-10-25 | architecture | `docs/adr/0011-rattrapage-projections.md` |
 | D-006 | Ne pas proposer PDFsharp >= 6.5, qui impose une licence | 2026-11-14 (commit 7440ca1) | orchestrateur | — (PR #426) |
 | D-007 | Les lots se traitent dans l'ordre (Lot 0, puis 1, 2…) | — | responsable produit | `CLAUDE.md` (révision proposée : DA-01) |
+| D-008 | Écarts de droits (#401) : écriture des décisions par l'infirmier et signature réservée au CPMT (`decision:signer`), écriture des affiliés et des personnes par le CPMT dirigeant, droit dédié aux documents psychosociaux du travailleur, extensions POR-11 et SIPP maintenues, procédure psychosociale employeur à définir | 2026-11-15 | responsable produit | #401 |
+| D-009 | Délais légaux initiaux acceptés à titre provisoire pour la démo, validation médicale toujours due | 2026-11-15 | responsable produit | #404 |
+| D-010 | Incapacités : eHealth comme source, saisie manuelle toujours possible, doublon validé par une personne avec notification | 2026-11-15 | responsable produit | #385 |
+| D-011 | ADR 0014, 0015 et 0016 acceptés (point 4 de 0016 à valider par l'architecte sécurité) | 2026-11-15 | responsable produit | `docs/adr/0014` à `0016` |
+| D-012 | Remplacer PDFsharp plutôt que rester en 6.4 ou acheter la licence | 2026-11-15 | responsable produit | #484 |
+| D-013 | Exports logiques (`pg_dump`) de données chiffrées interdits en dehors des sauvegardes PITR gérées | 2026-11-15 | responsable produit | #482 |
+| D-014 | Démo : diapositives, en français avec une bascule en néerlandais ; suivi des délais par affilié | 2026-11-15 | responsable produit | `docs/01-produit/demo-stories.md` §7 |

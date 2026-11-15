@@ -2584,11 +2584,11 @@ Fonctionnalité: Présentation commerciale
 
 | N° | Question | Destinataire | Bloquante ? |
 |---|---|---|---|
-| Q1 | Quels sont le format (diapositives ou Markdown), le public et l'emplacement de la présentation commerciale ? | Responsable produit | Non (T4) |
-| Q2 | La démo se fait-elle en français seulement, ou avec un passage en néerlandais ? Faut-il un script et une présentation en NL ? | Responsable produit | Non (T3, T4) |
+| Q1 | Quels sont le format (diapositives ou Markdown), le public et l'emplacement de la présentation commerciale ? | Responsable produit | **Tranchée le 2026-11-15** : diapositives (exportables en PowerPoint et PDF) ; le script de démo reste en Markdown dans le dépôt |
+| Q2 | La démo se fait-elle en français seulement, ou avec un passage en néerlandais ? Faut-il un script et une présentation en NL ? | Responsable produit | **Tranchée le 2026-11-15** : démo en français avec une bascule en néerlandais pour montrer le multilingue ; script et présentation en FR seulement |
 | Q3 | Pour DEMO-C4, faut-il relayer `documents-medicale` ou créer un composite ? Un ADR est à rédiger. | Architecte solution et architecte sécurité | Non (P1) |
 | Q4 | Pour DEMO-A1, l'extension PostgreSQL de recherche (`unaccent`, `pg_trgm`) est-elle acceptable ? Faut-il un index aveugle si les noms sont chiffrés ? | Architecte solution | Non, mais à trancher avant le développement de A1 |
-| Q5 | Le gestionnaire doit-il voir un tableau des délais tous affiliés, sans donnée médicale ? Le suivi par affilié suffit-il ? | Responsable produit | Non |
+| Q5 | Le gestionnaire doit-il voir un tableau des délais tous affiliés, sans donnée médicale ? Le suivi par affilié suffit-il ? | Responsable produit | **Tranchée le 2026-11-15** : le suivi par affilié suffit pour la démo ; un tableau global pourra venir au Lot 3 |
 | Q6 | Le profil Keycloak du compte `travailleur` est-il renommé en Nadia Lambert par la PR #438 ? Quels noms le manifeste attribue-t-il aux clés citées ? | Auteur de la PR #438 | Non |
 | Q7 | Où est tracée la décision DA-02 du 2026-11-14 ? Elle est introuvable dans `docs/`. | Responsable produit ou chef de projet | Non |
 | Q8 | #351 est au jalon Lot 3, alors que son écran est couvert par DEMO-D2 (Lot 2). Faut-il scinder #351 ou changer son jalon ? | Responsable produit | Non |

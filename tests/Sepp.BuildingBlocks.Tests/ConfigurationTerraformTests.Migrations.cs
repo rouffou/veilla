@@ -17,7 +17,7 @@ public sealed partial class ConfigurationTerraformTests
 
         var job = BlocModule(main, "migration_job");
         job.ShouldContain("\"./modules/containerapp-migration-job\"", Case.Sensitive);
-        Regex.IsMatch(job, @"for_each\s*=\s*var\.deploy_container_apps \? \{ for n, s in var\.services : n => s if s\.database \} : \{\}")
+        Regex.IsMatch(job, @"for_each\s*=\s*var\.deploy_container_apps \? \{ for n, s in local\.services : n => s if s\.database \} : \{\}")
             .ShouldBeTrue("Un job de migration par service doté d'une base.");
         Regex.IsMatch(job, @"identity_id\s*=\s*module\.identity\.migration_identities\[each\.key\]\.id")
             .ShouldBeTrue("Le job utilise l'identité de migration du service.");
@@ -29,7 +29,7 @@ public sealed partial class ConfigurationTerraformTests
         Regex.IsMatch(job, @"container_app_environment_id\s*=\s*module\.container_apps_env\[each\.value\.zone\]\.id")
             .ShouldBeTrue("Le job s'exécute dans l'environnement de la zone du service (point privé PostgreSQL de la zone).");
 
-        Regex.IsMatch(BlocModule(main, "identity"), @"migration_services\s*=\s*\[for n, s in var\.services : n if s\.database\]")
+        Regex.IsMatch(BlocModule(main, "identity"), @"migration_services\s*=\s*\[for n, s in local\.services : n if s\.database\]")
             .ShouldBeTrue("Chaque service doté d'une base reçoit une identité de migration.");
 
         // Environnement du job : identité de migration, mode « migrer puis quitter », rôle d'exécution à doter du DML.

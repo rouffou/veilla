@@ -174,9 +174,43 @@ public sealed partial class ConfigurationTerraformTests
             "Services du catalogue Terraform sans clés obligatoires déclarées dans ConfigurationTerraformTests : " + string.Join(", ", nonCouverts));
     }
 
-    /// <summary>Services du catalogue Terraform dont le code n'existe pas encore dans le dépôt (aucune configuration à vérifier).</summary>
-    private static readonly string[] ServicesSansCode =
-        ["identite", "prestations", "prevention", "psychosocial", "reporting"];
+    /// <summary>
+    /// Services du catalogue Terraform dont le code n'existe pas encore dans le dépôt (aucune configuration à vérifier) :
+    /// ce sont les services inactifs (<c>actif = false</c>, ADR 0015). Une PR qui livre leur premier code les active et les
+    /// retire de cette liste.
+    /// </summary>
+    private static readonly string[] ServicesSansCode = ["prestations", "prevention", "psychosocial", "reporting"];
+
+    [Fact]
+    public void Les_services_sans_code_sont_exactement_les_services_inactifs_du_catalogue()
+    {
+        var inactifs = Terraform.Lire().Services.Where(s => !s.Value.Actif).Select(s => s.Key).Order(StringComparer.Ordinal).ToList();
+
+        inactifs.ShouldBe(
+            [.. ServicesSansCode.Order(StringComparer.Ordinal)],
+            "ServicesSansCode doit lister exactement les services « actif = false » de infra/variables.tf (ADR 0015) : "
+            + "activer un service dès que son code existe, et ne jamais laisser un service actif sans clés obligatoires déclarées.");
+    }
+
+    [Fact]
+    public void Aucun_service_actif_n_est_abonne_a_un_producteur_absent_du_catalogue_ni_instance_d_un_service_inactif()
+    {
+        var services = Terraform.Lire().Services;
+        var ecarts = new List<string>();
+
+        foreach (var (nom, service) in services.Where(s => s.Value.Actif))
+        {
+            ecarts.AddRange(service.SubscribesTo
+                .Where(topic => !services.ContainsKey(topic))
+                .Select(topic => $"{nom} : abonné à « {topic} », absent du catalogue."));
+            if (service.InstanceDe is { } origine && !(services.TryGetValue(origine, out var o) && o.Actif))
+            {
+                ecarts.Add($"{nom} : instance de « {origine} », inactif ou absent.");
+            }
+        }
+
+        ecarts.ShouldBeEmpty(string.Join(Environment.NewLine, ecarts));
+    }
 
     [Fact]
     public void Chaque_adaptateur_declare_dans_appsettings_est_injecte_par_terraform_et_aucun_ne_vaut_Reel_par_defaut()
@@ -509,9 +543,9 @@ public sealed partial class ConfigurationTerraformTests
         var chiffrants = terraform.Services.Where(s => s.Value.Encryption.Count > 0).Select(s => s.Key).ToList();
         chiffrants.ShouldBe(new[] { "personnes", "integrations", "surveillance-medicale", "reintegration" }, ignoreOrder: true);
 
-        Regex.IsMatch(main, @"field_kek_names\s*=\s*\{\s*for n, s in var\.services : n => ""\$\{n\}-fields-kek"" if length\(s\.encryption\) > 0\s*\}")
+        Regex.IsMatch(main, @"field_kek_names\s*=\s*\{\s*for n, s in local\.services : n => ""\$\{n\}-fields-kek"" if length\(s\.encryption\) > 0\s*\}")
             .ShouldBeTrue("Une clé racine <service>-fields-kek par service qui chiffre des champs.");
-        Regex.IsMatch(BlocModule(main, "keyvault"), @"field_kek_names\s*=\s*\[for n, cle in local\.field_kek_names : cle if var\.services\[n\]\.zone == each\.value\]")
+        Regex.IsMatch(BlocModule(main, "keyvault"), @"field_kek_names\s*=\s*\[for n, cle in local\.field_kek_names : cle if local\.services\[n\]\.zone == each\.value\]")
             .ShouldBeTrue("La clé racine d'un service est créée dans le coffre de sa zone, et seulement là.");
         Regex.IsMatch(main, @"""\$\{prefixe\}__Enveloppe__CleKek""\s*=\s*module\.keyvault\[s\.zone\]\.field_kek_uris\[local\.field_kek_names\[n\]\]")
             .ShouldBeTrue("Le service reçoit l'URI (sans version) de sa propre clé racine.");
@@ -847,6 +881,7 @@ public sealed partial class ConfigurationTerraformTests
                     EncryptionZones: Regex.Match(bloc, @"encryption\s*=\s*\{(?<v>[^}]*)\}") is { Success: true } e
                         ? [.. Regex.Matches(e.Groups["v"].Value, "(?:^|[\\s,])\"?(?<k>[A-Za-z][A-Za-z0-9_-]*)\"?\\s*=\\s*\"(?<z>[^\"]*)\"").Select(v => (v.Groups["k"].Value, v.Groups["z"].Value))]
                         : [],
+                    Actif: !Regex.IsMatch(bloc, @"\bactif\s*=\s*false"),
                     SubjectFilters: Regex.Match(bloc, @"subject_filters\s*=\s*\{(?<v>[^}]*)\}") is { Success: true } f
                         ? Regex.Matches(f.Groups["v"].Value, @"""?(?<k>[A-Za-z][A-Za-z0-9_-]*)""?\s*=\s*\[(?<l>[^\]]*)\]")
                             .ToDictionary(v => v.Groups["k"].Value, v => Regex.Matches(v.Groups["l"].Value, "\"([^\"]+)\"").Select(x => x.Groups[1].Value).ToList(), StringComparer.Ordinal)
@@ -895,6 +930,7 @@ public sealed partial class ConfigurationTerraformTests
         string? InstanceDe,
         bool PublishesEvents,
         List<(string Prefixe, string Zone)> EncryptionZones,
+        bool Actif,
         Dictionary<string, List<string>> SubjectFilters)
     {
         /// <summary>Sujets acceptés par la subscription du service sur un topic (vide = tous les messages).</summary>

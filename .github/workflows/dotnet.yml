@@ -18,6 +18,8 @@ on:
       - "src/Bff/**"
       - "tools/regenerate-solutions.sh"
       - "tools/verifier-couverture.py"
+      - "tools/verifier-cliquet.py"
+      - "tools/test_verifier_couverture.py"
       - "tools/couverture-seuils.json"
       - "Directory.Build.props"
       - "Directory.Packages.props"
@@ -70,7 +72,7 @@ jobs:
         env:
           EVENEMENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^src/Sagas/|^tools/pseudonymisation/|^tests/|^infra/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^tools/verifier-couverture\.py$|^tools/couverture-seuils\.json$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
+          MOTIF: '^src/BuildingBlocks/|^src/Contracts/|^src/Services/|^src/Bff/|^src/Sagas/|^tools/pseudonymisation/|^tests/|^infra/|[^/]*\.slnx$|^tools/regenerate-solutions\.sh$|^tools/verifier-couverture\.py$|^tools/verifier-cliquet\.py$|^tools/couverture-seuils\.json$|^Directory\.Build\.props$|^Directory\.Packages\.props$|^global\.json$|^dotnet-tools\.json$|^\.editorconfig$|^\.github/workflows/dotnet\.yml$'
         run: |
           if [ "$EVENEMENT" != "pull_request" ]; then
             echo "concerne=true" >> "$GITHUB_OUTPUT"
@@ -128,6 +130,17 @@ jobs:
         run: |
           bash tools/regenerate-solutions.sh
           git diff --exit-code -- '*.slnx' || { echo "::error::Solutions obsolètes : lancer tools/regenerate-solutions.sh et committer."; exit 1; }
+      # Cliquet (ARC-23, #479) : aucun seuil de couverture ne baisse par rapport à main.
+      - name: Tests des scripts de couverture
+        run: python3 tools/test_verifier_couverture.py
+      - name: Cliquet des seuils de couverture (PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          git show "FETCH_HEAD:tools/couverture-seuils.json" > "$RUNNER_TEMP/seuils-base.json"
+          python3 tools/verifier-cliquet.py --base "$RUNNER_TEMP/seuils-base.json"
       - name: Restauration
         run: dotnet restore Sepp.slnx
       - name: Style de code (dotnet format)
@@ -181,7 +194,8 @@ jobs:
           --results-directory "${{ github.workspace }}/TestResults"
 
       # Seuil bloquant (ARC-23) : couverture des assemblies Domain et Application du service, par couche. Cible 80 % ; un
-      # service sous la cible porte un seuil propre, au niveau actuel (cliquet), dans tools/couverture-seuils.json.
+      # service sous la cible porte un seuil propre, au niveau actuel (cliquet), dans tools/couverture-seuils.json. Une couche
+      # absente est une erreur, sauf pour les solutions listées dans `sans_couches` du même fichier (Sagas, BFF, Pseudonymisation).
       # Cette étape vit dans build-test : une PR qui ne touche pas au .NET ne l'exécute pas (job ignoré, « Statut .NET » vert).
       - name: Seuil de couverture Domain et Application
         run: >-

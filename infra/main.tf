@@ -37,28 +37,34 @@ locals {
     gere_par      = "terraform"
   })
 
+  # --- Catalogue effectif (ADR 0015) : seuls les services actifs créent des ressources ---
+  # Un service inactif (actif = false) ne crée ni Container App, ni base, ni job, ni identité, ni rubrique, ni abonnement,
+  # ni règle KEDA ; les abonnements vers lui sont ignorés. Les éléments propres à une zone (environnement Container Apps,
+  # coffre, sous-réseau) sont conservés. var.services garde le catalogue complet (validations, traçabilité des zones).
+  services = { for n, s in var.services : n => s if s.actif }
+
   # --- Bases de données (ARC-02) : un serveur par zone, une base par service ---
-  db_zones = toset([for s in values(var.services) : s.zone if s.database])
+  db_zones = toset([for s in values(local.services) : s.zone if s.database])
   zone_databases = {
-    for z in local.db_zones : z => sort([for n, s in var.services : replace(n, "-", "_") if s.database && s.zone == z])
+    for z in local.db_zones : z => sort([for n, s in local.services : replace(n, "-", "_") if s.database && s.zone == z])
   }
 
   # --- Événements (ARC-05) : un topic par publieur, une subscription par abonné ---
-  topics = sort([for n, s in var.services : n if s.publishes_events])
+  topics = sort([for n, s in local.services : n if s.publishes_events])
   subscriptions = merge([
-    for n, s in var.services : { for t in s.subscribes_to : "${t}.${n}" => { topic = t, subscriber = n, subjects = lookup(s.subject_filters, t, []) } }
+    for n, s in local.services : { for t in s.subscribes_to : "${t}.${n}" => { topic = t, subscriber = n, subjects = lookup(s.subject_filters, t, []) } if contains(local.topics, t) }
   ]...)
-  queue_scaled_services = [for n, s in var.services : n if s.queue_scaling && length(s.subscribes_to) > 0]
+  queue_scaled_services = [for n, s in local.services : n if s.queue_scaling && length([for t in s.subscribes_to : t if contains(local.topics, t)]) > 0]
 
   # Instances du service Documents (une par zone qui produit des documents, décision #356) : elles seules lisent et
   # écrivent les documents (stockage WORM de leur zone) et portent une clé racine documents-kek dans le coffre de leur zone.
-  documents_instances = { for n, s in var.services : n => s if coalesce(s.instance_de, n) == "documents" }
+  documents_instances = { for n, s in local.services : n => s if coalesce(s.instance_de, n) == "documents" }
   documents_zones     = toset([for s in values(local.documents_instances) : s.zone])
   # Émetteurs d'un topic partagé : audit (toute instance dotée d'une base) et documents (instances supplémentaires,
   # qui publient sur le topic du service d'origine).
   shared_topic_senders = merge(
-    { for n, s in var.services : "audit.${n}" => { topic = "audit", principal = n } if s.database && n != "audit" },
-    { for n, s in var.services : "${s.instance_de}.${n}" => { topic = s.instance_de, principal = n } if s.instance_de != null },
+    { for n, s in local.services : "audit.${n}" => { topic = "audit", principal = n } if s.database && n != "audit" },
+    { for n, s in local.services : "${s.instance_de}.${n}" => { topic = s.instance_de, principal = n } if s.instance_de != null },
   )
 
   # --- Entrée des applications (ARC-43, ARC-46) ---
@@ -72,7 +78,7 @@ locals {
   # URL internes des services (ARC-30), communiquées aux BFF (SEPP__SERVICES__*) et aux services appelants
   # (internal_services du catalogue).
   service_url_by_name = {
-    for n, s in var.services :
+    for n, s in local.services :
     n => "https://ca-${n}.${module.container_apps_env[s.zone].default_domain}"
     if s.zone != "platform"
   }
@@ -96,10 +102,10 @@ locals {
 
   # --- Appels entre services : adresses internes et comptes techniques (secret par référence Key Vault) ---
   internal_services_environment = {
-    for n, s in var.services : n => { for cle, cible in s.internal_services : cle => local.service_url_by_name[cible] }
+    for n, s in local.services : n => { for cle, cible in s.internal_services : cle => local.service_url_by_name[cible] }
   }
   technical_account_environment = {
-    for n, s in var.services : n => {
+    for n, s in local.services : n => {
       "${s.compte_technique}__TokenEndpoint" = local.technical_token_endpoint
       "${s.compte_technique}__ClientId"      = lookup(var.technical_account_client_ids, n, "")
       "${s.compte_technique}__Scope"         = local.technical_scope
@@ -108,15 +114,15 @@ locals {
 
   # --- Adaptateurs externes : Simulateur partout hors production (ARC-05, NF-14) ---
   adapters_environment = {
-    for n, s in var.services : n => { for cle in s.adapters : cle => var.adapter_mode }
+    for n, s in local.services : n => { for cle in s.adapters : cle => var.adapter_mode }
   }
 
   # --- Chiffrement des champs par enveloppe (ARC-44, ARC-45, ADR 0012) : une clé racine <service>-fields-kek par service
   # qui chiffre des champs, dans le coffre de sa zone (RSA-HSM en zone sensible). Le service reçoit l'URI de la clé sans
   # version, l'identifiant de la DEK courante (en clair) et ses DEK enveloppées (secrets Key Vault, références). ---
-  field_kek_names = { for n, s in var.services : n => "${n}-fields-kek" if length(s.encryption) > 0 }
+  field_kek_names = { for n, s in local.services : n => "${n}-fields-kek" if length(s.encryption) > 0 }
   encryption_environment = {
-    for n, s in var.services : n => merge([
+    for n, s in local.services : n => merge([
       for prefixe in keys(s.encryption) : {
         "${prefixe}__CurrentKeyId"      = var.encryption_key_ids[0]
         "${prefixe}__Enveloppe__Type"   = "KeyVault"
@@ -133,10 +139,10 @@ locals {
   # inutilisable hors du coffre) et, tant que des valeurs du format v1 subsistent, <préfixe>--keys--<id> (anciennes clés
   # AES, lecture seule, var.encryption_legacy_key_ids). ---
   secret_name_prefix = {
-    for n, s in var.services : n => { for prefixe in keys(s.encryption) : prefixe => lower(replace(prefixe, "_", "-")) }
+    for n, s in local.services : n => { for prefixe in keys(s.encryption) : prefixe => lower(replace(prefixe, "_", "-")) }
   }
   service_key_vault_secrets = {
-    for n, s in var.services : n => merge(
+    for n, s in local.services : n => merge(
       { for k, v in s.key_vault_secrets : k => "${module.keyvault[s.zone].key_vault_uri}secrets/${v}" },
       s.compte_technique == null ? {} : {
         "${lower(replace(s.compte_technique, "_", "-"))}--clientsecret" = "${module.keyvault[s.zone].key_vault_uri}secrets/${lower(replace(s.compte_technique, "_", "-"))}--clientsecret"
@@ -158,7 +164,7 @@ locals {
 
   # Variables d'environnement injectées dans chaque conteneur (CTR-05 : rien dans l'image).
   common_environment = {
-    for n, s in var.services : n => {
+    for n, s in local.services : n => {
       SEPP__SERVICE                       = n
       SEPP__ZONE                          = s.zone
       SEPP__ENVIRONNEMENT                 = var.environment
@@ -170,7 +176,7 @@ locals {
     }
   }
   postgres_environment = {
-    for n, s in var.services : n => {
+    for n, s in local.services : n => {
       POSTGRES__HOST     = module.postgres[s.zone].fqdn
       POSTGRES__DATABASE = replace(n, "-", "_")
       POSTGRES__USER     = "id-${local.name_prefix}-${n}"
@@ -191,14 +197,14 @@ locals {
       DOCUMENTS__SOURCELINGUISTIQUE = s.zone == "standard" ? "Http" : "Projection"
     }
   }
-  bff_environment = { for n, s in var.services : n => local.service_urls if s.zone == "platform" }
+  bff_environment = { for n, s in local.services : n => local.service_urls if s.zone == "platform" }
   # CORS des BFF de portail (#358) : une variable CORS__ORIGINESAUTORISEES__<i> par origine autorisée.
   cors_environment = {
     for n, origines in var.portal_origins : n => { for i, o in origines : "CORS__ORIGINESAUTORISEES__${i}" => o }
   }
 
   app_environment = {
-    for n in keys(var.services) : n => merge(
+    for n in keys(local.services) : n => merge(
       local.common_environment[n],
       try(local.postgres_environment[n], {}),
       try(local.documents_environment[n], {}),
@@ -215,7 +221,7 @@ locals {
   # Job de migration (ADR 0010) : configuration non secrète du service, avec l'identité de migration (DDL) à la place de
   # l'identité d'exécution, le mode « migrer puis quitter » et le rôle d'exécution qui reçoit les droits DML. Aucun secret.
   migration_environment = {
-    for n, s in var.services : n => merge(local.app_environment[n], {
+    for n, s in local.services : n => merge(local.app_environment[n], {
       AZURE_CLIENT_ID          = module.identity.migration_identities[n].client_id
       POSTGRES__USER           = module.identity.migration_identities[n].name
       OTEL_SERVICE_NAME        = "${n}-migration"
@@ -303,7 +309,7 @@ module "keyvault" {
   managed_hsm_admin_object_ids    = var.managed_hsm_admin_object_ids
   managed_hsm_private_dns_zone_id = module.network.private_dns_zone_ids["managedhsm"]
   documents_kek_enabled           = contains(local.documents_zones, each.value)
-  field_kek_names                 = [for n, cle in local.field_kek_names : cle if var.services[n].zone == each.value]
+  field_kek_names                 = [for n, cle in local.field_kek_names : cle if local.services[n].zone == each.value]
   log_analytics_workspace_id      = module.monitoring.log_analytics_workspace_id
   tags                            = merge(local.tags, { zone = each.value })
 }
@@ -339,7 +345,7 @@ module "identity" {
   name_prefix = local.name_prefix
   location    = var.location
   services = {
-    for n, s in var.services : n => {
+    for n, s in local.services : n => {
       zone                = s.zone
       resource_group_name = azurerm_resource_group.zone[s.zone].name
     }
@@ -349,7 +355,7 @@ module "identity" {
   # Chiffrement des champs (ARC-44, ARC-45, ADR 0012) : rôle d'enveloppement porté sur la clé racine du service
   # (<service>-fields-kek, coffre de sa zone), jamais sur le coffre.
   field_kek_assignments = {
-    for n, s in var.services : n => {
+    for n, s in local.services : n => {
       key_id         = module.keyvault[s.zone].field_kek_ids[local.field_kek_names[n]]
       managed_hsm    = var.managed_hsm_enabled && contains(local.sensitive_zones, s.zone)
       managed_hsm_id = module.keyvault[s.zone].managed_hsm_id
@@ -366,7 +372,7 @@ module "identity" {
     }
   }
   # Identité de migration distincte (droits DDL) pour chaque service doté d'une base (ADR 0010).
-  migration_services = [for n, s in var.services : n if s.database]
+  migration_services = [for n, s in local.services : n if s.database]
   tags               = local.tags
 }
 
@@ -429,7 +435,7 @@ module "container_apps_env" {
 
 module "container_app" {
   source   = "./modules/containerapp"
-  for_each = var.deploy_container_apps ? var.services : {}
+  for_each = var.deploy_container_apps ? local.services : {}
 
   name                           = "ca-${each.key}"
   resource_group_name            = azurerm_resource_group.zone[each.value.zone].name
@@ -460,7 +466,7 @@ module "container_app" {
 # par la chaîne de déploiement avant la nouvelle révision. Même image que le service, identité de migration (DDL).
 module "migration_job" {
   source   = "./modules/containerapp-migration-job"
-  for_each = var.deploy_container_apps ? { for n, s in var.services : n => s if s.database } : {}
+  for_each = var.deploy_container_apps ? { for n, s in local.services : n => s if s.database } : {}
 
   name                         = "mig-${each.key}"
   resource_group_name          = azurerm_resource_group.zone[each.value.zone].name
@@ -536,7 +542,7 @@ module "policy" {
 check "comptes_techniques_identifiants" {
   assert {
     condition = alltrue([
-      for n, s in var.services : s.compte_technique == null || lookup(var.technical_account_client_ids, n, "") != ""
+      for n, s in local.services : s.compte_technique == null || lookup(var.technical_account_client_ids, n, "") != ""
     ])
     error_message = "Identifiant client manquant dans technical_account_client_ids pour un service doté d'un compte technique."
   }

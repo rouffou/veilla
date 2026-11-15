@@ -7,7 +7,7 @@ namespace Sepp.Communications.Integration.Tests;
 /// Les attentes sont confrontées à l'instantané OpenAPI du service appelé (<c>docs/api/openapi/</c>) ; une évolution du fournisseur
 /// qui supprime ou renomme ce que Communications utilise fait échouer ce test. Tout nouvel appel HTTP interne s'ajoute à cette liste.
 /// </summary>
-public sealed class ContratConsommateurTests
+public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
 {
     private const string Consommateur = "communications";
 
@@ -20,5 +20,5 @@ public sealed class ContratConsommateurTests
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_HTTP_internes_sont_satisfaits_par_les_contrats_des_fournisseurs() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart();
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
 }

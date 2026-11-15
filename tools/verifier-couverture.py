@@ -6,7 +6,11 @@ projet de tests l'exerce) et calcule, pour la solution d'un service, la couvertu
 `Sepp.<Service>.Application`. Échoue si une couche passe sous son seuil.
 
 Seuils : `tools/couverture-seuils.json`. La cible est 80 %. Un service sous la cible porte un seuil propre, au niveau actuel
-(cliquet) : il ne peut que monter. Un service absent du fichier est tenu à la cible.
+(cliquet) : il ne peut que monter (contrôlé en PR par `tools/verifier-cliquet.py`). Un service absent du fichier est tenu à la cible.
+
+Une couche sans aucune ligne mesurée est un ÉCHEC (code 1) : rapport vide, assembly renommé ou préfixe erroné ne doivent pas
+passer au vert avec 0 % mesuré. Seules les solutions listées dans `sans_couches` (Sagas, BFF, outils…) n'ont pas de couches
+Domain/Application et sont dispensées ; pour elles, le script ne contrôle rien et le dit.
 
 Usage : python3 tools/verifier-couverture.py --solution Affilies --resultats TestResults [--resume "$GITHUB_STEP_SUMMARY"]
 """
@@ -53,6 +57,18 @@ def main():
     cible = config["cible"]
     prefixe = config.get("prefixes", {}).get(args.solution, args.solution)
     seuils = config["seuils"].get(args.solution, {})
+    sans_couches = config.get("sans_couches", [])
+
+    if args.solution in sans_couches:
+        texte = (
+            f"### Seuil de couverture — {args.solution}\n\n"
+            "Solution sans couches Domain/Application (`sans_couches`) : aucun seuil à appliquer."
+        )
+        print(texte)
+        if args.resume:
+            with open(args.resume, "a", encoding="utf-8") as f:
+                f.write(texte + "\n")
+        return 0
 
     fichiers = glob.glob(os.path.join(args.resultats, "**", "*.cobertura.xml"), recursive=True)
     if not fichiers:
@@ -70,7 +86,10 @@ def main():
     for couche in COUCHES:
         valides = len(lignes[couche])
         if valides == 0:
-            rapport.append(f"| {couche} | — | — | {cible} % | aucune ligne (couche absente) |")
+            rapport.append(f"| {couche} | — | — | {cible} % | ÉCHEC : aucune ligne mesurée (couche absente) |")
+            echecs.append(
+                f"{args.solution} {couche} : aucune ligne mesurée pour l'assembly Sepp.{prefixe}.{couche} "
+                "(rapport vide, assembly renommé ou préfixe erroné ; une solution sans couches se déclare dans `sans_couches`)")
             continue
         couvertes = sum(1 for hits in lignes[couche].values() if hits > 0)
         pourcentage = 100.0 * couvertes / valides
@@ -92,7 +111,7 @@ def main():
         with open(args.resume, "a", encoding="utf-8") as f:
             f.write(texte + "\n")
     for echec in echecs:
-        print(f"::error::Couverture insuffisante, {echec}. Ajouter des tests (le seuil ne se baisse jamais).")
+        print(f"::error::Couverture : {echec}. Ajouter des tests ou corriger la configuration (le seuil ne se baisse jamais).")
     return 1 if echecs else 0
 
 

@@ -8,7 +8,7 @@ namespace Sepp.Bff.Travailleur.Integration.Tests;
 /// champs de réponse qu'il lit, puis confronté à l'instantané OpenAPI du service (<c>docs/api/openapi/</c>). Une évolution d'un
 /// service qui supprime ou renomme ce que le BFF utilise fait échouer ce test. Tout nouvel appel du BFF s'ajoute ici.
 /// </summary>
-public sealed class ContratConsommateurTests
+public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
 {
     private const string Bff = "bff-travailleur";
 
@@ -49,5 +49,5 @@ public sealed class ContratConsommateurTests
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_du_BFF_sont_satisfaits_par_les_contrats_des_services() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart();
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
 }
