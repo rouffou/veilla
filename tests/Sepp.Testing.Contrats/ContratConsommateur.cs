@@ -37,8 +37,18 @@ public sealed record AttenteConsommateur(string Consommateur, string Fournisseur
 /// <summary>Résultat d'une vérification : écarts (échec) et attentes que l'instantané ne permet pas encore de vérifier.</summary>
 public sealed record ResultatContrat(IReadOnlyList<string> Ecarts, IReadOnlyList<string> NonVerifiables)
 {
-    public void ExigerSansEcart()
+    /// <summary>Échoue s'il y a des écarts. Les attentes non vérifiables sont écrites via <paramref name="ecrire"/> (sortie du test) pour rester visibles tant que les réponses ne sont pas typées (#476).</summary>
+    public void ExigerSansEcart(Action<string>? ecrire = null)
     {
+        if (ecrire is not null && NonVerifiables.Count > 0)
+        {
+            ecrire($"{NonVerifiables.Count} attente(s) non vérifiable(s) (réponse non décrite par l'instantané, voir #476) :");
+            foreach (var attente in NonVerifiables)
+            {
+                ecrire($"  - {attente}");
+            }
+        }
+
         if (Ecarts.Count == 0)
         {
             return;
@@ -63,7 +73,7 @@ public sealed record ResultatContrat(IReadOnlyList<string> Ecarts, IReadOnlyList
 /// chez le fournisseur (route existante ; si l'instantané décrit la réponse : propriétés, énumérations à la casse exacte). C'est le
 /// garde-fou du bug #436, où le double renvoyait « Personne » alors que le service publie « personne ».</item>
 /// </list>
-/// Limite connue : tant qu'un service ne déclare pas le type de ses réponses (<c>Produces&lt;T&gt;</c>), l'instantané ne décrit
+/// Limite connue : le garde-fou #436 n'agit pas encore, il sera actif dès que les réponses seront typées (voir #476). Tant qu'un service ne déclare pas le type de ses réponses (<c>Produces&lt;T&gt;</c>), l'instantané ne décrit
 /// pas le corps de réponse ; les champs lus sont alors signalés « non vérifiables » (voir <c>docs/architecture/strategie-tests.md</c>).
 /// </summary>
 public static class ContratConsommateur

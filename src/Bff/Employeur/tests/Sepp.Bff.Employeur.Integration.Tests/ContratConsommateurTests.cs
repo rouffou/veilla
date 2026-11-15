@@ -6,7 +6,7 @@ namespace Sepp.Bff.Employeur.Integration.Tests;
 /// Contrat consommateur-fournisseur du BFF Employeur (ARC-23) : chaque appel HTTP émis par <c>Aval/ApisAval.cs</c> est déclaré ici
 /// puis confronté à l'instantané OpenAPI du service (<c>docs/api/openapi/</c>). Tout nouvel appel du BFF s'ajoute à cette liste.
 /// </summary>
-public sealed class ContratConsommateurTests
+public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
 {
     private const string Bff = "bff-employeur";
 
@@ -37,5 +37,5 @@ public sealed class ContratConsommateurTests
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_du_BFF_sont_satisfaits_par_les_contrats_des_services() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart();
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
 }

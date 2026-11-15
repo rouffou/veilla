@@ -1,6 +1,8 @@
 {
   "_commentaire": "Seuils de couverture de lignes (%) des assemblies Domain et Application, par solution (ARC-23, #196). Cible : 80. Un service absent est tenu à la cible. Un service sous la cible porte un seuil propre (cliquet) : mesuré le 2026-11-14, arrondi à l'entier inférieur moins 1 point de marge contre les variations d'exécution. Ne jamais baisser un seuil ; le relever dans la PR qui ajoute des tests, jusqu'à la cible, puis supprimer l'entrée.",
   "cible": 80,
+  "_commentaire_sans_couches": "Solutions CI sans assemblies Domain/Application, dispensées du seuil. Toute autre solution doit retrouver ses deux couches dans les rapports, sinon la CI échoue (couche absente = erreur).",
+  "sans_couches": ["Sagas", "Employeur", "Interne", "Travailleur", "Pseudonymisation"],
   "prefixes": {
     "Socle": "BuildingBlocks"
   },
