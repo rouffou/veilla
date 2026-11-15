@@ -92,8 +92,9 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
     }
 
     /// <summary>
-    /// Signature (<c>decision:signer</c>, ADR 0017) : en relation de soin avec le travailleur, ou par bris de glace motivé,
-    /// tracé et signalé (ARC-41). Un simple motif ne suffit pas.
+    /// Signature (<c>decision:signer</c>, ADR 0017) : en relation de soin sur l'examen de la décision (professionnel de cet
+    /// examen ou CPMT gestionnaire du dossier), ou par bris de glace motivé, tracé et signalé (ARC-41). Ni un simple motif ni
+    /// un autre examen du dossier (par exemple un examen spontané ouvert sur motif) ne suffisent (#495).
     /// </summary>
     public async Task<Result<Decision>> SignerAsync(Guid decisionId, CancellationToken cancellationToken)
     {
@@ -105,7 +106,9 @@ public sealed class AccesDecisions(IDecisionRepository decisions, GardeDossier g
 
         var (decision, dossier) = acces.Value;
         var brisDeGlace = contexte.BrisDeGlace && MotifAcces.Normaliser(contexte.Motif) is not null;
-        return brisDeGlace || await garde.EstEnRelationDeSoinAsync(dossier, cancellationToken) ? decision : SignatureHorsRelation;
+        return brisDeGlace || await garde.EstEnRelationDeSoinSurExamenAsync(dossier, decision.ExamenId, cancellationToken)
+            ? decision
+            : SignatureHorsRelation;
     }
 
     /// <summary>Acte réservé au CPMT (<c>decision:signer</c>) : issue d'un recours.</summary>

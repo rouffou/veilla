@@ -2,7 +2,8 @@
 
 ## Statut
 Acceptée le 2026-11-15 par le responsable produit (#401, PR #488). Modifie une règle du domaine de Surveillance médicale
-(agrégat `Decision`).
+(agrégat `Decision`). Point 2 précisé le 2026-11-15 : relation de soin appréciée sur l'examen de la décision (#495) et
+authentification forte sur toutes les écritures `decision:*` (#494).
 
 ## Contexte
 Avant #401, seul le CPMT rédigeait la décision d'évaluation de santé. Le CPMT qui créait le brouillon en était l'auteur
@@ -25,10 +26,15 @@ version qu'il a relue.
 2. **Le CPMT qui signe devient l'auteur légal.** `Decision.Signer` fixe `AuteurId` au signataire. Les conditions sont
    vérifiées en amont du domaine :
    - le droit `decision:signer` (CPMT, CPMT dirigeant) ;
-   - une relation de soin avec le travailleur (CPMT gestionnaire, professionnel d'un examen du dossier, vaccinateur) ou,
-     à défaut, un **bris de glace** motivé, tracé et signalé (ARC-41). Un simple motif ne suffit pas pour signer
-     (`decision.signature-hors-relation`, décision du responsable produit sur P2-3) ;
-   - l'authentification forte (NF-01).
+   - une relation de soin **sur l'examen auquel la décision se rattache** : être le professionnel de cet examen
+     (`decision.ExamenId`) ou le CPMT gestionnaire du dossier ; à défaut, un **bris de glace** motivé, tracé et signalé
+     (ARC-41). Un simple motif ne suffit pas pour signer (`decision.signature-hors-relation`, décision du responsable
+     produit sur P2-3) ;
+   - un autre examen du dossier ne suffit pas non plus (#495) : un CPMT hors relation de soin pourrait sinon ouvrir sur
+     motif un examen spontané, devenir « professionnel du dossier » et signer sans bris de glace. La règle est la même que
+     pour la modification du brouillon d'un autre (point 5). Un vaccinateur qui n'est ni gestionnaire ni professionnel
+     de l'examen passe lui aussi par le bris de glace ;
+   - l'authentification forte (NF-01), exigée depuis #494 sur toutes les écritures `decision:*`.
 
    L'empreinte envoyée au prestataire de signature porte sur le formulaire signataire compris.
 3. **La règle « seul l'auteur signe » disparaît, y compris pour un brouillon rédigé par un CPMT.** Raisons :

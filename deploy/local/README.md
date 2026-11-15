@@ -101,7 +101,8 @@ TOKEN=$(curl -s -X POST http://localhost:8180/realms/veilla/protocol/openid-conn
 ```
 
 Pour se placer dans les conditions d'Azure, ajoutez `Authentication__Strength__Mode: Enforce` à l'environnement du service : sans
-authentification forte, la signature (`POST /api/v1/decisions/{id}/signature`) et les routes `dossier-sante:*` répondent alors
+authentification forte, les écritures sur les décisions (`decision:ecrire`, `decision:signer`, dont la signature
+`POST /api/v1/decisions/{id}/signature`) et les routes `dossier-sante:*` répondent alors
 401 avec `WWW-Authenticate: Bearer error="insufficient_user_authentication", …, acr_values="mfa"`.
 
 ## Bus d'événements

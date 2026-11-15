@@ -125,9 +125,10 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
 
 - **Auteur légal fixé à la signature.** Le brouillon n'a pas d'auteur légal. Il porte son rédacteur réel (`RedigeePar`),
   son dernier modificateur et la date de modification (`ModifieePar`, `ModifieeLe`), ainsi qu'une version de contenu.
-  - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin avec le travailleur ou, à
-    défaut, un bris de glace motivé, tracé et signalé (ARC-41), ainsi que l'authentification forte. Un simple motif ne
-    suffit pas pour signer.
+  - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin sur l'examen de la décision
+    (professionnel de cet examen ou CPMT gestionnaire du dossier) ou, à défaut, un bris de glace motivé, tracé et signalé
+    (ARC-41), ainsi que l'authentification forte. Ni un simple motif ni un autre examen du dossier, même un examen
+    spontané ouvert sur motif, ne suffisent pour signer (#495).
   - Un dossier sans CPMT gestionnaire ne bloque plus la rédaction.
   - La règle « seul l'auteur signe » est supprimée.
 - **Version relue.** La modification et la signature exigent `If-Match`, avec la valeur `Version` rendue par
@@ -137,7 +138,9 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
   l'examen de la décision : professionnel de cet examen ou gestionnaire du dossier. Ni un simple motif ni un autre
   examen du dossier, même un examen spontané, ne suffisent.
 - **Authentification forte.** La clôture d'examen (`decision:signer`) l'exige explicitement. Les routes
-  `dossier-sante:gerer` l'exigent par leur préfixe.
+  `dossier-sante:gerer` l'exigent par leur préfixe. Depuis #494, toutes les routes `decision:ecrire` et `decision:signer`
+  l'exigent aussi par leur préfixe (`decision:lire` excepté) : la rédaction et la modification ouvertes à l'infirmier par
+  #401 sont couvertes (détail dans [authentification-forte.md](authentification-forte.md#routes-protégées)).
 - **Langue.** Elle est conservée dans `mes-employeurs`.
 - **Limite du contrôle du gestionnaire.** Le service n'a pas d'annuaire. Il contrôle seulement que l'identifiant désigné
   n'est pas vide, et que seul un CPMT (`dossier-sante:gerer`) le désigne. Il ne peut pas vérifier que cet identifiant

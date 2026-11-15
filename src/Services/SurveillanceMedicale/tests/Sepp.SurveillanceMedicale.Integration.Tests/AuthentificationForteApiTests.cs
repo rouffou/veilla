@@ -56,6 +56,68 @@ public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fi
         signee.StatusCode.ShouldBe(HttpStatusCode.OK, await signee.Content.ReadAsStringAsync(_ct));
     }
 
+    [Theory]
+    [InlineData(Roles.Infirmier)]
+    [InlineData(Roles.Cpmt)]
+    public async Task Les_ecritures_decision_exigent_l_authentification_forte(string role)
+    {
+        // #494 : toute route decision:ecrire ou decision:signer exige l'authentification forte (préfixe decision:), sans
+        // déclaration route par route. L'autorisation précède le chargement : des identifiants inconnus suffisent.
+        var faible = fixture.ClientStrict(role, $"{role}-pwd", amr: "pwd");
+        var (examen, decision, dossier, declaration, autre) =
+            (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+
+        // decision:ecrire (CPMT et infirmier).
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/examens/{examen}/decision",
+            new { categorie = "Apte", justification = "Justification médicale" }, _ct));
+        var modification = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/decisions/{decision}") { Content = JsonContent.Create(new { categorie = "Apte" }) };
+        modification.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+        DefiDeMonteeEnNiveau(await faible.SendAsync(modification, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/decisions/{decision}/recours",
+            new { type = "Concertation", dateIntroduction = "2026-03-03" }, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsync($"/api/v1/declarations-mp/{declaration}/suivi", null, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/declarations-mp/{declaration}/demandes-information",
+            new { dateDemande = "2026-03-03", echeance = "2026-03-17", objet = "Objet" }, _ct));
+
+        if (role != Roles.Cpmt)
+        {
+            return;
+        }
+
+        // decision:signer (CPMT seulement ; l'infirmier reçoit 403 sur ces routes, voir le test des permissions).
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/decisions/{decision}/recours/{autre}/issue",
+            new { issue = "Confirmee", dateIssue = "2026-03-20" }, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/examens/{examen}/propositions-frequence/{autre}", new { acceptee = true }, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/dossiers/{dossier}/declarations-mp",
+            new { codeMaladie = "1.1", description = "Description", agentCausal = "Agent" }, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsync($"/api/v1/declarations-mp/{declaration}/envoi", null, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/declarations-mp/{declaration}/demandes-information/{autre}/reponse",
+            new { date = "2026-03-10", reponse = "Réponse" }, _ct));
+    }
+
+    [Fact]
+    public async Task La_redaction_d_une_decision_par_l_infirmier_est_acceptee_apres_montee_en_niveau()
+    {
+        var cpmt = fixture.ClientStrict(Roles.Cpmt, "cpmt-gestionnaire", amr: "pwd,otp");
+        var dossierId = await Id(await cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = Guid.CreateVersion7() }, _ct));
+        var examenId = await Id(await cpmt.PostAsJsonAsync("/api/v1/examens",
+            new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", affilieId = Guid.CreateVersion7(), date = "2026-03-02" }, _ct));
+
+        var infirmier = fixture.ClientStrict(Roles.Infirmier, "infirmier-mfa", amr: "pwd,otp", motif: "Préparation de la décision du Dr gestionnaire");
+        await Id(await infirmier.PostAsJsonAsync($"/api/v1/examens/{examenId}/decision",
+            new { categorie = "Apte", justification = "Justification médicale" }, _ct));
+    }
+
+    [Fact]
+    public async Task La_lecture_du_resume_d_une_decision_n_exige_pas_l_authentification_forte()
+    {
+        // decision:lire est exempté : le résumé (catégorie, mesures, validité) est aussi lu par l'employeur et le travailleur.
+        var response = await fixture.ClientStrict(Roles.GestionnaireDossiers, "gestionnaire-pwd", amr: "pwd").GetAsync($"/api/v1/decisions/{Guid.CreateVersion7()}", _ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Headers.WwwAuthenticate.ShouldBeEmpty();
+    }
+
     [Fact]
     public async Task Un_profil_sans_permission_recoit_403_et_non_un_defi()
     {

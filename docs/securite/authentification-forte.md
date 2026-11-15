@@ -8,7 +8,8 @@ Deux niveaux de contrôle :
 1. **Fournisseur d'identité** : Entra ID impose la MFA à tous les internes par accès conditionnel, et la fédération CSAM fournit
    l'eID ou itsme. En local, Keycloak permet la montée en niveau à la demande (`acr`).
 2. **Services** : la politique `AuthenticationStrength` (BuildingBlocks, `Sepp.BuildingBlocks.Web`) vérifie dans le jeton que
-   l'authentification est forte avant une signature ou un accès aux dossiers de santé et psychosociaux. Un jeton trop faible
+   l'authentification est forte avant une écriture sur une décision (signature comprise) ou un accès aux dossiers de santé et
+   psychosociaux. Un jeton trop faible
    reçoit un défi de montée en niveau ([RFC 9470](https://www.rfc-editor.org/rfc/rfc9470)).
 
 ## Routes protégées
@@ -16,13 +17,36 @@ Deux niveaux de contrôle :
 | Route | Mécanisme |
 |---|---|
 | Toute route `RequirePermission(dossier-sante:*)` ou `RequirePermission(dossier-psy:*)` | Automatique : la politique de la permission inclut l'exigence (`AuthenticationStrength.IsRequiredFor`), y compris pour les routes à venir du service psychosocial |
-| `POST /api/v1/decisions/{id}/signature` (Surveillance médicale, SAN-32) | Explicite : `.RequireAuthenticationStrength()` en plus de `decision:signer` (#401) |
-| `POST /api/v1/examens/{id}/cloture` (Surveillance médicale) | Explicite : `.RequireAuthenticationStrength()` en plus de `decision:signer` (#401) ; avant #401, couverte par `dossier-sante:ecrire` |
+| Toute route `RequirePermission(decision:ecrire)` ou `RequirePermission(decision:signer)` (Surveillance médicale) | Automatique depuis #494 : préfixe `decision:`, sauf `decision:lire` (voir le détail ci-dessous) |
+| `POST /api/v1/decisions/{id}/signature` (SAN-32), `POST /api/v1/examens/{id}/cloture` | `decision:signer`, donc automatique ; `.RequireAuthenticationStrength()` reste déclaré explicitement sur ces deux routes (#401) |
 | `PUT /api/v1/dossiers/{id}/gestionnaire`, `POST /api/v1/dossiers/{id}/transferts`, `POST /api/v1/transferts/{id}/transmission` | Automatique : `dossier-sante:gerer` (#401) a le préfixe `dossier-sante:` |
 
-Deux permissions de ces zones sont exemptées, car elles n'ouvrent aucun contenu médical à une personne interne :
-`dossier-sante:copie-demander` (le travailleur dépose sa demande de copie depuis le portail, authentifié par CSAM en Azure) et
-`dossier-sante:transmettre-documents` (compte technique du service Documents, client credentials, sans utilisateur).
+Routes d'écriture `decision:*` de Surveillance médicale (#494) ; avec un jeton `amr: pwd` en mode `Enforce`, toutes répondent
+401 avec le défi (`AuthentificationForteApiTests`) :
+
+| Route | Permission | Profils |
+|---|---|---|
+| `POST /api/v1/examens/{id}/decision` (rédaction, SAN-31) | `decision:ecrire` | CPMT, CPMT dirigeant, infirmier |
+| `PUT /api/v1/decisions/{id}` (modification du brouillon) | `decision:ecrire` | CPMT, CPMT dirigeant, infirmier |
+| `POST /api/v1/decisions/{id}/recours` (SAN-34) | `decision:ecrire` | CPMT, CPMT dirigeant, infirmier |
+| `POST /api/v1/declarations-mp/{id}/suivi`, `POST /api/v1/declarations-mp/{id}/demandes-information` (SAN-71) | `decision:ecrire` | CPMT, CPMT dirigeant, infirmier |
+| `POST /api/v1/decisions/{id}/signature` (SAN-32, SAN-33) | `decision:signer` | CPMT, CPMT dirigeant |
+| `POST /api/v1/examens/{id}/cloture` | `decision:signer` | CPMT, CPMT dirigeant |
+| `POST /api/v1/examens/{id}/propositions-frequence/{propositionId}` (SAN-23) | `decision:signer` | CPMT, CPMT dirigeant |
+| `POST /api/v1/decisions/{id}/recours/{recoursId}/issue` (SAN-34) | `decision:signer` | CPMT, CPMT dirigeant |
+| `POST /api/v1/dossiers/{id}/declarations-mp`, `POST /api/v1/declarations-mp/{id}/envoi`, `POST /api/v1/declarations-mp/{id}/demandes-information/{demandeId}/reponse` (SAN-70) | `decision:signer` | CPMT, CPMT dirigeant |
+
+Aucun compte technique ni aucune saga ne détient `decision:ecrire` ou `decision:signer` (`Security.cs`) : seuls des
+utilisateurs internes sont concernés. L'outil de données de démo (`tools/donnees-demo`) rédige et signe en tant que `cpmt` par
+le flux mot de passe ; il fonctionne parce que les services locaux sont en mode `Log` (accès accordé et journalisé), comme
+pour la signature et la lecture du dossier avant #494.
+
+Trois permissions de ces zones sont exemptées, car elles n'ouvrent aucun contenu médical à une personne interne :
+- `dossier-sante:copie-demander` : le travailleur dépose sa demande de copie depuis le portail, authentifié par CSAM en Azure ;
+- `dossier-sante:transmettre-documents` : compte technique du service Documents, client credentials, sans utilisateur ;
+- `decision:lire` : résumé d'une décision émise (catégorie, mesures, validité, jamais de motif médical), lu aussi par les
+  conseillers en prévention, le gestionnaire, l'employeur, le SIPP et le travailleur. La décision complète
+  (`GET /decisions/{id}/complete`) relève de `dossier-sante:lire` et exige donc l'authentification forte.
 
 Les droits eux-mêmes (`Security.cs`, matrice §3.3) ne changent pas : l'authentification forte s'ajoute à la permission. Un profil
 sans la permission reçoit toujours 403, jamais un défi (monter en niveau n'y changerait rien).
