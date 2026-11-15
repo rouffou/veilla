@@ -111,14 +111,30 @@ Répartition des routes de Surveillance médicale autrefois sous `decision:ecrir
 | Route | Droit | Motif |
 |---|---|---|
 | `POST /examens/{id}/decision`, `PUT /decisions/{id}` | `decision:ecrire` | Rédaction et modification d'un brouillon, sans effet hors de la zone médicale |
-| `POST /decisions/{id}/signature` | `decision:signer` + authentification forte | Signature qualifiée et émission du formulaire : acte légal du CPMT (SAN-32) |
+| `POST /decisions/{id}/signature` | `decision:signer` + authentification forte + `If-Match` | Signature qualifiée et émission du formulaire : acte légal du CPMT, qui en devient l'auteur (SAN-32, ADR 0017) |
+| `POST /examens/{id}/cloture` | `decision:signer` | La clôture valide l'examen et satisfait les obligations légales : acte du CPMT |
+| `PUT /dossiers/{id}/gestionnaire`, `POST /dossiers` avec `gestionnaireCpmtId` | `dossier-sante:gerer` (CPMT, CPMT dirigeant) | Désignation du CPMT gestionnaire |
+| `POST /dossiers/{id}/transferts`, `POST /transferts/{id}/transmission` | `dossier-sante:gerer` | Transfert du dossier vers un autre SEPP ou SIPP (SAN-42) : acte du CPMT |
 | `POST /examens/{id}/propositions-frequence/{propositionId}` | `decision:signer` | Décision du CPMT sur la fréquence de surveillance (art. I.4-32, SAN-23) |
 | `POST /decisions/{id}/recours` | `decision:ecrire` | Enregistrement de l'introduction d'une concertation ou d'un recours (SAN-34), ouvert à l'infirmier |
 | `POST /decisions/{id}/recours/{recoursId}/issue` | `decision:signer` | L'issue peut réformer et retransmettre la décision émise (SAN-34) |
 | `POST /dossiers/{id}/declarations-mp`, `POST /declarations-mp/{id}/envoi`, `/demandes-information/{id}/reponse` | `decision:signer` | Déclaration de maladie professionnelle elle-même (diagnostic, transmission et réponses à Fedris) : acte du médecin (SAN-70) |
 | `POST /declarations-mp/{id}/suivi`, `POST /declarations-mp/{id}/demandes-information` | `decision:ecrire` | Suivi administratif du statut Fedris et enregistrement d'une demande reçue (SAN-71), ouverts à l'infirmier |
 
-Une décision préparée par l'infirmier a pour auteur légal le CPMT gestionnaire du dossier (refus `decision.cpmt-requis` si
-le dossier n'en a pas). Le rédacteur réel est conservé sur la décision (`RedigeePar`, colonne `redigee_par`, rendu par
-`GET /decisions/{id}/complete` en zone médicale) et dans le journal d'accès. Ces trois arbitrages (auteur légal, routes
-ouvertes à l'infirmier, langue conservée dans `mes-employeurs`) ont été validés par le responsable produit sur la PR #488.
+Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
+
+- **Auteur légal fixé à la signature.** Le brouillon n'a pas d'auteur légal. Il porte son rédacteur réel (`RedigeePar`),
+  son dernier modificateur et la date de modification (`ModifieePar`, `ModifieeLe`), ainsi qu'une version de contenu.
+  - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin ou un motif (ARC-41) et
+    l'authentification forte.
+  - Un dossier sans CPMT gestionnaire ne bloque plus la rédaction.
+  - La règle « seul l'auteur signe » est supprimée.
+- **Version relue.** La modification et la signature exigent `If-Match`, avec la valeur `Version` rendue par
+  `GET /decisions/{id}/complete` (zone médicale seulement). Sans cet en-tête, la réponse est 400 ; avec une version
+  dépassée, 409.
+- **Brouillon d'un autre.** L'infirmier ne modifie le brouillon d'un autre professionnel qu'en relation de soin avec le
+  travailleur, jamais sur simple motif.
+- **Langue.** Elle est conservée dans `mes-employeurs`.
+- **Limite du contrôle du gestionnaire.** Le service n'a pas d'annuaire. Il contrôle seulement que l'identifiant désigné
+  n'est pas vide, et que seul un CPMT (`dossier-sante:gerer`) le désigne. Il ne peut pas vérifier que cet identifiant
+  appartient à un CPMT.

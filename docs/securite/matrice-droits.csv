@@ -100,6 +100,7 @@ cpmt;documents:lire;hors-3.3
 cpmt;documents:modele-lire;hors-3.3
 cpmt;dossier-sante:copie-traiter;hors-3.3
 cpmt;dossier-sante:ecrire;3.3
+cpmt;dossier-sante:gerer;hors-3.3
 cpmt;dossier-sante:lire;3.3
 cpmt;obligation:gerer;hors-3.3
 cpmt;obligation:lire;hors-3.3
@@ -133,6 +134,7 @@ cpmt-dirigeant;documents:modele-lire;hors-3.3
 cpmt-dirigeant;documents:modele-valider-medical;hors-3.3
 cpmt-dirigeant;dossier-sante:copie-traiter;hors-3.3
 cpmt-dirigeant;dossier-sante:ecrire;3.3
+cpmt-dirigeant;dossier-sante:gerer;hors-3.3
 cpmt-dirigeant;dossier-sante:lire;3.3
 cpmt-dirigeant;dossier-sante:purger;hors-3.3
 cpmt-dirigeant;obligation:gerer;hors-3.3

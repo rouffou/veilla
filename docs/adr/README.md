@@ -20,5 +20,6 @@ Les termes employés dans ces décisions (BFF, Outbox, saga, CQRS…) sont défi
 | [0014](0014-trajectoire-decomposition.md) | Trajectoire de décomposition : maintien des 12 services, monolithe modulaire par zone en option conditionnelle | Proposée (à valider par le responsable produit) | ARC-01, ARC-02, §14.3 |
 | [0015](0015-services-prevus-sans-code.md) | Services prévus sans code : abandon d'`identite`, activation à leur lot, abonnements alignés sur le code | Proposée (à valider par le responsable produit) | ARC-01, ARC-05, CTR-13, ARC-51 |
 | [0016](0016-placement-lots-4-et-5.md) | Placement des capacités des lots 4 et 5 (prévention, psychosocial, prestations, reporting) | Proposée (à valider par le responsable produit ; point 4 par l'architecte sécurité) | ARC-04, ARC-06, ARC-09, ARC-32, ARC-33, PSY-20, NF-34 |
+| [0017](0017-auteur-decision-fixe-a-la-signature.md) | Décision d'évaluation de santé : auteur légal fixé à la signature, version relue (If-Match), traçabilité du brouillon | Acceptée (2026-11-15, #401) | SAN-31, SAN-32, ARC-41, NF-01 |
 
 Format : contexte, décision, alternatives, conséquences.

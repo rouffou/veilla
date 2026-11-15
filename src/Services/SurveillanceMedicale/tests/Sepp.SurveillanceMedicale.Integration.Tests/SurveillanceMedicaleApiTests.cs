@@ -140,7 +140,7 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
             justification = Justification,
             recommandations = Recommandations,
         }, _ct));
-        await Ok(await Cpmt.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct));
+        await Ok(await Cpmt.SendAsync(Signature(decisionId, 1), _ct));
 
         // Lecture déchiffrée par le personnel autorisé.
         var examen = await Cpmt.GetFromJsonAsync<ExamenDto>($"/api/v1/examens/{examenId}", Json, _ct);
@@ -173,17 +173,19 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
     }
 
     [Fact]
-    public async Task L_infirmier_redige_modifie_et_introduit_un_recours_mais_recoit_403_sur_la_signature_et_les_actes_du_cpmt()
+    public async Task L_infirmier_prepare_la_decision_et_un_autre_cpmt_la_signe_sur_la_version_relue()
     {
-        // #401 : decision:ecrire (rédaction, modification) pour l'infirmier ; decision:signer réservé au CPMT.
+        // #401, ADR 0017 : decision:ecrire pour l'infirmier ; decision:signer et dossier-sante:gerer réservés au CPMT.
         var (dossierId, examenId) = await DossierAvecExamenAsync();
         var infirmier = fixture.Client(Roles.Infirmier, "inf-401", motif: "Préparation de la décision pour le Dr");
         var decisionId = await Id(await infirmier.PostAsJsonAsync($"/api/v1/examens/{examenId}/decision", new { categorie = "Apte" }, _ct));
-        await Ok(await infirmier.PutAsJsonAsync($"/api/v1/decisions/{decisionId}", new { categorie = "ApteAvecMesures", mesures = new[] { "PROTECTION_AUDITIVE" } }, _ct),
-            HttpStatusCode.NoContent);
-        await Ok(await Cpmt.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct), HttpStatusCode.NoContent);
+        (await infirmier.SendAsync(Modification(decisionId, null), _ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        await Ok(await infirmier.SendAsync(Modification(decisionId, 1), _ct), HttpStatusCode.NoContent);
+        (await infirmier.SendAsync(Modification(decisionId, 1), _ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
 
-        (await infirmier.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        // Actes du CPMT : 403 pour l'infirmier.
+        (await infirmier.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.SendAsync(Signature(decisionId, 2), _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await infirmier.PostAsJsonAsync($"/api/v1/decisions/{decisionId}/recours/{Guid.CreateVersion7()}/issue", new { issue = "Confirmee", dateIssue = "2026-03-20" }, _ct))
             .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await infirmier.PostAsJsonAsync($"/api/v1/examens/{examenId}/propositions-frequence/{Guid.CreateVersion7()}", new { acceptee = true }, _ct))
@@ -191,18 +193,29 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         (await infirmier.PostAsJsonAsync($"/api/v1/dossiers/{dossierId}/declarations-mp", new { codeMaladie = "1.2", description = "x" }, _ct))
             .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await infirmier.PostAsync($"/api/v1/declarations-mp/{Guid.CreateVersion7()}/envoi", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PutAsJsonAsync($"/api/v1/dossiers/{dossierId}/gestionnaire", new { cpmtId = "inf-401" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PostAsJsonAsync($"/api/v1/dossiers/{dossierId}/transferts", new { contrepartie = "0123456789", motif = "ChangementEmployeur" }, _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PostAsync($"/api/v1/transferts/{Guid.CreateVersion7()}/transmission", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await infirmier.PostAsJsonAsync("/api/v1/dossiers", new { personneId = Guid.CreateVersion7(), gestionnaireCpmtId = "cpmt-1" }, _ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
-        // Le CPMT gestionnaire du dossier, auteur légal, signe la décision préparée par l'infirmier.
-        var signee = await Cpmt.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct);
+        // Un autre CPMT que le gestionnaire (cpmt-1), sur motif, voit qui a préparé et modifié le brouillon, puis signe la version relue.
+        var autreCpmt = fixture.Client(Roles.Cpmt, "cpmt-2", motif: "Remplacement du Dr gestionnaire");
+        await Ok(await autreCpmt.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct), HttpStatusCode.NoContent);
+        var brouillon = (await autreCpmt.GetFromJsonAsync<DecisionDto>($"/api/v1/decisions/{decisionId}/complete", Json, _ct))!;
+        brouillon.ShouldSatisfyAllConditions(
+            d => d.AuteurId.ShouldBeNull(), d => d.RedigeePar.ShouldBe("inf-401"), d => d.ModifieePar.ShouldBe("inf-401"),
+            d => d.ModifieeLe.ShouldNotBeNull(), d => d.Version.ShouldBe(2));
+        (await autreCpmt.SendAsync(Signature(decisionId, 1), _ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        var signee = await autreCpmt.SendAsync(Signature(decisionId, brouillon.Version), _ct);
         await Ok(signee);
         var resume = (await signee.Content.ReadFromJsonAsync<DecisionResumeDto>(Json, _ct))!;
         resume.Mesures.ShouldBe(["PROTECTION_AUDITIVE"]);
 
-        // Le rédacteur réel reste tracé sur la décision : auteur légal le CPMT, rédigée par l'infirmier.
-        var complete = (await Cpmt.GetFromJsonAsync<DecisionDto>($"/api/v1/decisions/{decisionId}/complete", Json, _ct))!;
-        complete.AuteurId.ShouldBe("cpmt-1");
-        complete.RedigeePar.ShouldBe("inf-401");
-        ((string)(await fixture.ScalaireAsync("SELECT redigee_par FROM decision WHERE id = @id", _ct, ("id", decisionId)))!).ShouldBe("inf-401");
+        var complete = (await autreCpmt.GetFromJsonAsync<DecisionDto>($"/api/v1/decisions/{decisionId}/complete", Json, _ct))!;
+        complete.ShouldSatisfyAllConditions(d => d.AuteurId.ShouldBe("cpmt-2"), d => d.RedigeePar.ShouldBe("inf-401"));
+        ((string)(await fixture.ScalaireAsync("SELECT auteur_id FROM decision WHERE id = @id", _ct, ("id", decisionId)))!).ShouldBe("cpmt-2");
 
         // L'infirmier enregistre l'introduction d'un recours (#401), mais pas son issue.
         var dateIntroduction = DateOnly.FromDateTime(resume.SigneeLe!.Value.UtcDateTime).AddDays(1).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
@@ -211,6 +224,29 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         var recoursId = (await recours.Content.ReadFromJsonAsync<RecoursDto>(Json, _ct))!.Id;
         (await infirmier.PostAsJsonAsync($"/api/v1/decisions/{decisionId}/recours/{recoursId}/issue", new { issue = "Confirmee", dateIssue = dateIntroduction }, _ct))
             .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>Signature d'une version relue (en-tête If-Match, #401).</summary>
+    private static HttpRequestMessage Signature(Guid decisionId, int version)
+    {
+        var requete = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/decisions/{decisionId}/signature");
+        requete.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
+        return requete;
+    }
+
+    /// <summary>Modification du brouillon sur une version relue (If-Match absent si <paramref name="version"/> est nul).</summary>
+    private static HttpRequestMessage Modification(Guid decisionId, int? version)
+    {
+        var requete = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/decisions/{decisionId}")
+        {
+            Content = JsonContent.Create(new { categorie = "ApteAvecMesures", mesures = new[] { "PROTECTION_AUDITIVE" } }),
+        };
+        if (version is { } v)
+        {
+            requete.Headers.TryAddWithoutValidation("If-Match", $"\"{v}\"");
+        }
+
+        return requete;
     }
 
     [Fact]
@@ -222,9 +258,9 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
 
         var employeur = fixture.Client(Roles.Employeur, "employeur-1", _affilie);
         (await employeur.GetAsync($"/api/v1/decisions/{decisionId}", _ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        (await Cpmt.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await Cpmt.SendAsync(Signature(decisionId, 1), _ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         await Ok(await Cpmt.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct), HttpStatusCode.NoContent);
-        await Ok(await Cpmt.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct));
+        await Ok(await Cpmt.SendAsync(Signature(decisionId, 1), _ct));
 
         var resume = await employeur.GetFromJsonAsync<DecisionResumeDto>($"/api/v1/decisions/{decisionId}", Json, _ct);
         resume!.Categorie.ShouldBe(CategoriesDecision.InaptitudeTemporaire);

@@ -532,6 +532,20 @@ public sealed class AffiliesApiTests : IAsyncLifetime
     public async Task Les_autres_roles_n_ont_pas_la_route_des_employeurs_du_travailleur(string role) =>
         (await Client(role).GetAsync("/api/v1/mes-employeurs", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
+    /// <summary>#401, point 2 : le CPMT dirigeant, gestionnaire des dossiers (§3.1), crée et modifie les affiliés ; le CPMT non.</summary>
+    [Fact]
+    public async Task Le_cpmt_dirigeant_ecrit_les_affilies_comme_le_gestionnaire()
+    {
+        var dirigeant = Client(Roles.CpmtDirigeant);
+        var creation = await dirigeant.PostAsJsonAsync("/api/v1/affilies", new { numeroBce = "0403.170.701", fiche = Fiche(), dateAffiliation = "2024-01-01" }, Ct);
+        creation.StatusCode.ShouldBe(HttpStatusCode.Created, await creation.Content.ReadAsStringAsync(Ct));
+        var id = await IdAsync(creation);
+        (await dirigeant.PutAsJsonAsync($"/api/v1/affilies/{id}", new { fiche = Fiche("Boulangerie Dupont et fils") }, Ct)).IsSuccessStatusCode.ShouldBeTrue();
+        (await ObtenirAsync(id)).Fiche.Denomination.ShouldBe("Boulangerie Dupont et fils");
+
+        (await Client(Roles.Cpmt).PutAsJsonAsync($"/api/v1/affilies/{id}", new { fiche = Fiche("Autre") }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
     /// <summary>#401, point 5 : le SIPP, aligné sur l'employeur, reste limité à son affilié (claim affilie_id).</summary>
     [Fact]
     public async Task Le_sipp_ne_lit_et_n_ecrit_que_son_propre_affilie()

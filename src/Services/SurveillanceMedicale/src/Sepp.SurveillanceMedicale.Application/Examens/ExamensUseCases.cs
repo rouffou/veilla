@@ -48,6 +48,9 @@ public sealed class AccesExamens(IExamenRepository examens, GardeDossier garde)
 {
     public static readonly Error Inconnu = Error.NotFound("examen.inconnu", "Examen inconnu.");
 
+    /// <summary>Acte réservé au CPMT sur un examen (clôture, #401).</summary>
+    public Error? Exiger(string permission, string message) => garde.Exiger(permission, message);
+
     public async Task<Result<Examen>> ChargerAsync(Guid examenId, ActionAudit action, CancellationToken cancellationToken)
     {
         if (garde.VerifierPermission(action) is { } interdit)
@@ -303,6 +306,12 @@ public sealed class CloturerExamenHandler(
 {
     public async Task<Result<Unit>> HandleAsync(CloturerExamen command, CancellationToken cancellationToken)
     {
+        // #401 : la clôture valide l'examen et satisfait les obligations légales : acte du CPMT.
+        if (acces.Exiger(Permissions.DecisionSigner, "Seul un CPMT clôture l'examen.") is { } interdit)
+        {
+            return interdit;
+        }
+
         var acces1 = await acces.ChargerAsync(command.ExamenId, ActionAudit.Modification, cancellationToken);
         if (!acces1.IsSuccess)
         {

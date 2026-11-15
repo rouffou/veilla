@@ -78,6 +78,9 @@ public sealed class GardeDossier(
             ? null
             : Interdit;
 
+    /// <summary>Acte réservé à un droit précis (CPMT, #401), vérifié avant tout chargement.</summary>
+    public Error? Exiger(string permission, string message) => Regles.Permission(user, permission, message);
+
     /// <summary>Trace d'un accès dont l'autorisation a été vérifiée autrement (création de dossier, purge, questionnaire pré-rempli).</summary>
     public void Journaliser(ActionAudit action, string partie, Guid dossierId)
     {

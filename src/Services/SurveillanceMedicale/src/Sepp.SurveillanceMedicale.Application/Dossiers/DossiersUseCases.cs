@@ -50,8 +50,16 @@ public static class DossierProjections
     public static QuestionnaireDto Dto(this QuestionnaireRempli q) => new(q.Id, q.ModeleCode, q.ModeleVersion, q.Source, q.RempliLe, q.ExamenId, q.Reponses);
 }
 
-/// <summary>SAN-40 : ouverture du dossier unique de la personne ; le CPMT qui l'ouvre en devient gestionnaire par défaut.</summary>
+/// <summary>
+/// SAN-40 : ouverture du dossier unique de la personne ; le CPMT qui l'ouvre en devient gestionnaire par défaut. Désigner un
+/// autre gestionnaire est réservé au CPMT (<c>dossier-sante:gerer</c>, #401).
+/// </summary>
 public sealed record OuvrirDossier(Guid PersonneId, string? GestionnaireCpmtId);
+
+public static class GestionDossier
+{
+    public const string Message = "Seul un CPMT désigne le CPMT gestionnaire du dossier.";
+}
 
 public sealed class OuvrirDossierHandler(
     IDossierSanteRepository dossiers, GardeDossier garde, ICurrentUser user, IUnitOfWork unitOfWork, TimeProvider horloge)
@@ -69,7 +77,12 @@ public sealed class OuvrirDossierHandler(
             return Error.Conflict("dossier-sante.existe", "Cette personne a déjà un dossier de santé (dossier unique, SAN-40).");
         }
 
-        var gestionnaire = command.GestionnaireCpmtId ?? (user.HasPermission(Permissions.DecisionSigner) ? user.UserId : null);
+        if (command.GestionnaireCpmtId is not null && garde.Exiger(Permissions.DossierSanteGerer, GestionDossier.Message) is { } refus)
+        {
+            return refus;
+        }
+
+        var gestionnaire = command.GestionnaireCpmtId?.Trim() ?? (user.HasPermission(Permissions.DossierSanteGerer) ? user.UserId : null);
         var ouvert = Regles.Appliquer("dossier-sante.invalide", () => DossierSante.Ouvrir(command.PersonneId, gestionnaire, horloge.Aujourdhui()));
         if (!ouvert.IsSuccess)
         {
@@ -132,13 +145,20 @@ public sealed class ChangerGestionnaireHandler(GardeDossier garde, IUnitOfWork u
 {
     public async Task<Result<Unit>> HandleAsync(ChangerGestionnaire command, CancellationToken cancellationToken)
     {
+        // #401 : réservé au CPMT. L'identifiant (claim sub) est contrôlé non vide par le domaine ; le service n'a pas d'annuaire
+        // pour vérifier qu'il désigne bien un CPMT (limite documentée dans revue-des-droits.md).
+        if (garde.Exiger(Permissions.DossierSanteGerer, GestionDossier.Message) is { } interdit)
+        {
+            return interdit;
+        }
+
         var dossier = await garde.EcrireAsync(command.DossierId, PartiesDossier.Dossier, ActionAudit.Modification, cancellationToken);
         if (!dossier.IsSuccess)
         {
             return dossier.Error!;
         }
 
-        var resultat = Regles.Appliquer("dossier-sante.invalide", () => dossier.Value.ChangerGestionnaire(command.CpmtId));
+        var resultat = Regles.Appliquer("dossier-sante.invalide", () => dossier.Value.ChangerGestionnaire((command.CpmtId ?? string.Empty).Trim()));
         if (resultat.IsSuccess)
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);

@@ -70,6 +70,14 @@ internal sealed class Api(string hote, Jetons jetons)
     public Task<Reponse> PutAsync(Service service, string chemin, string utilisateur, object corps, bool motif = false) =>
         EnvoyerAsync(HttpMethod.Put, service, chemin, utilisateur, corps, motif);
 
+    /// <summary>POST sans corps sur une version relue (en-tête If-Match) : signature d'une décision (#401).</summary>
+    public async Task<Reponse> PostSurVersionAsync(Service service, string chemin, string utilisateur, int version, bool motif = false)
+    {
+        using var requete = await CreerAsync(HttpMethod.Post, service, chemin, utilisateur, motif);
+        requete.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
+        return await ExecuterAsync(requete);
+    }
+
     /// <summary>Envoi d'un contenu texte brut (import CSV).</summary>
     public async Task<Reponse> PostTexteAsync(Service service, string chemin, string utilisateur, string contenu, string typeContenu)
     {

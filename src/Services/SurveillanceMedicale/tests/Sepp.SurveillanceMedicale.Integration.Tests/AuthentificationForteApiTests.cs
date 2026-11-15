@@ -45,10 +45,10 @@ public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fi
         var decisionId = await Id(await fort.PostAsJsonAsync($"/api/v1/examens/{examenId}/decision",
             new { categorie = "Apte", valideJusquAu = "2027-03-01" }, _ct));
 
-        DefiDeMonteeEnNiveau(await faible.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct));
+        DefiDeMonteeEnNiveau(await faible.SendAsync(Signature(decisionId), _ct));
         DefiDeMonteeEnNiveau(await faible.GetAsync($"/api/v1/dossiers/{dossierId}", _ct));
 
-        var signee = await fort.PostAsync($"/api/v1/decisions/{decisionId}/signature", null, _ct);
+        var signee = await fort.SendAsync(Signature(decisionId), _ct);
         signee.StatusCode.ShouldBe(HttpStatusCode.OK, await signee.Content.ReadAsStringAsync(_ct));
     }
 
@@ -77,5 +77,13 @@ public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fi
 
         response.StatusCode.ShouldNotBe(HttpStatusCode.Unauthorized);
         fixture.Journal.Entrees.ShouldContain(e => e.Contains("NF-01", StringComparison.Ordinal) && e.Contains("accès accordé en mode Log", StringComparison.Ordinal));
+    }
+
+    /// <summary>Signature de la version 1 (décision tout juste rédigée), en-tête If-Match (#401).</summary>
+    private static HttpRequestMessage Signature(Guid decisionId)
+    {
+        var requete = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/decisions/{decisionId}/signature");
+        requete.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+        return requete;
     }
 }

@@ -1226,7 +1226,7 @@ Les exemplaires travailleur et dossier sont en zone médicale : DEMO-C4.
 
 **Droits par rôle** :
 - Rédiger et modifier : `decision:ecrire` (cpmt, cpmt-dirigeant, infirmier, #401).
-- Signer : `decision:signer` (cpmt, cpmt-dirigeant). Une décision préparée par l'infirmier a pour auteur le CPMT gestionnaire du dossier, qui la signe.
+- Signer : `decision:signer` (cpmt, cpmt-dirigeant), avec `If-Match` sur la version relue. Le CPMT qui signe devient l'auteur légal (ADR 0017). L'écran affiche avant la signature qui a rédigé et qui a modifié le brouillon (`redigeePar`, `modifieePar`, `modifieeLe`).
 - Décision complète : `dossier-sante:lire` (cpmt*, infirmier).
 - L'infirmier a le bouton « Rédiger », pas le bouton « Signer ».
 

@@ -13,8 +13,8 @@ using Sepp.SurveillanceMedicale.Adapters.Persistence;
 namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
 {
     [DbContext(typeof(SurveillanceMedicaleDbContext))]
-    [Migration("20261115083230_RedacteurDecision")]
-    partial class RedacteurDecision
+    [Migration("20261115102420_AuteurDecisionALaSignature")]
+    partial class AuteurDecisionALaSignature
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -257,7 +257,6 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
                         .HasColumnName("affilie_id");
 
                     b.Property<string>("AuteurId")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("auteur_id");
@@ -293,6 +292,15 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text[]")
                         .HasColumnName("mesures");
+
+                    b.Property<DateTimeOffset?>("ModifieeLe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modifiee_le");
+
+                    b.Property<string>("ModifieePar")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("modifiee_par");
 
                     b.Property<Guid>("PersonneId")
                         .HasColumnType("uuid")
@@ -333,6 +341,10 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
                     b.Property<DateOnly?>("ValideJusquAu")
                         .HasColumnType("date")
                         .HasColumnName("valide_jusqu_au");
+
+                    b.Property<int>("VersionContenu")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_contenu");
 
                     b.Property<DateTimeOffset>("created_at")
                         .HasColumnType("timestamp with time zone")

@@ -188,18 +188,35 @@ public sealed class DecisionTests
     }
 
     [Fact]
-    public void Seul_l_auteur_signe_et_la_signature_transmet_categorie_mesures_et_validite()
+    public void Le_signataire_devient_l_auteur_et_la_signature_transmet_categorie_mesures_et_validite()
     {
         var decision = Rediger(new ContenuDecision(CategorieDecision.ApteAvecMesures, ["pas_travail_nuit"], Jour.AddMonths(12), "Motif médical confidentiel", "Conseils"));
-        Should.Throw<DomainException>(() => decision.Signer("cpmt-2", "REF", DateTimeOffset.UtcNow));
+        decision.AuteurId.ShouldBeNull();
+        decision.VersionContenu.ShouldBe(1);
 
-        decision.Signer("cpmt-1", "REF-1", new DateTimeOffset(2026, 3, 3, 9, 0, 0, TimeSpan.Zero));
+        // ADR 0017 : le brouillon de cpmt-1 est signé par cpmt-2, qui en devient l'auteur légal.
+        decision.Signer("cpmt-2", "REF-1", new DateTimeOffset(2026, 3, 3, 9, 0, 0, TimeSpan.Zero));
+        decision.ShouldSatisfyAllConditions(d => d.AuteurId.ShouldBe("cpmt-2"), d => d.RedigeePar.ShouldBe("cpmt-1"));
         decision.Statut.ShouldBe(StatutDecision.Emise);
         var transmise = decision.DomainEvents.OfType<DecisionTransmise>().Single();
         transmise.Mesures.ShouldBe(["PAS_TRAVAIL_NUIT"]);
         transmise.ExamenId.ShouldBe(decision.ExamenId);
         CodesDecision.Code(transmise.Categorie).ShouldBe("APTE_AVEC_MESURES");
-        Should.Throw<DomainException>(() => decision.Modifier(new ContenuDecision(CategorieDecision.Apte, [], null, null, null)));
+        Should.Throw<DomainException>(() => decision.Modifier(new ContenuDecision(CategorieDecision.Apte, [], null, null, null), "inf-1", DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void Chaque_modification_trace_son_auteur_et_incremente_la_version()
+    {
+        var decision = Rediger(new ContenuDecision(CategorieDecision.Apte, [], null, null, null));
+        var le = new DateTimeOffset(2026, 3, 2, 10, 0, 0, TimeSpan.Zero);
+
+        decision.Modifier(new ContenuDecision(CategorieDecision.ApteAvecMesures, ["PAS_TRAVAIL_NUIT"], null, null, null), "inf-1", le);
+
+        decision.ShouldSatisfyAllConditions(
+            d => d.VersionContenu.ShouldBe(2), d => d.ModifieePar.ShouldBe("inf-1"), d => d.ModifieeLe.ShouldBe(le), d => d.RedigeePar.ShouldBe("cpmt-1"));
+        decision.EstALaVersion(1).ShouldBeFalse();
+        decision.EstALaVersion(2).ShouldBeTrue();
     }
 
     [Fact]

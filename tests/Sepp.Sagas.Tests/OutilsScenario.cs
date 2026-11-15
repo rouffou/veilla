@@ -212,7 +212,10 @@ public sealed partial class OutilsScenario(PlateformeSaga plateforme)
             justification = justificationSecrete,
             recommandations = recommandationsSecretes,
         });
-        var signature = await cpmt.PostAsync($"/api/v1/decisions/{decision}/signature", null, Ct);
+        // Version 1 : la décision vient d'être rédigée (If-Match, #401).
+        using var requete = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/decisions/{decision}/signature");
+        requete.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+        var signature = await cpmt.SendAsync(requete, Ct);
         signature.StatusCode.ShouldBe(HttpStatusCode.OK, await signature.Content.ReadAsStringAsync(Ct));
         return decision;
     }
