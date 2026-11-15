@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -108,6 +109,45 @@ public sealed class BlindIndex(byte[] key)
     }
 }
 
+/// <summary>
+/// Marqueur commun à tous les convertisseurs EF Core qui chiffrent une colonne avec <see cref="FieldEncryptor"/> (#482) :
+/// le rechiffrement (<see cref="ColonnesChiffrees"/>) traite exactement les colonnes qui le portent, et refuse un modèle où
+/// le marqueur et le suffixe <c>_chiffre</c>/<c>_chiffree</c> ne vont pas ensemble, ou un convertisseur qui utilise
+/// <see cref="FieldEncryptor"/> sans le porter.
+/// </summary>
+#pragma warning disable CA1040 // Interface de marquage voulue : détectée sur l'instance du convertisseur dans le modèle EF Core.
+public interface IConvertisseurChiffrement;
+#pragma warning restore CA1040
+
 /// <summary>Convertisseur EF Core : la colonne ne contient que le texte chiffré.</summary>
 public sealed class EncryptedStringConverter(FieldEncryptor encryptor)
-    : ValueConverter<string, string>(v => encryptor.Encrypt(v), v => encryptor.Decrypt(v));
+    : ValueConverter<string, string>(v => encryptor.Encrypt(v), v => encryptor.Decrypt(v)), IConvertisseurChiffrement;
+
+/// <summary>
+/// Convertisseur EF Core chiffré pour une valeur qui n'est pas une chaîne (value object, énumération, contenu sérialisé) :
+/// la valeur est d'abord mise sous forme de texte, puis chiffrée ; la colonne ne contient que le texte chiffré.
+/// </summary>
+public sealed class ConvertisseurChiffre<TModele> : ValueConverter<TModele, string>, IConvertisseurChiffrement
+{
+    /// <param name="chiffreur">Chiffreur des champs du service.</param>
+    /// <param name="versTexte">Mise sous forme de texte, avant chiffrement.</param>
+    /// <param name="depuisTexte">Lecture du texte, après déchiffrement.</param>
+    public ConvertisseurChiffre(FieldEncryptor chiffreur, Func<TModele, string> versTexte, Func<string, TModele> depuisTexte)
+        : base(VersFournisseur(chiffreur, versTexte), DepuisFournisseur(chiffreur, depuisTexte))
+    {
+    }
+
+    private static Expression<Func<TModele, string>> VersFournisseur(FieldEncryptor chiffreur, Func<TModele, string> versTexte)
+    {
+        ArgumentNullException.ThrowIfNull(chiffreur);
+        ArgumentNullException.ThrowIfNull(versTexte);
+        return v => chiffreur.Encrypt(versTexte(v));
+    }
+
+    private static Expression<Func<string, TModele>> DepuisFournisseur(FieldEncryptor chiffreur, Func<string, TModele> depuisTexte)
+    {
+        ArgumentNullException.ThrowIfNull(chiffreur);
+        ArgumentNullException.ThrowIfNull(depuisTexte);
+        return v => depuisTexte(chiffreur.Decrypt(v));
+    }
+}

@@ -16,7 +16,9 @@ builder.Services.AddIntegrationsAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.Integrations.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
-var app = builder.Build();
+// Hôte libéré à la sortie, y compris par les modes « migrer puis quitter » et « rechiffrer puis quitter » : les derniers
+// journaux sont transmis avant l'arrêt du processus (#482).
+await using var app = builder.Build();
 
 // Migrations (ADR 0010) : « migrer puis quitter » pour le job de migration Azure, migration au démarrage en local.
 // Avant toute vérification de clé : le job de migration ne reçoit aucun secret.
@@ -30,7 +32,8 @@ if (await app.MigrerSchemaAsync<IntegrationsDbContext>() is { } codeSortie)
 _ = app.Services.GetRequiredService<FieldEncryptor>();
 _ = app.Services.GetRequiredService<IFieldKeyProvider>();
 
-// ADR 0012, #396 : « rechiffrer puis quitter » (job d'exploitation) : toutes les valeurs chiffrées passent à la DEK courante.
+// ADR 0012, #396, #482 : « rechiffrer puis quitter » ou « vérifier seulement » (jobs d'exploitation) : toutes les valeurs
+// chiffrées passent à la DEK courante, ou sont seulement contrôlées (code 0 ou 1).
 if (await app.RechiffrerChampsAsync<IntegrationsDbContext>(s => s.GetRequiredService<FieldEncryptor>()) is { } codeRechiffrement)
 {
     Environment.ExitCode = codeRechiffrement;

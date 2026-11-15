@@ -33,7 +33,7 @@ public sealed class PersonnesDbContext(
             b.Property(p => p.Id).ValueGeneratedNever();
             b.Property(p => p.Niss)
                 .HasColumnName("niss_chiffre")
-                .HasConversion(new ValueConverter<Niss, string>(n => encryptor.Encrypt(n.Valeur), v => Niss.Parse(encryptor.Decrypt(v))))
+                .HasConversion(new ConvertisseurChiffre<Niss>(encryptor, n => n.Valeur, Niss.Parse))
                 .HasMaxLength(200)
                 .IsRequired();
             b.Property(p => p.NissHash).HasMaxLength(64).IsRequired();
@@ -79,9 +79,9 @@ public sealed class PersonnesDbContext(
 
             // ARC-45 : nom, prénom, adresse et date de décès (avant / après) ne sont jamais stockés en clair.
             b.Property(m => m.Avant).HasColumnName("avant_chiffre").HasMaxLength(2000)
-                .HasConversion(new ValueConverter<string?, string?>(v => v == null ? null : encryptor.Encrypt(v), v => v == null ? null : encryptor.Decrypt(v)));
+                .HasConversion((ValueConverter)new EncryptedStringConverter(encryptor));
             b.Property(m => m.Apres).HasColumnName("apres_chiffre").HasMaxLength(2000)
-                .HasConversion(new ValueConverter<string?, string?>(v => v == null ? null : encryptor.Encrypt(v), v => v == null ? null : encryptor.Decrypt(v)));
+                .HasConversion((ValueConverter)new EncryptedStringConverter(encryptor));
         });
 
         modelBuilder.Entity<Occupation>(b =>
@@ -125,9 +125,7 @@ public sealed class PersonnesDbContext(
 
             // ARC-45 : « grossesse » ou « allaitement » n'est jamais stocké en clair.
             b.Property(e => e.Type)
-                .HasConversion(new ValueConverter<TypeEtatParticulier, string>(
-                    t => encryptor.Encrypt(t.ToString()),
-                    v => Enum.Parse<TypeEtatParticulier>(encryptor.Decrypt(v))))
+                .HasConversion(new ConvertisseurChiffre<TypeEtatParticulier>(encryptor, t => t.ToString(), Enum.Parse<TypeEtatParticulier>))
                 .HasColumnName("type_chiffre")
                 .HasMaxLength(200);
         });

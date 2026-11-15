@@ -15,7 +15,9 @@ builder.Services.AddPostesRisquesAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.PostesRisques.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
-var app = builder.Build();
+// Hôte libéré à la sortie, y compris par le mode « migrer puis quitter » : les derniers journaux sont transmis avant
+// l'arrêt du processus (#482).
+await using var app = builder.Build();
 
 // Migrations (ADR 0010) : « migrer puis quitter » pour le job de migration Azure, migration au démarrage en local.
 // Avant toute vérification de clé : le job de migration ne reçoit aucun secret.
