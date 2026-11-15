@@ -1,7 +1,7 @@
 # ADR 0014 — Trajectoire de décomposition : maintien des 12 services, monolithe modulaire par zone en option conditionnelle
 
 ## Statut
-Proposée le 2026-11-14 par l'architecte solution, à valider par le responsable produit. Référence :
+Acceptée le 2026-11-15 par le responsable produit (proposée le 2026-11-14 par l'architecte solution). Référence :
 [état des lieux de l'architecture](../architecture/etat-des-lieux-architecture.md), épique #389.
 
 ## Contexte
