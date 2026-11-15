@@ -138,9 +138,13 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
 - **Brouillon d'un autre.** Tout professionnel, CPMT compris, ne modifie le brouillon d'un autre qu'en relation de soin
   sur l'examen de la décision (professionnel de cet examen ou gestionnaire du dossier), sinon par bris de glace motivé.
   Ni un simple motif ni un autre examen du dossier, même un examen spontané, ne suffisent (revue de #496, P2-1).
-- **Désignation du gestionnaire.** Seul le gestionnaire actuel ou un CPMT en relation de soin sur le dossier (examen
-  ouvert sur un rendez-vous planifié) désigne le gestionnaire. Sinon, un bris de glace motivé est exigé, car un simple
-  motif permettrait de se désigner gestionnaire puis de signer (revue de #496, P1-1, ADR 0017 point 7).
+- **Désignation du gestionnaire.** Seul le gestionnaire actuel ou un CPMT en relation de soin sur le dossier (seul
+  examen non annulé d'un rendez-vous planifié) désigne le gestionnaire. Sinon, un bris de glace motivé est exigé, car un
+  simple motif permettrait de se désigner gestionnaire puis de signer (revue de #496, P1-1, ADR 0017 point 7).
+- **Un rendez-vous, un examen.** Un rendez-vous ne porte qu'un examen non annulé : refus applicatif (409,
+  `examen.rendez-vous-deja-honore`) et index unique partiel en base. Sinon un CPMT hors relation rouvrirait sans motif
+  un rendez-vous déjà honoré pour établir la relation (revue de #496, P1-1 bis). Limite connue : le rendez-vous ne
+  désigne pas encore le professionnel convoqué, ce qui fait l'objet d'un ticket de suite.
 - **Authentification forte.** La clôture d'examen (`decision:signer`) l'exige explicitement. Les routes
   `dossier-sante:gerer` l'exigent par leur préfixe. Depuis #494, toutes les routes `decision:ecrire` et `decision:signer`
   l'exigent aussi par leur préfixe (`decision:lire` excepté) : la rédaction et la modification ouvertes à l'infirmier par

@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using Npgsql;
+
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Contracts.Decisions;
 using Sepp.Contracts.Obligations;
@@ -400,6 +402,48 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         vue!.ExamensDus.Single().ObligationId.ShouldBe(obligation.ObligationId);
         vue.Expositions.Single().Agent.ShouldBe("BRUIT");
         vue.Historique.Single().ProfessionnelId.ShouldBe("inf-1");
+    }
+
+    [Fact]
+    public async Task Un_rendez_vous_deja_honore_n_etablit_pas_la_relation_d_un_autre_cpmt()
+    {
+        // P1-1 bis de la revue de #496 : cpmt-1 (gestionnaire) honore le rendez-vous et rédige la décision ; cpmt-2, hors
+        // relation, ne peut pas rouvrir ce rendez-vous sans motif pour se désigner gestionnaire puis signer.
+        var personne = Guid.CreateVersion7();
+        var dossierId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = personne }, _ct));
+        var obligation = new ObligationCreee(Guid.CreateVersion7(), personne, _affilie, "EVALUATION_PERIODIQUE", new DateOnly(2026, 3, 1), new DateOnly(2026, 4, 1));
+        var rdv = new RendezVousPlanifie(Guid.CreateVersion7(), personne, _affilie, new DateTimeOffset(2026, 3, 10, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), obligation, _ct)).ShouldBe(1);
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), rdv, _ct)).ShouldBe(1);
+        var examenId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/examens", new { dossierId, rendezVousId = rdv.RendezVousId }, _ct));
+        await Ok(await Cpmt.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct), HttpStatusCode.NoContent);
+        var decisionId = await Id(await Cpmt.PostAsJsonAsync($"/api/v1/examens/{examenId}/decision", new { categorie = "Apte", valideJusquAu = "2027-03-01" }, _ct));
+
+        var autreCpmt = fixture.Client(Roles.Cpmt, "cpmt-rdv-2");
+        var doublon = await autreCpmt.PostAsJsonAsync("/api/v1/examens", new { dossierId, rendezVousId = rdv.RendezVousId }, _ct);
+        doublon.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await doublon.Content.ReadAsStringAsync(_ct)).ShouldContain("examen.rendez-vous-deja-honore");
+        (await autreCpmt.PutAsJsonAsync($"/api/v1/dossiers/{dossierId}/gestionnaire", new { cpmtId = "cpmt-rdv-2" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await autreCpmt.SendAsync(Signature(decisionId, 1), _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task La_base_refuse_deux_examens_non_annules_sur_le_meme_rendez_vous()
+    {
+        // Index unique partiel ix_examen_rendez_vous_id (#496) : défense en base, au-delà du contrôle applicatif.
+        var dossierId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = Guid.CreateVersion7() }, _ct));
+        var premier = await Id(await Cpmt.PostAsJsonAsync("/api/v1/examens", new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", affilieId = _affilie }, _ct));
+        var second = await Id(await Cpmt.PostAsJsonAsync("/api/v1/examens", new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", affilieId = _affilie }, _ct));
+        var rendezVous = Guid.CreateVersion7();
+        const string rattacher = "UPDATE examen SET rendez_vous_id = @rdv WHERE id = @id";
+
+        await fixture.ScalaireAsync(rattacher, _ct, ("rdv", rendezVous), ("id", premier));
+        var doublon = await Should.ThrowAsync<PostgresException>(() => fixture.ScalaireAsync(rattacher, _ct, ("rdv", rendezVous), ("id", second)));
+        doublon.SqlState.ShouldBe(PostgresErrorCodes.UniqueViolation);
+
+        // Un examen annulé libère le rendez-vous.
+        await fixture.ScalaireAsync("UPDATE examen SET statut = 'Annule' WHERE id = @id", _ct, ("id", premier));
+        await fixture.ScalaireAsync(rattacher, _ct, ("rdv", rendezVous), ("id", second));
     }
 
     [Fact]

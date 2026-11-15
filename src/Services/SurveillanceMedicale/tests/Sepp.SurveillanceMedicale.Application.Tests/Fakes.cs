@@ -111,6 +111,9 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IDos
     public Task<bool> ExisteExamenDuProfessionnelAsync(Guid dossierId, string professionnelId, CancellationToken cancellationToken) =>
         Task.FromResult(Examens.Exists(e => e.DossierId == dossierId && e.ProfessionnelId == professionnelId));
 
+    public Task<bool> ExisteExamenSurRendezVousAsync(Guid rendezVousId, CancellationToken cancellationToken) =>
+        Task.FromResult(Examens.Exists(e => e.RendezVousId == rendezVousId && e.Statut != StatutExamen.Annule));
+
     public void Add(Examen examen) => Examens.Add(examen);
 
     // Décisions

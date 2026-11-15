@@ -353,6 +353,55 @@ public sealed class SecretMedicalTests
         _monde.Store.Decisions.Single().ModifieePar.ShouldBe("infirmier-2");
     }
 
+    [Fact]
+    public async Task Un_rendez_vous_deja_honore_ne_permet_ni_de_se_designer_gestionnaire_ni_de_signer()
+    {
+        // P1-1 bis de la revue de #496 : cpmt-1 (gestionnaire) honore le rendez-vous et rédige la décision.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var affilie = Guid.CreateVersion7();
+        var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
+        _monde.Store.Obligations.Add(obligation);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        _monde.Store.RendezVous.Add(rdv);
+        var examenId = (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Value;
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
+
+        // cpmt-2 rouvre ce rendez-vous sans motif : refus (un rendez-vous ne porte qu'un examen), puis ni désignation ni
+        // signature sans bris de glace.
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Error!.Code.ShouldBe("examen.rendez-vous-deja-honore");
+        _monde.Store.Examens.Count.ShouldBe(1);
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.motif-obligatoire");
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Reprise du suivi");
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+        (await Signer(decisionId, 1)).Error!.Code.ShouldBe("decision.signature-hors-relation");
+    }
+
+    [Fact]
+    public async Task Un_examen_sur_un_rendez_vous_qui_en_porte_plusieurs_n_ouvre_pas_la_designation_du_gestionnaire()
+    {
+        // Défense en profondeur (#496) : même si un doublon existait (données antérieures à l'index unique), l'examen d'un
+        // rendez-vous qui en porte plusieurs n'établit pas la relation de soin qui permet de se désigner gestionnaire.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var rendezVous = Guid.CreateVersion7();
+        _monde.Store.Examens.Add(Examen.Ouvrir(dossierId, _personne, Guid.CreateVersion7(), TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 2), "cpmt-1", rendezVous, []));
+        _monde.Store.Examens.Add(Examen.Ouvrir(dossierId, _personne, Guid.CreateVersion7(), TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 2), "cpmt-2", rendezVous, []));
+
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Reprise du suivi");
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+
+        // Le doublon de cpmt-1 annulé, l'examen de cpmt-2 redevient l'unique examen du rendez-vous.
+        _monde.Store.Examens.First().Annuler();
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).IsSuccess.ShouldBeTrue();
+    }
+
+    private Task<Result<Guid>> OuvrirSurRendezVous(Guid dossierId, Guid rendezVousId) =>
+        new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, null, null, rendezVousId, null), _ct);
+
     private Task<Result<Unit>> ChangerGestionnaire(Guid dossierId, string cpmtId) =>
         new ChangerGestionnaireHandler(_monde.Garde, _monde.Store).HandleAsync(new ChangerGestionnaire(dossierId, cpmtId), _ct);
 

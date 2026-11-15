@@ -75,10 +75,21 @@ version qu'il a relue.
    ouvre la signature et la modification (points 2 et 5) : la désignation est donc réservée au gestionnaire actuel ou à
    un CPMT en relation de soin sur le dossier, sinon un bris de glace motivé est exigé (décision du responsable produit,
    P1-1 de la revue de #496). Le refus est `dossier-sante.gestion-hors-relation`.
-   - Pour la désignation, la relation de soin s'entend du professionnel d'un examen du dossier **ouvert sur un
-     rendez-vous planifié** (relation établie sans motif). Un examen ouvert sur motif, spontané par exemple, et une
-     vaccination ne suffisent pas : sinon un CPMT ouvrirait un examen sur motif, se désignerait gestionnaire et signerait
-     sans bris de glace.
+   - Pour la désignation, la relation de soin s'entend du professionnel de **l'unique examen non annulé d'un rendez-vous
+     planifié** (relation établie sans motif). Un examen ouvert sur motif, spontané par exemple, et une vaccination ne
+     suffisent pas : sinon un CPMT ouvrirait un examen sur motif, se désignerait gestionnaire et signerait sans bris de
+     glace.
+   - **Un rendez-vous ne porte qu'un examen non annulé** (P1-1 bis de la revue de #496). Le rendez-vous n'est pas lié à
+     un professionnel : sans cette règle, un CPMT hors relation rouvrirait sans motif un rendez-vous déjà honoré par un
+     autre, puis se désignerait gestionnaire. Trois niveaux :
+     - l'ouverture d'un second examen sur le même rendez-vous est refusée (409, `examen.rendez-vous-deja-honore`) ;
+     - un index unique partiel le garantit en base (`ix_examen_rendez_vous_id` : `rendez_vous_id` non nul, examens
+       annulés exclus ; migration `RendezVousUnExamen`) ;
+     - en défense en profondeur, la désignation n'accepte que l'examen qui est le seul de son rendez-vous.
+   - Suite prévue, hors de cette décision : porter le professionnel convoqué dans le contrat du rendez-vous, pour que
+     seule la personne convoquée établisse la relation (ticket de suite).
+   - Une base qui contiendrait déjà deux examens non annulés sur un même rendez-vous ferait échouer la migration : il
+     faut d'abord annuler le doublon.
    - L'ouverture d'un dossier avec un gestionnaire (`POST /dossiers`) n'est pas concernée : le dossier est unique par
      personne (SAN-40) et n'existe pas encore, il n'y a donc ni gestionnaire à évincer ni brouillon à signer.
 

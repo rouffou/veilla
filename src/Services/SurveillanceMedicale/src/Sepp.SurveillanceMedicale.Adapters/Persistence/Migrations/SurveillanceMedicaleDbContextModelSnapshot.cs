@@ -18,7 +18,7 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -1164,6 +1164,11 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
 
                     b.HasIndex("PersonneId")
                         .HasDatabaseName("ix_examen_personne_id");
+
+                    b.HasIndex("RendezVousId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_examen_rendez_vous_id")
+                        .HasFilter("rendez_vous_id IS NOT NULL AND statut <> 'Annule'");
 
                     b.HasIndex("DossierId", "ProfessionnelId")
                         .HasDatabaseName("ix_examen_dossier_id_professionnel_id");
