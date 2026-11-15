@@ -2,6 +2,9 @@ using System.Reflection;
 
 using NetArchTest.Rules;
 
+using Sepp.BuildingBlocks.Infrastructure.Persistence;
+using Sepp.BuildingBlocks.Infrastructure.Security;
+
 using Shouldly;
 
 using Xunit;
@@ -84,6 +87,26 @@ public abstract class CleanArchitectureRules
     [Fact]
     public void Les_cas_d_usage_sont_scelles() =>
         Check(Types.InAssembly(ApplicationAssembly).That().HaveNameEndingWith("Handler").Should().BeSealed());
+
+    /// <summary>
+    /// #442 / #472 : le modèle EF Core est mis en cache par processus et sa clé (<see cref="ModelCacheKeyFactoryChiffre"/>) intègre
+    /// le chiffreur des <see cref="IContexteChiffre"/>. Un contexte qui reçoit un <see cref="FieldEncryptor"/> ou un
+    /// <c>ChiffrementZoneMedicale</c> sans l'implémenter réintroduirait sans bruit la fuite de clés entre hôtes d'un même processus.
+    /// </summary>
+    [Fact]
+    public void Tout_contexte_qui_recoit_un_chiffreur_implemente_IContexteChiffre()
+    {
+        var fautifs = new[] { DomainAssembly, ApplicationAssembly, AdaptersAssembly, InfrastructureAssembly }
+            .SelectMany(a => a.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract && typeof(SeppDbContext).IsAssignableFrom(t))
+            .Where(t => t.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .SelectMany(c => c.GetParameters())
+                .Any(p => p.ParameterType == typeof(FieldEncryptor) || p.ParameterType.Name == "ChiffrementZoneMedicale"))
+            .Where(t => !typeof(IContexteChiffre).IsAssignableFrom(t))
+            .Select(t => t.FullName)
+            .ToList();
+        fautifs.ShouldBeEmpty("Ces contextes reçoivent un chiffreur sans implémenter IContexteChiffre (clé de cache du modèle EF, #442).");
+    }
 
     private static void Check(ConditionList conditions)
     {
