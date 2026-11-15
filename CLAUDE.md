@@ -56,6 +56,7 @@
   - PR vers main avec `Closes #n` ou `Refs #n`, fusion en squash ;
   - `--force-with-lease` est permis **uniquement** sur sa propre branche de travail.
   - Le responsable produit a autorisé l'orchestrateur à créer branches, commits et PR, et à fusionner une PR une fois la CI verte. **Les agents délégués ne fusionnent jamais.**
+  - **Exception (décision du 2026-11-15)** : une PR qui touche `.github/workflows/**`, `tools/deploy/**`, `infra/environments/**`, le module `infra/modules/containerapp-rechiffrement-job/**` ou les listes de clés de chiffrement (`encryption_key_ids`, `encryption_legacy_key_ids`) est **fusionnée par le responsable produit lui-même**, jamais par l'orchestrateur, même si la CI est verte et la revue favorable. L'orchestrateur la prépare, la fait relire et la signale.
 - **Garde-fous d'architecture**. Des tests les vérifient, il faut les tenir à jour :
   - catalogue des événements ↔ contrats ;
   - abonnements DI ⊆ `subscribes_to` Terraform (`AbonnementsTerraformTests`) ;
