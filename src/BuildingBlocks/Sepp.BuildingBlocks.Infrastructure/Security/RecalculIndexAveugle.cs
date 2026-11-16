@@ -220,3 +220,35 @@ public static partial class RecalculIndexAveugle
         Message = "Vérification de l'index aveugle {Colonne} : {Lignes} ligne(s), {Courantes} empreinte(s) de la clé courante, {ClePrecedente} de la clé précédente, {Autres} autre(s), {Illisibles} source(s) illisible(s) ; complet : {Complet}.")]
     private static partial void LogVerification(ILogger journal, string colonne, long lignes, long courantes, long clePrecedente, long autres, long illisibles, bool complet);
 }
+
+/// <summary>
+/// Journal des clés d'un index aveugle (#514, P3-1) : au démarrage, la valeur de contrôle (<see cref="BlindIndex.Kcv"/>) de
+/// chaque clé configurée, jamais la clé. La procédure d'incident compare ces valeurs entre le service, le recalcul et la
+/// vérification, et à celle de la clé compromise.
+/// </summary>
+public static partial class JournalIndexAveugle
+{
+    /// <summary>Catégorie du journal.</summary>
+    public const string Categorie = "Sepp.IndexAveugle";
+
+    /// <summary>Journalise la KCV de la clé courante et, pendant une rotation, celle de la clé précédente.</summary>
+    /// <param name="journal">Journal.</param>
+    /// <param name="index">Nom de l'index (colonne d'empreinte), sans donnée.</param>
+    /// <param name="cles">Clés de l'index.</param>
+    public static void JournaliserCles(ILogger journal, string index, BlindIndex cles)
+    {
+        ArgumentNullException.ThrowIfNull(journal);
+        ArgumentNullException.ThrowIfNull(cles);
+        LogCleCourante(journal, index, cles.Kcv);
+        if (cles.KcvPrecedente is { } precedente)
+        {
+            LogClePrecedente(journal, index, precedente);
+        }
+    }
+
+    [LoggerMessage(EventId = 5114, Level = LogLevel.Information, Message = "Index aveugle {Index} : clé courante, KCV {Kcv}.")]
+    private static partial void LogCleCourante(ILogger journal, string index, string kcv);
+
+    [LoggerMessage(EventId = 5115, Level = LogLevel.Information, Message = "Index aveugle {Index} : clé précédente acceptée en lecture, KCV {Kcv}.")]
+    private static partial void LogClePrecedente(ILogger journal, string index, string kcv);
+}

@@ -104,11 +104,31 @@ public static partial class RechiffrementHote
         }
         catch (Exception erreur) when (erreur is not OutOfMemoryException)
         {
-            // Type et message de l'exception la plus interne seulement : ni valeur, ni clé, ni paramètre SQL.
-            var racine = erreur.GetBaseException();
-            LogEchec(journal, typeof(TContext).Name, racine.GetType().FullName ?? racine.GetType().Name, racine.Message.Length <= 2000 ? racine.Message : racine.Message[..2000]);
+            var (type, message) = DescriptionEchec(erreur);
+            LogEchec(journal, typeof(TContext).Name, type, message);
             return CodeIncomplet;
         }
+    }
+
+    /// <summary>
+    /// Description d'un échec, sans valeur ni clé ni paramètre SQL (#502, P3-D) : pour une erreur de base de données (dans
+    /// la chaîne des exceptions), son type et son seul SQLSTATE, car le message et le détail d'une erreur PostgreSQL peuvent
+    /// citer une valeur (complété du seul type de la cause la plus interne, par exemple une erreur réseau) ; sinon, le type
+    /// et le message de l'exception la plus interne.
+    /// </summary>
+    private static (string Type, string Message) DescriptionEchec(Exception erreur)
+    {
+        var racine = erreur.GetBaseException();
+        for (var courante = erreur; courante is not null; courante = courante.InnerException)
+        {
+            if (courante is System.Data.Common.DbException bdd)
+            {
+                var cause = ReferenceEquals(racine, bdd) ? string.Empty : $" Cause : {racine.GetType().FullName}.";
+                return (bdd.GetType().FullName ?? bdd.GetType().Name, RechiffrementChamps.MessageBase(bdd) + cause);
+            }
+        }
+
+        return (racine.GetType().FullName ?? racine.GetType().Name, racine.Message.Length <= 2000 ? racine.Message : racine.Message[..2000]);
     }
 
     /// <summary>Rechiffre les colonnes chiffrées du contexte (utilisable aussi par les tests).</summary>

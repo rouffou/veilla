@@ -602,6 +602,103 @@ public sealed class RechiffrementChampsPostgresTests(ServeurPostgresRechiffremen
     }
 
     [Fact]
+    public async Task Une_valeur_chiffree_dans_un_json_stocke_en_texte_est_trouvee_par_la_verification_et_par_la_requete_documentee()
+    {
+        // #502, P3-B : motif (^|")v[12]: pour une colonne texte. Un JSON stocké en texte (colonne libelle, hors modèle)
+        // contient une valeur chiffrée en tête d'une chaîne, et non en tête du texte.
+        var connexion = await serveur.CreerBaseAsync();
+        var d2 = RechiffrementChampsTests.Chiffreur("d2");
+        await using (var db = await OuvrirAsync(connexion))
+        {
+            await InsererAsync(db, Guid.CreateVersion7(), d2.Encrypt("a"), null, libelle: $"{{\"note\":\"{RechiffrementChampsTests.ChiffrerV1("réponse")}\"}}");
+            await InsererAsync(db, Guid.CreateVersion7(), d2.Encrypt("b"), null, libelle: $"{{\"note\":\"{d2.Encrypt("courante")}\"}}");
+            await InsererAsync(db, Guid.CreateVersion7(), d2.Encrypt("c"), null, libelle: "texte libre sans valeur chiffrée v2:d2:");
+        }
+
+        var rapport = await ExecuterAsync(connexion, d2, Petit);
+
+        rapport.Complet.ShouldBeFalse();
+        rapport.Verification.ColonnesHorsModele.Select(c => (c.Colonne, c.Chiffrees, c.Courantes, c.HorsDekCourante, c.V1)).ShouldBe(
+        [
+            ("fiche.libelle", 2L, 1L, 1L, 1L),
+        ]);
+
+        var controle = RequeteDeControle().Replace("(?!D2:)", "(?!d2:)", StringComparison.Ordinal);
+        (await ControlerAsync(connexion, controle)).ShouldBe(
+        [
+            ("fiche", "libelle", 2L, 1L, 1L),
+            ("fiche", "texte_chiffre", 3L, 0L, 0L),
+        ]);
+    }
+
+    [Fact]
+    public async Task La_reprise_d_un_lot_s_arrete_apres_le_nombre_maximal_de_verrous_non_obtenus()
+    {
+        // #502, P3-B : un verrou tenu sur tout le lot coûterait DelaiVerrou par ligne ; la reprise s'arrête après
+        // VerrousMaxParLot erreurs 55P03, et les lignes restantes sont reprises à la prochaine exécution.
+        var connexion = await serveur.CreerBaseAsync();
+        var d1 = RechiffrementChampsTests.Chiffreur("d1");
+        var ids = Enumerable.Range(0, 6).Select(_ => Guid.CreateVersion7()).Order().ToList();
+        await using (var db = await OuvrirAsync(connexion))
+        {
+            foreach (var id in ids)
+            {
+                await InsererAsync(db, id, d1.Encrypt("t"), null);
+            }
+        }
+
+        await using var service = await OuvrirAsync(connexion);
+        await using var transaction = await service.BeginTransactionAsync(Ct);
+        await using (var verrou = new NpgsqlCommand("SELECT 1 FROM fiche FOR UPDATE", service, transaction))
+        {
+            await verrou.ExecuteNonQueryAsync(Ct);
+        }
+
+        var rapport = await ExecuterAsync(connexion, RechiffrementChampsTests.Chiffreur("d2"),
+            Petit with { TailleLot = 10, DelaiVerrou = TimeSpan.FromMilliseconds(200), VerrousMaxParLot = 2 });
+
+        Colonne(rapport, "texte_chiffre").ShouldSatisfyAllConditions(
+            c => c.Examinees.ShouldBe(6),
+            c => c.Rechiffrees.ShouldBe(0),
+            c => c.Erreurs.ShouldBe(6));
+        rapport.ErreursDetaillees.Select(e => (e.Cle, e.TypeErreur, e.Message.Contains("55P03", StringComparison.Ordinal))).ShouldBe(
+        [
+            (ids[0].ToString(), "PostgresException", true),
+            (ids[1].ToString(), "PostgresException", true),
+            .. ids.Skip(2).Select(id => (id.ToString(), "RepriseArretee", true)),
+        ]);
+        rapport.ErreursDetaillees.Skip(2).ShouldAllBe(e => e.Message.Contains("non tentée", StringComparison.Ordinal));
+
+        await transaction.RollbackAsync(Ct);
+        (await ExecuterAsync(connexion, RechiffrementChampsTests.Chiffreur("d2"), Petit)).Complet.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Un_echec_de_base_de_donnees_ne_journalise_que_le_sqlstate()
+    {
+        // #502, P3-D : la vérification finale attend un verrou de table tenu par une autre transaction ; l'échec est
+        // journalisé avec son seul SQLSTATE, sans le message de PostgreSQL (qui peut citer une valeur).
+        var connexion = await serveur.CreerBaseAsync();
+        await using var service = await OuvrirAsync(connexion);
+        await using var transaction = await service.BeginTransactionAsync(Ct);
+        await using (var verrou = new NpgsqlCommand("LOCK TABLE fiche IN ACCESS EXCLUSIVE MODE", service, transaction))
+        {
+            await verrou.ExecuteNonQueryAsync(Ct);
+        }
+
+        var journal = new JournalCapture();
+        using (var hote = Hote(connexion, RechiffrementChampsTests.Chiffreur("d2"), journal, verifierSeulement: true))
+        {
+            (await hote.RechiffrerChampsAsync<RechiffrementTestDbContext>(s => s.GetRequiredService<FieldEncryptor>(), Ct)).ShouldBe(RechiffrementHote.CodeIncomplet);
+        }
+
+        await transaction.RollbackAsync(Ct);
+        var echec = journal.Messages.Where(m => m.Contains("Échec du rechiffrement des champs de RechiffrementTestDbContext", StringComparison.Ordinal)).ShouldHaveSingleItem();
+        echec.ShouldContain("Npgsql.PostgresException : Erreur de base de données (SQLSTATE 55P03).");
+        echec.ShouldNotContain("lock timeout", Case.Insensitive);
+    }
+
+    [Fact]
     public async Task Le_mode_verification_seule_n_ecrit_rien_l_emporte_et_retourne_1_puis_0_apres_rechiffrement()
     {
         var connexion = await serveur.CreerBaseAsync();

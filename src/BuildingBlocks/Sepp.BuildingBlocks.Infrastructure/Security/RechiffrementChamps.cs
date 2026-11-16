@@ -157,6 +157,13 @@ public sealed record OptionsRechiffrement
     /// service est laissée en erreur et reprise à la prochaine exécution, au lieu de bloquer le traitement.
     /// </summary>
     public TimeSpan DelaiVerrou { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Verrous non obtenus (SQLSTATE 55P03) au-delà desquels la reprise ligne par ligne d'un lot s'arrête (#502) : les
+    /// lignes restantes du lot sont comptées en erreur sans être tentées, puis reprises à la prochaine exécution. Sans
+    /// cette borne, un verrou de table tenu par le service coûterait <see cref="DelaiVerrou"/> pour chaque ligne du lot.
+    /// </summary>
+    public int VerrousMaxParLot { get; init; } = 3;
 }
 
 /// <summary>Valeur non rechiffrée : identifiant technique de la ligne et type d'erreur, jamais la valeur ni la clé.</summary>

@@ -65,6 +65,44 @@ public sealed class IndexAveugleTests
     }
 
     [Fact]
+    public void La_kcv_de_chaque_cle_vaut_les_8_premiers_caracteres_hexadecimaux_de_hmac_cle_kcv()
+    {
+        // Vecteurs calculés hors .NET : printf kcv | openssl dgst -sha256 -mac HMAC -macopt hexkey:<clé>.
+        var zeros = new byte[32];
+        var uns = Enumerable.Repeat((byte)1, 32).ToArray();
+
+        new BlindIndex(zeros).Kcv.ShouldBe("43e1deb5");
+        new BlindIndex(zeros).KcvPrecedente.ShouldBeNull();
+        var pendant = new BlindIndex(uns, zeros);
+        pendant.Kcv.ShouldBe("4ec061fe");
+        pendant.KcvPrecedente.ShouldBe("43e1deb5");
+    }
+
+    [Fact]
+    public void Le_journal_des_cles_donne_la_kcv_de_chaque_cle_et_jamais_la_cle()
+    {
+        var courante = RandomNumberGenerator.GetBytes(32);
+        var precedente = RandomNumberGenerator.GetBytes(32);
+        var index = new BlindIndex(courante, precedente);
+        var journal = new JournalCapture();
+        using var fabrique = LoggerFactory.Create(b => b.AddProvider(journal));
+
+        JournalIndexAveugle.JournaliserCles(fabrique.CreateLogger(JournalIndexAveugle.Categorie), "personne.niss_hash", index);
+        JournalIndexAveugle.JournaliserCles(fabrique.CreateLogger(JournalIndexAveugle.Categorie), "autre", new BlindIndex(courante));
+
+        journal.Messages.ShouldBe(
+        [
+            $"Information: Index aveugle personne.niss_hash : clé courante, KCV {index.Kcv}. ",
+            $"Information: Index aveugle personne.niss_hash : clé précédente acceptée en lecture, KCV {index.KcvPrecedente}. ",
+            $"Information: Index aveugle autre : clé courante, KCV {index.Kcv}. ",
+        ]);
+        foreach (var cle in new[] { courante, precedente })
+        {
+            journal.Messages.ShouldAllBe(m => !m.Contains(Convert.ToHexString(cle), StringComparison.OrdinalIgnoreCase) && !m.Contains(Convert.ToBase64String(cle), StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
     public void L_index_est_decrit_par_le_modele_et_sa_source_doit_etre_chiffree()
     {
         using var contexte = new IndexAveugleTestDbContext(

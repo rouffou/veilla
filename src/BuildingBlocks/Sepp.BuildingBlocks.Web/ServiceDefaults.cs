@@ -52,7 +52,8 @@ public static class ServiceDefaults
                 .AddSource(serviceName))
             .WithMetrics(m => m
                 .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation());
+                .AddHttpClientInstrumentation()
+                .AddMeter("Sepp.*")); // Métriques métier des services (meters « Sepp.<Service> », doublons de NISS : #514).
 
         if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
         {

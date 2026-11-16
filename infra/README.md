@@ -381,8 +381,8 @@ Rotation :
   « Rotation des DEK » ci-dessous. Identifiants en majuscules et chiffres (`D1`, `D2`) ;
 - **clés AES historiques (format v1)** : `encryption_legacy_key_ids` les injecte en lecture seule (`--keys--<id>`). Les
   retirer, avec `blindindex--key`, une fois toutes les valeurs v1 rechiffrées : voir « Retrait des anciennes clés » ;
-- **clé de l'index aveugle** : jamais remplacée directement (toute recherche par NISS échouerait) ; voir « Rotation de la
-  clé de l'index aveugle ».
+- **clé de l'index aveugle** : tournée sur incident seulement, et jamais remplacée service ouvert sans recalcul (toute
+  recherche par NISS échouerait) ; voir « Rotation de la clé de l'index aveugle ».
 
 Sauvegarde : comme pour `documents-kek` (ci-dessous), **toutes versions incluses**, avant la mise en service puis après
 chaque rotation. La perte de `<service>-fields-kek` rend illisibles les champs chiffrés du service.
@@ -409,8 +409,11 @@ d'une ancienne DEK. Sans lui, ni une ancienne DEK ni une ancienne clé v1 ne peu
   écrasée (« modifiée entre-temps » dans le rapport). L'attente d'un verrou de ligne est bornée à 5 secondes
   (`SET LOCAL lock_timeout`, par transaction) : une ligne verrouillée plus longtemps par le service reste en erreur.
 - **Erreur sur une ligne** (troncature, contrainte, verrou non obtenu) : le lot est annulé puis repris ligne par ligne,
-  chacune dans sa transaction ; seule la ligne en cause reste en erreur, avec son code SQLSTATE. Une erreur sur une
-  colonne entière (droits, table absente) est comptée, et le traitement passe à la colonne suivante.
+  chacune dans sa transaction ; seule la ligne en cause reste en erreur, avec son code SQLSTATE. Après 3 verrous non
+  obtenus (SQLSTATE 55P03) dans un même lot, la reprise de ce lot s'arrête (#502) : les lignes restantes sont comptées en
+  erreur (« ligne non tentée ») et reprises à la prochaine exécution. Un verrou de table tenu par le service coûterait
+  sinon 5 secondes par ligne. Une erreur sur une colonne entière (droits, table absente) est comptée, et le traitement
+  passe à la colonne suivante.
 - **Rejouable et idempotent** : après une interruption (arrêt, délai dépassé, erreur de base), il suffit de relancer.
   Les lots déjà validés sont acquis et ne sont pas relus.
 - **Vérification finale** : en fin d'exécution, toute la base est recomptée dans un seul instantané (transaction
@@ -419,7 +422,7 @@ d'une ancienne DEK. Sans lui, ni une ancienne DEK ni une ancienne clé v1 ne peu
   rechiffrées, modifiées entre-temps, en erreur, à jour, restantes et restantes au format v1. Une valeur en erreur (clé non
   configurée, valeur altérée, erreur de base) est signalée par sa table, sa colonne et l'identifiant technique de sa
   ligne, puis laissée en place. Le journal ne contient jamais ni valeur, en clair comme chiffrée, ni clé, ni message
-  d'erreur PostgreSQL (seulement le code SQLSTATE).
+  d'erreur PostgreSQL (seulement le code SQLSTATE, y compris dans le message d'échec global, événement 5105 : #502).
 - **Code de sortie** : 0 si aucune erreur et si la vérification finale est complète, 1 sinon (erreurs, valeurs restantes,
   colonne chiffrée hors du modèle, colonne du modèle introuvable ou inaccessible, échec). Le journal est transmis avant
   l'arrêt du processus.
@@ -441,9 +444,14 @@ sur la convention de nommage :
   `character`, `json`, `jsonb`), quel que soit leur nom ;
 - pour une colonne chiffrée du modèle, toute valeur non nulle qui ne commence pas par `v2:<DEK courante>:` est
   « restante » (ancienne DEK, v1 ou valeur illisible) ;
-- pour toute autre colonne, une valeur de la forme `v1:<clé>:` ou `v2:<clé>:` (en tête du texte, ou en tête d'une chaîne
-  JSON) est une **valeur chiffrée hors du modèle** : la colonne est signalée (événement 5107) et le code est 1, même si
-  la valeur utilise la DEK courante, car le rechiffrement ne la traitera jamais ;
+- pour toute autre colonne, une valeur de la forme `v1:<clé>:` ou `v2:<clé>:` est une **valeur chiffrée hors du
+  modèle** : la colonne est signalée (événement 5107) et le code est 1, même si la valeur utilise la DEK courante, car
+  le rechiffrement ne la traitera jamais. Motif cherché : `"v[12]:` (en tête d'une chaîne) pour une colonne JSON,
+  `(^|")v[12]:` pour une colonne texte, en tête du texte ou d'une chaîne d'un JSON **stocké en texte** (#502) ;
+- **types non couverts** : un tableau (`text[]`, `varchar[]`), une colonne `citext`, un type de domaine ou composite, un
+  `bytea` ne sont pas lus. Aucune colonne de ce type ne doit contenir de valeur chiffrée : une telle colonne échappe à la
+  vérification comme à la requête de contrôle. Un convertisseur qui chiffre appelle aussi `FieldEncryptor` directement,
+  sans intermédiaire (voir `IConvertisseurChiffrement`) : sinon seul ce contrôle fondé sur les données le rattrape ;
 - elle s'exécute avec l'identité d'exécution du service : le catalogue PostgreSQL ne montre que les colonnes sur
   lesquelles l'identité a un droit. Chaque table est lue une fois (balayage séquentiel) : la lancer en heures creuses
   sur une grosse base ;
@@ -622,8 +630,10 @@ retrait des clés (irréversible au-delà de la suppression réversible du coffr
 Elle se lance dans la base du service, avec l'identité d'exécution ou un administrateur Entra (lecture seule). Comme la
 vérification, elle est **fondée sur les données** : elle lit toutes les colonnes texte et JSON, quel que soit leur nom,
 et donne chaque colonne qui contient au moins une valeur chiffrée (`v1:<clé>:` ou `v2:<clé>:`), avec le nombre de
-valeurs chiffrées, de valeurs v1 et de valeurs chiffrées avec une autre clé que la DEK courante. Remplacer `D2` (dans
-`(?!D2:)`) par la DEK courante.
+valeurs chiffrées, de valeurs v1 et de valeurs chiffrées avec une autre clé que la DEK courante. Le motif est le même que
+celui de la vérification : `"v[12]:` pour une colonne JSON, `(^|")v[12]:` pour une colonne texte, ce qui couvre un JSON
+stocké en texte (#502). Les types non couverts sont les mêmes (`text[]`, `citext`… : voir ci-dessus). Remplacer `D2`
+(dans `(?!D2:)`) par la DEK courante.
 
 ```sql
 -- Contrôle du rechiffrement (#396, #482), fondé sur les données : toutes les colonnes texte et JSON, quel que soit leur nom.
@@ -634,7 +644,7 @@ SELECT c.table_schema, c.table_name, c.column_name,
        (xpath('/row/hors/text()', q.x))[1]::text::bigint AS hors_dek_courante
 FROM information_schema.columns c
 JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name AND t.table_type = 'BASE TABLE'
-CROSS JOIN LATERAL (SELECT CASE WHEN c.data_type IN ('json', 'jsonb') THEN '"' ELSE '^' END AS debut) d
+CROSS JOIN LATERAL (SELECT CASE WHEN c.data_type IN ('json', 'jsonb') THEN '"' ELSE '(^|")' END AS debut) d
 CROSS JOIN LATERAL (SELECT query_to_xml(format(
     'SELECT count(*) FILTER (WHERE %1$I::text ~ %4$L) AS chiffrees, count(*) FILTER (WHERE %1$I::text ~ %5$L) AS v1, '
     'count(*) FILTER (WHERE %1$I::text ~ %6$L) AS hors FROM %2$I.%3$I',
@@ -722,14 +732,15 @@ dans le registre RAID (`docs/00-pilotage/raid-log.md`), avec le motif, le demand
 produit, les clés nécessaires à sa relecture, son emplacement chiffré et sa date de destruction. Une exception en cours
 **interdit** le retrait des clés qu'elle utilise, tant que l'export n'est pas détruit ou rechiffré.
 
-#### Rotation de la clé de l'index aveugle (#473)
+#### Rotation de la clé de l'index aveugle (#473, #514)
 
 La clé HMAC de l'index aveugle du NISS (`blindindex--cleenveloppee`) se tourne en recalculant `personne.niss_hash` pour
 toutes les personnes. Cette colonne est sous index unique et sert à toutes les recherches par NISS : API, imports,
 mutations du registre national, DIMONA et identification pour Intégrations (`POST /api/v1/identifications`).
 
-> **Question ouverte (responsable produit)** : faut-il tourner cette clé hors compromission, et à quelle fréquence ?
-> Ce ticket livre la capacité, il ne tranche pas. Hors compromission, rien n'impose aujourd'hui de la tourner.
+**Décision du responsable produit (2026-11-16, ADR 0018)** : cette clé **ne tourne que sur incident** (compromission
+avérée ou suspectée). La procédure d'urgence est la **bascule unique avec coupure** de Personnes (« Procédure d'incident »
+ci-dessous) ; la procédure en deux bascules, sans coupure longue, reste décrite comme variante hors urgence.
 
 **Lecture à double clé.** Pendant une rotation, Personnes reçoit deux clés, toutes deux enveloppées par
 `personnes-fields-kek` :
@@ -742,6 +753,29 @@ mutations du registre national, DIMONA et identification pour Intégrations (`PO
 Toute recherche par NISS et tout contrôle de doublon portent alors sur les deux empreintes. Une personne pas encore
 recalculée reste trouvée, et un NISS déjà connu sous l'une ou l'autre empreinte n'est jamais recréé. Le service refuse
 de démarrer si les deux clés sont identiques.
+
+**Valeur de contrôle (KCV) des clés (#514).** Au démarrage, Personnes journalise, pour chaque clé de l'index, sa KCV : les
+8 premiers caractères hexadécimaux de HMAC-SHA256(clé, `kcv`), jamais la clé (catégorie `Sepp.IndexAveugle`,
+événement 5114 « clé courante, KCV … » et, si une clé précédente est configurée, 5115 « clé précédente acceptée en
+lecture, KCV … »). Les jobs `rech-personnes` et `verif-personnes` démarrent le même hôte et journalisent donc aussi la
+KCV de la clé qu'ils utilisent. La procédure d'incident s'en sert pour vérifier que le service et les jobs utilisent
+la nouvelle clé, et plus la clé compromise : **noter la KCV de la clé en service dans le dossier d'exploitation**, pour
+pouvoir la reconnaître. Requête Log Analytics :
+
+```kusto
+ContainerAppConsoleLogs_CL
+| where ContainerAppName_s == "ca-personnes" or ContainerJobName_s in ("rech-personnes", "verif-personnes")
+| where Log_s has "Index aveugle personne.niss_hash"
+| project TimeGenerated, ContainerAppName_s, ContainerJobName_s, RevisionName_s, Log_s
+| order by TimeGenerated desc
+```
+
+**Alerte de doublon (#514).** Si une recherche par NISS trouve deux personnes (une sous l'empreinte de chaque clé), le
+service retient celle de la clé courante, journalise un avertissement (événement 5116, « Doublon de NISS », avec les
+seuls identifiants techniques des deux personnes, ni NISS ni empreinte) et incrémente la métrique OpenTelemetry
+`sepp.personnes.niss.doublons` (meter `Sepp.Personnes`, exporté vers Application Insights). Toute valeur non nulle
+appelle une fusion des deux personnes par le métier. Ce cas ne se produit que pour un doublon créé hors de la procédure
+(par exemple une réplique de l'ancienne clé encore active pendant la bascule de la variante en deux bascules).
 
 **Recalcul.** Le mode `Rechiffrement__ExecuterPuisQuitter` de Personnes recalcule l'index après le rechiffrement des
 champs. Pour chaque ligne, il déchiffre `niss_chiffre`, calcule l'empreinte avec la clé courante et ne réécrit que les
@@ -768,9 +802,12 @@ et les NISS illisibles. Ce contrôle a été préféré à une colonne de versio
 Son coût est un déchiffrement AES-GCM en mémoire par personne, sans appel au coffre, à chaque exécution : le lancer en
 heures creuses sur une grosse base.
 
-**Procédure.** Elle se fait en deux bascules, pour que deux révisions actives en même temps lisent toujours les deux
-empreintes : sans cela, une réplique qui ne connaît qu'une clé pourrait créer un doublon (la collision serait alors
-signalée par le recalcul).
+##### Variante hors urgence : deux bascules
+
+**Hors urgence seulement** (en cas d'incident, suivre la « Procédure d'incident » ci-dessous). Elle se fait en deux
+bascules, pour que deux révisions actives en même temps lisent toujours les deux empreintes : sans cela, une réplique
+qui ne connaît qu'une clé pourrait créer un doublon (la collision serait alors signalée par le recalcul). Elle évite une
+coupure longue (le recalcul tourne service ouvert), au prix d'une période où la clé précédente reste acceptée en lecture.
 
 1. **Préparer** : sauvegarde de `personnes-fields-kek` à jour (toutes versions) ; tirer la nouvelle clé et l'envelopper
    avec la clé publique de `personnes-fields-kek` dans le secret **`blindindex--cleenveloppeeprecedente`**, comme une
@@ -779,30 +816,155 @@ signalée par le recalcul).
 2. **Introduire la nouvelle clé en lecture** : `blind_index_previous_key_enabled = true` dans le `terraform.tfvars`,
    `plan` (seule la référence `BLINDINDEX__CLEENVELOPPEEPRECEDENTE` de `ca-personnes` s'ajoute), `apply`, nouvelle
    révision, `/health/ready`, puis **désactiver les anciennes révisions**. Toutes les répliques écrivent encore avec
-   l'ancienne clé et lisent les deux.
-3. **Basculer** : échanger les valeurs des deux secrets (nouvelle version de chacun) : `blindindex--cleenveloppee` reçoit
-   la nouvelle clé enveloppée, `blindindex--cleenveloppeeprecedente` l'ancienne. Copier chaque valeur enveloppée telle
-   quelle (`az keyvault secret show … --query value -o tsv` vers `az keyvault secret set`), sans la déballer. Une
-   réplique qui démarrerait entre les deux écritures verrait deux clés identiques et refuserait de démarrer, sans effet
-   sur les données. Créer ensuite une nouvelle révision (les références sans version prennent la dernière version),
-   contrôler `/health/ready` et désactiver les anciennes révisions.
+   l'ancienne clé et lisent les deux. Le chevauchement des révisions est sans risque : toutes écrivent l'empreinte de
+   l'ancienne clé. Le journal de la nouvelle révision donne la KCV des deux clés (5114 et 5115).
+3. **Basculer, écritures bloquées** : échanger les valeurs des deux secrets (nouvelle version de chacun) :
+   `blindindex--cleenveloppee` reçoit la nouvelle clé enveloppée, `blindindex--cleenveloppeeprecedente` l'ancienne.
+   Copier chaque valeur enveloppée telle quelle (`az keyvault secret show … --query value -o tsv` vers
+   `az keyvault secret set`), sans la déballer. Puis **désactiver toutes les révisions actives** de `ca-personnes`
+   (commande de l'étape 1 de la procédure d'incident) **avant** de créer la nouvelle révision (commande de l'étape 4) :
+   aucune réplique de l'ancienne clé courante ne doit tourner en même temps qu'une réplique de la nouvelle (voir
+   « Écritures concurrentes pendant la bascule » ci-dessous). La coupure dure le temps du démarrage de la révision.
+   Contrôler `/health/ready` et la KCV de la clé courante (la nouvelle).
 4. **Recalculer** : exécuter `rech-personnes` (`RECHIFFREMENT__EXECUTERPUISQUITTER=true`, voir « Exécution en Azure »)
    et relancer jusqu'au code 0. Le journal donne, pour `personne.niss_hash`, les lignes recalculées, déjà à jour,
    modifiées entre-temps, les collisions et les erreurs (événements 5110 à 5113).
-5. **Contrôler** : `verif-personnes` (`RECHIFFREMENT__VERIFIERSEULEMENT=true`) se termine avec le code 0, et le journal
-   indique « 0 de la clé précédente, 0 autre(s), 0 source(s) illisible(s) ; complet : True ».
+5. **Contrôler** : `verif-personnes` (`RECHIFFREMENT__VERIFIERSEULEMENT=true`) se termine avec le code 0, sa KCV de clé
+   courante est la nouvelle, et le journal indique « 0 de la clé précédente, 0 autre(s), 0 source(s) illisible(s) ;
+   complet : True ».
 6. **Retirer l'ancienne clé** : `blind_index_previous_key_enabled = false`, `plan`, `apply`, nouvelle révision,
-   `/health/ready`, une recherche par NISS aboutit. Désactiver `blindindex--cleenveloppeeprecedente`
+   `/health/ready`, une recherche par NISS aboutit. Le chevauchement est sans risque : toutes les révisions écrivent
+   l'empreinte de la nouvelle clé. Désactiver `blindindex--cleenveloppeeprecedente`
    (`az keyvault secret set-attributes --enabled false`), puis le supprimer après confirmation humaine. L'ancienne clé
    n'est pas nécessaire pour relire une sauvegarde : après une restauration, relancer `rech-personnes`, qui recalcule
    l'index avec la clé courante à partir des NISS chiffrés.
 
-En cas de compromission avérée de la clé de l'index, ouvrir un incident et réduire au minimum la durée des étapes 2 à
-5 : tant que l'ancienne clé est acceptée en lecture, elle reste utilisable pour une attaque par dictionnaire sur les
-empreintes non encore recalculées.
+**Écritures concurrentes pendant la bascule (#514, P2-1) : pas de verrou consultatif.** Si une réplique de l'ancienne
+clé courante et une réplique de la nouvelle créent en même temps la même personne, chacune cherche les deux empreintes,
+ne trouve rien, puis écrit sa propre empreinte : l'index unique ne voit pas le doublon, car les deux empreintes
+diffèrent. Un verrou consultatif (`pg_advisory_xact_lock` sur une valeur dérivée de `min(H_old, H_new)`) l'empêcherait,
+mais seulement s'il était pris dans **la même transaction** que la recherche et l'insertion. Or la recherche et
+l'enregistrement de Personnes sont aujourd'hui deux étapes distinctes (`TrouverOuCreerAsync` puis
+`SaveChangesAsync`), appelées par quatre chemins (API, import, DIMONA, mutations du registre national), dont des
+consommateurs de messages. Ajouter une transaction explicite à chacun pour une seule procédure exceptionnelle n'est pas
+justifié. Choix retenu : la procédure d'urgence ne tourne qu'avec Personnes arrêté (aucune écriture concurrente), et la
+variante impose de **bloquer les écritures pendant la bascule** (étape 3 : aucune révision de l'ancienne clé active en
+même temps qu'une révision de la nouvelle). Les étapes 2 et 6 n'ont pas ce risque : toutes les révisions actives y
+écrivent la même empreinte. Filet de sécurité : un doublon créé malgré tout est signalé à la recherche (événement 5116,
+métrique `sepp.personnes.niss.doublons`) et par le recalcul (collision, code 1). Voir l'ADR 0018.
+
+##### Procédure d'incident : compromission de la clé de l'index (bascule unique, avec coupure)
+
+C'est la procédure à suivre en cas de compromission avérée ou suspectée de la clé de l'index (décision du responsable
+produit du 2026-11-16). Personnes est **arrêté** du début à la fin : pas de chevauchement de clés, pas de course entre
+répliques, et la clé compromise n'est plus jamais acceptée, même en lecture. Pendant la coupure, l'API de Personnes,
+les imports, DIMONA, les mutations du registre national et les identifications pour Intégrations sont indisponibles ;
+Intégrations met ses échanges en erreur relançable (à relancer à l'étape 5).
+
+Avant de commencer : ouvrir l'incident ; y noter la KCV de la clé compromise (dernier événement 5114 de `ca-personnes`,
+requête ci-dessus), l'heure de début et la décision de coupure ; vérifier la sauvegarde de `personnes-fields-kek`
+(toutes versions) ; vérifier qu'aucune exécution de `rech-personnes` ni de `verif-personnes` n'est en cours (commande de
+« Exécution en Azure »). Lancer en parallèle l'évaluation RGPD (section suivante) : le délai de 72 heures court dès la
+prise de connaissance.
+
+```bash
+rg=rg-sepp-<env>-<zone>; KV=<kv-zone>   # zone et coffre de Personnes
+```
+
+1. **Arrêter `ca-personnes` (0 réplique)** : désactiver toutes ses révisions actives, puis vérifier qu'il n'en reste
+   aucune.
+
+   ```bash
+   for r in $(az containerapp revision list -g "$rg" -n ca-personnes --query "[?properties.active].name" -o tsv); do
+     az containerapp revision deactivate -g "$rg" -n ca-personnes --revision "$r"
+   done
+   az containerapp revision list -g "$rg" -n ca-personnes --query "[?properties.active].name" -o tsv   # doit ne rien afficher
+   ```
+
+2. **Échanger le secret** : tirer la nouvelle clé et l'envelopper directement dans une nouvelle version de
+   **`blindindex--cleenveloppee`**, avec le premier tube de « Clés racines du chiffrement des champs »
+   (`--name blindindex--cleenveloppee`) : elle n'est jamais écrite ni affichée en clair. La clé compromise reste la
+   version précédente du secret, déjà inutilisée. `blind_index_previous_key_enabled` doit valoir `false` : la clé
+   compromise n'est acceptée nulle part. S'il vaut `true` (variante en cours), désactiver aussi la version courante de
+   `blindindex--cleenveloppeeprecedente` et passer la variable à `false` (PR, `apply`) **pendant la coupure** : l'`apply`
+   crée une révision, à désactiver aussitôt comme à l'étape 1 jusqu'à l'étape 4.
+3. **Recalculer puis vérifier** : lancer `rech-personnes` jusqu'au code 0, puis `verif-personnes`, qui doit renvoyer 0
+   (commandes de « Exécution en Azure »). Pour **chaque** exécution, lire dans son journal la KCV de la clé courante
+   (événement 5114) : elle doit **différer** de la KCV de la clé compromise, et être la même pour les deux jobs. Si un job
+   journalise encore la KCV compromise, il a lu l'ancienne version du secret (référence Key Vault sans version, relue
+   périodiquement) : son résultat ne vaut rien, attendre la prise en compte de la nouvelle version et relancer. Le délai
+   de prise en compte par un job est à constater au premier exercice. Aucune écriture concurrente n'est possible :
+   « modifiée(s) entre-temps » vaut 0 ; une collision révèle un doublon préexistant, à fusionner avant de relancer.
+4. **Redémarrer** : créer une nouvelle révision (elle prend la dernière version du secret) et lui donner tout le trafic.
+
+   ```bash
+   suffixe=incident-<aaaammjj>
+   az containerapp update -g "$rg" -n ca-personnes --revision-suffix "$suffixe"
+   az containerapp ingress traffic set -g "$rg" -n ca-personnes --revision-weight "ca-personnes--$suffixe=100"
+   ```
+
+5. **Vérifier la KCV et rouvrir** : `/health/ready` de la révision ; chaque réplique de `ca-personnes--<suffixe>`
+   journalise la KCV de la clé courante (5114), **identique à celle des jobs de l'étape 3** et différente de la clé
+   compromise, et **aucune** ligne 5115 (aucune clé précédente). Une recherche par NISS aboutit. Relancer les échanges
+   d'Intégrations restés en erreur pendant la coupure (`GET /api/v1/flux/erreurs`, puis relance de chacun). Noter dans
+   l'incident l'heure de fin du recalcul : elle borne l'exposition de la base vivante.
+6. **Clôturer** : désactiver la version compromise de `blindindex--cleenveloppee`
+   (`az keyvault secret set-attributes --vault-name "$KV" --name blindindex--cleenveloppee --version <version> --enabled false`) ;
+   la supprimer après confirmation humaine (elle n'est pas nécessaire pour relire une sauvegarde : après une
+   restauration, relancer `rech-personnes`). Compléter l'évaluation RGPD et le registre RAID.
+
+**Fenêtre d'exposition.** Une empreinte est HMAC(K, NISS), et l'ensemble des NISS est petit (une date de naissance, un
+numéro d'ordre et un contrôle) : **quiconque détient la clé compromise K_old et des empreintes calculées avec elle
+retrouve les NISS par dictionnaire**, en peu de temps et hors ligne. Il n'a besoin ni du service, ni des DEK, ni d'un
+accès à la base vivante : K_old et les empreintes suffisent. Le recalcul ne protège donc que les empreintes qu'il
+remplace :
+
+- **base vivante** : exposée jusqu'au recalcul (fin de l'étape 3) ; la coupure réduit cette durée au minimum ;
+- **sauvegardes PITR** : toute sauvegarde antérieure au recalcul contient les empreintes de K_old et le reste **pendant
+  toute la rétention** (`postgres_backup_retention_days` : 7 jours, 35 en préproduction et production). Elles ne
+  peuvent pas être purgées une à une ; une restauration les ramène en ligne (relancer alors `rech-personnes`) ;
+- **copies sorties** de la base (export d'exception tracé au registre RAID, base restaurée sur un autre serveur, copie
+  de test ou d'analyse) : exposées **sans limite**, tant qu'elles existent. Chaque copie connue est à détruire ou à
+  recalculer, et figure dans l'évaluation RGPD.
+
+Désactiver ou supprimer K_old dans le coffre n'enlève rien à l'exposition d'une clé déjà sortie : cela empêche seulement
+une nouvelle fuite.
+
+##### Évaluation RGPD et notification (art. 33 et 34)
+
+La compromission de la clé de l'index est une **violation de données à caractère personnel** dès lors qu'un tiers non
+autorisé a pu obtenir K_old et qu'il existe des empreintes qu'il a pu ou pourrait lire (base, sauvegardes, copies) : le
+NISS est un identifiant national dont l'usage est encadré. Le SEPP, responsable du traitement, et son délégué à la
+protection des données (DPO) conduisent l'évaluation ; l'exploitation fournit les faits. Elle commence dès la prise de
+connaissance, en parallèle de la procédure technique.
+
+1. **Établir les faits** et les consigner dans l'incident :
+   - comment K_old a fui, quand, et si d'autres secrets ont pu fuir avec elle (DEK, accès au coffre ou à
+     `personnes-fields-kek` : dans ce cas, appliquer aussi « Rotation des DEK » et élargir l'évaluation aux champs
+     chiffrés) ;
+   - les empreintes exposées : base vivante jusqu'à l'heure de fin du recalcul ; sauvegardes PITR existantes (période
+     couverte, date d'expiration de la dernière) ; copies sorties connues (registre RAID des exceptions d'export) ;
+   - le nombre de personnes concernées (`SELECT count(*) FROM personne` au moment de l'incident) et les catégories de
+     données (NISS ; rattachement à un employeur affilié si les tables d'occupation ont aussi fui).
+2. **Évaluer le risque** pour les droits et libertés des personnes : vraisemblance d'un accès aux empreintes et
+   gravité (NISS retrouvés en clair, recoupements possibles avec d'autres données).
+3. **Notifier l'Autorité de protection des données (APD)** dans les **72 heures** après la prise de connaissance
+   (art. 33), sauf si la violation n'est pas susceptible d'engendrer un risque. Une notification incomplète est
+   permise, complétée ensuite ; au-delà de 72 heures, motiver le retard. Elle décrit la nature de la violation, les
+   catégories et le nombre approximatif de personnes et d'enregistrements, les conséquences probables, les mesures
+   prises (rotation, fenêtre d'exposition, sauvegardes encore exposées jusqu'à leur expiration) et le contact du DPO.
+4. **Informer les personnes concernées** sans retard injustifié **si le risque est élevé** (art. 34), en termes clairs :
+   nature de la violation, conséquences probables, mesures prises, contact du DPO. L'exception de l'art. 34.3.a
+   (données rendues incompréhensibles) ne s'applique pas : la fuite de K_old rend justement les empreintes
+   exploitables. Si l'information individuelle exige des efforts disproportionnés, une communication publique la
+   remplace (art. 34.3.c).
+5. **Documenter** toute violation, même non notifiée (art. 33.5) : faits, effets, mesures, décision motivée de notifier
+   ou non. Tracer la décision au registre RAID (`docs/00-pilotage/raid-log.md`) et garder l'incident jusqu'à
+   l'expiration de la dernière sauvegarde exposée.
 
 `RecalculIndexAveuglePostgresTests` (socle) et `RotationIndexAveugleTests` (Personnes) couvrent la recherche pendant et
-après le recalcul, le doublon refusé pendant la transition, la collision et la reprise après interruption.
+après le recalcul, le doublon refusé pendant la transition, la collision, l'alerte de doublon, la KCV journalisée au
+démarrage et la reprise après interruption.
 
 ### Clés racines de Documents (décision #356, ADR 0009)
 

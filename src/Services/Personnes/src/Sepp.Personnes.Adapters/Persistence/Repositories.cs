@@ -6,7 +6,7 @@ using Sepp.Personnes.Domain.Personnes;
 
 namespace Sepp.Personnes.Adapters.Persistence;
 
-internal sealed class PersonneRepository(PersonnesDbContext db) : IPersonneRepository
+internal sealed class PersonneRepository(PersonnesDbContext db, AlerteDoublonsNiss alerte) : IPersonneRepository
 {
     public Task<Personne?> GetAsync(Guid id, CancellationToken cancellationToken) =>
         db.Personnes.AsSplitQuery().SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
@@ -14,14 +14,20 @@ internal sealed class PersonneRepository(PersonnesDbContext db) : IPersonneRepos
     public async Task<Personne?> GetParEmpreintesNissAsync(IReadOnlyList<string> empreintes, CancellationToken cancellationToken)
     {
         // Index unique sur niss_hash : au plus une ligne par empreinte. Deux lignes (une par clé) ne se rencontrent que
-        // pour un doublon créé hors de la procédure de rotation (#473) : la ligne de la clé courante l'emporte, et le
-        // recalcul de l'index signale la collision.
+        // pour un doublon créé hors de la procédure de rotation (#473) : la ligne de la clé courante l'emporte, le doublon
+        // est signalé (journal et métrique, #514) et le recalcul de l'index signale la collision.
         var trouvees = await db.Personnes.AsSplitQuery()
             .Where(p => empreintes.Contains(p.NissHash))
             .OrderBy(p => p.Id)
             .Take(2)
             .ToListAsync(cancellationToken);
-        return trouvees.OrderBy(p => IndexOf(empreintes, p.NissHash)).FirstOrDefault();
+        var retenue = trouvees.OrderBy(p => IndexOf(empreintes, p.NissHash)).FirstOrDefault();
+        if (trouvees.Count > 1)
+        {
+            alerte.Signaler(retenue!.Id, trouvees.Single(p => p.Id != retenue.Id).Id);
+        }
+
+        return retenue;
     }
 
     public Task<Personne?> GetParReferenceDimonaAsync(string referenceDimona, CancellationToken cancellationToken) =>
