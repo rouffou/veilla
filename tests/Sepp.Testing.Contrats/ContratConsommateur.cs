@@ -173,10 +173,11 @@ public static class ContratConsommateur
     }
 
     /// <summary>Écarts d'une réponse programmée dans un double de test par rapport à l'instantané du fournisseur.</summary>
-    public static IReadOnlyList<string> VerifierReponse(string fournisseur, string methode, string chemin, int status, string corpsJson) =>
-        VerifierReponse(Instantane(fournisseur), fournisseur, methode, chemin, status, corpsJson);
+    public static IReadOnlyList<string> VerifierReponse(string fournisseur, string methode, string chemin, int status, string corpsJson, IReadOnlyCollection<string>? champsEnPlus = null) =>
+        VerifierReponse(Instantane(fournisseur), fournisseur, methode, chemin, status, corpsJson, champsEnPlus);
 
-    public static IReadOnlyList<string> VerifierReponse(JsonNode doc, string fournisseur, string methode, string chemin, int status, string corpsJson)
+    /// <param name="champsEnPlus">Noms de propriétés que le double ajoute volontairement (test de défense en profondeur) : ils sont ignorés, tout le reste est contrôlé.</param>
+    public static IReadOnlyList<string> VerifierReponse(JsonNode doc, string fournisseur, string methode, string chemin, int status, string corpsJson, IReadOnlyCollection<string>? champsEnPlus = null)
     {
         ArgumentNullException.ThrowIfNull(doc);
         ArgumentNullException.ThrowIfNull(corpsJson);
@@ -193,9 +194,39 @@ public static class ContratConsommateur
         }
 
         var ecarts = new List<string>();
-        using var json = JsonDocument.Parse(corpsJson);
+        using var json = JsonDocument.Parse(champsEnPlus is { Count: > 0 } ? RetirerChamps(JsonNode.Parse(corpsJson), champsEnPlus)?.ToJsonString() ?? "null" : corpsJson);
         ValiderValeur(id, doc, schema, json.RootElement, "$", ecarts);
         return ecarts;
+    }
+
+    private static JsonNode? RetirerChamps(JsonNode? noeud, IReadOnlyCollection<string> champs)
+    {
+        switch (noeud)
+        {
+            case JsonObject objet:
+                foreach (var nom in objet.Select(p => p.Key).Where(champs.Contains).ToList())
+                {
+                    objet.Remove(nom);
+                }
+
+                foreach (var (_, valeur) in objet.ToList())
+                {
+                    RetirerChamps(valeur, champs);
+                }
+
+                break;
+            case JsonArray tableau:
+                foreach (var element in tableau)
+                {
+                    RetirerChamps(element, champs);
+                }
+
+                break;
+            default:
+                break;
+        }
+
+        return noeud;
     }
 
     /// <summary>Document d'instantané d'un fournisseur (mis en cache).</summary>

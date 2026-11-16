@@ -525,7 +525,7 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         {
             new { occupationId = Guid.CreateVersion7(), affilieId = recent, typeTravailleur = "Interimaire", dateDebut = "2026-05-01", dateFin = (string?)null, referenceDimona = "SECRET" },
             new { occupationId = Guid.CreateVersion7(), affilieId = _affilie, typeTravailleur = "Salarie", dateDebut = "2025-01-01", dateFin = (string?)null, referenceDimona = "SECRET" },
-        }, horsContrat: true);
+        }, champsEnPlus: ["referenceDimona"]);
 
         var json = await Json(await Client().GetAsync("/api/v1/employeurs", Ct));
 

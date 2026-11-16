@@ -34,14 +34,14 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
 
     public ConcurrentDictionary<string, bool> HotesInjoignables { get; } = new();
 
-    /// <param name="horsContrat">Défense en profondeur : le double ajoute volontairement un champ que le fournisseur ne renvoie pas, pour vérifier que le BFF ne le relaie pas ; la réponse n'est alors pas confrontée au contrat.</param>
-    public void Repondre(string hote, string chemin, object corps, HttpStatusCode status = HttpStatusCode.OK, string methode = "GET", bool horsContrat = false) =>
-        _reponses[(hote, methode, chemin)] = (status, horsContrat ? JsonSerializer.Serialize(corps, Json) : Controler(hote, methode, chemin, status, corps));
+    /// <param name="champsEnPlus">Défense en profondeur : noms de champs que le double ajoute volontairement alors que le fournisseur ne les renvoie pas, pour vérifier que le BFF ne les relaie pas. Seuls ces champs échappent au contrôle : route, propriétés et énumérations restent confrontées au contrat.</param>
+    public void Repondre(string hote, string chemin, object corps, HttpStatusCode status = HttpStatusCode.OK, string methode = "GET", IReadOnlyCollection<string>? champsEnPlus = null) =>
+        _reponses[(hote, methode, chemin)] = (status, Controler(hote, methode, chemin, status, corps, champsEnPlus));
 
-    private string Controler(string hote, string methode, string chemin, HttpStatusCode status, object corps)
+    private string Controler(string hote, string methode, string chemin, HttpStatusCode status, object corps, IReadOnlyCollection<string>? champsEnPlus = null)
     {
         var json = JsonSerializer.Serialize(corps, Json);
-        _controle.ControlerReponse(hote, methode, chemin, (int)status, json);
+        _controle.ControlerReponse(hote, methode, chemin, (int)status, json, champsEnPlus);
         return json;
     }
 

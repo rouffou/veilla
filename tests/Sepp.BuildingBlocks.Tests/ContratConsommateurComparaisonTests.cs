@@ -37,6 +37,11 @@ public sealed class ContratConsommateurComparaisonTests
             "/api/v1/actions": {
               "post": { "responses": { "200": { "description": "OK" } } }
             },
+            "/api/v1/fiches": {
+              "get": {
+                "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Fiche" } } } } }
+              }
+            },
             "/api/v1/annulations": {
               "post": {
                 "requestBody": { "content": { "application/json": { "schema": { "oneOf": [ { "type": "null" }, { "$ref": "#/components/schemas/Annulation" } ] } } } },
@@ -56,6 +61,15 @@ public sealed class ContratConsommateurComparaisonTests
                 "type": "object",
                 "properties": { "modele": { "type": "string" }, "langue": { "type": ["null", "string"] } },
                 "required": ["modele", "langue"]
+              },
+              "Fiche": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "adresse": { "oneOf": [ { "type": "null" }, { "$ref": "#/components/schemas/Annulation" } ] },
+                  "autre": { "anyOf": [ { "type": "null" }, { "type": "string" } ] }
+                },
+                "required": ["id", "adresse", "autre"]
               },
               "Annulation": { "type": "object", "properties": { "raison": { "type": ["null", "string"] } }, "required": ["raison"] }
             }
@@ -164,6 +178,35 @@ public sealed class ContratConsommateurComparaisonTests
 
         Should.Throw<ShouldAssertException>(() => resultat.ExigerSansEcart(exigerReponsesDecrites: true)).Message.ShouldContain("Produces<T>");
         Should.NotThrow(() => resultat.ExigerSansEcart());
+    }
+
+    [Fact]
+    public void Les_proprietes_nullables_oneOf_et_anyOf_ne_sont_pas_exigees_dans_une_reponse()
+    {
+        ContratConsommateur.VerifierReponse(Doc, "fournisseur", "GET", "/api/v1/fiches", 200, """{ "id": "1" }""").ShouldBeEmpty();
+        ContratConsommateur.VerifierReponse(Doc, "fournisseur", "GET", "/api/v1/fiches", 200, """{ "adresse": null, "autre": null }""")
+            .ShouldHaveSingleItem().ShouldContain("$.id obligatoire");
+    }
+
+    [Fact]
+    public void Les_champs_en_plus_declares_echappent_seuls_au_controle_de_la_reponse()
+    {
+        const string route = "/api/v1/documents";
+        var conforme = """[{ "id": "1", "typeDestinataire": "personne", "statut": "ok", "secret": "x" }]""";
+
+        // Sans déclaration, le champ inventé est détecté ; déclaré, il est toléré.
+        ContratConsommateur.VerifierReponse(Doc, "fournisseur", "GET", route, 200, conforme).ShouldHaveSingleItem().ShouldContain("secret");
+        ContratConsommateur.VerifierReponse(Doc, "fournisseur", "GET", route, 200, conforme, ["secret"]).ShouldBeEmpty();
+
+        // Le reste reste contrôlé : casse d'énumération, propriété manquante, route inconnue, autre champ inventé.
+        ContratConsommateur.VerifierReponse(Doc, "fournisseur", "GET", route, 200, """[{ "id": "1", "typeDestinataire": "Personne", "statut": "ok", "secret": "x" }]""", ["secret"])
+            .ShouldHaveSingleItem().ShouldContain("la casse compte");
+        ContratConsommateur.VerifierReponse(Doc, "fournisseur", "GET", route, 200, """[{ "id": "1", "typeDestinataire": "personne", "secret": "x" }]""", ["secret"])
+            .ShouldHaveSingleItem().ShouldContain("statut obligatoire");
+        ContratConsommateur.VerifierReponse(Doc, "fournisseur", "GET", route, 200, """[{ "id": "1", "typeDestinataire": "personne", "statut": "ok", "secret": "x", "autre": 1 }]""", ["secret"])
+            .ShouldHaveSingleItem().ShouldContain("autre inconnu");
+        ContratConsommateur.VerifierReponse(Doc, "fournisseur", "GET", "/api/v1/inconnue", 200, "[]", ["secret"])
+            .ShouldHaveSingleItem().ShouldContain("route inconnue");
     }
 
     [Fact]
