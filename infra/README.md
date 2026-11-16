@@ -496,7 +496,7 @@ et aucune valeur chiffrée n'est hors du modèle. `Failed` correspond au code 1 
 
 #### Garde-fou du pipeline : aucun changement de clés sans `verif-<service>` à 0 dans les 24 h (#474)
 
-Toute modification de `encryption_key_ids` ou de `encryption_legacy_key_ids` dans un environnement
+Toute modification de `encryption_key_ids`, de `encryption_legacy_key_ids` ou de `blind_index_previous_key_enabled` (#510 : la passer à `false` retire la clé précédente de l'index aveugle) dans un environnement
 (`infra/environments/<env>/*.tfvars` ou `*.tf`) exige une exécution de `verif-<service>` qui a renvoyé 0 **dans les 24
 heures qui précèdent**, pour **chacun** des services qui chiffrent. Choix retenu : la vérification ne tourne que depuis
 `main`, à la main, dans l'environnement cible ; la PR se contente de **lire** son résultat. Ainsi, le code d'une PR ne
@@ -527,7 +527,7 @@ hors de l'historique des exécutions GitHub.
    l'environnement d'une exécution passée.
    - **confirmation humaine** : l'approbation de l'environnement GitHub (`preprod`, `prod`) arrête le lancement tant que
      le responsable produit ne l'a pas donnée ;
-   - **heures creuses** : en `preprod` et `prod`, le script refuse de lancer le balayage hors de 18 h à 5 h UTC (il lit
+   - **heures creuses** : en `preprod` et `prod`, le script refuse de lancer le balayage hors de la plage 18 h à 5 h UTC, validée par le responsable produit (il lit
      toute la base, séquentiellement, dans un instantané `REPEATABLE READ`) ;
    - **identité** : l'identité fédérée de déploiement, utilisée ici seulement pour démarrer le job et lire son état. Une
      identité dédiée et un rôle réduit sont prévus dans un ticket séparé (décision D4, hors #474) ;
@@ -537,7 +537,7 @@ hors de l'historique des exécutions GitHub.
      (la vérification ne fait que lire, mais elle occupe la base). Après une annulation, vérifier les exécutions en cours
      (commande ci-dessous) avant de relancer ; le script refuse de démarrer un job qui a déjà une exécution en cours.
 2. **`controle-cles.yml`** : s'exécute sur chaque PR, **sans environnement, sans `id-token` et sans secret** (seulement
-   `contents: read` et `actions: read`). Il détecte les environnements dont les deux variables changent
+   `contents: read` et `actions: read`). Il détecte les environnements dont ces variables changent (la détection ne dépend pas de la présence de `blind_index_previous_key_enabled` : absente des deux révisions, elle ne change rien)
    (`tools/deploy/detecter-modification-cles.sh` : commentaires, espaces et mise en forme ignorés ; ajout, retrait,
    réordonnancement, branchement dans `main.tf` de l'environnement et suppression de fichier comptent). Pour chacun, il
    exige par l'API GitHub (`tools/deploy/controler-verification-recente.sh`) une exécution **réussie** de

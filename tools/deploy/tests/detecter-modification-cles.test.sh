@@ -106,6 +106,31 @@ valider "main.tf autre 2"
 detecter
 verifier "autre argument de main.tf : rien" '[ "$code" -eq 0 ] && [ -z "$sortie" ]'
 
+echo "Clé précédente de l'index aveugle (#510), absente puis présente"
+mkdir -p infra/environments/recette
+printf 'location = "x"\n' >infra/environments/recette/terraform.tfvars
+valider "recette sans la variable"
+base=$(git rev-parse HEAD)
+printf 'location = "y"\n' >infra/environments/recette/terraform.tfvars
+valider "autre variable seulement"
+detecter
+verifier "variable absente des deux révisions : rien" '[ "$code" -eq 0 ] && ! printf "%s" "$sortie" | grep -qx recette'
+printf 'location = "y"\nblind_index_previous_key_enabled = true\n' >infra/environments/recette/terraform.tfvars
+valider "variable ajoutée"
+base=$(git rev-parse HEAD)
+printf 'location = "y"\nblind_index_previous_key_enabled = false\n' >infra/environments/recette/terraform.tfvars
+valider "clé précédente retirée"
+detecter
+verifier "passage à false détecté dans les tfvars" '[ "$code" -eq 0 ] && printf "%s" "$sortie" | grep -qx recette'
+base=$(git rev-parse HEAD)
+printf 'module "sepp" {\n  blind_index_previous_key_enabled = var.blind_index_previous_key_enabled\n}\n' >infra/environments/recette/main.tf
+valider "branchement"
+base=$(git rev-parse HEAD)
+printf 'module "sepp" {\n  blind_index_previous_key_enabled = false\n}\n' >infra/environments/recette/main.tf
+valider "valeur en dur"
+detecter
+verifier "valeur en dur dans main.tf détectée" '[ "$code" -eq 0 ] && printf "%s" "$sortie" | grep -qx recette'
+
 echo "Dossier d'environnement inconnu"
 mkdir -p infra/environments/autre
 printf 'encryption_key_ids = ["D1"]\n' >infra/environments/autre/terraform.tfvars

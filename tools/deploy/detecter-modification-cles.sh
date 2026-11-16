@@ -2,8 +2,10 @@
 # Détecte les environnements dont les clés de chiffrement changent entre deux révisions (#474, ADR 0012).
 #   Usage : detecter-modification-cles.sh <base> <tête>
 #   Sortie : un nom d'environnement par ligne (dev, test, recette, preprod, prod), vide si rien ne change.
-# Sont comparées, dans infra/environments/<env>/*.tfvars et *.tf (main.tf transmet les variables au module racine), les déclarations de encryption_key_ids et de
-# encryption_legacy_key_ids (valeurs normalisées : commentaires et espaces ignorés, listes sur plusieurs lignes comprises).
+# Sont comparées, dans infra/environments/<env>/*.tfvars et *.tf (main.tf transmet les variables au module racine), les
+# déclarations de encryption_key_ids, encryption_legacy_key_ids et blind_index_previous_key_enabled (la passer à false retire
+# la clé précédente de l'index aveugle, #510). La détection ne dépend pas de la présence de cette dernière : absente des deux
+# révisions, elle ne change rien. Valeurs normalisées : commentaires et espaces ignorés, listes sur plusieurs lignes comprises.
 # Ajouter, retirer, réordonner ou supprimer une valeur, créer un fichier ou en supprimer un sont des modifications.
 # Échoue (code 1) pour un dossier d'environnement inconnu : le contrôle ne passe jamais « par défaut ».
 set -euo pipefail
@@ -16,7 +18,7 @@ declarations() {
   local revision="$1" fichier="$2"
   git show "${revision}:${fichier}" 2>/dev/null | awk '
     { sub(/#.*/, ""); sub(/\/\/.*/, "") }
-    capture == 0 && /^[[:space:]]*encryption(_legacy)?_key_ids[[:space:]]*=/ { capture = 1; texte = "" ; profondeur = 0 }
+    capture == 0 && /^[[:space:]]*(encryption(_legacy)?_key_ids|blind_index_previous_key_enabled)[[:space:]]*=/ { capture = 1; texte = "" ; profondeur = 0 }
     capture == 1 {
       ligne = $0
       gsub(/[[:space:]]/, "", ligne)

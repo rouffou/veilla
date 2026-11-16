@@ -170,6 +170,7 @@ public sealed partial class ConfigurationTerraformTests
         controle.ShouldContain("Statut contrôle des clés", Case.Sensitive);
         var detection = File.ReadAllText(Path.Combine(racine, "tools", "deploy", "detecter-modification-cles.sh"));
         detection.ShouldContain("encryption(_legacy)?_key_ids", Case.Sensitive);
+        detection.ShouldContain("blind_index_previous_key_enabled", Case.Sensitive);
         detection.ShouldContain("infra/environments/*.tfvars", Case.Sensitive);
         detection.ShouldContain("infra/environments/*.tf'", Case.Sensitive);
 
