@@ -818,14 +818,19 @@ coupure longue (le recalcul tourne service ouvert), au prix d'une période où l
    révision, `/health/ready`, puis **désactiver les anciennes révisions**. Toutes les répliques écrivent encore avec
    l'ancienne clé et lisent les deux. Le chevauchement des révisions est sans risque : toutes écrivent l'empreinte de
    l'ancienne clé. Le journal de la nouvelle révision donne la KCV des deux clés (5114 et 5115).
-3. **Basculer, écritures bloquées** : échanger les valeurs des deux secrets (nouvelle version de chacun) :
-   `blindindex--cleenveloppee` reçoit la nouvelle clé enveloppée, `blindindex--cleenveloppeeprecedente` l'ancienne.
-   Copier chaque valeur enveloppée telle quelle (`az keyvault secret show … --query value -o tsv` vers
-   `az keyvault secret set`), sans la déballer. Puis **désactiver toutes les révisions actives** de `ca-personnes`
-   (commande de l'étape 1 de la procédure d'incident) **avant** de créer la nouvelle révision (commande de l'étape 4) :
-   aucune réplique de l'ancienne clé courante ne doit tourner en même temps qu'une réplique de la nouvelle (voir
-   « Écritures concurrentes pendant la bascule » ci-dessous). La coupure dure le temps du démarrage de la révision.
-   Contrôler `/health/ready` et la KCV de la clé courante (la nouvelle).
+3. **Basculer, écritures bloquées**, dans cet ordre :
+   1. **désactiver toutes les révisions actives** de `ca-personnes` et vérifier qu'il n'en reste aucune (commande de
+      l'étape 1 de la procédure d'incident) ;
+   2. **ensuite**, échanger les valeurs des deux secrets (nouvelle version de chacun) : `blindindex--cleenveloppee`
+      reçoit la nouvelle clé enveloppée, `blindindex--cleenveloppeeprecedente` l'ancienne. Copier chaque valeur
+      enveloppée telle quelle (`az keyvault secret show … --query value -o tsv` vers `az keyvault secret set`), sans la
+      déballer. Aucune réplique ne tourne : aucune ne peut démarrer entre les deux écritures ;
+   3. **puis** créer la nouvelle révision (commande de l'étape 4 de la procédure d'incident).
+
+   Aucune réplique de l'ancienne clé courante ne tourne ainsi en même temps qu'une réplique de la nouvelle (voir
+   « Écritures concurrentes pendant la bascule » ci-dessous). La coupure dure le temps de l'échange et du démarrage de
+   la révision. Contrôler `/health/ready` et la KCV de la clé courante (la nouvelle). Comme pour la procédure
+   d'incident, geler les déploiements de Personnes (`deploy.yml`, `apply`) pendant cette étape.
 4. **Recalculer** : exécuter `rech-personnes` (`RECHIFFREMENT__EXECUTERPUISQUITTER=true`, voir « Exécution en Azure »)
    et relancer jusqu'au code 0. Le journal donne, pour `personne.niss_hash`, les lignes recalculées, déjà à jour,
    modifiées entre-temps, les collisions et les erreurs (événements 5110 à 5113).
@@ -861,8 +866,15 @@ répliques, et la clé compromise n'est plus jamais acceptée, même en lecture.
 les imports, DIMONA, les mutations du registre national et les identifications pour Intégrations sont indisponibles ;
 Intégrations met ses échanges en erreur relançable (à relancer à l'étape 5).
 
-Avant de commencer : ouvrir l'incident ; y noter la KCV de la clé compromise (dernier événement 5114 de `ca-personnes`,
-requête ci-dessus), l'heure de début et la décision de coupure ; vérifier la sauvegarde de `personnes-fields-kek`
+**Rien n'empêche techniquement Personnes de redémarrer pendant le recalcul** : un `deploy.yml`, un `terraform apply` ou
+un retour arrière qui réactive une révision la remettraient en service. Une révision qui démarre pendant le recalcul ne
+connaît que la nouvelle clé : elle ne trouve pas les personnes encore sous l'empreinte de K_old et crée des doublons.
+D'où le gel des déploiements et les contrôles « aucune révision active » ci-dessous.
+
+Avant de commencer : ouvrir l'incident ; **geler les déploiements de Personnes** jusqu'à la fin de l'étape 5 (aucun
+`deploy.yml`, aucun `terraform apply` hors de celui de l'étape 2, aucun retour arrière ni `az containerapp revision
+activate`) et **l'annoncer dans l'incident** et aux personnes qui déploient ; y noter la KCV de la clé compromise
+(dernier événement 5114 de `ca-personnes`, requête ci-dessus), l'heure de début et la décision de coupure ; vérifier la sauvegarde de `personnes-fields-kek`
 (toutes versions) ; vérifier qu'aucune exécution de `rech-personnes` ni de `verif-personnes` n'est en cours (commande de
 « Exécution en Azure »). Lancer en parallèle l'évaluation RGPD (section suivante) : le délai de 72 heures court dès la
 prise de connaissance.
@@ -886,16 +898,22 @@ rg=rg-sepp-<env>-<zone>; KV=<kv-zone>   # zone et coffre de Personnes
    (`--name blindindex--cleenveloppee`) : elle n'est jamais écrite ni affichée en clair. La clé compromise reste la
    version précédente du secret, déjà inutilisée. `blind_index_previous_key_enabled` doit valoir `false` : la clé
    compromise n'est acceptée nulle part. S'il vaut `true` (variante en cours), désactiver aussi la version courante de
-   `blindindex--cleenveloppeeprecedente` et passer la variable à `false` (PR, `apply`) **pendant la coupure** : l'`apply`
-   crée une révision, à désactiver aussitôt comme à l'étape 1 jusqu'à l'étape 4.
-3. **Recalculer puis vérifier** : lancer `rech-personnes` jusqu'au code 0, puis `verif-personnes`, qui doit renvoyer 0
-   (commandes de « Exécution en Azure »). Pour **chaque** exécution, lire dans son journal la KCV de la clé courante
+   `blindindex--cleenveloppeeprecedente` et passer la variable à `false` (PR, `apply`) **pendant la coupure** : c'est le
+   seul `apply` permis pendant le gel. Il crée une révision, qui démarre avec la nouvelle clé seule : la **désactiver
+   (commande de l'étape 1) et vérifier qu'aucune révision n'est active AVANT de lancer `rech-personnes`**.
+3. **Recalculer puis vérifier** : **juste avant chaque exécution** de `rech-personnes` et de `verif-personnes` (y compris
+   chaque relance), revérifier qu'aucune révision de `ca-personnes` n'est active (seconde commande de l'étape 1, qui doit
+   ne rien afficher ; sinon, désactiver et chercher l'origine du redémarrage). Lancer `rech-personnes` jusqu'au code 0,
+   puis `verif-personnes`, qui doit renvoyer 0 (commandes de « Exécution en Azure »). Pour **chaque** exécution, lire dans son journal la KCV de la clé courante
    (événement 5114) : elle doit **différer** de la KCV de la clé compromise, et être la même pour les deux jobs. Si un job
    journalise encore la KCV compromise, il a lu l'ancienne version du secret (référence Key Vault sans version, relue
    périodiquement) : son résultat ne vaut rien, attendre la prise en compte de la nouvelle version et relancer. Le délai
    de prise en compte par un job est à constater au premier exercice. Aucune écriture concurrente n'est possible :
    « modifiée(s) entre-temps » vaut 0 ; une collision révèle un doublon préexistant, à fusionner avant de relancer.
-4. **Redémarrer** : créer une nouvelle révision (elle prend la dernière version du secret) et lui donner tout le trafic.
+4. **Redémarrer** : revérifier d'abord qu'aucune révision n'est active (seconde commande de l'étape 1) : une révision
+   active à ce stade a pu écrire pendant le recalcul ; dans ce cas, la désactiver, relancer l'étape 3 et examiner les
+   alertes de doublon (5116). Puis créer une nouvelle révision (elle prend la dernière version du secret) et lui donner
+   tout le trafic.
 
    ```bash
    suffixe=incident-<aaaammjj>
@@ -911,7 +929,8 @@ rg=rg-sepp-<env>-<zone>; KV=<kv-zone>   # zone et coffre de Personnes
 6. **Clôturer** : désactiver la version compromise de `blindindex--cleenveloppee`
    (`az keyvault secret set-attributes --vault-name "$KV" --name blindindex--cleenveloppee --version <version> --enabled false`) ;
    la supprimer après confirmation humaine (elle n'est pas nécessaire pour relire une sauvegarde : après une
-   restauration, relancer `rech-personnes`). Compléter l'évaluation RGPD et le registre RAID.
+   restauration, relancer `rech-personnes`). Lever le gel des déploiements et l'annoncer dans l'incident. Compléter
+   l'évaluation RGPD et le registre RAID.
 
 **Fenêtre d'exposition.** Une empreinte est HMAC(K, NISS), et l'ensemble des NISS est petit (une date de naissance, un
 numéro d'ordre et un contrôle) : **quiconque détient la clé compromise K_old et des empreintes calculées avec elle

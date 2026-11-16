@@ -23,11 +23,17 @@ dictionnaire, hors ligne. Une rotation n'a donc d'intérêt réel qu'après une 
    courante. Le code 0 n'est rendu que si toutes les empreintes sont celles de la clé courante.
 2. **Rotation sur incident uniquement.** La clé ne tourne qu'en cas de compromission avérée ou suspectée. Aucune
    rotation périodique n'est planifiée.
-3. **Procédure d'urgence à bascule unique, avec coupure.** `ca-personnes` est mis à 0 réplique, la nouvelle clé remplace
-   la clé courante (la clé compromise n'est plus acceptée nulle part, même en lecture), `rech-personnes` recalcule puis
-   `verif-personnes` vérifie, et le service redémarre. La valeur de contrôle (KCV) de chaque clé, journalisée au
-   démarrage par le service et par les jobs, permet de vérifier que tous utilisent la nouvelle clé. La procédure en deux
-   bascules reste décrite comme variante hors urgence, avec écritures bloquées pendant la bascule.
+3. **Procédure d'urgence à bascule unique, avec coupure.** Les déploiements de Personnes sont gelés pendant tout
+   l'incident (aucun `deploy.yml`, aucun `apply` hors de celui qui retire la clé précédente, aucun retour arrière), et le
+   gel est annoncé dans l'incident : rien n'empêche techniquement une révision de redémarrer, et une révision qui ne
+   connaît que la nouvelle clé pendant le recalcul crée des doublons. `ca-personnes` est mis à 0 réplique, la nouvelle
+   clé remplace la clé courante (la clé compromise n'est plus acceptée nulle part, même en lecture), toute révision
+   créée par un `apply` est désactivée avant `rech-personnes`, l'absence de révision active est revérifiée avant chaque
+   job et avant le redémarrage, `rech-personnes` recalcule puis `verif-personnes` vérifie, et le service redémarre. La
+   valeur de contrôle (KCV) de chaque clé, journalisée au démarrage par le service et par les jobs, permet de vérifier
+   que tous utilisent la nouvelle clé. La procédure en deux bascules reste décrite comme variante hors urgence, avec
+   écritures bloquées pendant la bascule : désactiver toutes les révisions, **ensuite** échanger les secrets, **puis**
+   créer la nouvelle révision.
 4. **Pas de verrou consultatif.** Le verrou `pg_advisory_xact_lock` sur `min(H_old, H_new)` n'aurait d'effet que pris
    dans la même transaction que la recherche et l'insertion, ce qui obligerait à ajouter une transaction explicite aux
    quatre chemins de création (API, import, DIMONA, mutations du registre national) pour une procédure exceptionnelle.
