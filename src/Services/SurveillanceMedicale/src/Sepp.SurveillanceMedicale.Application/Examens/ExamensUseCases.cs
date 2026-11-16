@@ -73,8 +73,9 @@ public sealed class AccesExamens(IExamenRepository examens, GardeDossier garde)
 
 /// <summary>
 /// Ouverture d'un examen dans le dossier. Sur un rendez-vous planifié pour la personne (projection de
-/// <c>RendezVousPlanifie</c>), l'affilié et les obligations couvertes sont repris du rendez-vous et la convocation
-/// établit la relation de soin ; sinon (consultation spontanée…) l'affilié est fourni et la règle générale s'applique.
+/// <c>RendezVousPlanifie</c>), l'affilié et les obligations couvertes sont repris du rendez-vous, et la convocation
+/// établit la relation de soin du seul professionnel convoqué (#503) : tout autre utilisateur fournit un motif, ou un bris
+/// de glace. Sans rendez-vous (consultation spontanée…), l'affilié est fourni et la règle générale s'applique.
 /// </summary>
 public sealed record OuvrirExamen(Guid DossierId, string? TypeExamen, Guid? AffilieId, Guid? RendezVousId, DateOnly? Date);
 
@@ -121,7 +122,11 @@ public sealed class OuvrirExamenHandler(
             return Error.Validation("examen.incomplet", "Précisez le type d'examen et l'affilié (ou un rendez-vous qui les porte).");
         }
 
-        var dossier = await garde.EcrireAsync(command.DossierId, PartiesDossier.Examen, ActionAudit.Creation, cancellationToken, relationEtablie: rendezVous is not null);
+        // #503, ARC-41 : sur un rendez-vous, seule la convocation établit la relation de soin. Un autre professionnel, même déjà
+        // en relation avec la personne, ouvre sur motif (ou bris de glace) : il prendrait sinon, sans trace, le rendez-vous d'un
+        // confrère, futur compris. Un rendez-vous projeté sans professionnel (producteur antérieur) ne convoque personne.
+        bool? relation = rendezVous is null ? null : rendezVous.EstConvoque(user.UserId);
+        var dossier = await garde.EcrireAsync(command.DossierId, PartiesDossier.Examen, ActionAudit.Creation, cancellationToken, relationEtablie: relation);
         if (!dossier.IsSuccess)
         {
             return dossier.Error!;
@@ -136,7 +141,16 @@ public sealed class OuvrirExamenHandler(
         }
 
         examens.Add(examen.Value);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RendezVousDejaHonoreException)
+        {
+            // #503 : ouverture concurrente sur le même rendez-vous, refusée par l'index unique après le contrôle ci-dessus.
+            return RendezVousDejaHonore;
+        }
+
         return examen.Value.Id;
     }
 }

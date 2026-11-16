@@ -111,6 +111,58 @@ public partial class ContractRulesTests
     }
 
     [Fact]
+    public void Une_charge_v1_de_RendezVousPlanifie_sans_ProfessionnelId_est_lisible()
+    {
+        // #503 : le professionnel convoqué est ajouté de façon compatible ; un producteur antérieur ne le publie pas.
+        const string json = """
+            {"rendezVousId":"0198a1f0-0000-7000-8000-000000000001","personneId":"0198a1f0-0000-7000-8000-000000000002",
+             "affilieId":"0198a1f0-0000-7000-8000-000000000003","debut":"2026-09-28T08:00:00+00:00",
+             "obligationIds":["0198a1f0-0000-7000-8000-000000000005"],
+             "eventId":"0198a1f0-0000-7000-8000-000000000004","occurredAt":"2026-09-20T08:00:00+00:00"}
+            """;
+
+        var rendezVous = JsonSerializer.Deserialize<Planification.RendezVousPlanifie>(json, JsonSerializerOptions.Web);
+
+        rendezVous.ShouldNotBeNull();
+        rendezVous.ProfessionnelId.ShouldBeNull();
+        rendezVous.ObligationIds.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Une_charge_v1_de_RendezVousReplanifie_sans_ProfessionnelId_est_lisible()
+    {
+        const string json = """
+            {"rendezVousId":"0198a1f0-0000-7000-8000-000000000001","personneId":"0198a1f0-0000-7000-8000-000000000002",
+             "affilieId":"0198a1f0-0000-7000-8000-000000000003","ancienDebut":"2026-09-28T08:00:00+00:00",
+             "nouveauDebut":"2026-09-30T08:00:00+00:00","motif":"AbsenceRessource",
+             "eventId":"0198a1f0-0000-7000-8000-000000000004","occurredAt":"2026-09-20T08:00:00+00:00"}
+            """;
+
+        var rendezVous = JsonSerializer.Deserialize<Planification.RendezVousReplanifie>(json, JsonSerializerOptions.Web);
+
+        rendezVous.ShouldNotBeNull();
+        rendezVous.ProfessionnelId.ShouldBeNull();
+        rendezVous.Motif.ShouldBe("AbsenceRessource");
+    }
+
+    [Fact]
+    public void Un_consommateur_anterieur_ignore_le_ProfessionnelId_du_rendez_vous()
+    {
+        // Tolérance du consommateur (ARC-34) : un champ inconnu est ignoré à la désérialisation.
+        var evenement = new Planification.RendezVousPlanifie(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
+            new DateTimeOffset(2026, 9, 28, 8, 0, 0, TimeSpan.Zero), [Guid.CreateVersion7()], "kc-cpmt-1");
+        var json = JsonSerializer.Serialize(evenement, JsonSerializerOptions.Web);
+
+        json.ShouldContain("\"professionnelId\":\"kc-cpmt-1\"");
+        var ancien = JsonSerializer.Deserialize<RendezVousPlanifieV1Anterieur>(json, JsonSerializerOptions.Web);
+        ancien.ShouldNotBeNull();
+        ancien.RendezVousId.ShouldBe(evenement.RendezVousId);
+    }
+
+    /// <summary>Forme du contrat avant #503, telle qu'un consommateur non mis à jour la lit.</summary>
+    private sealed record RendezVousPlanifieV1Anterieur(Guid RendezVousId, Guid PersonneId, Guid AffilieId, DateTimeOffset Debut, IReadOnlyList<Guid> ObligationIds);
+
+    [Fact]
     public void Une_charge_v1_de_DocumentPublie_sans_ObjetType_ni_ObjetId_est_lisible()
     {
         const string json = """

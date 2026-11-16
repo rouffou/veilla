@@ -7,6 +7,7 @@ using Sepp.Contracts;
 using Sepp.Contracts.Decisions;
 using Sepp.Contracts.Examens;
 using Sepp.Contracts.Obligations;
+using Sepp.Contracts.Planification;
 using Sepp.Contracts.Prevention;
 using Sepp.Contracts.Referentiels;
 using Sepp.Contracts.SurveillanceMedicale;
@@ -47,7 +48,7 @@ internal sealed class Monde
 
     public ICurrentUser Utilisateur { get; set; } = new FakeUser("cpmt-1", Roles.Cpmt);
 
-    public GardeDossier Garde => new(Store, Store, Utilisateur, Contexte, Audit, Store);
+    public GardeDossier Garde => new(Store, Store, Store, Utilisateur, Contexte, Audit, Store);
 
     public ParametresMedicaux Parametres => new(Store);
 
@@ -146,7 +147,7 @@ public sealed class SecretMedicalTests
         var affilie = Guid.CreateVersion7();
         var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
         _monde.Store.Obligations.Add(obligation);
-        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId], "infirmier-1");
         _monde.Store.RendezVous.Add(rdv);
 
         _monde.Agir("infirmier-1", Roles.Infirmier);
@@ -214,7 +215,7 @@ public sealed class SecretMedicalTests
         var affilie = Guid.CreateVersion7();
         var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
         _monde.Store.Obligations.Add(obligation);
-        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId], "infirmier-1");
         _monde.Store.RendezVous.Add(rdv);
 
         // L'infirmier qui ouvre le dossier n'en devient pas gestionnaire et ne peut en désigner un (dossier-sante:gerer).
@@ -322,7 +323,7 @@ public sealed class SecretMedicalTests
         var affilie = Guid.CreateVersion7();
         var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
         _monde.Store.Obligations.Add(obligation);
-        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId], "cpmt-3");
         _monde.Store.RendezVous.Add(rdv);
         _monde.Agir("cpmt-3", Roles.Cpmt);
         (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
@@ -361,7 +362,7 @@ public sealed class SecretMedicalTests
         var affilie = Guid.CreateVersion7();
         var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
         _monde.Store.Obligations.Add(obligation);
-        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId], "cpmt-1");
         _monde.Store.RendezVous.Add(rdv);
         var examenId = (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Value;
         var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
@@ -387,6 +388,7 @@ public sealed class SecretMedicalTests
         // rendez-vous qui en porte plusieurs n'établit pas la relation de soin qui permet de se désigner gestionnaire.
         var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
         var rendezVous = Guid.CreateVersion7();
+        _monde.Store.RendezVous.Add(new RendezVousPrevu(rendezVous, _personne, Guid.CreateVersion7(), new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [], "cpmt-2"));
         _monde.Store.Examens.Add(Examen.Ouvrir(dossierId, _personne, Guid.CreateVersion7(), TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 2), "cpmt-1", rendezVous, []));
         _monde.Store.Examens.Add(Examen.Ouvrir(dossierId, _personne, Guid.CreateVersion7(), TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 2), "cpmt-2", rendezVous, []));
 
@@ -396,6 +398,117 @@ public sealed class SecretMedicalTests
         // Le doublon de cpmt-1 annulé, l'examen de cpmt-2 redevient l'unique examen du rendez-vous.
         _monde.Store.Examens.First().Annuler();
         (await ChangerGestionnaire(dossierId, "cpmt-2")).IsSuccess.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Un_cpmt_non_convoque_n_ouvre_un_rendez_vous_futur_que_sur_motif_et_ne_se_designe_pas_gestionnaire()
+    {
+        // #503 : cpmt-1 (gestionnaire) suit le dossier ; un rendez-vous futur est pris chez cpmt-conv. cpmt-2, hors relation,
+        // connaît l'identifiant du rendez-vous : sans motif, il ne l'ouvre pas.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var decisionId = await DecisionDuGestionnaireAsync(dossierId);
+        var rdv = RendezVous(new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero), "cpmt-conv");
+
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Error!.Code.ShouldBe("dossier-sante.motif-obligatoire");
+        _monde.Store.Examens.Count.ShouldBe(1);
+
+        // Sur motif, il l'ouvre (remplacement du confrère), et la trace porte le motif ; il n'est pas pour autant en relation
+        // établie : ni désignation du gestionnaire ni signature sans bris de glace.
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Remplacement du Dr convoqué");
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).IsSuccess.ShouldBeTrue();
+        _monde.Audit.Traces.ShouldContain(t => t.Action == ActionAudit.Creation && t.ObjetType == "dossier-sante.examen" && t.Motif == "Remplacement du Dr convoqué");
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+        (await Signer(decisionId, 1)).Error!.Code.ShouldBe("decision.signature-hors-relation");
+        _monde.Store.Dossiers.Single(d => d.Id == dossierId).GestionnaireCpmtId.ShouldBe("cpmt-1");
+    }
+
+    [Fact]
+    public async Task Le_professionnel_convoque_ouvre_sans_motif_mais_un_professionnel_deja_en_relation_non_convoque_motive()
+    {
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var rdv = RendezVous(new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero), "infirmier-1");
+
+        // Le gestionnaire (cpmt-1) est en relation de soin avec la personne, mais le rendez-vous est celui de l'infirmier.
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Error!.Code.ShouldBe("dossier-sante.motif-obligatoire");
+
+        _monde.Agir("infirmier-1", Roles.Infirmier);
+        var examenId = (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Value;
+        _monde.Store.Examens.Single(e => e.Id == examenId).ShouldSatisfyAllConditions(
+            e => e.ProfessionnelId.ShouldBe("infirmier-1"), e => e.RendezVousId.ShouldBe(rdv.RendezVousId));
+        _monde.Audit.Traces.Last().ShouldSatisfyAllConditions(t => t.Motif.ShouldBeNull(), t => t.BrisDeGlace.ShouldBeFalse());
+    }
+
+    [Fact]
+    public async Task Un_rendez_vous_projete_sans_professionnel_ne_convoque_personne()
+    {
+        // #503, tolérance documentée : un rendez-vous projeté avant l'ajout du professionnel (ou publié par un producteur
+        // antérieur) n'établit la relation de personne. Motif ou bris de glace, et pas de désignation du gestionnaire.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var rdv = RendezVous(new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero), null);
+
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Error!.Code.ShouldBe("dossier-sante.motif-obligatoire");
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Consultation du jour, convocation antérieure");
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).IsSuccess.ShouldBeTrue();
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+    }
+
+    [Fact]
+    public async Task Le_convoque_du_rendez_vous_replanifie_est_le_remplacant()
+    {
+        // PLA-07 : le rendez-vous de cpmt-absent est reporté chez cpmt-remplacant. Seul ce dernier ouvre sans motif.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var rdv = RendezVous(new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero), "cpmt-absent");
+        await new RendezVousReplanifieHandler(_monde.Store, _monde.Store).HandleAsync(
+            new RendezVousReplanifie(rdv.RendezVousId, _personne, rdv.AffilieId, rdv.Debut, rdv.Debut.AddDays(1), "AbsenceRessource", "cpmt-remplacant")
+            {
+                OccurredAt = _monde.Horloge.GetUtcNow(),
+            }, _ct);
+
+        _monde.Agir("cpmt-absent", Roles.Cpmt);
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Error!.Code.ShouldBe("dossier-sante.motif-obligatoire");
+        _monde.Agir("cpmt-remplacant", Roles.Cpmt);
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).IsSuccess.ShouldBeTrue();
+        (await ChangerGestionnaire(dossierId, "cpmt-remplacant")).IsSuccess.ShouldBeTrue();
+        _monde.Store.Examens.Single().Date.ShouldBe(new DateOnly(2026, 3, 21));
+    }
+
+    [Fact]
+    public async Task Une_ouverture_concurrente_refusee_par_la_base_est_un_conflit_et_non_une_erreur()
+    {
+        // #503 (P3) : deux ouvertures simultanées passent toutes deux le contrôle applicatif ; l'index unique refuse la seconde.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var rdv = RendezVous(new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero), "cpmt-1");
+        _monde.Store.EchecAuProchainEnregistrement = new RendezVousDejaHonoreException();
+
+        var resultat = await OuvrirSurRendezVous(dossierId, rdv.RendezVousId);
+
+        resultat.Error!.ShouldSatisfyAllConditions(e => e.Code.ShouldBe("examen.rendez-vous-deja-honore"), e => e.Kind.ShouldBe(ErrorKind.Conflict));
+    }
+
+    private RendezVousPrevu RendezVous(DateTimeOffset debut, string? professionnelId)
+    {
+        var affilie = Guid.CreateVersion7();
+        var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
+        _monde.Store.Obligations.Add(obligation);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, debut, [obligation.ObligationId], professionnelId, _monde.Horloge.GetUtcNow().AddDays(-7));
+        _monde.Store.RendezVous.Add(rdv);
+        return rdv;
+    }
+
+    /// <summary>cpmt-1, gestionnaire, examine la personne sans rendez-vous et rédige une décision, puis clôture l'examen.</summary>
+    private async Task<Guid> DecisionDuGestionnaireAsync(Guid dossierId)
+    {
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
+        return decisionId;
     }
 
     private Task<Result<Guid>> OuvrirSurRendezVous(Guid dossierId, Guid rendezVousId) =>
@@ -429,7 +542,7 @@ public sealed class SecretMedicalTests
         var affilie = Guid.CreateVersion7();
         var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
         _monde.Store.Obligations.Add(obligation);
-        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId], "infirmier-2");
         _monde.Store.RendezVous.Add(rdv);
 
         // L'infirmier réalise l'examen ; le CPMT gestionnaire rédige la décision de cet examen ; l'infirmier la complète.
@@ -467,7 +580,7 @@ public sealed class DecisionsEtExamensTests
         var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, _affilie, TypesExamen.ExamenReprise, new DateOnly(2026, 2, 2), new DateOnly(2026, 2, 16));
         _monde.Store.Obligations.Add(obligation);
         var debut = new DateTimeOffset(dateRendezVous.ToDateTime(new TimeOnly(8, 0)), TimeSpan.Zero);
-        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, _affilie, debut, [obligation.ObligationId]);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, _affilie, debut, [obligation.ObligationId], "cpmt-1");
         _monde.Store.RendezVous.Add(rdv);
         var examenId = (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
             .HandleAsync(new OuvrirExamen(dossierId, null, null, rdv.RendezVousId, null), _ct)).Value;
@@ -511,7 +624,7 @@ public sealed class DecisionsEtExamensTests
         var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
         var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, _affilie, TypesExamen.ExamenReprise, new DateOnly(2026, 2, 2), null);
         _monde.Store.Obligations.Add(obligation);
-        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, _affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, _affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId], "cpmt-1");
         _monde.Store.RendezVous.Add(rdv);
         var examenId = (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
             .HandleAsync(new OuvrirExamen(dossierId, null, null, rdv.RendezVousId, null), _ct)).Value;
@@ -726,6 +839,38 @@ public sealed class PurgeEtProjectionsTests
         await new ObligationCreeeHandler(_monde.Store, _monde.Store).HandleAsync(autre, _ct);
         await handler.HandleAsync(new ObligationCloturee(autre.ObligationId, personne, autre.AffilieId, autre.TypeExamen, "Realise", null, new DateOnly(2026, 3, 3)), _ct);
         _monde.Store.Obligations.Single(o => o.ObligationId == autre.ObligationId).EstRetiree.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Le_rendez_vous_projete_suit_la_replanification_la_plus_recente_dans_n_importe_quel_ordre()
+    {
+        // #503 : professionnel convoqué et horaire suivent l'événement le plus récent ; les obligations viennent de la planification.
+        var personne = Guid.CreateVersion7();
+        var obligation = Guid.CreateVersion7();
+        var t0 = new DateTimeOffset(2026, 3, 1, 8, 0, 0, TimeSpan.Zero);
+        var planifie = new RendezVousPlanifie(Guid.CreateVersion7(), personne, Guid.CreateVersion7(), t0.AddDays(10), [obligation], "cpmt-a") { OccurredAt = t0 };
+        var replanifie = new RendezVousReplanifie(planifie.RendezVousId, personne, planifie.AffilieId, planifie.Debut, t0.AddDays(12), "AbsenceRessource", "cpmt-b")
+        { OccurredAt = t0.AddDays(1) };
+        var planification = new RendezVousPlanifieHandler(_monde.Store, _monde.Store);
+        var replanification = new RendezVousReplanifieHandler(_monde.Store, _monde.Store);
+
+        // Replanification reçue d'abord, puis planification plus ancienne, puis rejeu de la replanification.
+        await replanification.HandleAsync(replanifie, _ct);
+        await planification.HandleAsync(planifie, _ct);
+        var saves = _monde.Store.Saves;
+        await replanification.HandleAsync(replanifie with { OccurredAt = t0.AddHours(12) }, _ct);
+
+        _monde.Store.Saves.ShouldBe(saves);
+        _monde.Store.RendezVous.Single().ShouldSatisfyAllConditions(
+            r => r.ProfessionnelId.ShouldBe("cpmt-b"),
+            r => r.Debut.ShouldBe(t0.AddDays(12)),
+            r => r.ObligationIds.ShouldBe([obligation]),
+            r => r.EstConvoque("cpmt-b").ShouldBeTrue(),
+            r => r.EstConvoque("cpmt-a").ShouldBeFalse());
+
+        // Un producteur antérieur ne publie pas le professionnel : personne n'est plus convoqué.
+        await replanification.HandleAsync(replanifie with { ProfessionnelId = null, OccurredAt = t0.AddDays(2) }, _ct);
+        _monde.Store.RendezVous.Single().ShouldSatisfyAllConditions(r => r.ProfessionnelId.ShouldBeNull(), r => r.EstConvoque(null).ShouldBeFalse());
     }
 
     [Fact]

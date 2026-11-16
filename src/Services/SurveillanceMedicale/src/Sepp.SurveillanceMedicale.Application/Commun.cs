@@ -42,7 +42,8 @@ public static class PartiesDossier
 /// <item>Permission de la matrice : <c>dossier-sante:lire</c> ou <c>dossier-sante:ecrire</c> (CPMT, CPMT dirigeant, infirmier).</item>
 /// <item>Relation de soin : l'utilisateur est le CPMT gestionnaire du dossier, a un examen (en cours ou clôturé) dans
 /// ce dossier, ou a vacciné la personne ; l'ouverture d'un examen sur un rendez-vous planifié pour la personne
-/// établit la relation. Hors relation de soin, un motif est obligatoire (en-tête <c>X-Motif-Acces</c>).</item>
+/// établit la relation, si l'utilisateur est le professionnel convoqué (#503). Hors relation de soin, un motif est
+/// obligatoire (en-tête <c>X-Motif-Acces</c>).</item>
 /// <item>Bris de glace (continuité, remplacement d'un médecin) : motif obligatoire, trace signalée et alerte au
 /// CPMT dirigeant par le service Audit (<c>audit.bris-de-glace-signale</c>).</item>
 /// <item>Journalisation de chaque accès (lecture, export, création, modification, suppression) par <see cref="IAuditTrail"/>,
@@ -52,6 +53,7 @@ public static class PartiesDossier
 public sealed class GardeDossier(
     IDossierSanteRepository dossiers,
     IExamenRepository examens,
+    IProjectionRepository projections,
     ICurrentUser user,
     IContexteAcces contexte,
     IAuditTrail audit,
@@ -67,9 +69,15 @@ public sealed class GardeDossier(
     public static readonly Error Inconnu = Error.NotFound("dossier-sante.inconnu", "Dossier de santé inconnu.");
 
     public Task<Result<DossierSante>> LireAsync(Guid dossierId, string partie, CancellationToken cancellationToken) =>
-        AccederAsync(dossierId, partie, ActionAudit.Lecture, false, cancellationToken);
+        AccederAsync(dossierId, partie, ActionAudit.Lecture, null, cancellationToken);
 
-    public Task<Result<DossierSante>> EcrireAsync(Guid dossierId, string partie, ActionAudit action, CancellationToken cancellationToken, bool relationEtablie = false) =>
+    /// <summary>
+    /// Écriture dans le dossier. <paramref name="relationEtablie"/> : <c>null</c> applique la règle générale (relation de
+    /// soin sur le dossier, sinon motif) ; <c>true</c>, la relation est établie par l'acte lui-même (examen ouvert par le
+    /// professionnel convoqué) ; <c>false</c>, elle est exclue pour cet acte, et un motif est exigé même d'un professionnel
+    /// déjà en relation (examen ouvert sur le rendez-vous d'un autre professionnel, #503).
+    /// </summary>
+    public Task<Result<DossierSante>> EcrireAsync(Guid dossierId, string partie, ActionAudit action, CancellationToken cancellationToken, bool? relationEtablie = null) =>
         AccederAsync(dossierId, partie, action, relationEtablie, cancellationToken);
 
     /// <summary>Contrôle de la seule permission, avant de charger quoi que ce soit (même réponse que le dossier existe ou non).</summary>
@@ -88,7 +96,7 @@ public sealed class GardeDossier(
         audit.Enregistrer(action, PartiesDossier.TypeObjet(partie), dossierId, motif, contexte.BrisDeGlace && motif is not null);
     }
 
-    private async Task<Result<DossierSante>> AccederAsync(Guid dossierId, string partie, ActionAudit action, bool relationEtablie, CancellationToken cancellationToken)
+    private async Task<Result<DossierSante>> AccederAsync(Guid dossierId, string partie, ActionAudit action, bool? relationEtablie, CancellationToken cancellationToken)
     {
         if (VerifierPermission(action) is { } interdit)
         {
@@ -107,7 +115,7 @@ public sealed class GardeDossier(
         }
 
         var motif = MotifAcces.Normaliser(contexte.Motif);
-        if (motif is null && !relationEtablie && !await EstEnRelationDeSoinAsync(dossier, cancellationToken))
+        if (motif is null && relationEtablie != true && (relationEtablie == false || !await EstEnRelationDeSoinAsync(dossier, cancellationToken)))
         {
             return MotifObligatoire;
         }
@@ -140,11 +148,13 @@ public sealed class GardeDossier(
         || string.Equals((await examens.GetAsync(examenId, cancellationToken))?.ProfessionnelId, user.UserId, StringComparison.Ordinal);
 
     /// <summary>
-    /// Relation de soin qui permet de désigner le CPMT gestionnaire (#496) : gestionnaire actuel, ou professionnel de l'unique
-    /// examen non annulé d'un rendez-vous planifié. Un examen ouvert sur motif (spontané) ou une vaccination ne suffisent
-    /// pas : sinon un CPMT hors relation ouvrirait un examen sur motif, se désignerait gestionnaire et signerait sans bris de
-    /// glace. Un rendez-vous ne porte qu'un examen (index unique) ; la vérification est refaite ici en défense en profondeur,
-    /// pour qu'un rendez-vous réutilisé n'établisse jamais la relation. À défaut, bris de glace motivé.
+    /// Relation de soin qui permet de désigner le CPMT gestionnaire (#496, #503) : gestionnaire actuel, ou professionnel de
+    /// l'unique examen non annulé d'un rendez-vous planifié <b>auquel il est convoqué</b>. Un examen ouvert sur motif
+    /// (spontané, ou sur le rendez-vous d'un autre professionnel) et une vaccination ne suffisent pas : sinon un CPMT hors
+    /// relation ouvrirait un examen sur motif, se désignerait gestionnaire et signerait sans bris de glace. Un rendez-vous ne
+    /// porte qu'un examen (index unique) ; la vérification est refaite ici en défense en profondeur, pour qu'un rendez-vous
+    /// réutilisé n'établisse jamais la relation. Un rendez-vous projeté sans professionnel (avant #503) ne convoque personne.
+    /// À défaut, bris de glace motivé.
     /// </summary>
     public async Task<bool> PeutDesignerGestionnaireAsync(DossierSante dossier, CancellationToken cancellationToken)
     {
@@ -157,8 +167,16 @@ public sealed class GardeDossier(
         var surRendezVous = (await examens.ListerParDossierAsync(dossier.Id, cancellationToken))
             .Where(e => e.RendezVousId is not null && e.Statut != StatutExamen.Annule)
             .ToList();
-        return surRendezVous.Any(e => string.Equals(e.ProfessionnelId, user.UserId, StringComparison.Ordinal)
-            && surRendezVous.Count(autre => autre.RendezVousId == e.RendezVousId) == 1);
+        foreach (var examen in surRendezVous.Where(e => string.Equals(e.ProfessionnelId, user.UserId, StringComparison.Ordinal)
+                     && surRendezVous.Count(autre => autre.RendezVousId == e.RendezVousId) == 1))
+        {
+            if ((await projections.GetRendezVousAsync(examen.RendezVousId!.Value, cancellationToken))?.EstConvoque(user.UserId) == true)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Relation de soin (§3.3, ARC-41) : CPMT gestionnaire, professionnel d'un examen du dossier, ou vaccinateur.</summary>

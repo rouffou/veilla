@@ -37,7 +37,10 @@ public sealed record RappelRendezVousDu(
 /// PLA-07 : rendez-vous déplacé (replanification en masse après l'absence d'un conseiller, ou déplacement demandé en
 /// ligne, POR-11). Même identifiant de rendez-vous ; <c>Motif</c> est un code (<c>AbsenceRessource</c>,
 /// <c>DemandeTravailleur</c> ou <c>DemandeEmployeur</c>). Une convocation de type <c>Replanification</c>
-/// est émise en parallèle pour notifier la personne.
+/// est émise en parallèle pour notifier la personne. <c>ProfessionnelId</c> (facultatif, ajouté en fin, rétrocompatible,
+/// ARC-34, #503) : professionnel convoqué sur le nouveau créneau, comme dans <see cref="RendezVousPlanifie"/> ; il change
+/// quand le conseiller absent est remplacé. <c>null</c> pour un producteur antérieur ou une ressource sans référence
+/// d'utilisateur.
 /// </summary>
 [EventContract("planification.rendez-vous-replanifie", 1)]
 public sealed record RendezVousReplanifie(
@@ -46,7 +49,8 @@ public sealed record RendezVousReplanifie(
     Guid AffilieId,
     DateTimeOffset AncienDebut,
     DateTimeOffset NouveauDebut,
-    string Motif) : IntegrationEvent;
+    string Motif,
+    string? ProfessionnelId = null) : IntegrationEvent;
 
 /// <summary>SAN-13 : la personne ne s'est pas présentée ; les obligations couvertes redeviennent à planifier.</summary>
 [EventContract("planification.absence-rendez-vous-constatee", 1)]

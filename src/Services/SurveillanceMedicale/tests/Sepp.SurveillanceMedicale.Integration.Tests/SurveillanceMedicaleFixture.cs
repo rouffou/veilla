@@ -20,6 +20,8 @@ using Sepp.BuildingBlocks.Infrastructure.Messaging;
 using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Contracts;
 using Sepp.SurveillanceMedicale.Adapters.Persistence;
+using Sepp.SurveillanceMedicale.Application;
+using Sepp.SurveillanceMedicale.Domain.Examens;
 
 using Shouldly;
 
@@ -83,6 +85,11 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
             await _factoryStricte.DisposeAsync();
         }
 
+        if (_factoryCourse is not null)
+        {
+            await _factoryCourse.DisposeAsync();
+        }
+
         await Factory.DisposeAsync();
         await _postgres.DisposeAsync();
     }
@@ -106,6 +113,37 @@ public sealed class SurveillanceMedicaleFixture : IAsyncLifetime
         }
 
         return client;
+    }
+
+    private WebApplicationFactory<Program>? _factoryCourse;
+
+    /// <summary>
+    /// #503 : même service, mais le contrôle applicatif « rendez-vous déjà honoré » répond toujours non. Simule de façon
+    /// déterministe la seconde de deux ouvertures simultanées, qui a passé ce contrôle avant que la première soit validée :
+    /// seul l'index unique <c>ix_examen_rendez_vous_id</c> la refuse.
+    /// </summary>
+    public HttpClient ClientCourseRendezVous(string role, string user) =>
+        Configurer((_factoryCourse ??= Factory.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        {
+            var descripteur = s.Single(d => d.ServiceType == typeof(IExamenRepository));
+            s.Remove(descripteur);
+            s.AddScoped<IExamenRepository>(sp =>
+                new ControleRendezVousDepasse((IExamenRepository)ActivatorUtilities.CreateInstance(sp, descripteur.ImplementationType!)));
+        }))).CreateClient(), role, user, null, null, false, null);
+
+    private sealed class ControleRendezVousDepasse(IExamenRepository inner) : IExamenRepository
+    {
+        public Task<Examen?> GetAsync(Guid id, CancellationToken cancellationToken) => inner.GetAsync(id, cancellationToken);
+
+        public Task<IReadOnlyList<Examen>> ListerParDossierAsync(Guid dossierId, CancellationToken cancellationToken) =>
+            inner.ListerParDossierAsync(dossierId, cancellationToken);
+
+        public Task<bool> ExisteExamenDuProfessionnelAsync(Guid dossierId, string professionnelId, CancellationToken cancellationToken) =>
+            inner.ExisteExamenDuProfessionnelAsync(dossierId, professionnelId, cancellationToken);
+
+        public Task<bool> ExisteExamenSurRendezVousAsync(Guid rendezVousId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public void Add(Examen examen) => inner.Add(examen);
     }
 
     public HttpClient Client(string role, string user, Guid? affilieId = null, string? motif = null, bool brisDeGlace = false, Guid? personneId = null) =>

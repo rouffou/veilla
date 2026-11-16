@@ -95,8 +95,16 @@ namespace Sepp.Contracts.Obligations
 
 namespace Sepp.Contracts.Planification
 {
+    /// <summary>
+    /// Rendez-vous planifié. <c>ProfessionnelId</c> (facultatif, ajouté en fin, rétrocompatible, ARC-34, #503) est
+    /// l'identifiant de l'utilisateur convoqué (claim <c>sub</c>, référence de la ressource humaine principale du créneau) :
+    /// identifiant seulement, ni nom ni discipline (ARC-06). <c>null</c> pour un producteur antérieur ou une ressource sans
+    /// référence d'utilisateur. Surveillance médicale ne reconnaît la relation de soin, à l'ouverture d'un examen sur ce
+    /// rendez-vous, qu'au professionnel convoqué (ARC-41, ADR 0017) ; les autres consommateurs l'ignorent.
+    /// </summary>
     [EventContract("planification.rendez-vous-planifie", 1)]
-    public sealed record RendezVousPlanifie(Guid RendezVousId, Guid PersonneId, Guid AffilieId, DateTimeOffset Debut, IReadOnlyList<Guid> ObligationIds) : IntegrationEvent;
+    public sealed record RendezVousPlanifie(
+        Guid RendezVousId, Guid PersonneId, Guid AffilieId, DateTimeOffset Debut, IReadOnlyList<Guid> ObligationIds, string? ProfessionnelId = null) : IntegrationEvent;
 
     /// <summary>
     /// Rendez-vous annulé. <c>Motif</c> est un code. <c>Raison</c> (facultatif, ajouté en fin, rétrocompatible) est la raison codée choisie

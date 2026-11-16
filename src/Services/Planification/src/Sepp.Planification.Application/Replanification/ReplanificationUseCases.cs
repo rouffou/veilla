@@ -102,7 +102,8 @@ public sealed class ReplanifierAbsenceHandler(
             }
 
             var ancienDebut = rdv.Deplacer(ancien, nouveau, maintenant);
-            outbox.Add(new RendezVousReplanifie(rdv.Id, rdv.PersonneId, rdv.AffilieId, ancienDebut, rdv.Debut, MotifAnnulation.AbsenceRessource.ToString()));
+            outbox.Add(new RendezVousReplanifie(rdv.Id, rdv.PersonneId, rdv.AffilieId, ancienDebut, rdv.Debut, MotifAnnulation.AbsenceRessource.ToString(),
+                await prise.ProfessionnelConvoqueAsync(rdv, cancellationToken)));
             await prise.ConvoquerAsync(rdv, null, null, TypeConvocation.Replanification, null, cancellationToken);
             deplaces++;
             if (!DelaiLegal.RespecteEcheance(rdv.Debut, limite))

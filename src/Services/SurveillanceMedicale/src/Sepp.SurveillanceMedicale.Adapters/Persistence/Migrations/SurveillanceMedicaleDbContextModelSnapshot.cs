@@ -1751,6 +1751,10 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("debut");
 
+                    b.Property<DateTimeOffset?>("EvenementDu")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("evenement_du");
+
                     b.PrimitiveCollection<Guid[]>("ObligationIds")
                         .IsRequired()
                         .HasColumnType("uuid[]")
@@ -1759,6 +1763,11 @@ namespace Sepp.SurveillanceMedicale.Adapters.Persistence.Migrations
                     b.Property<Guid>("PersonneId")
                         .HasColumnType("uuid")
                         .HasColumnName("personne_id");
+
+                    b.Property<string>("ProfessionnelId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("professionnel_id");
 
                     b.HasKey("RendezVousId")
                         .HasName("pk_rendez_vous_prevu");

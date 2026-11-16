@@ -34,11 +34,28 @@ public class ConvocationsEtRappelsTests
         var planifie = h.Store.Evenements<RendezVousPlanifie>().ShouldHaveSingleItem();
         planifie.RendezVousId.ShouldBe(rdv.Id);
         planifie.ObligationIds.ShouldBe(rdv.ObligationIds);
+        // #503 : le professionnel convoqué (référence d'utilisateur de la ressource), identifiant seulement (ARC-06).
+        planifie.ProfessionnelId.ShouldBe("kc-a");
         var convocation = h.Store.Evenements<ConvocationEmise>().ShouldHaveSingleItem();
         convocation.Canal.ShouldBe("Courrier");
         convocation.Recommande.ShouldBeFalse();
         convocation.TypeActe.ShouldBe("EVALUATION_PERIODIQUE");
         convocation.Debut.ShouldBe(rdv.Debut);
+    }
+
+    [Fact]
+    public async Task Sans_reference_d_utilisateur_le_rendez_vous_ne_designe_aucun_professionnel()
+    {
+        // #503 : une ressource sans référence (ou non humaine) ne convoque personne ; Surveillance médicale exigera un motif.
+        var h = new Harness();
+        var sansReference = h.AjouterRessource(Domain.Ressources.TypeRessource.Conseiller, "Dr sans compte", null, "EVALUATION_PERIODIQUE");
+        var cabine = h.AjouterRessource(Domain.Ressources.TypeRessource.Cabine, "Cabine 1", "INV-12", "EVALUATION_PERIODIQUE");
+
+        await h.PlanifierRendezVous(h.AjouterCreneau(Harness.Lundi, 9, ressource: sansReference), h.AjouterObligation());
+        await h.PlanifierRendezVous(h.AjouterCreneau(Harness.Lundi, 11, ressource: cabine), h.AjouterObligation(personne: Guid.CreateVersion7()));
+
+        h.Store.Evenements<RendezVousPlanifie>().Count().ShouldBe(2);
+        h.Store.Evenements<RendezVousPlanifie>().ShouldAllBe(e => e.ProfessionnelId == null);
     }
 
     [Fact]

@@ -329,7 +329,8 @@ public sealed class DeplacerEnLigneHandler(
         }
 
         var motif = perimetre.PersonneId is not null ? MotifAnnulation.DemandeTravailleur : MotifAnnulation.DemandeEmployeur;
-        outbox.Add(new RendezVousReplanifie(rdv.Id, rdv.PersonneId, rdv.AffilieId, ancienDebut, rdv.Debut, motif.ToString()));
+        outbox.Add(new RendezVousReplanifie(rdv.Id, rdv.PersonneId, rdv.AffilieId, ancienDebut, rdv.Debut, motif.ToString(),
+            await prise.ProfessionnelConvoqueAsync(rdv, cancellationToken)));
         await prise.ConvoquerAsync(rdv, null, null, TypeConvocation.Replanification, null, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return rdv.ToDto(externe: true);

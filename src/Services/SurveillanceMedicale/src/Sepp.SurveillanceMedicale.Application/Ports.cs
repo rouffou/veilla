@@ -11,6 +11,13 @@ using Sepp.SurveillanceMedicale.Domain.Vaccinations;
 
 namespace Sepp.SurveillanceMedicale.Application;
 
+/// <summary>
+/// #503 : deux ouvertures d'examen simultanées sur le même rendez-vous. L'index unique partiel <c>ix_examen_rendez_vous_id</c>
+/// (#496) a refusé la seconde, après le contrôle applicatif ; le cas d'usage la traduit en 409 <c>examen.rendez-vous-deja-honore</c>.
+/// </summary>
+public sealed class RendezVousDejaHonoreException(Exception? inner = null)
+    : Exception("Ce rendez-vous porte déjà un examen non annulé.", inner);
+
 /// <summary>Dépôt des dossiers de santé (§14.5 : <c>IDossierSanteRepository</c>).</summary>
 public interface IDossierSanteRepository
 {

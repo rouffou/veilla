@@ -382,7 +382,7 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         var personne = Guid.CreateVersion7();
         var dossierId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = personne }, _ct));
         var obligation = new ObligationCreee(Guid.CreateVersion7(), personne, _affilie, "EVALUATION_PERIODIQUE", new DateOnly(2026, 3, 1), new DateOnly(2026, 4, 1));
-        var rdv = new RendezVousPlanifie(Guid.CreateVersion7(), personne, _affilie, new DateTimeOffset(2026, 3, 10, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        var rdv = new RendezVousPlanifie(Guid.CreateVersion7(), personne, _affilie, new DateTimeOffset(2026, 3, 10, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId], "inf-1");
         var messageObligation = Guid.CreateVersion7();
         (await fixture.DispatcherAsync(messageObligation, obligation, _ct)).ShouldBe(1);
         (await fixture.DispatcherAsync(messageObligation, obligation, _ct)).ShouldBe(0);
@@ -412,7 +412,7 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         var personne = Guid.CreateVersion7();
         var dossierId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = personne }, _ct));
         var obligation = new ObligationCreee(Guid.CreateVersion7(), personne, _affilie, "EVALUATION_PERIODIQUE", new DateOnly(2026, 3, 1), new DateOnly(2026, 4, 1));
-        var rdv = new RendezVousPlanifie(Guid.CreateVersion7(), personne, _affilie, new DateTimeOffset(2026, 3, 10, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        var rdv = new RendezVousPlanifie(Guid.CreateVersion7(), personne, _affilie, new DateTimeOffset(2026, 3, 10, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId], "cpmt-1");
         (await fixture.DispatcherAsync(Guid.CreateVersion7(), obligation, _ct)).ShouldBe(1);
         (await fixture.DispatcherAsync(Guid.CreateVersion7(), rdv, _ct)).ShouldBe(1);
         var examenId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/examens", new { dossierId, rendezVousId = rdv.RendezVousId }, _ct));
@@ -444,6 +444,55 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
         // Un examen annulé libère le rendez-vous.
         await fixture.ScalaireAsync("UPDATE examen SET statut = 'Annule' WHERE id = @id", _ct, ("id", premier));
         await fixture.ScalaireAsync(rattacher, _ct, ("rdv", rendezVous), ("id", second));
+    }
+
+    [Fact]
+    public async Task Une_ouverture_concurrente_sur_le_meme_rendez_vous_recoit_un_409_metier()
+    {
+        // #503 (P3) : la seconde de deux ouvertures simultanées a passé le contrôle applicatif ; l'index unique la refuse, et
+        // le client reçoit le 409 « examen.rendez-vous-deja-honore », pas une erreur 500 ni un conflit générique.
+        var personne = Guid.CreateVersion7();
+        var dossierId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = personne }, _ct));
+        var rdv = new RendezVousPlanifie(Guid.CreateVersion7(), personne, _affilie, new DateTimeOffset(2026, 3, 10, 8, 0, 0, TimeSpan.Zero), [], "cpmt-1");
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), rdv, _ct)).ShouldBe(1);
+        await Id(await Cpmt.PostAsJsonAsync("/api/v1/examens", new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", rendezVousId = rdv.RendezVousId }, _ct));
+
+        var concurrente = await fixture.ClientCourseRendezVous(Roles.Cpmt, "cpmt-1")
+            .PostAsJsonAsync("/api/v1/examens", new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", rendezVousId = rdv.RendezVousId }, _ct);
+
+        concurrente.StatusCode.ShouldBe(HttpStatusCode.Conflict, await concurrente.Content.ReadAsStringAsync(_ct));
+        (await concurrente.Content.ReadAsStringAsync(_ct)).ShouldContain("examen.rendez-vous-deja-honore");
+        ((long)(await fixture.ScalaireAsync("SELECT count(*) FROM examen WHERE rendez_vous_id = @rdv", _ct, ("rdv", rdv.RendezVousId)))!).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Seul_le_professionnel_convoque_ouvre_sans_motif_un_rendez_vous_futur()
+    {
+        // #503 : un rendez-vous futur pris chez cpmt-conv ; cpmt-autre, qui en connaît l'identifiant, ne l'ouvre pas sans motif
+        // et, ouvert sur motif, ce rendez-vous ne lui permet pas de se désigner gestionnaire.
+        var personne = Guid.CreateVersion7();
+        var dossierId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = personne }, _ct));
+        var rdv = new RendezVousPlanifie(Guid.CreateVersion7(), personne, _affilie, new DateTimeOffset(2026, 12, 10, 8, 0, 0, TimeSpan.Zero), [], "cpmt-conv");
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), rdv, _ct)).ShouldBe(1);
+        var corps = new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", rendezVousId = rdv.RendezVousId };
+
+        var autre = fixture.Client(Roles.Cpmt, "cpmt-autre");
+        var refus = await autre.PostAsJsonAsync("/api/v1/examens", corps, _ct);
+        refus.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await refus.Content.ReadAsStringAsync(_ct)).ShouldContain("dossier-sante.motif-obligatoire");
+
+        // La replanification chez un remplaçant change le convoqué ; un événement plus ancien ne revient pas en arrière.
+        var replanifie = new RendezVousReplanifie(rdv.RendezVousId, personne, _affilie, rdv.Debut, rdv.Debut.AddDays(1), "AbsenceRessource", "cpmt-remplacant");
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), replanifie, _ct)).ShouldBe(1);
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), rdv with { OccurredAt = replanifie.OccurredAt.AddMinutes(-5) }, _ct)).ShouldBe(1);
+        var convoque = (await fixture.ScalaireAsync("SELECT professionnel_id FROM rendez_vous_prevu WHERE rendez_vous_id = @rdv", _ct, ("rdv", rdv.RendezVousId)))!;
+        convoque.ShouldBe("cpmt-remplacant");
+        (await fixture.Client(Roles.Cpmt, "cpmt-conv").PostAsJsonAsync("/api/v1/examens", corps, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var surMotif = fixture.Client(Roles.Cpmt, "cpmt-autre", motif: "Remplacement du Dr convoqué");
+        await Id(await surMotif.PostAsJsonAsync("/api/v1/examens", corps, _ct));
+        (await surMotif.PutAsJsonAsync($"/api/v1/dossiers/{dossierId}/gestionnaire", new { cpmtId = "cpmt-autre" }, _ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await fixture.TracesAsync(dossierId, _ct)).ShouldContain(t => t.Action == "creation" && t.Motif == "Remplacement du Dr convoqué");
     }
 
     [Fact]

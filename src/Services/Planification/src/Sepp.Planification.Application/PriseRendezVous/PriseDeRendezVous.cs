@@ -83,7 +83,8 @@ public sealed class PriseDeRendezVous(
             obligation.Couvrir(rdv.Id);
         }
 
-        outbox.Add(new RendezVousPlanifie(rdv.Id, rdv.PersonneId, rdv.AffilieId, rdv.Debut, rdv.ObligationIds));
+        outbox.Add(new RendezVousPlanifie(rdv.Id, rdv.PersonneId, rdv.AffilieId, rdv.Debut, rdv.ObligationIds,
+            await ProfessionnelConvoqueAsync(rdv, cancellationToken)));
         if (demande.Convoquer)
         {
             await ConvoquerAsync(rdv, demande.Canal, demande.Recommande, demande.TypeConvocation, demande.LotId, cancellationToken);
@@ -91,6 +92,14 @@ public sealed class PriseDeRendezVous(
 
         return rdv;
     }
+
+    /// <summary>
+    /// #503, ARC-41 : professionnel convoqué, publié avec le rendez-vous pour que Surveillance médicale ne reconnaisse la
+    /// relation de soin qu'à lui. C'est la référence d'utilisateur (claim <c>sub</c>) de la ressource principale du créneau,
+    /// si elle est humaine ; <c>null</c> sinon (salle, appareil, ressource sans référence). Identifiant seulement (ARC-06).
+    /// </summary>
+    public async Task<string?> ProfessionnelConvoqueAsync(RendezVous rdv, CancellationToken cancellationToken) =>
+        await ressources.GetAsync(rdv.RessourceId, cancellationToken) is { EstHumaine: true, ReferenceId: { } reference } ? reference : null;
 
     /// <summary>SAN-10, SAN-11 : crée la convocation (canal résolu, recommandé si la loi l'exige) et publie l'événement d'envoi.</summary>
     public async Task<Convocation> ConvoquerAsync(RendezVous rdv, CanalConvocation? canal, bool? recommande, TypeConvocation type,

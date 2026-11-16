@@ -38,6 +38,10 @@ public sealed class ScenariosSagaTests(PlateformeSaga plateforme) : IClassFixtur
         var rendezVous = (await _o.RendezVousDeAsync(t.Personne)).EnumerateArray().Single();
         rendezVous.GetProperty("urgent").GetBoolean().ShouldBeTrue();
         var rendezVousId = rendezVous.GetProperty("id").GetGuid();
+        // #503 : le rendez-vous publié désigne le professionnel convoqué (identifiant seulement, ARC-06).
+        var planifies = _o.PubliesPour("planification.rendez-vous-planifie.v1", rendezVousId);
+        planifies.ShouldNotBeEmpty();
+        planifies.Select(m => JsonDocument.Parse(m.Charge).RootElement.GetProperty("professionnelId").GetString()).ShouldAllBe(p => p == "cpmt-1");
 
         // 3. La convocation part (Communications), Planification la constate, Obligations passe l'obligation à « convoqué ».
         await _o.ExpedierEtPomperAsync();
