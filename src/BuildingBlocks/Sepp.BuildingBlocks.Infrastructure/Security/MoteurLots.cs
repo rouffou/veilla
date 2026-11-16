@@ -46,10 +46,14 @@ internal static class MoteurLots
     /// <summary>SQLSTATE d'une violation d'unicité (PostgreSQL).</summary>
     public const string ViolationUnicite = "23505";
 
+    /// <summary>SQLSTATE d'un verrou non obtenu dans le délai (<c>lock_not_available</c>, PostgreSQL).</summary>
+    public const string VerrouNonObtenu = "55P03";
+
     /// <summary>Contrôle des paramètres communs, avant tout accès à la base.</summary>
     public static void Valider(OptionsRechiffrement options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.VerrousMaxParLot, 1, nameof(options.VerrousMaxParLot));
         ArgumentOutOfRangeException.ThrowIfLessThan(options.TailleLot, 1, nameof(options.TailleLot));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(options.TailleLot, 10_000, nameof(options.TailleLot));
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(options.DelaiVerrou, TimeSpan.Zero, nameof(options.DelaiVerrou));
@@ -120,9 +124,21 @@ internal static class MoteurLots
                 catch (DbException)
                 {
                     // Lot annulé (troncature, contrainte, collision, verrou…) : reprise ligne par ligne, chacune dans sa
-                    // transaction, pour n'écarter que la ou les lignes en cause, sans sous-transaction.
+                    // transaction, pour n'écarter que la ou les lignes en cause, sans sous-transaction. Après
+                    // VerrousMaxParLot verrous non obtenus (55P03), la reprise s'arrête (#502) : un verrou de table tenu par
+                    // le service coûterait sinon DelaiVerrou par ligne. Les lignes restantes sont comptées en erreur, non
+                    // tentées, et reprises à la prochaine exécution.
+                    var verrous = 0;
                     foreach (var ecriture in aEcrire)
                     {
+                        if (verrous >= options.VerrousMaxParLot)
+                        {
+                            erreurs++;
+                            signaler(new ErreurRechiffrement(cible.Nom, Texte(ecriture.Ligne.Cle), "RepriseArretee",
+                                $"Reprise du lot arrêtée après {options.VerrousMaxParLot.ToString(CultureInfo.InvariantCulture)} verrou(s) non obtenu(s) (SQLSTATE {VerrouNonObtenu}) : ligne non tentée."));
+                            continue;
+                        }
+
                         try
                         {
                             var (e, m) = await EcrireAsync(connexion, sql, [ecriture], options.DelaiVerrou, cancellationToken);
@@ -132,6 +148,11 @@ internal static class MoteurLots
                         catch (DbException erreur)
                         {
                             erreurs++;
+                            if (erreur.SqlState == VerrouNonObtenu)
+                            {
+                                verrous++;
+                            }
+
                             var collision = erreur.SqlState == ViolationUnicite;
                             if (collision)
                             {

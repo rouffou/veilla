@@ -9,8 +9,14 @@ namespace Sepp.BuildingBlocks.Infrastructure.Security;
 /// <summary>
 /// Comptes d'une colonne texte ou JSON. Pour une colonne du modèle : valeurs non nulles, valeurs chiffrées avec la DEK
 /// courante, autres valeurs (ancienne DEK, v1, valeur illisible) et valeurs v1. Pour une autre colonne : valeurs qui ont la
-/// forme d'une valeur chiffrée (<c>v1:&lt;clé&gt;:</c> ou <c>v2:&lt;clé&gt;:</c>), en tête de texte ou de chaîne JSON.
+/// forme d'une valeur chiffrée (<c>v1:&lt;clé&gt;:</c> ou <c>v2:&lt;clé&gt;:</c>) en tête d'une chaîne JSON, et, pour une
+/// colonne texte, en tête du texte ou d'une chaîne JSON stockée en texte (motif <c>(^|")v[12]:</c>, #502).
 /// </summary>
+/// <remarks>
+/// Types non couverts : seules les colonnes <c>text</c>, <c>character varying</c>, <c>character</c>, <c>json</c> et
+/// <c>jsonb</c> sont lues. Un tableau (<c>text[]</c>), une colonne <c>citext</c> ou un type de domaine échappent à la
+/// vérification (voir <c>infra/README.md</c>).
+/// </remarks>
 public sealed record ColonneVerifiee(string Colonne, bool DuModele, long Chiffrees, long Courantes, long HorsDekCourante, long V1);
 
 /// <summary>Résultat de la vérification : colonnes du modèle et colonnes hors modèle qui contiennent des valeurs chiffrées.</summary>
@@ -97,7 +103,8 @@ public static partial class VerificationChiffrement
             await using var commande = Sql.Commande(connexion, transaction, sql);
             Sql.Parametre(commande, "prefixe", prefixeCourant);
             Sql.Parametre(commande, "v1", PrefixeV1);
-            foreach (var (forme, debut) in new[] { ("t", "^"), ("j", "\"") })
+            // Texte : en tête du texte ou d'une chaîne JSON stockée en texte (#502) ; JSON : en tête d'une chaîne JSON.
+            foreach (var (forme, debut) in new[] { ("t", "(^|\")"), ("j", "\"") })
             {
                 Sql.Parametre(commande, $"chiffre_{forme}", $"{debut}v[12]:[^:\"]+:");
                 Sql.Parametre(commande, $"courant_{forme}", $"{debut}v2:{dek}:");

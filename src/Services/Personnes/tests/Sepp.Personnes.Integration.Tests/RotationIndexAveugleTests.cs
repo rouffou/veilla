@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
@@ -139,6 +140,74 @@ public sealed class RotationIndexAveugleTests(PersonnesApiFixture fixture) : ICl
         (await NombreDePersonnesAsync(hotes.Connexion)).ShouldBe(2);
     }
 
+    [Fact]
+    public async Task Un_doublon_trouve_sous_les_deux_empreintes_est_journalise_et_compte_sans_niss_ni_empreinte()
+    {
+        await using var hotes = await HotesAsync();
+        var niss = Niss(931);
+        var ancienne = await CreerAsync(hotes.Avant, niss);
+        var nouvelle = await CreerAsync(hotes.Apres, niss);
+        var empreintes = await EmpreintesAsync(hotes.Connexion);
+
+        // Compteur du seul hôte « pendant » : son meter est créé par sa propre fabrique (portée).
+        var fabrique = hotes.Pendant.Services.GetRequiredService<IMeterFactory>();
+        long doublons = 0;
+        using var ecoute = new MeterListener();
+        ecoute.InstrumentPublished = (instrument, l) =>
+        {
+            if (instrument.Meter.Name == AlerteDoublonsNiss.NomMeter && instrument.Name == AlerteDoublonsNiss.NomCompteur
+                && ReferenceEquals(instrument.Meter.Scope, fabrique))
+            {
+                l.EnableMeasurementEvents(instrument);
+            }
+        };
+        ecoute.SetMeasurementEventCallback<long>((_, mesure, _, _) => Interlocked.Add(ref doublons, mesure));
+        ecoute.Start();
+
+        // La personne de la clé courante (« pendant » écrit avec la nouvelle clé) est retenue.
+        var recherche = await PersonnesApiFixture.Client(hotes.Pendant, Roles.Cpmt).PostAsJsonAsync("/api/v1/personnes/recherche", new { niss }, _ct);
+        recherche.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await recherche.Content.ReadFromJsonAsync<PersonneResumeDto>(Json, _ct))!.Id.ShouldBe(nouvelle);
+
+        Interlocked.Read(ref doublons).ShouldBe(1);
+        var avertissement = hotes.JournalPendant.Entrees.Where(e => e.Contains("Doublon de NISS", StringComparison.Ordinal)).ShouldHaveSingleItem();
+        avertissement.ShouldContain(nouvelle.ToString());
+        avertissement.ShouldContain(ancienne.ToString());
+        hotes.JournalPendant.Entrees.ShouldAllBe(e => !e.Contains(niss, StringComparison.Ordinal));
+        foreach (var (_, empreinte) in empreintes)
+        {
+            hotes.JournalPendant.Entrees.ShouldAllBe(e => !e.Contains(empreinte, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Une seule empreinte connue (hôte « après ») : aucun doublon vu, aucune alerte.
+        (await PersonnesApiFixture.Client(hotes.Apres, Roles.Cpmt).PostAsJsonAsync("/api/v1/personnes/recherche", new { niss }, _ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        hotes.JournalApres.Entrees.ShouldNotContain(e => e.Contains("Doublon de NISS", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task La_kcv_de_chaque_cle_de_l_index_est_journalisee_au_demarrage()
+    {
+        await using var hotes = await HotesAsync();
+        var pendant = hotes.Pendant.Services.GetRequiredService<BlindIndex>();
+        var apres = hotes.Apres.Services.GetRequiredService<BlindIndex>();
+        var avant = hotes.Avant.Services.GetRequiredService<BlindIndex>();
+
+        pendant.Kcv.ShouldBe(apres.Kcv);
+        pendant.KcvPrecedente.ShouldBe(avant.Kcv);
+        pendant.Kcv.ShouldNotBe(avant.Kcv);
+        Kcvs(hotes.JournalPendant).ShouldBe([$"clé courante, KCV {pendant.Kcv}.", $"clé précédente acceptée en lecture, KCV {pendant.KcvPrecedente}."]);
+        Kcvs(hotes.JournalApres).ShouldBe([$"clé courante, KCV {apres.Kcv}."]);
+        Kcvs(hotes.JournalAvant).ShouldBe([$"clé courante, KCV {avant.Kcv}."]);
+
+        static List<string> Kcvs(JournalCapture journal) =>
+        [
+            .. journal.Entrees
+                .Select(e => System.Text.RegularExpressions.Regex.Match(e, "Index aveugle personne\\.niss_hash : (.*?KCV [0-9a-f]{8}\\.)"))
+                .Where(m => m.Success)
+                .Select(m => m.Groups[1].Value),
+        ];
+    }
+
     private static IReadOnlyList<IndexAveugleChiffre> IndexDuService(IServiceProvider services, Microsoft.EntityFrameworkCore.Metadata.IModel modele) =>
         [IndexPersonnes.IndexAveugleNiss(modele, services.GetRequiredService<BlindIndex>())];
 
@@ -230,11 +299,19 @@ public sealed class RotationIndexAveugleTests(PersonnesApiFixture fixture) : ICl
         avant[Courante] = pendant[Precedente];
         var apres = pendant.Where(c => c.Key != Precedente).ToDictionary(c => c.Key, c => c.Value);
 
+        var journalAvant = new JournalCapture();
+        var journalPendant = new JournalCapture();
+        var journalApres = new JournalCapture();
         var hotes = new Hotes(
             connexion,
-            PersonnesApiFixture.CreerHote(connexion, new JournalCapture(), avant),
-            PersonnesApiFixture.CreerHote(connexion, new JournalCapture(), pendant),
-            PersonnesApiFixture.CreerHote(connexion, new JournalCapture(), apres));
+            PersonnesApiFixture.CreerHote(connexion, journalAvant, avant),
+            PersonnesApiFixture.CreerHote(connexion, journalPendant, pendant),
+            PersonnesApiFixture.CreerHote(connexion, journalApres, apres))
+        {
+            JournalAvant = journalAvant,
+            JournalPendant = journalPendant,
+            JournalApres = journalApres,
+        };
         _ = hotes.Avant.Server;
         _ = hotes.Pendant.Server;
         _ = hotes.Apres.Server;
@@ -244,6 +321,12 @@ public sealed class RotationIndexAveugleTests(PersonnesApiFixture fixture) : ICl
     private sealed record Hotes(string Connexion, WebApplicationFactory<Program> Avant, WebApplicationFactory<Program> Pendant, WebApplicationFactory<Program> Apres)
         : IAsyncDisposable
     {
+        public required JournalCapture JournalAvant { get; init; }
+
+        public required JournalCapture JournalPendant { get; init; }
+
+        public required JournalCapture JournalApres { get; init; }
+
         public async ValueTask DisposeAsync()
         {
             await Avant.DisposeAsync();

@@ -136,6 +136,19 @@ public sealed class BlindIndex
     public IReadOnlyList<string> Empreintes(string value) =>
         _clePrecedente is null ? [Compute(value)] : [Compute(value), Calculer(_clePrecedente, value)];
 
+    /// <summary>
+    /// Valeur de contrôle (KCV, #514) de la clé courante : 8 premiers caractères hexadécimaux (minuscules) de
+    /// HMAC-SHA256(clé, « kcv »). Elle identifie la clé en service sans rien en révéler d'exploitable (32 bits d'un HMAC) :
+    /// journalisée au démarrage, elle permet de vérifier après une rotation que chaque réplique et chaque job utilisent la
+    /// nouvelle clé, et non la clé compromise.
+    /// </summary>
+    public string Kcv => CalculerKcv(_cle);
+
+    /// <summary>Valeur de contrôle de la clé précédente ; <c>null</c> hors rotation.</summary>
+    public string? KcvPrecedente => _clePrecedente is null ? null : CalculerKcv(_clePrecedente);
+
+    private static string CalculerKcv(byte[] cle) => Convert.ToHexStringLower(HMACSHA256.HashData(cle, "kcv"u8))[..8];
+
     private static string Calculer(byte[] cle, string value)
     {
         var normalized = new string(value.Where(char.IsAsciiLetterOrDigit).ToArray()).ToUpperInvariant();
@@ -149,6 +162,14 @@ public sealed class BlindIndex
 /// le marqueur et le suffixe <c>_chiffre</c>/<c>_chiffree</c> ne vont pas ensemble, ou un convertisseur qui utilise
 /// <see cref="FieldEncryptor"/> sans le porter.
 /// </summary>
+/// <remarks>
+/// <b>Un convertisseur qui chiffre appelle <see cref="FieldEncryptor"/> directement</b> dans ses expressions de conversion,
+/// comme <see cref="EncryptedStringConverter"/> et <see cref="ConvertisseurChiffre{TModele}"/>, sans intermédiaire (#502).
+/// Le contrôle du modèle ne repère un convertisseur non marqué que par la référence au chiffreur dans ses expressions : un
+/// intermédiaire (méthode d'aide, service qui enveloppe le chiffreur, délégué capturé) lui échappe. Seule la vérification
+/// fondée sur les données (<see cref="VerificationChiffrement"/>) rattrape alors la colonne, et seulement tant qu'elle
+/// contient des valeurs.
+/// </remarks>
 #pragma warning disable CA1040 // Interface de marquage voulue : détectée sur l'instance du convertisseur dans le modèle EF Core.
 public interface IConvertisseurChiffrement;
 #pragma warning restore CA1040

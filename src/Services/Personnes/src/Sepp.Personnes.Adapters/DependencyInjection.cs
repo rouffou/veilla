@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.BuildingBlocks.Infrastructure.Security;
@@ -46,8 +47,10 @@ public static class DependencyInjection
             sp.GetRequiredService<IConfiguration>().GetSection("Encryption"), sp.GetRequiredService<IHostEnvironment>(), sp.GetService<IOperationsCleRacine>()));
         services.AddSingleton(sp => sp.GetRequiredService<ChiffrementChamps>().Cles);
         services.AddSingleton<FieldEncryptor>();
-        services.AddSingleton(sp => CreerIndexAveugle(sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<ChiffrementChamps>()));
+        services.AddSingleton(sp => CreerIndexAveugle(
+            sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<ChiffrementChamps>(), sp.GetRequiredService<ILoggerFactory>()));
         services.AddSingleton<INissIndex, NissIndex>();
+        services.AddSingleton<AlerteDoublonsNiss>();
 
         services.AddScoped<IPersonneRepository, PersonneRepository>();
         services.AddScoped<IContexteAffilie, ContexteAffilieJeton>();
@@ -70,12 +73,18 @@ public static class DependencyInjection
     public static IndexAveugleChiffre IndexAveugleNiss(IModel modele, BlindIndex index) =>
         new(ColonneIndexAveugle.Depuis(modele, typeof(Personne), nameof(Personne.Niss), nameof(Personne.NissHash)), index);
 
-    private static BlindIndex CreerIndexAveugle(IConfiguration configuration, ChiffrementChamps chiffrement)
+    /// <summary>
+    /// Clés de l'index aveugle, déballées au démarrage ; leur KCV est journalisée (#514) : la procédure d'incident vérifie
+    /// ainsi que le service, le recalcul et la vérification utilisent la nouvelle clé.
+    /// </summary>
+    private static BlindIndex CreerIndexAveugle(IConfiguration configuration, ChiffrementChamps chiffrement, ILoggerFactory journaux)
     {
         var precedente = configuration[BlindIndexPreviousWrappedKeySetting];
-        return new BlindIndex(
+        var index = new BlindIndex(
             LireCleIndexAveugle(configuration, chiffrement),
             string.IsNullOrWhiteSpace(precedente) ? null : chiffrement.Desenvelopper(precedente, BlindIndexPreviousWrappedKeySetting));
+        JournalIndexAveugle.JournaliserCles(journaux.CreateLogger(JournalIndexAveugle.Categorie), "personne.niss_hash", index);
+        return index;
     }
 
     /// <summary>
