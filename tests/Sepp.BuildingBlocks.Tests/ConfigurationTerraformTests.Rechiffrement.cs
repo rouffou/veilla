@@ -164,7 +164,33 @@ public sealed partial class ConfigurationTerraformTests
         controle.ShouldContain("actions: read", Case.Sensitive);
         controle.ShouldContain("base/tools/deploy/controler-verification-recente.sh", Case.Sensitive);
         controle.ShouldNotContain("pr/tools", Case.Sensitive);
+        controle.ShouldNotContain("bash pr/", Case.Sensitive);
         controle.ShouldContain("ref: ${{ github.event.pull_request.base.sha }}", Case.Sensitive);
+
+        // D8 : pull_request_target (le workflow est celui de main, la PR ne peut pas le modifier), lecture seule de la PR.
+        controle.ShouldContain("pull_request_target:", Case.Sensitive);
+        Regex.IsMatch(controle, @"(?m)^\s*pull_request:").ShouldBeFalse("Jamais pull_request en plus : le fichier de la PR serait exécuté.");
+        controle.ShouldContain("ref: ${{ github.event.pull_request.head.sha }}", Case.Sensitive);
+        Regex.IsMatch(controle, @"(?ms)^permissions:\s*\n\s*contents: read\s*\n\s*actions: read[^\n]*\n\s*\n").ShouldBeTrue("Permissions du workflow : contents: read et actions: read seulement.");
+        Regex.Count(controle, @"uses: actions/checkout@").ShouldBe(Regex.Count(controle, @"persist-credentials: false"), "persist-credentials: false à chaque récupération.");
+        controle.ShouldNotContain("actions/cache", Case.Sensitive);
+        controle.ShouldNotContain("setup-", Case.Sensitive);
+        controle.ShouldNotContain("npm ", Case.Sensitive);
+        controle.ShouldNotContain("dotnet ", Case.Sensitive);
+        controle.ShouldNotContain("workflow_run", Case.Sensitive);
+        controle.ShouldContain("sparse-checkout: infra/environments", Case.Sensitive);
+        // Aucune donnée contrôlable par l'auteur de la PR (titre, corps, nom de branche, étiquettes) dans le workflow.
+        foreach (var interdit in new[] { "pull_request.title", "pull_request.body", "head.ref", "head_ref", "head.label", "pull_request.labels", "head.repo", "github.head_ref" })
+        {
+            controle.ShouldNotContain(interdit, Case.Sensitive);
+        }
+
+        // Les seules expressions de l'évènement sont des SHA, le numéro de la PR ou le nom de l'évènement.
+        foreach (var expression in Regex.Matches(controle, @"\$\{\{[^}]*github\.event[^}]*\}\}").Select(m => m.Value))
+        {
+            Regex.IsMatch(expression, @"github\.event\.pull_request\.(base|head)\.sha|github\.event\.pull_request\.number|github\.event_name")
+                .ShouldBeTrue($"Expression d'évènement non autorisée dans controle-cles.yml : {expression}");
+        }
         controle.ShouldContain("base/tools/deploy/detecter-modification-cles.sh", Case.Sensitive);
         controle.ShouldContain("merge_group", Case.Sensitive);
         controle.ShouldContain("Statut contrôle des clés", Case.Sensitive);
@@ -186,6 +212,40 @@ public sealed partial class ConfigurationTerraformTests
             Regex.IsMatch(mainEnvironnement, @"(?m)^\s*encryption_key_ids\s*=\s*var\.encryption_key_ids\s*$").ShouldBeTrue($"{dossier}/main.tf : encryption_key_ids = var.encryption_key_ids.");
             Regex.IsMatch(mainEnvironnement, @"(?m)^\s*encryption_legacy_key_ids\s*=\s*var\.encryption_legacy_key_ids\s*$").ShouldBeTrue($"{dossier}/main.tf : encryption_legacy_key_ids = var.encryption_legacy_key_ids.");
         }
+    }
+
+    [Fact]
+    public void L_injection_des_secrets_deks_et_keys_de_main_tf_est_figee()
+    {
+        // Le garde-fou de #474 s'appuie sur encryption_key_ids et encryption_legacy_key_ids : si la façon dont ils deviennent des
+        // secrets --deks-- et --keys-- change, le contrôle des clés (détection, jobs rech-/verif-) doit être revu avec elle.
+        var bloc = Regex.Replace(BlocLocal(Terraform.Lire().Main, "service_key_vault_secrets"), @"\s+", string.Empty);
+        var attendus = new[]
+        {
+            """
+            merge({}, [
+              for prefixe, zone in s.encryption : {
+                for id in var.encryption_key_ids :
+                "${local.secret_name_prefix[n][prefixe]}--deks--${lower(id)}" => "${module.keyvault[zone].key_vault_uri}secrets/${startswith(local.secret_name_prefix[n][prefixe], "${n}--") ? "" : "${n}--"}${local.secret_name_prefix[n][prefixe]}--deks--${lower(id)}"
+              }
+            ]...),
+            """,
+            """
+            merge({}, [
+              for prefixe, zone in s.encryption : {
+                for id in var.encryption_legacy_key_ids :
+                "${local.secret_name_prefix[n][prefixe]}--keys--${lower(id)}" => "${module.keyvault[zone].key_vault_uri}secrets/${startswith(local.secret_name_prefix[n][prefixe], "${n}--") ? "" : "${n}--"}${local.secret_name_prefix[n][prefixe]}--keys--${lower(id)}"
+              }
+            ]...),
+            """,
+        };
+        foreach (var attendu in attendus)
+        {
+            bloc.ShouldContain(Regex.Replace(attendu, @"\s+", string.Empty), Case.Sensitive, "Bloc d'injection des secrets --deks-- ou --keys-- modifié : adapter le contrôle des clés (#474) avec lui.");
+        }
+
+        // Les jobs de rechiffrement reçoivent exactement les mêmes secrets que la Container App.
+        Regex.Count(Terraform.Lire().Main, @"key_vault_secrets\s*=\s*local\.service_key_vault_secrets\[each\.key\]").ShouldBe(3, "Container App, rech- et verif-.");
     }
 
     /// <summary>Retire les commentaires YAML (<c>#</c> en début de ligne ou précédé d'un espace).</summary>

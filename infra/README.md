@@ -510,8 +510,9 @@ hors de l'historique des exécutions GitHub.
   `environment: <env>` ni obtenir l'identité OIDC ;
 - `preprod` et `prod` exigent en plus l'approbation du responsable produit ;
 - le statut **Statut contrôle des clés** (`controle-cles.yml`) est à ajouter aux contrôles exigés du ruleset de `main`
-  **après la fusion de la PR #506** (le contrôle doit d'abord exister sur `main`). Tant que ce n'est pas fait, il informe
-  sans bloquer la fusion : ne pas s'y fier seul.
+  **après la fusion de la PR #506 et le constat décrit plus bas** (rattachement du statut d'un `pull_request_target`).
+  Tant que ce n'est pas fait, il informe sans bloquer la fusion : ne pas s'y fier seul ;
+- un ruleset interdit les étiquettes `main`, `master` et `HEAD`.
 
 **Les deux workflows.**
 
@@ -536,23 +537,46 @@ hors de l'historique des exécutions GitHub.
    - **annuler le workflow n'arrête pas l'exécution Azure** : le job `verif-<service>` déjà démarré va à son terme
      (la vérification ne fait que lire, mais elle occupe la base). Après une annulation, vérifier les exécutions en cours
      (commande ci-dessous) avant de relancer ; le script refuse de démarrer un job qui a déjà une exécution en cours.
-2. **`controle-cles.yml`** : s'exécute sur chaque PR, **sans environnement, sans `id-token` et sans secret** (seulement
-   `contents: read` et `actions: read`). Il détecte les environnements dont ces variables changent (la détection ne dépend pas de la présence de `blind_index_previous_key_enabled` : absente des deux révisions, elle ne change rien)
+2. **`controle-cles.yml`** : évènement **`pull_request_target`** (le fichier de workflow est celui de `main`), **sans
+   environnement, sans `id-token`, sans secret, sans `actions/cache`** : seulement `contents: read` et `actions: read`, et
+   `persist-credentials: false`. Il détecte les environnements dont ces variables changent (la détection ne dépend pas de la
+   présence de `blind_index_previous_key_enabled` : absente des deux révisions, elle ne change rien)
    (`tools/deploy/detecter-modification-cles.sh` : commentaires, espaces et mise en forme ignorés ; ajout, retrait,
-   réordonnancement, branchement dans `main.tf` de l'environnement et suppression de fichier comptent). Pour chacun, il
-   exige par l'API GitHub (`tools/deploy/controler-verification-recente.sh`) une exécution **réussie** de
-   `verification-cles.yml`, sur `main`, déclenchée par `workflow_dispatch`, pour cet environnement, de moins de 24 h.
+   réordonnancement, branchement dans `main.tf` de l'environnement et suppression de fichier comptent), par rapport à
+   l'ancêtre commun de la PR et de `main`. Pour chacun, il exige par l'API GitHub
+   (`tools/deploy/controler-verification-recente.sh`) une exécution **réussie** de `verification-cles.yml`, sur `main`,
+   déclenchée par `workflow_dispatch`, pour cet environnement, démarrée il y a moins de 24 h (`run_started_at`), dont le
+   `head_sha` est un ancêtre de `origin/main` et qui a un déploiement GitHub réussi dans cet environnement pour ce
+   `head_sha` (un job qui référence un environnement crée un déploiement GitHub : à constater à la première exécution).
    Sinon il échoue et affiche la commande à lancer ; relancer ensuite le contrôle (*Re-run jobs*). Sans changement de
-   clés, il passe tout de suite. Dans la file de fusion, la vérification faite sur la PR fait foi.
-   - **Scripts de `main`** : le workflow récupère la base de la PR (`main`) dans `base/` et n'exécute que ses scripts ;
-     la PR est récupérée à part (`pr/`) uniquement pour en lire le diff. Un script modifié par la PR n'est donc jamais
-     exécuté par le contrôle.
+   clés, il passe tout de suite. `jq` est requis (présent sur `ubuntu-latest`) : sans lui, le script s'arrête avec un
+   message clair.
+   - **Aucun code de la PR n'est exécuté** : la PR est récupérée par son SHA de tête, en lecture seule
+     (`sparse-checkout: infra/environments`), pour `git diff --name-only` et `git show` seulement. Tous les scripts viennent
+     de la base (`base/`, SHA de base). Aucune donnée de la PR (titre, branche, corps) ne passe dans un `run:` : seuls des
+     SHA, par `env:`. Les forks n'ont ni secret ni droit d'écriture : le workflow leur est inoffensif. Un test
+     d'architecture (`ConfigurationTerraformTests`) interdit les environnements, `id-token`, secrets, `actions/cache`, les
+     builds et ces données dans le workflow.
+   - **File de fusion** (`merge_group`) : le workflow y répond sans rien vérifier, la vérification faite sur la PR fait foi
+     (le statut exigé de la PR, calculé par la version de `main`, reste la barrière).
+   - **Rattachement du statut à la PR : à constater avant de l'exiger.** Avec `pull_request_target`, `GITHUB_SHA` est le
+     sommet de la base : que le statut soit rattaché au commit de tête de la PR (donc exigible) ne se vérifie qu'une fois le
+     workflow sur `main`. Procédure : après la fusion de #506, ouvrir une PR de test, constater que « Statut contrôle des
+     clés » apparaît dans ses contrôles et sur son commit de tête, et seulement alors l'ajouter aux contrôles exigés du
+     ruleset. Sinon (statut absent), ne pas l'exiger : revenir à l'évènement `pull_request` (en gardant les scripts de
+     `base/`), en acceptant que la PR puisse alors modifier ce workflow.
 
 Limites connues, à connaître avant de s'y fier :
 
-- le fichier de workflow `controle-cles.yml` lui-même est, pour l'évènement `pull_request`, celui de la PR : une PR qui le
-  modifierait pourrait le neutraliser. Il n'a ni secret ni accès Azure, mais la revue des fichiers `.github/workflows/`
-  reste nécessaire avant toute fusion ;
+- `controle-cles.yml` utilise `pull_request_target` : son fichier est celui de `main`, une PR ne peut pas le modifier pour
+  se faire passer (décision D8). Toute modification de ce workflow n'agit donc qu'après sa fusion : la revue des fichiers
+  `.github/workflows/` reste nécessaire à ce moment ;
+- une étiquette ou une branche nommée `main` pourrait faire passer une exécution lancée ailleurs pour une exécution de
+  `main` : un ruleset interdit les étiquettes `main`, `master` et `HEAD`, et le contrôle ajoute deux défenses (voir
+  ci-dessus : `head_sha` ancêtre de `origin/main`, déploiement GitHub réussi dans l'environnement) ;
+- re-lancer une **ancienne** exécution (*Re-run*) fait repartir `run_started_at` : c'est une vraie nouvelle exécution des
+  jobs `verif-<service>` sur l'état actuel de la base, mais avec le code de workflow de son commit d'origine. La date retenue
+  est `run_started_at`, pas `updated_at` (qu'une annulation ou une relance modifient aussi) ;
 - un `apply` fait à la main hors du dépôt échappe à ce contrôle : la procédure ci-dessous (vérification dans les 24 h
   avant tout `apply`) est alors la seule barrière ;
 - la fraîcheur de 24 h est contrôlée à la PR, pas à l'`apply` : voir la procédure ;
