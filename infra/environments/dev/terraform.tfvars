@@ -64,7 +64,7 @@ adapter_mode = "Simulateur"
 encryption_key_ids = ["D1"]
 # Anciennes clés AES du format v1 (secrets <service>--<préfixe>--keys--k1), en lecture seule : à vider une fois toutes
 # les valeurs v1 rechiffrées, ou dès l'origine pour un environnement sans données antérieures (à valider par environnement).
-encryption_legacy_key_ids = ["K1"]
+encryption_legacy_key_ids = []
 
 # Observabilité
 log_retention_days = 30
