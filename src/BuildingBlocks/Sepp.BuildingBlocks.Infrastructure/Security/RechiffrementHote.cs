@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,8 +17,10 @@ namespace Sepp.BuildingBlocks.Infrastructure.Security;
 /// <item><c>Rechiffrement:VerifierSeulement=true</c> vérifie seulement, sans rien écrire (garde-fou avant le retrait d'une
 /// clé, étape bloquante du pipeline : #474). Il l'emporte sur le mode précédent si les deux sont demandés.</item>
 /// </list>
-/// Code de sortie : 0 si plus aucune valeur n'utilise une autre clé que la DEK courante et qu'aucune valeur chiffrée n'est
-/// hors du modèle, 1 sinon (y compris en cas d'échec). Contrairement au job de migration, ces modes ont besoin de la
+/// Un service qui porte un index aveugle (Personnes, #473) le déclare : il est recalculé avec sa clé courante après le
+/// rechiffrement, ou seulement vérifié par recalcul (<see cref="RecalculIndexAveugle"/>).
+/// Code de sortie : 0 si plus aucune valeur n'utilise une autre clé que la DEK courante, qu'aucune valeur chiffrée n'est
+/// hors du modèle et que chaque empreinte d'index aveugle est celle de la clé courante, 1 sinon (y compris en cas d'échec). Contrairement au job de migration, ces modes ont besoin de la
 /// configuration des clés du service : ils s'exécutent avec l'identité et la configuration d'exécution du service.
 /// </summary>
 public static partial class RechiffrementHote
@@ -46,14 +49,32 @@ public static partial class RechiffrementHote
     /// <param name="chiffreur">Chiffreur des champs du service (DEK courante et anciennes clés configurées).</param>
     /// <param name="cancellationToken">Annulation.</param>
     /// <returns><c>null</c> si le service doit servir les requêtes, sinon le code de sortie du processus.</returns>
+    public static Task<int?> RechiffrerChampsAsync<TContext>(
+        this IHost host,
+        Func<IServiceProvider, FieldEncryptor> chiffreur,
+        CancellationToken cancellationToken = default)
+        where TContext : DbContext =>
+        host.RechiffrerChampsAsync<TContext>(chiffreur, static (_, _) => [], cancellationToken);
+
+    /// <summary>
+    /// Exécute le rechiffrement ou la vérification si l'un des modes est demandé, en traitant aussi les index aveugles
+    /// du service (#473) : recalcul avec la clé courante puis vérification, ou vérification seule.
+    /// </summary>
+    /// <param name="host">Hôte construit du service (après le mode de migration et le contrôle des clés).</param>
+    /// <param name="chiffreur">Chiffreur des champs du service (DEK courante et anciennes clés configurées).</param>
+    /// <param name="indexAveugles">Index aveugles du service, d'après le modèle EF Core du contexte.</param>
+    /// <param name="cancellationToken">Annulation.</param>
+    /// <returns><c>null</c> si le service doit servir les requêtes, sinon le code de sortie du processus.</returns>
     public static async Task<int?> RechiffrerChampsAsync<TContext>(
         this IHost host,
         Func<IServiceProvider, FieldEncryptor> chiffreur,
+        Func<IServiceProvider, IModel, IReadOnlyList<IndexAveugleChiffre>> indexAveugles,
         CancellationToken cancellationToken = default)
         where TContext : DbContext
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(chiffreur);
+        ArgumentNullException.ThrowIfNull(indexAveugles);
         var configuration = host.Services.GetRequiredService<IConfiguration>();
         var verifier = configuration.GetValue(CleVerifierSeulement, false);
         if (!verifier && !configuration.GetValue(CleExecuterPuisQuitter, false))
@@ -64,9 +85,21 @@ public static partial class RechiffrementHote
         var journal = host.Services.GetService<ILoggerFactory>()?.CreateLogger(CategorieJournal) ?? NullLogger.Instance;
         try
         {
-            var complet = verifier
-                ? (await VerifierAsync<TContext>(host.Services, chiffreur, Options(configuration), journal, cancellationToken)).Complet
-                : (await ExecuterAsync<TContext>(host.Services, chiffreur, Options(configuration), journal, cancellationToken)).Complet;
+            var options = Options(configuration);
+            bool complet;
+            if (verifier)
+            {
+                var chiffrement = await VerifierAsync<TContext>(host.Services, chiffreur, options, journal, cancellationToken);
+                var index = await VerifierIndexAveuglesAsync<TContext>(host.Services, chiffreur, indexAveugles, options, journal, cancellationToken);
+                complet = chiffrement.Complet && index.All(i => i.Complet);
+            }
+            else
+            {
+                var chiffrement = await ExecuterAsync<TContext>(host.Services, chiffreur, options, journal, cancellationToken);
+                var index = await RecalculerIndexAveuglesAsync<TContext>(host.Services, chiffreur, indexAveugles, options, journal, cancellationToken);
+                complet = chiffrement.Complet && index.All(i => i.Complet);
+            }
+
             return complet ? CodeComplet : CodeIncomplet;
         }
         catch (Exception erreur) when (erreur is not OutOfMemoryException)
@@ -128,6 +161,91 @@ public static partial class RechiffrementHote
         {
             await contexte.Database.CloseConnectionAsync();
         }
+    }
+
+    /// <summary>
+    /// Recalcule les index aveugles du contexte avec leur clé courante, puis les vérifie (#473 ; utilisable aussi par les tests).
+    /// </summary>
+    public static async Task<IReadOnlyList<RapportRecalculIndexAveugle>> RecalculerIndexAveuglesAsync<TContext>(
+        IServiceProvider services,
+        Func<IServiceProvider, FieldEncryptor> chiffreur,
+        Func<IServiceProvider, IModel, IReadOnlyList<IndexAveugleChiffre>> indexAveugles,
+        OptionsRechiffrement options,
+        ILogger journal,
+        CancellationToken cancellationToken = default)
+        where TContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(chiffreur);
+        ArgumentNullException.ThrowIfNull(indexAveugles);
+        await using var scope = services.CreateAsyncScope();
+        var contexte = scope.ServiceProvider.GetRequiredService<TContext>();
+        var index = indexAveugles(scope.ServiceProvider, contexte.Model);
+        if (index.Count == 0)
+        {
+            return [];
+        }
+
+        var rapports = new List<RapportRecalculIndexAveugle>(index.Count);
+        await contexte.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            foreach (var indexAveugle in index)
+            {
+                rapports.Add(await RecalculIndexAveugle.ExecuterAsync(
+                    contexte.Database.GetDbConnection(), chiffreur(scope.ServiceProvider), indexAveugle, options, journal,
+                    scope.ServiceProvider.GetService<TimeProvider>(), cancellationToken));
+            }
+        }
+        finally
+        {
+            await contexte.Database.CloseConnectionAsync();
+        }
+
+        return rapports;
+    }
+
+    /// <summary>
+    /// Vérifie, sans rien écrire, que chaque empreinte des index aveugles du contexte est calculée avec la clé courante
+    /// (#473 ; utilisable aussi par les tests).
+    /// </summary>
+    public static async Task<IReadOnlyList<RapportVerificationIndexAveugle>> VerifierIndexAveuglesAsync<TContext>(
+        IServiceProvider services,
+        Func<IServiceProvider, FieldEncryptor> chiffreur,
+        Func<IServiceProvider, IModel, IReadOnlyList<IndexAveugleChiffre>> indexAveugles,
+        OptionsRechiffrement options,
+        ILogger journal,
+        CancellationToken cancellationToken = default)
+        where TContext : DbContext
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(chiffreur);
+        ArgumentNullException.ThrowIfNull(indexAveugles);
+        ArgumentNullException.ThrowIfNull(options);
+        await using var scope = services.CreateAsyncScope();
+        var contexte = scope.ServiceProvider.GetRequiredService<TContext>();
+        var index = indexAveugles(scope.ServiceProvider, contexte.Model);
+        if (index.Count == 0)
+        {
+            return [];
+        }
+
+        var rapports = new List<RapportVerificationIndexAveugle>(index.Count);
+        await contexte.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            foreach (var indexAveugle in index)
+            {
+                rapports.Add(await RecalculIndexAveugle.VerifierAsync(
+                    contexte.Database.GetDbConnection(), chiffreur(scope.ServiceProvider), indexAveugle, options.DelaiVerrou, journal, cancellationToken));
+            }
+        }
+        finally
+        {
+            await contexte.Database.CloseConnectionAsync();
+        }
+
+        return rapports;
     }
 
     /// <summary>Paramètres facultatifs : <c>Rechiffrement:TailleLot</c> et <c>Rechiffrement:PauseEntreLots</c>.</summary>

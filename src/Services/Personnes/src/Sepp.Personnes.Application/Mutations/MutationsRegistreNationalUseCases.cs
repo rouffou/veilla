@@ -71,14 +71,14 @@ public sealed class EnregistrerMutationRegistreNationalHandler(
             return Error.Validation("mutation.reference-invalide", "La référence de la mutation est obligatoire (100 caractères maximum).");
         }
 
-        var hash = index.Calculer(niss);
+        var empreintes = index.Empreintes(niss);
         var dejaConnue = await repository.GetParReferenceMutationAsync(reference, cancellationToken);
-        if (dejaConnue is not null && dejaConnue.NissHash != hash)
+        if (dejaConnue is not null && !empreintes.Contains(dejaConnue.NissHash))
         {
             return Error.Conflict("mutation.reference-conflit", $"La référence de mutation {reference} est déjà enregistrée pour une autre personne.");
         }
 
-        var personne = dejaConnue ?? await repository.GetParNissHashAsync(hash, cancellationToken);
+        var personne = dejaConnue ?? await repository.GetParEmpreintesNissAsync(empreintes, cancellationToken);
         if (personne is null)
         {
             // Mutation d'une personne que le SEPP ne suit pas (encore) : rien à mettre à jour. Une entrée DIMONA ultérieure

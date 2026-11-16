@@ -631,6 +631,36 @@ public sealed partial class ConfigurationTerraformTests
         terraform.Services["personnes"].KeyVaultSecrets.ShouldBe(new[] { "blindindex--cleenveloppee" });
     }
 
+    [Fact]
+    public void La_cle_precedente_de_l_index_aveugle_n_est_injectee_que_pendant_une_rotation()
+    {
+        // #473 : BlindIndex:CleEnveloppeePrecedente est facultative (absente hors rotation). Terraform la référence, comme
+        // secret Key Vault du coffre de la zone du service, seulement si var.blind_index_previous_key_enabled vaut true :
+        // une référence vers un secret absent ferait échouer l'apply.
+        var terraform = Terraform.Lire();
+        Regex.IsMatch(terraform.Variables, @"variable ""blind_index_previous_key_enabled"" \{[^}]*type\s*=\s*bool\s*default\s*=\s*false\s*\}")
+            .ShouldBeTrue("Variable blind_index_previous_key_enabled (bool, false par défaut) absente de infra/variables.tf.");
+        Regex.IsMatch(terraform.Main,
+                @"var\.blind_index_previous_key_enabled && contains\(keys\(s\.key_vault_secrets\), ""blindindex--cleenveloppee""\) \? \{\s*" +
+                @"""blindindex--cleenveloppeeprecedente"" = ""\$\{module\.keyvault\[s\.zone\]\.key_vault_uri\}secrets/blindindex--cleenveloppeeprecedente""\s*\} : \{\}")
+            .ShouldBeTrue("main.tf doit référencer blindindex--cleenveloppeeprecedente, pendant une rotation seulement, dans le coffre de la zone du service.");
+        Regex.IsMatch(terraform.Main, @"service_key_vault_secrets = \{(?:(?!common_environment)[\s\S])*blind_index_previous_key_enabled(?:(?!common_environment)[\s\S])*\}\s*common_environment = \{")
+            .ShouldBeTrue("La clé précédente fait partie des références Key Vault du service (local.service_key_vault_secrets).");
+
+        // Le secret est exposé sous le nom lu par le code (BLINDINDEX__CLEENVELOPPEEPRECEDENTE).
+        Normaliser("blindindex--cleenveloppeeprecedente".Replace('-', '_')).ShouldBe(Normaliser("BlindIndex:CleEnveloppeePrecedente"));
+
+        // Chaque environnement déclare et transmet la variable.
+        foreach (var dossier in Directory.GetDirectories(Path.Combine(Terraform.RacineDepot(), "infra", "environments")))
+        {
+            var env = Path.GetFileName(dossier);
+            Regex.IsMatch(File.ReadAllText(Path.Combine(dossier, "main.tf")), @"blind_index_previous_key_enabled\s*=\s*var\.blind_index_previous_key_enabled")
+                .ShouldBeTrue($"{env} : main.tf ne transmet pas blind_index_previous_key_enabled.");
+            File.ReadAllText(Path.Combine(dossier, "variables.tf")).ShouldContain("variable \"blind_index_previous_key_enabled\"", Case.Sensitive,
+                $"{env} : variables.tf ne déclare pas blind_index_previous_key_enabled.");
+        }
+    }
+
     private static string BlocModule(string main, string nom)
     {
         var debut = main.IndexOf($"module \"{nom}\" {{", StringComparison.Ordinal);

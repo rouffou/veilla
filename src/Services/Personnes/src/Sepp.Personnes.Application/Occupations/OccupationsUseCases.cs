@@ -178,7 +178,7 @@ public sealed class EnregistrerEntreeDimonaHandler(
         var dejaConnue = await repository.GetParReferenceDimonaAsync(reference, cancellationToken);
         if (dejaConnue is not null)
         {
-            if (dejaConnue.NissHash != index.Calculer(niss))
+            if (!index.Empreintes(niss).Contains(dejaConnue.NissHash))
             {
                 return Error.Conflict("occupation.dimona-conflit", $"La référence DIMONA {reference} est déjà enregistrée pour une autre personne.");
             }

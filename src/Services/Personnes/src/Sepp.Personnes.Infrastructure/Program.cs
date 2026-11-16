@@ -33,9 +33,12 @@ _ = app.Services.GetRequiredService<FieldEncryptor>();
 _ = app.Services.GetRequiredService<IFieldKeyProvider>();
 _ = app.Services.GetRequiredService<BlindIndex>();
 
-// ADR 0012, #396, #482 : « rechiffrer puis quitter » ou « vérifier seulement » (jobs d'exploitation) : toutes les valeurs
-// chiffrées passent à la DEK courante, ou sont seulement contrôlées (code 0 ou 1).
-if (await app.RechiffrerChampsAsync<PersonnesDbContext>(s => s.GetRequiredService<FieldEncryptor>()) is { } codeRechiffrement)
+// ADR 0012, #396, #482, #473 : « rechiffrer puis quitter » ou « vérifier seulement » (jobs d'exploitation) : toutes les
+// valeurs chiffrées passent à la DEK courante et l'index aveugle du NISS à la clé courante, ou sont seulement contrôlés
+// (code 0 ou 1).
+if (await app.RechiffrerChampsAsync<PersonnesDbContext>(
+        s => s.GetRequiredService<FieldEncryptor>(),
+        (s, modele) => [Sepp.Personnes.Adapters.DependencyInjection.IndexAveugleNiss(modele, s.GetRequiredService<BlindIndex>())]) is { } codeRechiffrement)
 {
     Environment.ExitCode = codeRechiffrement;
     return;

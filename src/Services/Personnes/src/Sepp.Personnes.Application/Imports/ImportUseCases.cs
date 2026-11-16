@@ -120,7 +120,8 @@ public sealed class ImporterTravailleursHandler(
                 continue;
             }
 
-            // AFF-21 : doublon dans le fichier lui-même.
+            // AFF-21 : doublon dans le fichier lui-même (une seule clé suffit : toutes les lignes sont calculées avec la clé
+            // courante). Le doublon avec une personne connue porte, lui, sur toutes les empreintes acceptées (#473).
             var hash = index.Calculer(lue.Niss!);
             if (vus.TryGetValue(hash, out var premiere))
             {

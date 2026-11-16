@@ -11,8 +11,18 @@ internal sealed class PersonneRepository(PersonnesDbContext db) : IPersonneRepos
     public Task<Personne?> GetAsync(Guid id, CancellationToken cancellationToken) =>
         db.Personnes.AsSplitQuery().SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
 
-    public Task<Personne?> GetParNissHashAsync(string nissHash, CancellationToken cancellationToken) =>
-        db.Personnes.AsSplitQuery().SingleOrDefaultAsync(p => p.NissHash == nissHash, cancellationToken);
+    public async Task<Personne?> GetParEmpreintesNissAsync(IReadOnlyList<string> empreintes, CancellationToken cancellationToken)
+    {
+        // Index unique sur niss_hash : au plus une ligne par empreinte. Deux lignes (une par clé) ne se rencontrent que
+        // pour un doublon créé hors de la procédure de rotation (#473) : la ligne de la clé courante l'emporte, et le
+        // recalcul de l'index signale la collision.
+        var trouvees = await db.Personnes.AsSplitQuery()
+            .Where(p => empreintes.Contains(p.NissHash))
+            .OrderBy(p => p.Id)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+        return trouvees.OrderBy(p => IndexOf(empreintes, p.NissHash)).FirstOrDefault();
+    }
 
     public Task<Personne?> GetParReferenceDimonaAsync(string referenceDimona, CancellationToken cancellationToken) =>
         db.Personnes.AsSplitQuery().SingleOrDefaultAsync(p => p.Occupations.Any(o => o.ReferenceDimona == referenceDimona), cancellationToken);
@@ -27,10 +37,28 @@ internal sealed class PersonneRepository(PersonnesDbContext db) : IPersonneRepos
             .ToListAsync(cancellationToken);
 
     public void Add(Personne personne) => db.Personnes.Add(personne);
+
+    private static int IndexOf(IReadOnlyList<string> empreintes, string empreinte)
+    {
+        for (var i = 0; i < empreintes.Count; i++)
+        {
+            if (empreintes[i] == empreinte)
+            {
+                return i;
+            }
+        }
+
+        return empreintes.Count;
+    }
 }
 
-/// <summary>Index aveugle HMAC-SHA256 du NISS (DAT-06), clé distincte des clés de chiffrement (<c>BlindIndex:Key</c>).</summary>
+/// <summary>
+/// Index aveugle HMAC-SHA256 du NISS (DAT-06), clé distincte des clés de chiffrement (<c>BlindIndex:CleEnveloppee</c>) ;
+/// pendant une rotation (#473), la clé précédente (<c>BlindIndex:CleEnveloppeePrecedente</c>) est acceptée en lecture.
+/// </summary>
 internal sealed class NissIndex(BlindIndex index) : INissIndex
 {
     public string Calculer(Niss niss) => index.Compute(niss.Valeur);
+
+    public IReadOnlyList<string> Empreintes(Niss niss) => index.Empreintes(niss.Valeur);
 }
