@@ -45,6 +45,7 @@ public class DeplacementEtConfirmationEnLigneTests
         evenement.RendezVousId.ShouldBe(rdv.Id);
         evenement.Motif.ShouldBe("DemandeTravailleur");
         evenement.NouveauDebut.ShouldBe(nouveau.Debut);
+        evenement.ProfessionnelId.ShouldBe("kc-a");
         h.Store.Evenements<ConvocationEmise>().Last().TypeConvocation.ShouldBe("Replanification");
         h.Store.Obligations.ShouldAllBe(o => !o.EstAPlanifier);
     }

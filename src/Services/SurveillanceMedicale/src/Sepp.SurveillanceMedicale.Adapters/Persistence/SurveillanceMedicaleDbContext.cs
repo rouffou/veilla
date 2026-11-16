@@ -5,10 +5,13 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
+using Npgsql;
+
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.BuildingBlocks.Domain;
 using Sepp.BuildingBlocks.Infrastructure.Persistence;
 using Sepp.BuildingBlocks.Infrastructure.Security;
+using Sepp.SurveillanceMedicale.Application;
 using Sepp.SurveillanceMedicale.Domain.Conservation;
 using Sepp.SurveillanceMedicale.Domain.Decisions;
 using Sepp.SurveillanceMedicale.Domain.DemandesCopie;
@@ -83,6 +86,21 @@ public sealed class SurveillanceMedicaleDbContext(
     public DbSet<ParametreLegalLocal> Parametres => Set<ParametreLegalLocal>();
 
     public DbSet<CalendrierLocal> Calendriers => Set<CalendrierLocal>();
+
+    /// <summary>Index unique partiel « un rendez-vous, un examen non annulé » (#496) : départage deux ouvertures simultanées (#503).</summary>
+    public const string IndexRendezVousUnExamen = "ix_examen_rendez_vous_id";
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: IndexRendezVousUnExamen })
+        {
+            throw new RendezVousDejaHonoreException(ex);
+        }
+    }
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
@@ -182,7 +200,7 @@ public sealed class SurveillanceMedicaleDbContext(
             b.HasIndex(e => new { e.DossierId, e.ProfessionnelId });
             // #496 : un rendez-vous ne porte qu'un examen non annulé ; sinon un rendez-vous déjà honoré, réutilisé sans motif,
             // établirait une relation de soin (désignation du gestionnaire, signature).
-            b.HasIndex(e => e.RendezVousId).IsUnique().HasFilter("rendez_vous_id IS NOT NULL AND statut <> 'Annule'");
+            b.HasIndex(e => e.RendezVousId).IsUnique().HasFilter("rendez_vous_id IS NOT NULL AND statut <> 'Annule'").HasDatabaseName(IndexRendezVousUnExamen);
             b.Property(e => e.TypeExamen).HasMaxLength(CodeLength);
             b.Property(e => e.ProfessionnelId).HasMaxLength(UserLength);
             b.Property(e => e.Statut).HasConversion<string>().HasMaxLength(EnumLength);
@@ -401,6 +419,7 @@ public sealed class SurveillanceMedicaleDbContext(
             b.HasKey(r => r.RendezVousId);
             b.HasIndex(r => r.PersonneId);
             b.PrimitiveCollection(r => r.ObligationIds).HasField("_obligationIds");
+            b.Property(r => r.ProfessionnelId).HasMaxLength(UserLength);
         });
 
         modelBuilder.Entity<AffectationPersonne>(b =>

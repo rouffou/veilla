@@ -67,7 +67,10 @@ public sealed class ObligationClotureeHandler(IProjectionRepository projections,
     }
 }
 
-/// <summary>Rendez-vous planifiés (planification.rendez-vous-planifie) : convocation, base de l'ouverture d'examen.</summary>
+/// <summary>
+/// Rendez-vous planifiés (planification.rendez-vous-planifie) : convocation, base de l'ouverture d'examen. Le professionnel
+/// convoqué (#503) est facultatif : un producteur antérieur ne le publie pas, et personne n'est alors convoqué.
+/// </summary>
 public sealed class RendezVousPlanifieHandler(IProjectionRepository projections, IUnitOfWork unitOfWork) : IIntegrationEventHandler<RendezVousPlanifie>
 {
     public async Task HandleAsync(RendezVousPlanifie integrationEvent, CancellationToken cancellationToken)
@@ -76,11 +79,36 @@ public sealed class RendezVousPlanifieHandler(IProjectionRepository projections,
         var rendezVous = await projections.GetRendezVousAsync(e.RendezVousId, cancellationToken);
         if (rendezVous is null)
         {
-            projections.Add(new RendezVousPrevu(e.RendezVousId, e.PersonneId, e.AffilieId, e.Debut, e.ObligationIds));
+            projections.Add(new RendezVousPrevu(e.RendezVousId, e.PersonneId, e.AffilieId, e.Debut, e.ObligationIds, e.ProfessionnelId, e.OccurredAt));
         }
         else
         {
-            rendezVous.Appliquer(e.PersonneId, e.AffilieId, e.Debut, e.ObligationIds);
+            rendezVous.Appliquer(e.PersonneId, e.AffilieId, e.Debut, e.ObligationIds, e.ProfessionnelId, e.OccurredAt);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// PLA-07, #503 : rendez-vous déplacé (planification.rendez-vous-replanifie). Le nouvel horaire et le nouveau professionnel
+/// convoqué remplacent les précédents, sauf si l'événement est plus ancien que l'état connu. Reçu avant la planification,
+/// il crée le rendez-vous sans obligations ; le <c>RendezVousPlanifie</c> arrivé ensuite les complète sans revenir sur
+/// l'horaire ni sur le professionnel.
+/// </summary>
+public sealed class RendezVousReplanifieHandler(IProjectionRepository projections, IUnitOfWork unitOfWork) : IIntegrationEventHandler<RendezVousReplanifie>
+{
+    public async Task HandleAsync(RendezVousReplanifie integrationEvent, CancellationToken cancellationToken)
+    {
+        var e = integrationEvent;
+        var rendezVous = await projections.GetRendezVousAsync(e.RendezVousId, cancellationToken);
+        if (rendezVous is null)
+        {
+            projections.Add(RendezVousPrevu.Replanifie(e.RendezVousId, e.PersonneId, e.AffilieId, e.NouveauDebut, e.ProfessionnelId, e.OccurredAt));
+        }
+        else if (!rendezVous.Replanifier(e.NouveauDebut, e.ProfessionnelId, e.OccurredAt))
+        {
+            return;
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

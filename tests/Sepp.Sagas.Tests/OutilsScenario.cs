@@ -48,6 +48,9 @@ public sealed partial class OutilsScenario(PlateformeSaga plateforme)
         "faits", "temoignage", "remarque", "note",
     ];
 
+    /// <summary>CPMT convoqué au rendez-vous de reprise (référence de la ressource de Planification) et qui réalise l'examen.</summary>
+    private const string CpmtExaminateur = "cpmt-1";
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly TimeZoneInfo Bruxelles = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
 
@@ -83,8 +86,10 @@ public sealed partial class OutilsScenario(PlateformeSaga plateforme)
         var responsable = plateforme.Planification.Client(Roles.ResponsableCentre);
         var planificateur = plateforme.Planification.Client(Roles.Planificateur);
         var lieu = await CreerAsync(responsable, "/api/v1/lieux", new { type = "CentreFixe", nom = $"Centre {Guid.NewGuid():N}", codePostal = "5000" });
+        // #503 : la référence de la ressource est l'identifiant (sub) du CPMT qui réalise l'examen ; Surveillance médicale ne
+        // reconnaît la relation de soin, à l'ouverture d'un examen sur le rendez-vous, qu'au professionnel convoqué.
         var conseiller = await CreerAsync(responsable, "/api/v1/ressources",
-            new { type = "Conseiller", libelle = "Dr Reprise", referenceId = $"kc-{Guid.NewGuid():N}", competences = new[] { TypesExamen.ExamenReprise } });
+            new { type = "Conseiller", libelle = "Dr Reprise", referenceId = CpmtExaminateur, competences = new[] { TypesExamen.ExamenReprise } });
         var modele = await CreerAsync(planificateur, "/api/v1/modeles-agenda", new
         {
             ressourceId = conseiller,
@@ -183,7 +188,7 @@ public sealed partial class OutilsScenario(PlateformeSaga plateforme)
     /// <summary>Consultation de reprise : dossier, examen sur le rendez-vous, clôture. Renvoie l'identifiant de l'examen.</summary>
     public async Task<(Guid Dossier, Guid Examen)> RealiserExamenAsync(Travailleur travailleur, Guid rendezVousId, string observationSecrete)
     {
-        var cpmt = plateforme.SurveillanceMedicale.Client(Roles.Cpmt, "cpmt-1");
+        var cpmt = plateforme.SurveillanceMedicale.Client(Roles.Cpmt, CpmtExaminateur);
         var dossier = await CreerAsync(cpmt, "/api/v1/dossiers", new { personneId = travailleur.Personne });
         var examen = await CreerAsync(cpmt, "/api/v1/examens", new
         {

@@ -43,6 +43,8 @@ public class ReplanificationTests
         evenement.AncienDebut.ShouldBe(ancienDebut);
         evenement.NouveauDebut.ShouldBe(remplacement.Debut);
         evenement.Motif.ShouldBe("AbsenceRessource");
+        // #503 : le collègue qui remplace devient le professionnel convoqué.
+        evenement.ProfessionnelId.ShouldBe("kc-b");
         h.Store.Evenements<ConvocationEmise>().ShouldHaveSingleItem().TypeConvocation.ShouldBe("Replanification");
         h.Store.Absences.ShouldHaveSingleItem().Source.ShouldBe(SourceAbsence.Saisie);
         obligation.RendezVousId.ShouldBe(rdv.Id);

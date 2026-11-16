@@ -76,8 +76,17 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IDos
 
     public int Saves { get; private set; }
 
+    /// <summary>Exception levée au prochain enregistrement (refus de la base, par exemple une contrainte d'unicité).</summary>
+    public Exception? EchecAuProchainEnregistrement { get; set; }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
+        if (EchecAuProchainEnregistrement is { } echec)
+        {
+            EchecAuProchainEnregistrement = null;
+            throw echec;
+        }
+
         Saves++;
         Published.AddRange(_pending);
         _pending.Clear();

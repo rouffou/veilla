@@ -64,6 +64,7 @@ public static class DependencyInjection
         // ARC-31 : modèles de lecture alimentés par événements (idempotence par l'inbox et écriture par clé).
         services.AddIntegrationEventHandler<ObligationCreee, ObligationCreeeHandler>();
         services.AddIntegrationEventHandler<RendezVousPlanifie, RendezVousPlanifieHandler>();
+        services.AddIntegrationEventHandler<RendezVousReplanifie, RendezVousReplanifieHandler>();
         services.AddIntegrationEventHandler<AffectationModifiee, AffectationModifieeHandler>();
         services.AddIntegrationEventHandler<ProfilRisquePosteModifie, ProfilRisquePosteModifieHandler>();
         services.AddIntegrationEventHandler<MesurageEnregistre, MesurageEnregistreHandler>();

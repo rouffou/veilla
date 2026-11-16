@@ -97,7 +97,12 @@ public sealed class ObligationDue
         DateLimite is { } limite ? dateExamen < DateDue || dateExamen > limite : null;
 }
 
-/// <summary>Rendez-vous planifié (<c>planification.rendez-vous-planifie</c>) : convocation de la personne, base de la relation de soin.</summary>
+/// <summary>
+/// Rendez-vous planifié (<c>planification.rendez-vous-planifie</c>, puis <c>planification.rendez-vous-replanifie</c>) :
+/// convocation de la personne auprès d'un professionnel, base de la relation de soin à l'ouverture d'un examen.
+/// L'horaire et le professionnel convoqué suivent l'événement le plus récent (<see cref="EvenementDu"/>) : un
+/// <c>RendezVousPlanifie</c> livré après une replanification ne les ramène pas en arrière.
+/// </summary>
 public sealed class RendezVousPrevu
 {
     private readonly List<Guid> _obligationIds = [];
@@ -106,10 +111,11 @@ public sealed class RendezVousPrevu
     {
     }
 
-    public RendezVousPrevu(Guid rendezVousId, Guid personneId, Guid affilieId, DateTimeOffset debut, IEnumerable<Guid> obligationIds)
+    public RendezVousPrevu(Guid rendezVousId, Guid personneId, Guid affilieId, DateTimeOffset debut, IEnumerable<Guid> obligationIds,
+        string? professionnelId = null, DateTimeOffset? evenementDu = null)
     {
         RendezVousId = rendezVousId;
-        Appliquer(personneId, affilieId, debut, obligationIds);
+        Appliquer(personneId, affilieId, debut, obligationIds, professionnelId, evenementDu);
     }
 
     public Guid RendezVousId { get; private set; }
@@ -122,14 +128,64 @@ public sealed class RendezVousPrevu
 
     public IReadOnlyList<Guid> ObligationIds => _obligationIds.AsReadOnly();
 
-    public void Appliquer(Guid personneId, Guid affilieId, DateTimeOffset debut, IEnumerable<Guid> obligationIds)
+    /// <summary>
+    /// #503, ARC-41 : identifiant (claim <c>sub</c>) du professionnel convoqué, seul à établir la relation de soin en ouvrant
+    /// un examen sur ce rendez-vous. <c>null</c> : rendez-vous projeté avant #503, publié par un producteur antérieur, ou
+    /// ressource sans référence d'utilisateur ; personne n'est alors convoqué et le régime hors relation s'applique.
+    /// </summary>
+    public string? ProfessionnelId { get; private set; }
+
+    /// <summary>Horodatage (<c>OccurredAt</c>) de l'événement qui a fixé l'horaire et le professionnel ; <c>null</c> avant #503.</summary>
+    public DateTimeOffset? EvenementDu { get; private set; }
+
+    /// <summary>Rendez-vous connu seulement par sa replanification (reçue avant sa planification) : obligations encore inconnues.</summary>
+    public static RendezVousPrevu Replanifie(Guid rendezVousId, Guid personneId, Guid affilieId, DateTimeOffset debut, string? professionnelId,
+        DateTimeOffset evenementDu) =>
+        new(rendezVousId, personneId, affilieId, debut, [], professionnelId, evenementDu);
+
+    /// <summary>
+    /// État publié à la planification. Les obligations couvertes sont toujours reprises ; l'horaire et le professionnel ne le
+    /// sont que si l'événement n'est pas plus ancien que celui qui les a fixés (replanification déjà reçue).
+    /// </summary>
+    public void Appliquer(Guid personneId, Guid affilieId, DateTimeOffset debut, IEnumerable<Guid> obligationIds, string? professionnelId = null,
+        DateTimeOffset? evenementDu = null)
     {
         PersonneId = personneId;
         AffilieId = affilieId;
-        Debut = debut;
         _obligationIds.Clear();
         _obligationIds.AddRange(obligationIds.Distinct());
+        if (EvenementDu is not { } connu || evenementDu is not { } du || du >= connu)
+        {
+            Debut = debut;
+            ProfessionnelId = Normaliser(professionnelId);
+            EvenementDu = evenementDu ?? EvenementDu;
+        }
     }
+
+    /// <summary>
+    /// PLA-07 : nouvel horaire et nouveau professionnel convoqué (remplacement d'un conseiller absent, déplacement en
+    /// ligne). Ignoré s'il est plus ancien que l'état connu (renvoie <c>false</c>). Un professionnel absent de l'événement
+    /// (producteur antérieur) n'est pas conservé : le rendez-vous a pu changer de ressource, personne n'est plus convoqué.
+    /// </summary>
+    public bool Replanifier(DateTimeOffset debut, string? professionnelId, DateTimeOffset evenementDu)
+    {
+        if (EvenementDu is { } connu && evenementDu < connu)
+        {
+            return false;
+        }
+
+        Debut = debut;
+        ProfessionnelId = Normaliser(professionnelId);
+        EvenementDu = evenementDu;
+        return true;
+    }
+
+    /// <summary>#503 : l'utilisateur est-il le professionnel convoqué ? Jamais vrai quand le rendez-vous ne désigne personne.</summary>
+    public bool EstConvoque(string? utilisateurId) =>
+        ProfessionnelId is not null && string.Equals(ProfessionnelId, utilisateurId, StringComparison.Ordinal);
+
+    private static string? Normaliser(string? professionnelId) =>
+        string.IsNullOrWhiteSpace(professionnelId) ? null : professionnelId.Trim();
 }
 
 /// <summary>

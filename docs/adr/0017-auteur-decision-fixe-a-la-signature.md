@@ -8,6 +8,9 @@ Acceptée le 2026-11-15 par le responsable produit (#401, PR #488). Modifie une 
 - point 2 : authentification forte sur toutes les écritures `decision:*` (#494), vaccinateur confirmé hors relation ;
 - point 7 : désignation du CPMT gestionnaire.
 
+Complétée le 2026-11-16 (#503) : point 7, seul le professionnel convoqué établit la relation par le rendez-vous, et
+ouverture concurrente traduite en 409.
+
 ## Contexte
 Avant #401, seul le CPMT rédigeait la décision d'évaluation de santé. Le CPMT qui créait le brouillon en était l'auteur
 légal, et le domaine n'autorisait que lui à la signer.
@@ -85,9 +88,29 @@ version qu'il a relue.
      - l'ouverture d'un second examen sur le même rendez-vous est refusée (409, `examen.rendez-vous-deja-honore`) ;
      - un index unique partiel le garantit en base (`ix_examen_rendez_vous_id` : `rendez_vous_id` non nul, examens
        annulés exclus ; migration `RendezVousUnExamen`) ;
-     - en défense en profondeur, la désignation n'accepte que l'examen qui est le seul de son rendez-vous.
-   - Suite prévue, hors de cette décision : porter le professionnel convoqué dans le contrat du rendez-vous, pour que
-     seule la personne convoquée établisse la relation (ticket de suite).
+     - en défense en profondeur, la désignation n'accepte que l'examen qui est le seul de son rendez-vous ;
+     - deux ouvertures simultanées passent toutes deux le premier niveau : l'index refuse la seconde, qui reçoit le même
+       409 `examen.rendez-vous-deja-honore`, et non une erreur 500 (#503).
+   - **Seul le professionnel convoqué établit la relation par le rendez-vous** (#503). Sans lui, un CPMT hors relation
+     qui connaît l'identifiant d'un rendez-vous **futur**, pas encore honoré, l'ouvrirait sans motif puis se désignerait
+     gestionnaire.
+     - Planification publie le professionnel convoqué dans `planification.rendez-vous-planifie` et
+       `planification.rendez-vous-replanifie` (`ProfessionnelId`, facultatif). C'est l'identifiant (`sub`) porté par la
+       référence de la ressource humaine principale du créneau. Identifiant seulement (ARC-06).
+     - Surveillance médicale le projette (`RendezVousPrevu.ProfessionnelId`) et suit les replanifications : le remplaçant
+       d'un conseiller absent devient le convoqué. L'événement le plus récent l'emporte.
+     - À l'ouverture d'un examen sur rendez-vous, seul le convoqué entre en relation sans motif. Tout autre utilisateur
+       relève du régime hors relation (ARC-41) : motif, tracé, ou bris de glace. Cela vaut aussi pour un professionnel déjà
+       en relation avec la personne, le gestionnaire compris : il prend le rendez-vous d'un confrère et doit le motiver.
+     - La désignation du gestionnaire n'accepte que l'examen d'un rendez-vous auquel le CPMT est convoqué. Un examen ouvert
+       sur motif sur le rendez-vous d'un autre ne suffit pas.
+     - **Rendez-vous déjà projetés sans professionnel : tolérance stricte, pas de rattrapage.** Un tel rendez-vous ne
+       convoque personne : l'ouverture d'un examen exige un motif et ne permet pas la désignation. Ce choix ferme la faille
+       dès le déploiement, au prix d'un motif pour les rendez-vous pris avant lui. Il ne demande ni nouveau contrat ni
+       nouvelle source de republication. Une republication (ADR 0011) aurait exigé un instantané
+       `planification.rendez-vous-instantane`, une source, une table et une permission d'exploitation dans Planification,
+       pour un stock limité à l'horizon de planification et que toute replanification corrige déjà. Elle reste possible
+       dans le cadre de #369 si le métier juge le volume de motifs gênant.
    - Une base qui contiendrait déjà deux examens non annulés sur un même rendez-vous ferait échouer la migration : il
      faut d'abord annuler le doublon.
    - L'ouverture d'un dossier avec un gestionnaire (`POST /dossiers`) n'est pas concernée : le dossier est unique par
