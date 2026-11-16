@@ -25,6 +25,9 @@ public static class PartiesDossier
     public const string PiecesJointes = "pieces-jointes";
     public const string Questionnaires = "questionnaires";
     public const string Examen = "examen";
+
+    /// <summary>Annulation d'un examen (#523) : la trace porte le motif d'annulation.</summary>
+    public const string AnnulationExamen = "examen-annulation";
     public const string Decision = "decision";
     public const string Vaccinations = "vaccinations";
     public const string MaladiesProfessionnelles = "maladies-professionnelles";
@@ -179,7 +182,10 @@ public sealed class GardeDossier(
         return false;
     }
 
-    /// <summary>Relation de soin (§3.3, ARC-41) : CPMT gestionnaire, professionnel d'un examen du dossier, ou vaccinateur.</summary>
+    /// <summary>
+    /// Relation de soin (§3.3, ARC-41) : CPMT gestionnaire, professionnel d'un examen en cours ou clôturé du dossier (un examen
+    /// annulé n'en établit pas, #523), ou vaccinateur.
+    /// </summary>
     public async Task<bool> EstEnRelationDeSoinAsync(DossierSante dossier, CancellationToken cancellationToken) =>
         dossier.EstSuiviPar(user.UserId) || await examens.ExisteExamenDuProfessionnelAsync(dossier.Id, user.UserId, cancellationToken);
 }

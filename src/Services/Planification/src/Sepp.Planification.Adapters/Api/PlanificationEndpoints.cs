@@ -78,8 +78,8 @@ public static class PlanificationEndpoints
         ressources.MapGet("/{id:guid}", async (Guid id, IQueryHandler<ObtenirRessource, RessourceDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ObtenirRessource(id), ct)).ToHttpResult())
             .RequirePermission(Permissions.PlanificationLire).WithName("ObtenirRessource");
-        ressources.MapPost("/", async (CreerRessource body, ICommandHandler<CreerRessource, Guid> h, CancellationToken ct) =>
-                (await h.HandleAsync(body, ct)).ToHttpResult(id => Results.Created($"/api/v1/ressources/{id}", new { id })))
+        ressources.MapPost("/", async (CreerRessource body, ICommandHandler<CreerRessource, RessourceCreeeDto> h, CancellationToken ct) =>
+                (await h.HandleAsync(body, ct)).ToHttpResult(r => Results.Created($"/api/v1/ressources/{r.Id}", r)))
             .RequirePermission(Permissions.PlanificationRessources).WithName("CreerRessource")
             .WithSummary("PLA-01 : déclare une ressource (conseiller, infirmier, salle, appareil, unité mobile…) et ses compétences.");
         ressources.MapPut("/{id:guid}/competences", async (Guid id, CorpsCompetences body, ICommandHandler<DefinirCompetences, Unit> h, CancellationToken ct) =>

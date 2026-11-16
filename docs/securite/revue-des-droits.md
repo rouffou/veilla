@@ -146,6 +146,11 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
   `examen.rendez-vous-deja-honore`) et index unique partiel en base. Sinon un CPMT hors relation rouvrirait sans motif
   un rendez-vous déjà honoré pour établir la relation (revue de #496, P1-1 bis). Deux ouvertures simultanées reçoivent
   le même 409, et non une erreur 500 (#503).
+- **Annulation d'un examen (#523).** `POST /examens/{id}/annulation` (`dossier-sante:ecrire`, authentification forte,
+  motif d'annulation obligatoire et tracé) libère le rendez-vous de l'examen. Le professionnel de l'examen, le convoqué
+  du rendez-vous et le CPMT gestionnaire annulent sans bris de glace ; tout autre utilisateur passe par le bris de glace,
+  un simple motif ne suffit pas. Un examen clôturé ou dont la décision est émise ne s'annule pas. Un examen annulé
+  n'établit plus la relation de soin de son professionnel. Aucun droit nouveau : la matrice ne change pas.
 - **Professionnel convoqué (#503).** Le rendez-vous publié par Planification porte l'identifiant (`sub`) du professionnel
   convoqué, et Surveillance médicale le projette en suivant les replanifications.
   - À l'ouverture d'un examen sur rendez-vous, seul le convoqué entre en relation de soin sans motif.
@@ -156,7 +161,8 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
     tolérance stricte, sans rattrapage (justification : ADR 0017 point 7).
   - Limite : Planification ne vérifie pas que la référence d'une ressource est bien le `sub` d'un utilisateur. Une
     référence erronée ne convoque personne, ou convoque le mauvais utilisateur. La saisie des ressources est réservée à
-    `planification:ressources`.
+    `planification:ressources`. La référence attendue est le `sub` du jeton `sepp-api`, jamais l'`oid` Entra ID ; la
+    création signale une référence qui a la forme d'un `oid` (procédure : README de Planification, #523).
 - **Authentification forte.** La clôture d'examen (`decision:signer`) l'exige explicitement. Les routes
   `dossier-sante:gerer` l'exigent par leur préfixe. Depuis #494, toutes les routes `decision:ecrire` et `decision:signer`
   l'exigent aussi par leur préfixe (`decision:lire` excepté) : la rédaction et la modification ouvertes à l'infirmier par

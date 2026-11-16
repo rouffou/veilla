@@ -118,7 +118,7 @@ internal sealed class InMemoryStore : IUnitOfWork, IIntegrationEventOutbox, IDos
         Task.FromResult<IReadOnlyList<Examen>>([.. Examens.Where(e => e.DossierId == dossierId)]);
 
     public Task<bool> ExisteExamenDuProfessionnelAsync(Guid dossierId, string professionnelId, CancellationToken cancellationToken) =>
-        Task.FromResult(Examens.Exists(e => e.DossierId == dossierId && e.ProfessionnelId == professionnelId));
+        Task.FromResult(Examens.Exists(e => e.DossierId == dossierId && e.ProfessionnelId == professionnelId && e.Statut != StatutExamen.Annule));
 
     public Task<bool> ExisteExamenSurRendezVousAsync(Guid rendezVousId, CancellationToken cancellationToken) =>
         Task.FromResult(Examens.Exists(e => e.RendezVousId == rendezVousId && e.Statut != StatutExamen.Annule));

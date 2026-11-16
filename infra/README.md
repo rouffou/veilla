@@ -1105,6 +1105,16 @@ az containerapp revision deactivate -g "$rg" -n "$app" --revision <nouvelle>
 `max_inactive_revisions` (10) borne l'historique disponible. Une base corrompue se restaure par PITR (voir « Retour arrière »
 dans « Migrations de schéma »). Le schéma n'est jamais annulé : la révision précédente doit rester compatible avec lui.
 
+#### Ordre de déploiement entre services
+
+Le workflow déploie un service à la fois : l'ordre entre services est à la charge de l'exploitant. Un message reçu par une
+révision qui n'a pas de gestionnaire pour son type est acquitté sans traitement (`ServiceBusConsumer`) : il est **perdu**
+pour ce consommateur. Contraintes connues :
+
+| Livraison | Ordre | Risque pendant la coexistence | Atténuation |
+| --- | --- | --- | --- |
+| #503 / #522 : professionnel convoqué (`ProfessionnelId` dans `planification.rendez-vous-planifie` et `planification.rendez-vous-replanifie`, ce dernier désormais consommé par Surveillance médicale) | **Planification**, puis **Surveillance médicale** sans attendre | Tant que l'ancienne révision de Surveillance médicale reçoit le trafic, un `rendez-vous-replanifie` est acquitté sans gestionnaire : la projection garde l'ancien convoqué, et le remplaçant devra motiver l'ouverture de l'examen. Dans l'ordre inverse, la nouvelle Surveillance médicale projetterait des rendez-vous sans professionnel (tolérance stricte : motif obligatoire, ADR 0017 point 7) | Basculer Surveillance médicale juste après Planification, hors des heures de replanification en masse (PLA-07). Une replanification perdue se corrige à la replanification suivante du rendez-vous ; à défaut, le remplaçant ouvre l'examen sur motif, ou le convoqué d'origine annule un examen ouvert par erreur (`POST /examens/{id}/annulation`, #523) |
+
 #### Liens avec les ADR
 
 - **ADR 0010 (migrations)** : le workflow joue le job `mig-<service>` avant toute révision et s'arrête sur échec ; Terraform

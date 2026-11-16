@@ -226,6 +226,13 @@ public static class SurveillanceMedicaleEndpoints
             .WithName("CloturerExamen")
             .WithSummary("Clôture : obligations satisfaites, ExamenCloture publié (type et date uniquement).");
 
+        examens.MapPost("/{id:guid}/annulation", async (Guid id, MotifSaisi body, ICommandHandler<AnnulerExamen, Unit> h, CancellationToken ct) =>
+                (await h.HandleAsync(new AnnulerExamen(id, body.Motif), ct)).ToHttpResult())
+            .RequirePermission(Permissions.DossierSanteEcrire)
+            .RequireAuthenticationStrength()
+            .WithName("AnnulerExamen")
+            .WithSummary("#523 : annulation motivée d'un examen en cours (professionnel de l'examen, convoqué ou CPMT gestionnaire, sinon bris de glace) ; libère le rendez-vous.");
+
         examens.MapPost("/{id:guid}/decision", async (Guid id, ContenuDecisionSaisi body, ICommandHandler<RedigerDecision, Guid> h, CancellationToken ct) =>
                 (await h.HandleAsync(new RedigerDecision(id, body), ct)).ToHttpResult(d => Results.Created($"/api/v1/decisions/{d}", new { id = d })))
             .RequirePermission(Permissions.DecisionEcrire)

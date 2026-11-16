@@ -20,7 +20,7 @@ Point de passage unique : `Application/Commun.cs` → `GardeDossier`.
    ADR 0017, Conséquences).
 2. **Relation de soin** (définition retenue, ARC-41) : l'utilisateur est en relation de soin avec la personne s'il est
    - le **CPMT gestionnaire** du dossier (celui qui l'ouvre, ou désigné par `PUT /dossiers/{id}/gestionnaire`) ;
-   - le **professionnel d'un examen** (en cours ou clôturé) du dossier ;
+   - le **professionnel d'un examen** (en cours ou clôturé, jamais annulé) du dossier ;
    - le **vaccinateur** d'une dose enregistrée dans le dossier.
    L'ouverture d'un examen sur un **rendez-vous planifié** pour la personne (projection de `RendezVousPlanifie`) établit
    la relation sans motif : la convocation vaut prise en charge.
@@ -33,9 +33,25 @@ Point de passage unique : `Application/Commun.cs` → `GardeDossier`.
    `dossier-sante.<partie>` (dossier, consultation, examen, decision, export, vaccinations, transfert, conservation…) et
    identifiant **du dossier**, pour que le DPO retrouve tous les accès à un dossier. Une lecture est tracée et validée
    avant que la donnée soit rendue ; une écriture est tracée dans la même transaction (outbox, ARC-32).
-6. Le résumé d'une décision (catégorie, mesures codées, validité) est lisible avec `decision:lire` (autres conseillers,
+6. **Annulation d'un examen** (#523) : `POST /api/v1/examens/{id}/annulation`, corps `{ "motif": "…" }` (obligatoire,
+   300 caractères au plus, sans donnée de santé), `dossier-sante:ecrire` et authentification forte. Elle libère le
+   rendez-vous de l'examen (index partiel `ix_examen_rendez_vous_id`), que le convoqué peut alors ouvrir. Annulent sans
+   bris de glace : le professionnel de l'examen, le convoqué du rendez-vous et le CPMT gestionnaire ; tout autre
+   utilisateur passe par un bris de glace (`403 examen.annulation-hors-relation` sur simple motif). Un examen clôturé, déjà
+   annulé ou dont la décision est émise répond `409 examen.non-annulable`. Traces : accès (`modification`,
+   `dossier-sante.examen`) et annulation (`modification`, `dossier-sante.examen-annulation`, motif d'annulation). Aucun
+   événement publié : aucun service ne suit un examen avant `ExamenCloture`. Un brouillon de décision reste au dossier,
+   sans pouvoir être signé (la signature exige un examen clôturé).
+7. Le résumé d'une décision (catégorie, mesures codées, validité) est lisible avec `decision:lire` (autres conseillers,
    gestionnaire, employeur limité à son affilié par le claim `affilie_id`, travailleur limité à lui-même par le claim
    `personne_id`) ; chaque lecture est journalisée. Une décision en brouillon reste invisible hors zone médicale.
+
+## Déploiement du professionnel convoqué (#503)
+
+Déployer **Planification avant Surveillance médicale**, puis basculer Surveillance médicale sans attendre : pendant la
+coexistence, un `planification.rendez-vous-replanifie` reçu par l'ancienne révision (sans gestionnaire) est acquitté et
+perdu, et la projection garde l'ancien convoqué. Détail et atténuation : `infra/README.md`, « Ordre de déploiement entre
+services ».
 
 ## Chiffrement applicatif (ARC-45)
 

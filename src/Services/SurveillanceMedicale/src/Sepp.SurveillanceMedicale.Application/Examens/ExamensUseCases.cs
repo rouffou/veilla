@@ -3,6 +3,7 @@ using Sepp.BuildingBlocks.Application.Auditing;
 using Sepp.BuildingBlocks.Application.Security;
 using Sepp.Contracts.Examens;
 using Sepp.SurveillanceMedicale.Domain;
+using Sepp.SurveillanceMedicale.Domain.Decisions;
 using Sepp.SurveillanceMedicale.Domain.Examens;
 using Sepp.SurveillanceMedicale.Domain.Projections;
 
@@ -365,5 +366,94 @@ public sealed class CloturerExamenHandler(
         EvenementsIntegration.Publier(examen, outbox);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return resultat;
+    }
+}
+
+/// <summary>
+/// Annulation d'un examen en cours (#523, suite de #503) : l'examen passe au statut <c>Annule</c> et libère son rendez-vous
+/// (index partiel <c>ix_examen_rendez_vous_id</c>), que le professionnel convoqué peut alors ouvrir. Cas type : un
+/// professionnel non convoqué a ouvert le rendez-vous sur motif, et le convoqué reçoit <c>examen.rendez-vous-deja-honore</c>.
+/// <list type="bullet">
+/// <item>Droit : <c>dossier-sante:ecrire</c>, avec authentification forte.</item>
+/// <item>Relation de soin sur cet examen : le professionnel qui l'a ouvert, le professionnel convoqué au rendez-vous de
+/// l'examen, ou le CPMT gestionnaire du dossier. Tout autre utilisateur passe par un bris de glace motivé (tracé et
+/// signalé, ARC-41) : un simple motif d'accès ne suffit pas.</item>
+/// <item>Motif d'annulation obligatoire (300 caractères au plus, sans donnée de santé), porté par une trace d'audit
+/// <c>dossier-sante.examen-annulation</c>, en plus de la trace d'accès <c>dossier-sante.examen</c>.</item>
+/// <item>Un examen clôturé ou déjà annulé ne s'annule pas, ni un examen dont la décision est émise (la signature exige
+/// déjà la clôture : contrôle de défense en profondeur). Un brouillon de décision reste au dossier, sans pouvoir être signé.</item>
+/// </list>
+/// Aucun événement n'est publié : l'ouverture d'un examen n'en publie pas, et aucun service ne suit un examen avant sa
+/// clôture (<c>ExamenCloture</c>, consommé par Obligations, Postes et risques et Prestations).
+/// </summary>
+public sealed record AnnulerExamen(Guid ExamenId, string? Motif)
+{
+    public override string ToString() => $"AnnulerExamen {{ ExamenId = {ExamenId} }}";
+}
+
+public sealed class AnnulerExamenHandler(
+    GardeDossier garde, IExamenRepository examens, IDecisionRepository decisions, IProjectionRepository projections, ICurrentUser user,
+    IContexteAcces contexte, IAuditTrail audit, IUnitOfWork unitOfWork)
+    : ICommandHandler<AnnulerExamen, Unit>
+{
+    public static readonly Error MotifObligatoire = Error.Validation(
+        "examen.motif-annulation-obligatoire",
+        $"Indiquez le motif de l'annulation ({MotifAcces.LongueurMaximale} caractères au plus, sans donnée de santé).");
+
+    public static readonly Error HorsRelation = Error.Forbidden(
+        "examen.annulation-hors-relation",
+        "Seuls le professionnel de l'examen, le professionnel convoqué et le CPMT gestionnaire annulent un examen ; tout autre utilisateur passe par un bris de glace motivé (X-Bris-De-Glace), un simple motif ne suffit pas.");
+
+    public static readonly Error NonAnnulable = Error.Conflict(
+        "examen.non-annulable", "Seul un examen en cours, sans décision émise, s'annule : un examen clôturé ou déjà annulé ne s'annule pas.");
+
+    public async Task<Result<Unit>> HandleAsync(AnnulerExamen command, CancellationToken cancellationToken)
+    {
+        if (garde.VerifierPermission(ActionAudit.Modification) is { } interdit)
+        {
+            return interdit;
+        }
+
+        var motif = MotifAcces.Normaliser(command.Motif);
+        if (motif is null || MotifAcces.Verifier(motif, brisDeGlace: false) is not null)
+        {
+            return MotifObligatoire;
+        }
+
+        var examen = await examens.GetAsync(command.ExamenId, cancellationToken);
+        if (examen is null)
+        {
+            return AccesExamens.Inconnu;
+        }
+
+        // Le professionnel de l'examen et le convoqué sont en relation par l'acte lui-même (le convoqué n'a parfois encore
+        // aucun examen dans le dossier) ; le gestionnaire l'est par la règle générale. Les autres : bris de glace, ci-dessous.
+        var rendezVous = examen.RendezVousId is { } rdvId ? await projections.GetRendezVousAsync(rdvId, cancellationToken) : null;
+        var professionnelOuConvoque = string.Equals(examen.ProfessionnelId, user.UserId, StringComparison.Ordinal)
+            || rendezVous?.EstConvoque(user.UserId) == true;
+        var dossier = await garde.EcrireAsync(
+            examen.DossierId, PartiesDossier.Examen, ActionAudit.Modification, cancellationToken, relationEtablie: professionnelOuConvoque ? true : null);
+        if (!dossier.IsSuccess)
+        {
+            return dossier.Error!;
+        }
+
+        var gestionnaire = string.Equals(dossier.Value.GestionnaireCpmtId, user.UserId, StringComparison.Ordinal);
+        var brisDeGlace = contexte.BrisDeGlace && MotifAcces.Normaliser(contexte.Motif) is not null;
+        if (!professionnelOuConvoque && !gestionnaire && !brisDeGlace)
+        {
+            return HorsRelation;
+        }
+
+        if (examen.Statut != StatutExamen.EnCours
+            || (await decisions.GetParExamenAsync(examen.Id, cancellationToken))?.Statut == StatutDecision.Emise)
+        {
+            return NonAnnulable;
+        }
+
+        examen.Annuler();
+        audit.Enregistrer(ActionAudit.Modification, PartiesDossier.TypeObjet(PartiesDossier.AnnulationExamen), examen.DossierId, motif);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return Unit.Value;
     }
 }

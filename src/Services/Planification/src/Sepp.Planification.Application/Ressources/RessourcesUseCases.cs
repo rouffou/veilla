@@ -91,13 +91,24 @@ public sealed class ListerLieuxHandler(ILieuRepository lieux, ICurrentUser user)
     }
 }
 
-/// <summary>PLA-01 : déclare une ressource planifiable et ses compétences.</summary>
+/// <summary>
+/// PLA-01 : déclare une ressource planifiable et ses compétences. Pour une ressource humaine, <c>ReferenceId</c> est le
+/// <c>sub</c> du jeton <c>sepp-api</c> de la personne (convocation publiée dans <c>RendezVousPlanifie.ProfessionnelId</c>,
+/// #503 ; propre agenda du CPMT), jamais l'<c>oid</c> Entra ID : voir le README du service.
+/// </summary>
 public sealed record CreerRessource(string Type, string Libelle, string? ReferenceId, IReadOnlyList<string>? Competences, Guid? LieuId);
 
+/// <summary>Ressource créée ; <paramref name="Avertissement"/> signale une référence probablement erronée (création non bloquée).</summary>
+public sealed record RessourceCreeeDto(Guid Id, string? Avertissement);
+
 public sealed class CreerRessourceHandler(IRessourceRepository ressources, ILieuRepository lieux, IUnitOfWork unitOfWork, ICurrentUser user)
-    : ICommandHandler<CreerRessource, Guid>
+    : ICommandHandler<CreerRessource, RessourceCreeeDto>
 {
-    public async Task<Result<Guid>> HandleAsync(CreerRessource command, CancellationToken cancellationToken)
+    public const string AvertissementOid =
+        "La référence est un GUID alors que votre propre identifiant (sub) n'en est pas un : c'est probablement l'oid Entra ID " +
+        "de la personne. La référence attendue est le sub de son jeton sepp-api ; sinon elle ne sera pas reconnue comme convoquée.";
+
+    public async Task<Result<RessourceCreeeDto>> HandleAsync(CreerRessource command, CancellationToken cancellationToken)
     {
         if (Acces.Exiger(user, Permissions.PlanificationRessources) is { } interdit)
         {
@@ -122,8 +133,18 @@ public sealed class CreerRessourceHandler(IRessourceRepository ressources, ILieu
 
         ressources.Add(ressource.Value);
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        return ressource.Value.Id;
+        return new RessourceCreeeDto(ressource.Value.Id, ReferenceProbablementOid(ressource.Value) ? AvertissementOid : null);
     }
+
+    /// <summary>
+    /// Le <c>sub</c> d'un même émetteur a toujours la même forme : celui d'Entra ID (pairwise) n'est jamais un GUID, celui de
+    /// Keycloak (local) en est un. Une référence GUID saisie par un utilisateur dont le <c>sub</c> n'est pas un GUID est donc
+    /// presque sûrement un <c>oid</c>. Aucun avertissement en local, ni pour un compte technique (son <c>sub</c> est un GUID).
+    /// </summary>
+    private bool ReferenceProbablementOid(Ressource ressource) =>
+        ressource is { EstHumaine: true, ReferenceId: { } reference }
+        && Guid.TryParse(reference, out _)
+        && !Guid.TryParse(user.UserId, out _);
 }
 
 public sealed record ListerRessources(string? Type);

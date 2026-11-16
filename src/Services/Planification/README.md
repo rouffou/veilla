@@ -60,4 +60,33 @@ Consommés : `obligations.obligation-creee`, `obligations.obligation-echue`, `ob
 - L'outil RH et les inscriptions d'application Microsoft Entra / Google ne sont pas identifiés : adaptateurs « Reel » en squelette documenté
   (`Adapters/External/Adaptateurs.cs`) ; `Planification:Adaptateurs:*` vaut `Simulateur` en développement.
 - Tâches planifiées (rappels, synchronisation) : une seule instance du service ; désactivées en développement (`Planification:Taches:Actif`).
-- Le CPMT est rapproché de sa ressource par `Ressource.ReferenceId` = claim `sub`.
+- Le CPMT est rapproché de sa ressource par `Ressource.ReferenceId` = claim `sub` (voir « Provisionnement des ressources
+  humaines » ci-dessous).
+
+## Provisionnement des ressources humaines (`ReferenceId`)
+
+`ReferenceId` d'une ressource humaine (conseiller, infirmier, assistant, chauffeur) est l'identifiant de la personne tel
+que les services le lisent : le claim **`sub` de son jeton d'accès pour l'API `sepp-api`** (`ICurrentUser.UserId`). Il sert
+à reconnaître le CPMT sur sa propre ressource (PLA-03) et il est publié comme professionnel convoqué
+(`ProfessionnelId` de `planification.rendez-vous-planifie` et `rendez-vous-replanifie`, #503) : Surveillance médicale
+n'établit la relation de soin sans motif que pour ce `sub`.
+
+- **Entra ID (Azure)** : le `sub` est *pairwise*, propre à l'application `sepp-api` ; ce n'est **pas** l'`oid` (GUID de
+  l'objet utilisateur, visible dans le portail Entra ou Graph). Un `oid` saisi comme référence ne correspond à aucun
+  jeton : la ressource ne convoque personne, et le professionnel doit motiver l'ouverture de l'examen. Pour obtenir le
+  `sub`, faire se connecter la personne une fois et le relever dans son jeton d'accès `sepp-api` (claim `sub`).
+- **Keycloak (local)** : le `sub` est l'identifiant (UUID) de l'utilisateur du realm.
+- **Avertissement à la création** : `POST /api/v1/ressources` répond `{ id, avertissement }`. L'avertissement est renseigné
+  quand une ressource humaine reçoit une référence au format GUID alors que le `sub` du créateur n'en est pas un. Les
+  `sub` d'un même émetteur ont la même forme (jamais un GUID en Entra ID, toujours en Keycloak) : la référence est alors
+  presque sûrement un `oid`. La création n'est pas bloquée. Aucun avertissement en local, ni quand le créateur est un compte
+  technique (son `sub` est un GUID) : la vérification reste à la charge de la personne qui saisit.
+- Planification ne vérifie pas qu'une référence correspond à un utilisateur réel (pas d'annuaire). Une référence erronée
+  ne convoque personne, ou convoque le mauvais utilisateur : la saisie est réservée à `planification:ressources`.
+
+## Déploiement
+
+Livraison du professionnel convoqué (#503) : déployer **Planification avant Surveillance médicale**, puis basculer
+Surveillance médicale sans attendre. Pendant la coexistence, un `rendez-vous-replanifie` reçu par l'ancienne révision de
+Surveillance médicale (sans gestionnaire) est perdu. Détail et atténuation : `infra/README.md`, « Ordre de déploiement
+entre services ».

@@ -55,7 +55,7 @@ public interface IExamenRepository
 
     Task<IReadOnlyList<Examen>> ListerParDossierAsync(Guid dossierId, CancellationToken cancellationToken);
 
-    /// <summary>Relation de soin : le professionnel a un examen (en cours ou clôturé) dans ce dossier.</summary>
+    /// <summary>Relation de soin : le professionnel a un examen en cours ou clôturé (jamais annulé, #523) dans ce dossier.</summary>
     Task<bool> ExisteExamenDuProfessionnelAsync(Guid dossierId, string professionnelId, CancellationToken cancellationToken);
 
     /// <summary>Un rendez-vous ne porte qu'un examen non annulé (#496) : existe-t-il déjà un examen sur ce rendez-vous ?</summary>

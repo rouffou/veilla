@@ -496,6 +496,41 @@ public sealed partial class SurveillanceMedicaleApiTests(SurveillanceMedicaleFix
     }
 
     [Fact]
+    public async Task L_annulation_par_le_convoque_libere_le_rendez_vous_qu_il_ouvre_ensuite()
+    {
+        // #523 : cpmt-tiers ouvre sur motif le rendez-vous de cpmt-convoque, qui reçoit un 409.
+        var personne = Guid.CreateVersion7();
+        var dossierId = await Id(await Cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = personne }, _ct));
+        var rdv = new RendezVousPlanifie(Guid.CreateVersion7(), personne, _affilie, new DateTimeOffset(2026, 12, 10, 8, 0, 0, TimeSpan.Zero), [], "cpmt-convoque");
+        (await fixture.DispatcherAsync(Guid.CreateVersion7(), rdv, _ct)).ShouldBe(1);
+        var corps = new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", rendezVousId = rdv.RendezVousId };
+        var examenTiers = await Id(await fixture.Client(Roles.Cpmt, "cpmt-tiers", motif: "Remplacement du Dr convoqué").PostAsJsonAsync("/api/v1/examens", corps, _ct));
+        var convoque = fixture.Client(Roles.Cpmt, "cpmt-convoque");
+        (await convoque.PostAsJsonAsync("/api/v1/examens", corps, _ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+        // Un autre CPMT, sur simple motif, n'annule pas : il lui faut un bris de glace. Sans motif d'annulation : 400.
+        var autre = await fixture.Client(Roles.Cpmt, "cpmt-autre-523", motif: "Doublon constaté")
+            .PostAsJsonAsync($"/api/v1/examens/{examenTiers}/annulation", new { motif = "Doublon" }, _ct);
+        autre.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await autre.Content.ReadAsStringAsync(_ct)).ShouldContain("examen.annulation-hors-relation");
+        (await convoque.PostAsJsonAsync($"/api/v1/examens/{examenTiers}/annulation", new { motif = " " }, _ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        // Le convoqué annule (motif tracé), puis ouvre son rendez-vous sans motif.
+        await Ok(await convoque.PostAsJsonAsync($"/api/v1/examens/{examenTiers}/annulation", new { motif = "Ouvert sur le rendez-vous d'un confrère" }, _ct),
+            HttpStatusCode.NoContent);
+        (await fixture.ScalaireAsync("SELECT statut FROM examen WHERE id = @id", _ct, ("id", examenTiers))).ShouldBe("Annule");
+        (await fixture.TracesAsync(dossierId, _ct)).ShouldContain(t =>
+            t.Action == "modification" && t.ObjetType == "dossier-sante.examen-annulation" && t.Motif == "Ouvert sur le rendez-vous d'un confrère");
+        var examenConvoque = await Id(await convoque.PostAsJsonAsync("/api/v1/examens", corps, _ct));
+
+        // Un examen clôturé ne s'annule pas.
+        await Ok(await Cpmt.PostAsJsonAsync($"/api/v1/examens/{examenConvoque}/cloture", new { date = "2026-12-10" }, _ct), HttpStatusCode.NoContent);
+        var refus = await convoque.PostAsJsonAsync($"/api/v1/examens/{examenConvoque}/annulation", new { motif = "Erreur" }, _ct);
+        refus.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await refus.Content.ReadAsStringAsync(_ct)).ShouldContain("examen.non-annulable");
+    }
+
+    [Fact]
     public async Task Le_questionnaire_pre_rempli_sur_tablette_ne_donne_aucun_acces_en_lecture()
     {
         var personne = Guid.CreateVersion7();

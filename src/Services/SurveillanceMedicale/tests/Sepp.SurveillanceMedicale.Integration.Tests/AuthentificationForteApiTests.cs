@@ -52,6 +52,7 @@ public sealed partial class AuthentificationForteApiTests(SurveillanceMedicaleFi
         DefiDeMonteeEnNiveau(await faible.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct));
         DefiDeMonteeEnNiveau(await faible.PutAsJsonAsync($"/api/v1/dossiers/{dossierId}/gestionnaire", new { cpmtId = "cpmt-mfa" }, _ct));
         DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/dossiers/{dossierId}/transferts", new { contrepartie = "0123456789", motif = "ChangementEmployeur" }, _ct));
+        DefiDeMonteeEnNiveau(await faible.PostAsJsonAsync($"/api/v1/examens/{examenId}/annulation", new { motif = "Ouvert par erreur" }, _ct));
         (await fort.PostAsync($"/api/v1/examens/{examenId}/cloture", null, _ct)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         var decisionId = await Id(await fort.PostAsJsonAsync($"/api/v1/examens/{examenId}/decision",
             new { categorie = "Apte", valideJusquAu = "2027-03-01" }, _ct));
