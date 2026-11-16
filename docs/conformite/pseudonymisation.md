@@ -61,6 +61,8 @@ Recommandation d'exploitation : renseigner `HotesAutorises` avec le suffixe du s
 Les règles sont déclarées par service dans `CatalogueRegles.cs` (colonne par colonne). Les valeurs fictives sont
 produites par HMAC-SHA256 avec une **clé secrète** (`PSEUDONYMISATION__CLE`, base64, 256 bits, jamais dans le dépôt) :
 
+Garde-fou : `CatalogueChiffrementTests` compare le catalogue aux colonnes chiffrées des modèles EF (convertisseur portant `IConvertisseurChiffrement`, via `ColonnesChiffrees.Depuis`) et échoue dans les deux sens : colonne chiffrée absente du catalogue, ou entrée du catalogue qui n'est plus chiffrée (#499). Une nouvelle colonne chiffrée oblige donc à déclarer sa règle.
+
 | Technique | Colonnes | Détail |
 |---|---|---|
 | Remplacement cohérent des noms | noms, prénoms, contacts | liste fictive choisie par HMAC de l'identifiant de ligne ; même identifiant, même valeur |
