@@ -34,6 +34,8 @@
     "@angular/build": "^22.2.6",
     "@angular/cli": "^22.2.6",
     "@angular/compiler-cli": "^22.2.5",
+    "@emnapi/core": "1.11.3",
+    "@emnapi/runtime": "1.11.3",
     "@eslint/js": "^10.0.1",
     "angular-eslint": "22.6.0",
     "eslint": "^10.13.0",
