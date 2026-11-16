@@ -253,6 +253,176 @@ public sealed class SecretMedicalTests
     }
 
     [Fact]
+    public async Task Un_cpmt_ne_signe_pas_apres_avoir_ouvert_un_examen_spontane_sur_motif()
+    {
+        // cpmt-1 gestionnaire : examen, brouillon et clôture.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
+
+        // Contournement (#495) : cpmt-2, hors relation de soin, ouvre sur motif un examen spontané. Il devient professionnel
+        // d'un examen du dossier, mais pas de l'examen de la décision : la signature reste refusée, avec ou sans motif.
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Remplacement du Dr gestionnaire");
+        (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, TypesExamen.ConsultationSpontanee, Guid.CreateVersion7(), null, null), _ct)).IsSuccess.ShouldBeTrue();
+        (await Signer(decisionId, 1)).Error!.Code.ShouldBe("decision.signature-hors-relation");
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await Signer(decisionId, 1)).Error!.Code.ShouldBe("decision.signature-hors-relation");
+        _monde.Signature.Demandes.ShouldBeEmpty();
+        _monde.Store.Decisions.Single(d => d.Id == decisionId).AuteurId.ShouldBeNull();
+
+        // Seul le bris de glace motivé (tracé et signalé) lui permet de signer.
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Remplacement du Dr gestionnaire", brisDeGlace: true);
+        (await Signer(decisionId, 1)).Value.Statut.ShouldBe(StatutDecision.Emise);
+        _monde.Store.Decisions.Single(d => d.Id == decisionId).AuteurId.ShouldBe("cpmt-2");
+    }
+
+    [Fact]
+    public async Task Un_cpmt_hors_relation_ne_se_designe_pas_gestionnaire_sur_motif_pour_signer()
+    {
+        // cpmt-1 gestionnaire : examen, brouillon et clôture.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
+
+        // P1-1 de la revue de #496 : sur simple motif, cpmt-2 ne se désigne pas gestionnaire, même après avoir ouvert un examen
+        // spontané sur motif ; il ne peut donc pas signer sans bris de glace.
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Remplacement du Dr gestionnaire");
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+        (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, TypesExamen.ConsultationSpontanee, Guid.CreateVersion7(), null, null), _ct)).IsSuccess.ShouldBeTrue();
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+        _monde.Store.Dossiers.Single(d => d.Id == dossierId).GestionnaireCpmtId.ShouldBe("cpmt-1");
+        (await Signer(decisionId, 1)).Error!.Code.ShouldBe("decision.signature-hors-relation");
+
+        // Par bris de glace motivé (tracé et signalé, ARC-41), il se désigne gestionnaire, puis signe en relation de soin.
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Reprise du dossier, Dr gestionnaire indisponible", brisDeGlace: true);
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).IsSuccess.ShouldBeTrue();
+        _monde.Audit.Traces.ShouldContain(t => t.Action == ActionAudit.Modification && t.Motif == "Reprise du dossier, Dr gestionnaire indisponible" && t.BrisDeGlace);
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await Signer(decisionId, 1)).Value.Statut.ShouldBe(StatutDecision.Emise);
+    }
+
+    [Fact]
+    public async Task Le_gestionnaire_actuel_ou_un_cpmt_en_relation_de_soin_designe_le_gestionnaire_sans_bris_de_glace()
+    {
+        // Remplacement légitime : le gestionnaire actuel (cpmt-1) désigne son remplaçant, qui signe ensuite sans motif.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).IsSuccess.ShouldBeTrue();
+        _monde.Store.Dossiers.Single(d => d.Id == dossierId).GestionnaireCpmtId.ShouldBe("cpmt-2");
+
+        // Un CPMT qui a examiné la personne sur un rendez-vous planifié (relation établie, sans motif) reprend le dossier.
+        var affilie = Guid.CreateVersion7();
+        var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
+        _monde.Store.Obligations.Add(obligation);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        _monde.Store.RendezVous.Add(rdv);
+        _monde.Agir("cpmt-3", Roles.Cpmt);
+        (await new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, null, null, rdv.RendezVousId, null), _ct)).IsSuccess.ShouldBeTrue();
+        (await ChangerGestionnaire(dossierId, "cpmt-3")).IsSuccess.ShouldBeTrue();
+        _monde.Audit.Traces.ShouldNotContain(t => t.BrisDeGlace);
+    }
+
+    [Fact]
+    public async Task Un_cpmt_ne_modifie_le_brouillon_d_un_autre_qu_en_relation_sur_l_examen_ou_par_bris_de_glace()
+    {
+        // P2-1 de la revue de #496 : même règle pour la modification que pour la signature, CPMT compris.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Avis du Dr remplaçant");
+        (await Modifier(decisionId, 1, ["PAS_TRAVAIL_NUIT"])).Error!.Code.ShouldBe("decision.relation-de-soin-requise");
+        _monde.Store.Decisions.Single().VersionContenu.ShouldBe(1);
+
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Avis du Dr remplaçant", brisDeGlace: true);
+        (await Modifier(decisionId, 1, ["PAS_TRAVAIL_NUIT"])).IsSuccess.ShouldBeTrue();
+
+        // L'infirmier hors relation passe lui aussi par le bris de glace.
+        _monde.Agir("infirmier-2", Roles.Infirmier, motif: "Complément demandé par le Dr", brisDeGlace: true);
+        (await Modifier(decisionId, 2, ["PAS_TRAVAIL_NUIT", "PROTECTION_AUDITIVE"])).IsSuccess.ShouldBeTrue();
+        _monde.Store.Decisions.Single().ModifieePar.ShouldBe("infirmier-2");
+    }
+
+    [Fact]
+    public async Task Un_rendez_vous_deja_honore_ne_permet_ni_de_se_designer_gestionnaire_ni_de_signer()
+    {
+        // P1-1 bis de la revue de #496 : cpmt-1 (gestionnaire) honore le rendez-vous et rédige la décision.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var affilie = Guid.CreateVersion7();
+        var obligation = new ObligationDue(Guid.CreateVersion7(), _personne, affilie, TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 10), null);
+        _monde.Store.Obligations.Add(obligation);
+        var rdv = new RendezVousPrevu(Guid.CreateVersion7(), _personne, affilie, new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero), [obligation.ObligationId]);
+        _monde.Store.RendezVous.Add(rdv);
+        var examenId = (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Value;
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
+
+        // cpmt-2 rouvre ce rendez-vous sans motif : refus (un rendez-vous ne porte qu'un examen), puis ni désignation ni
+        // signature sans bris de glace.
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Error!.Code.ShouldBe("examen.rendez-vous-deja-honore");
+        _monde.Store.Examens.Count.ShouldBe(1);
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.motif-obligatoire");
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Reprise du suivi");
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+        (await Signer(decisionId, 1)).Error!.Code.ShouldBe("decision.signature-hors-relation");
+    }
+
+    [Fact]
+    public async Task Un_examen_sur_un_rendez_vous_qui_en_porte_plusieurs_n_ouvre_pas_la_designation_du_gestionnaire()
+    {
+        // Défense en profondeur (#496) : même si un doublon existait (données antérieures à l'index unique), l'examen d'un
+        // rendez-vous qui en porte plusieurs n'établit pas la relation de soin qui permet de se désigner gestionnaire.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var rendezVous = Guid.CreateVersion7();
+        _monde.Store.Examens.Add(Examen.Ouvrir(dossierId, _personne, Guid.CreateVersion7(), TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 2), "cpmt-1", rendezVous, []));
+        _monde.Store.Examens.Add(Examen.Ouvrir(dossierId, _personne, Guid.CreateVersion7(), TypesExamen.EvaluationPeriodique, new DateOnly(2026, 3, 2), "cpmt-2", rendezVous, []));
+
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Reprise du suivi");
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).Error!.Code.ShouldBe("dossier-sante.gestion-hors-relation");
+
+        // Le doublon de cpmt-1 annulé, l'examen de cpmt-2 redevient l'unique examen du rendez-vous.
+        _monde.Store.Examens.First().Annuler();
+        (await ChangerGestionnaire(dossierId, "cpmt-2")).IsSuccess.ShouldBeTrue();
+    }
+
+    private Task<Result<Guid>> OuvrirSurRendezVous(Guid dossierId, Guid rendezVousId) =>
+        new OuvrirExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Store, _monde.Horloge)
+            .HandleAsync(new OuvrirExamen(dossierId, null, null, rendezVousId, null), _ct);
+
+    private Task<Result<Unit>> ChangerGestionnaire(Guid dossierId, string cpmtId) =>
+        new ChangerGestionnaireHandler(_monde.Garde, _monde.Store).HandleAsync(new ChangerGestionnaire(dossierId, cpmtId), _ct);
+
+    [Fact]
+    public async Task Le_cpmt_gestionnaire_signe_la_decision_d_un_examen_realise_par_un_autre()
+    {
+        // Relation de soin sur l'examen de la décision : le CPMT gestionnaire du dossier signe sans motif (ADR 0017).
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        _monde.Agir("infirmier-1", Roles.Infirmier, motif: "Examen périodique délégué par le Dr gestionnaire");
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+        var decisionId = (await new RedigerDecisionHandler(_monde.AccesExamens, _monde.Store, _monde.Utilisateur, _monde.Store)
+            .HandleAsync(new RedigerDecision(examenId, new ContenuDecisionSaisi(CategorieDecision.Apte, null, null, null, null)), _ct)).Value;
+
+        _monde.Agir("cpmt-1", Roles.Cpmt);
+        _monde.Store.Examens.Single().ProfessionnelId.ShouldBe("infirmier-1");
+        (await new CloturerExamenHandler(_monde.AccesExamens, _monde.Store, _monde.Store, _monde.Store, _monde.Horloge)
+            .HandleAsync(new CloturerExamen(examenId, null), _ct)).IsSuccess.ShouldBeTrue();
+        (await Signer(decisionId, 1)).Value.Statut.ShouldBe(StatutDecision.Emise);
+    }
+
+    [Fact]
     public async Task L_infirmier_professionnel_de_l_examen_modifie_le_brouillon_redige_par_le_cpmt()
     {
         var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);

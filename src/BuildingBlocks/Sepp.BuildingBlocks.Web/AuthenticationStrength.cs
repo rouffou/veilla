@@ -93,20 +93,30 @@ public static partial class AuthenticationStrength
 
     public const string ErrorCode = "insufficient_user_authentication";
 
-    private static readonly string[] PrefixesSensibles = ["dossier-sante:", "dossier-psy:"];
+    /// <summary>
+    /// Préfixes des permissions qui exigent l'authentification forte : dossiers de santé et psychosociaux, et écritures sur
+    /// les décisions d'évaluation de santé et les déclarations de maladie professionnelle (<c>decision:ecrire</c>,
+    /// <c>decision:signer</c>, #494).
+    /// </summary>
+    private static readonly string[] PrefixesSensibles = ["dossier-sante:", "dossier-psy:", "decision:"];
 
     /// <summary>
     /// Permissions des zones sensibles qui n'ouvrent aucun contenu médical ou psychosocial à une personne interne : dépôt d'une
-    /// demande de copie par le travailleur (portail, fédération CSAM en Azure) et compte technique du service Documents
-    /// (client credentials, sans utilisateur).
+    /// demande de copie par le travailleur (portail, fédération CSAM en Azure), compte technique du service Documents
+    /// (client credentials, sans utilisateur) et lecture du résumé d'une décision émise (<c>decision:lire</c> : catégorie,
+    /// mesures et validité, jamais de motif médical, lue aussi par l'employeur et le travailleur).
     /// </summary>
     private static readonly HashSet<string> Exemptees = new(StringComparer.Ordinal)
     {
         Permissions.CopieDossierDemander,
         Permissions.DossierSanteTransmettreDocuments,
+        Permissions.DecisionLire,
     };
 
-    /// <summary>Une route protégée par cette permission exige-t-elle l'authentification forte ? (<c>dossier-sante:*</c>, <c>dossier-psy:*</c>).</summary>
+    /// <summary>
+    /// Une route protégée par cette permission exige-t-elle l'authentification forte ? (<c>dossier-sante:*</c>,
+    /// <c>dossier-psy:*</c>, <c>decision:*</c> hors <c>decision:lire</c>).
+    /// </summary>
     public static bool IsRequiredFor(string permission) =>
         PrefixesSensibles.Any(p => permission.StartsWith(p, StringComparison.Ordinal)) && !Exemptees.Contains(permission);
 

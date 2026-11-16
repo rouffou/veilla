@@ -1,8 +1,15 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 using Sepp.BuildingBlocks.Application.Security;
+using Sepp.BuildingBlocks.Web;
 
 using Shouldly;
 
@@ -13,7 +20,7 @@ namespace Sepp.SurveillanceMedicale.Integration.Tests;
 /// l'authentification forte ; sans elle, 401 avec le défi de montée en niveau (RFC 9470). En mode souple (défaut local et des
 /// autres tests), l'accès reste accordé.
 /// </summary>
-public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fixture) : IClassFixture<SurveillanceMedicaleFixture>
+public sealed partial class AuthentificationForteApiTests(SurveillanceMedicaleFixture fixture) : IClassFixture<SurveillanceMedicaleFixture>
 {
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
 
@@ -54,6 +61,63 @@ public sealed class AuthentificationForteApiTests(SurveillanceMedicaleFixture fi
 
         var signee = await fort.SendAsync(Signature(decisionId), _ct);
         signee.StatusCode.ShouldBe(HttpStatusCode.OK, await signee.Content.ReadAsStringAsync(_ct));
+    }
+
+    [Theory]
+    [InlineData(Roles.Infirmier, Permissions.DecisionEcrire, 5)]
+    [InlineData(Roles.Cpmt, Permissions.DecisionEcrire, 5)]
+    [InlineData(Roles.Cpmt, Permissions.DecisionSigner, 7)]
+    public async Task Les_ecritures_decision_exigent_l_authentification_forte(string role, string permission, int routesAttendues)
+    {
+        // #494 : toute route decision:ecrire ou decision:signer exige l'authentification forte (préfixe decision:), sans
+        // déclaration route par route. Les routes sont énumérées depuis l'application : une route ajoutée plus tard est
+        // couverte. L'autorisation précède le chargement et la lecture du corps : des identifiants inconnus suffisent.
+        var faible = fixture.ClientStrict(role, $"{role}-pwd", amr: "pwd");
+        var routes = RoutesProtegeesPar(permission);
+        routes.Count.ShouldBe(routesAttendues, string.Join(", ", routes.Select(r => $"{r.Methode} {r.Gabarit}")));
+
+        foreach (var (methode, gabarit) in routes)
+        {
+            var chemin = ParametreDeRoute().Replace(gabarit, _ => Guid.CreateVersion7().ToString());
+            using var requete = new HttpRequestMessage(new HttpMethod(methode), chemin) { Content = JsonContent.Create(new { }) };
+            requete.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+            var reponse = await faible.SendAsync(requete, _ct);
+            reponse.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, $"{methode} {gabarit}");
+            DefiDeMonteeEnNiveau(reponse);
+        }
+    }
+
+    /// <summary>Routes de l'application protégées par <paramref name="permission"/> (méthode, gabarit).</summary>
+    private List<(string Methode, string Gabarit)> RoutesProtegeesPar(string permission) =>
+        [.. fixture.Factory.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>()
+            .Where(e => e.Metadata.GetOrderedMetadata<IAuthorizeData>().Any(a => a.Policy == PermissionPolicy.Name(permission)))
+            .SelectMany(e => (e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? [])
+                .Select(m => (m, "/" + e.RoutePattern.RawText!.TrimStart('/'))))];
+
+    [GeneratedRegex("\\{[^}]+\\}")]
+    private static partial Regex ParametreDeRoute();
+
+    [Fact]
+    public async Task La_redaction_d_une_decision_par_l_infirmier_est_acceptee_apres_montee_en_niveau()
+    {
+        var cpmt = fixture.ClientStrict(Roles.Cpmt, "cpmt-gestionnaire", amr: "pwd,otp");
+        var dossierId = await Id(await cpmt.PostAsJsonAsync("/api/v1/dossiers", new { personneId = Guid.CreateVersion7() }, _ct));
+        var examenId = await Id(await cpmt.PostAsJsonAsync("/api/v1/examens",
+            new { dossierId, typeExamen = "EVALUATION_PERIODIQUE", affilieId = Guid.CreateVersion7(), date = "2026-03-02" }, _ct));
+
+        var infirmier = fixture.ClientStrict(Roles.Infirmier, "infirmier-mfa", amr: "pwd,otp", motif: "Préparation de la décision du Dr gestionnaire");
+        await Id(await infirmier.PostAsJsonAsync($"/api/v1/examens/{examenId}/decision",
+            new { categorie = "Apte", justification = "Justification médicale" }, _ct));
+    }
+
+    [Fact]
+    public async Task La_lecture_du_resume_d_une_decision_n_exige_pas_l_authentification_forte()
+    {
+        // decision:lire est exempté : le résumé (catégorie, mesures, validité) est aussi lu par l'employeur et le travailleur.
+        var response = await fixture.ClientStrict(Roles.GestionnaireDossiers, "gestionnaire-pwd", amr: "pwd").GetAsync($"/api/v1/decisions/{Guid.CreateVersion7()}", _ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Headers.WwwAuthenticate.ShouldBeEmpty();
     }
 
     [Fact]

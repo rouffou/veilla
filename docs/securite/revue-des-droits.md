@@ -125,19 +125,30 @@ Arbitrages complémentaires du responsable produit sur la PR #488 (ADR 0017) :
 
 - **Auteur légal fixé à la signature.** Le brouillon n'a pas d'auteur légal. Il porte son rédacteur réel (`RedigeePar`),
   son dernier modificateur et la date de modification (`ModifieePar`, `ModifieeLe`), ainsi qu'une version de contenu.
-  - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin avec le travailleur ou, à
-    défaut, un bris de glace motivé, tracé et signalé (ARC-41), ainsi que l'authentification forte. Un simple motif ne
-    suffit pas pour signer.
+  - Le CPMT qui signe devient l'auteur. Il lui faut `decision:signer`, une relation de soin sur l'examen de la décision
+    (professionnel de cet examen ou CPMT gestionnaire du dossier) ou, à défaut, un bris de glace motivé, tracé et signalé
+    (ARC-41), ainsi que l'authentification forte. Ni un simple motif ni un autre examen du dossier, même un examen
+    spontané ouvert sur motif, ne suffisent pour signer (#495). Un vaccinateur hors de cette relation passe aussi par le
+    bris de glace (décision du responsable produit du 2026-11-15).
   - Un dossier sans CPMT gestionnaire ne bloque plus la rédaction.
   - La règle « seul l'auteur signe » est supprimée.
 - **Version relue.** La modification et la signature exigent `If-Match`, avec la valeur `Version` rendue par
   `GET /decisions/{id}/complete` (zone médicale seulement). Sans cet en-tête, la réponse est 400 ; avec une version
   dépassée, 409.
-- **Brouillon d'un autre.** L'infirmier ne modifie le brouillon d'un autre professionnel qu'en relation de soin sur
-  l'examen de la décision : professionnel de cet examen ou gestionnaire du dossier. Ni un simple motif ni un autre
-  examen du dossier, même un examen spontané, ne suffisent.
+- **Brouillon d'un autre.** Tout professionnel, CPMT compris, ne modifie le brouillon d'un autre qu'en relation de soin
+  sur l'examen de la décision (professionnel de cet examen ou gestionnaire du dossier), sinon par bris de glace motivé.
+  Ni un simple motif ni un autre examen du dossier, même un examen spontané, ne suffisent (revue de #496, P2-1).
+- **Désignation du gestionnaire.** Seul le gestionnaire actuel ou un CPMT en relation de soin sur le dossier (seul
+  examen non annulé d'un rendez-vous planifié) désigne le gestionnaire. Sinon, un bris de glace motivé est exigé, car un
+  simple motif permettrait de se désigner gestionnaire puis de signer (revue de #496, P1-1, ADR 0017 point 7).
+- **Un rendez-vous, un examen.** Un rendez-vous ne porte qu'un examen non annulé : refus applicatif (409,
+  `examen.rendez-vous-deja-honore`) et index unique partiel en base. Sinon un CPMT hors relation rouvrirait sans motif
+  un rendez-vous déjà honoré pour établir la relation (revue de #496, P1-1 bis). Limite connue : le rendez-vous ne
+  désigne pas encore le professionnel convoqué, ce qui fait l'objet d'un ticket de suite.
 - **Authentification forte.** La clôture d'examen (`decision:signer`) l'exige explicitement. Les routes
-  `dossier-sante:gerer` l'exigent par leur préfixe.
+  `dossier-sante:gerer` l'exigent par leur préfixe. Depuis #494, toutes les routes `decision:ecrire` et `decision:signer`
+  l'exigent aussi par leur préfixe (`decision:lire` excepté) : la rédaction et la modification ouvertes à l'infirmier par
+  #401 sont couvertes (détail dans [authentification-forte.md](authentification-forte.md#routes-protégées)).
 - **Langue.** Elle est conservée dans `mes-employeurs`.
 - **Limite du contrôle du gestionnaire.** Le service n'a pas d'annuaire. Il contrôle seulement que l'identifiant désigné
   n'est pas vide, et que seul un CPMT (`dossier-sante:gerer`) le désigne. Il ne peut pas vérifier que cet identifiant

@@ -634,7 +634,7 @@ variable "authentication_audience" {
 }
 
 variable "authentication_strength" {
-  description = "Authentification forte (NF-01) exigée par les services pour signer (SAN-32) et pour les routes dossier-sante:* et dossier-psy:* : contextes d'authentification Entra ID acceptés (claim acrs, c1 à c99, chacun lié à une stratégie d'accès conditionnel qui exige la MFA ou l'eID / itsme via CSAM) et méthodes amr acceptées (mfa). Le mode est toujours strict en Azure (Authentication__Strength__Mode = Enforce). Voir docs/securite/authentification-forte.md."
+  description = "Authentification forte (NF-01) exigée par les services pour les routes dossier-sante:*, dossier-psy:* et decision:* hors decision:lire (rédaction, modification et signature des décisions, SAN-31, SAN-32) : contextes d'authentification Entra ID acceptés (claim acrs, c1 à c99, chacun lié à une stratégie d'accès conditionnel qui exige la MFA ou l'eID / itsme via CSAM) et méthodes amr acceptées (mfa). Le mode est toujours strict en Azure (Authentication__Strength__Mode = Enforce). Voir docs/securite/authentification-forte.md."
   type = object({
     accepted_amr                     = list(string)
     accepted_authentication_contexts = list(string)

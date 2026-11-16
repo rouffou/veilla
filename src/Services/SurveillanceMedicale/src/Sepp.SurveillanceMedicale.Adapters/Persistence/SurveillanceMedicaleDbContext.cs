@@ -180,6 +180,9 @@ public sealed class SurveillanceMedicaleDbContext(
             b.HasOne<DossierSante>().WithMany().HasForeignKey(e => e.DossierId).IsRequired().OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(e => e.PersonneId);
             b.HasIndex(e => new { e.DossierId, e.ProfessionnelId });
+            // #496 : un rendez-vous ne porte qu'un examen non annulé ; sinon un rendez-vous déjà honoré, réutilisé sans motif,
+            // établirait une relation de soin (désignation du gestionnaire, signature).
+            b.HasIndex(e => e.RendezVousId).IsUnique().HasFilter("rendez_vous_id IS NOT NULL AND statut <> 'Annule'");
             b.Property(e => e.TypeExamen).HasMaxLength(CodeLength);
             b.Property(e => e.ProfessionnelId).HasMaxLength(UserLength);
             b.Property(e => e.Statut).HasConversion<string>().HasMaxLength(EnumLength);

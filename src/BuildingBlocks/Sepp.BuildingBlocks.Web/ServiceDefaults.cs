@@ -150,7 +150,7 @@ public static class ServiceDefaults
                 {
                     p.RequireAuthenticatedUser()
                         .RequireAssertion(ctx => HttpCurrentUser.PermissionsOf(ctx.User).Contains(permission));
-                    // NF-01 : les routes dossier-sante:* et dossier-psy:* exigent l'authentification forte (MFA, eID, itsme).
+                    // NF-01 : les routes dossier-sante:*, dossier-psy:* et decision:* (hors decision:lire) exigent l'authentification forte (MFA, eID, itsme).
                     if (AuthenticationStrength.IsRequiredFor(permission))
                     {
                         p.AddRequirements(AuthenticationStrengthRequirement.Instance);

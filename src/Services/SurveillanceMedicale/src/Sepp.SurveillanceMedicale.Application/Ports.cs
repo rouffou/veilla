@@ -51,6 +51,9 @@ public interface IExamenRepository
     /// <summary>Relation de soin : le professionnel a un examen (en cours ou clôturé) dans ce dossier.</summary>
     Task<bool> ExisteExamenDuProfessionnelAsync(Guid dossierId, string professionnelId, CancellationToken cancellationToken);
 
+    /// <summary>Un rendez-vous ne porte qu'un examen non annulé (#496) : existe-t-il déjà un examen sur ce rendez-vous ?</summary>
+    Task<bool> ExisteExamenSurRendezVousAsync(Guid rendezVousId, CancellationToken cancellationToken);
+
     void Add(Examen examen);
 }
 

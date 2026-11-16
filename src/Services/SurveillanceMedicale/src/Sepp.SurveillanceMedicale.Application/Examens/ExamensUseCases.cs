@@ -83,6 +83,10 @@ public sealed class OuvrirExamenHandler(
     IUnitOfWork unitOfWork, TimeProvider horloge)
     : ICommandHandler<OuvrirExamen, Guid>
 {
+    public static readonly Error RendezVousDejaHonore = Error.Conflict(
+        "examen.rendez-vous-deja-honore",
+        "Ce rendez-vous porte déjà un examen. Hors relation de soin, ouvrez un examen sans rendez-vous, sur motif.");
+
     public async Task<Result<Guid>> HandleAsync(OuvrirExamen command, CancellationToken cancellationToken)
     {
         if (garde.VerifierPermission(ActionAudit.Creation) is { } interdit)
@@ -100,6 +104,13 @@ public sealed class OuvrirExamenHandler(
         if (command.RendezVousId is not null && (rendezVous is null || rendezVous.PersonneId != dossierCible.PersonneId))
         {
             return Error.Validation("examen.rendez-vous-inconnu", "Ce rendez-vous n'est pas planifié pour cette personne.");
+        }
+
+        // #496 : un rendez-vous ne porte qu'un examen non annulé. Sinon un professionnel hors relation rouvrirait sans motif un
+        // rendez-vous déjà honoré, puis se désignerait gestionnaire et signerait sans bris de glace.
+        if (rendezVous is not null && await examens.ExisteExamenSurRendezVousAsync(rendezVous.RendezVousId, cancellationToken))
+        {
+            return RendezVousDejaHonore;
         }
 
         var obligations = rendezVous is null ? [] : await projections.ListerObligationsParIdsAsync([.. rendezVous.ObligationIds], cancellationToken);

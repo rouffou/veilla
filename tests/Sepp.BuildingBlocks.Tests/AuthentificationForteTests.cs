@@ -37,20 +37,23 @@ public sealed class AuthentificationForteTests
     [InlineData(Permissions.DossierPsyEcrire, true)]
     [InlineData(Permissions.CopieDossierDemander, false)]
     [InlineData(Permissions.DossierSanteTransmettreDocuments, false)]
-    [InlineData(Permissions.DecisionEcrire, false)]
+    [InlineData(Permissions.DecisionEcrire, true)]
+    [InlineData(Permissions.DecisionSigner, true)]
+    [InlineData(Permissions.DecisionLire, false)]
     [InlineData(Permissions.AffilieLire, false)]
-    public void Les_permissions_des_dossiers_sante_et_psy_exigent_l_authentification_forte(string permission, bool exigee)
+    public void Les_permissions_des_dossiers_sante_et_psy_et_les_ecritures_decision_exigent_l_authentification_forte(string permission, bool exigee)
     {
         AuthenticationStrength.IsRequiredFor(permission).ShouldBe(exigee);
     }
 
     [Fact]
-    public void Toute_permission_dossier_sante_ou_psy_hors_exemptions_exige_l_authentification_forte()
+    public void Toute_permission_dossier_sante_psy_ou_decision_hors_exemptions_exige_l_authentification_forte()
     {
-        // Une permission ajoutée plus tard dans ces zones est couverte sans modification de la politique.
+        // Une permission ajoutée plus tard dans ces zones est couverte sans modification de la politique (#494 : decision:*).
         var sensibles = typeof(Permissions).GetFields().Select(f => (string)f.GetRawConstantValue()!)
-            .Where(p => p.StartsWith("dossier-sante:", StringComparison.Ordinal) || p.StartsWith("dossier-psy:", StringComparison.Ordinal))
-            .Except([Permissions.CopieDossierDemander, Permissions.DossierSanteTransmettreDocuments])
+            .Where(p => p.StartsWith("dossier-sante:", StringComparison.Ordinal) || p.StartsWith("dossier-psy:", StringComparison.Ordinal)
+                || p.StartsWith("decision:", StringComparison.Ordinal))
+            .Except([Permissions.CopieDossierDemander, Permissions.DossierSanteTransmettreDocuments, Permissions.DecisionLire])
             .ToList();
 
         sensibles.ShouldNotBeEmpty();
