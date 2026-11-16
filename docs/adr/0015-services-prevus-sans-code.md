@@ -47,7 +47,8 @@ y est déjà implémentée. Aucun besoin connu n'exige un service `identite`.
      deux sens.
    - Une validation de `var.services` interdit à un service actif d'avoir dans `internal_services` un service inactif,
      absent ou en zone `platform` : sans elle, `service_url_by_name` fait échouer le `plan` sur « Invalid index ».
-5. **Les rubriques des BFF sont supprimées** (`publishes_events = false` pour `bff-employeur` et `bff-travailleur`). Le
+5. **Les rubriques des BFF sont supprimées, sauf `bff-employeur`** (`publishes_events = false` pour `bff-travailleur` ; la
+   rubrique `bff-employeur` est conservée, voir le paragraphe « Application (#489) » ci-dessous). Le
    contrat `bff-employeur.reprise-annoncee.v1` reste dans `src/Contracts` pour la rétrocompatibilité (ADR 0008), mais
    n'a plus de rubrique.
    - Cela suppose de retirer le gestionnaire `RepriseAnnonceeHandler` et l'abonnement d'Obligations, ce que l'ADR 0008
