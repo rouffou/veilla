@@ -73,7 +73,7 @@ par valeur (comme Documents par document) est exclu, pour la latence comme pour 
   (`Rechiffrement:ExecuterPuisQuitter`, `RechiffrementHote` du socle) dans les quatre services. Il traite par lots, avec
   un curseur et des transactions courtes, toutes les colonnes chiffrées du modèle. Il est rejouable et idempotent, et
   produit un rapport sans donnée ni clé. Il tourne avec l'identité d'exécution du service (il lui faut les DEK), et non
-  avec le job de migration. Le job Terraform `rech-<service>` reste à créer (#474). Procédures de rotation des DEK et de
+  avec le job de migration. Terraform crée les jobs manuels `rech-<service>` (rechiffre) et `verif-<service>` (vérifie seulement) pour chaque service qui chiffre, avec la même identité (#474), et un contrôle de PR bloque tout changement de clés sans `verif-<service>` à 0. Procédures de rotation des DEK et de
   retrait des anciennes clés, avec la requête de contrôle : `infra/README.md`.
 - **Rotation de la clé de l'index aveugle** : outillée par #473. Lecture à double clé
   (`BlindIndex:CleEnveloppeePrecedente`) pendant le recalcul de l'index par le mode de rechiffrement de Personnes, et

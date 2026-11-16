@@ -94,6 +94,20 @@ verifier "code 0" '[ "$code" -eq 0 ]'
 verifier "100 % direct" 'grep -q -- "--revision-weight ca-personnes--r1=100" "$travail/az.log"'
 verifier "pas de palier 10 %" '! grep -q -- "r1=10$" "$travail/az.log"'
 
+echo "Jobs de rechiffrement et de vérification : image mise à jour, jamais démarrés"
+executer FAKE_COURANTE=ca-personnes--ancienne FAKE_JOBS_CLES="rech-personnes verif-personnes"
+verifier "code 0" '[ "$code" -eq 0 ]'
+verifier "image de rech-personnes mise à jour" 'grep -q -- "job update .*-n rech-personnes --image" "$travail/az.log"'
+verifier "image de verif-personnes mise à jour" 'grep -q -- "job update .*-n verif-personnes --image" "$travail/az.log"'
+verifier "seule la migration est démarrée" '[ "$(appel "job start")" -eq 1 ]'
+executer FAKE_COURANTE=ca-personnes--ancienne
+verifier "sans ces jobs : une seule mise à jour d'image (migration)" '[ "$(appel "job update")" -eq 1 ]'
+
+echo "Retour arrière : les jobs de rechiffrement gardent leur image"
+executer FAKE_COURANTE=ca-personnes--ancienne FAKE_SANTE="Running Unhealthy" FAKE_JOBS_CLES="rech-personnes verif-personnes"
+verifier "code 1" '[ "$code" -eq 1 ]'
+verifier "rech-/verif- non mis à jour" '! grep -q -- "job update .*-n rech-personnes\|job update .*-n verif-personnes" "$travail/az.log"'
+
 echo "Entrées invalides"
 executer FAKE_COURANTE=x ENVIRONNEMENT=inconnu
 verifier "environnement refusé" '[ "$code" -eq 1 ]'

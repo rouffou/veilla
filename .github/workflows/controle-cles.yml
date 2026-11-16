@@ -1,0 +1,109 @@
+# Contrôle bloquant des changements de clés de chiffrement (#474, ADR 0012, décision D8).
+#   Toute PR qui modifie encryption_key_ids, encryption_legacy_key_ids ou blind_index_previous_key_enabled (ou leur
+#   branchement) dans infra/environments/<env>/*.tfvars ou *.tf exige, pour chaque environnement touché, une exécution
+#   RÉUSSIE de verification-cles.yml, lancée à la main sur main pour cet environnement, de moins de 24 h (décision D5).
+#
+# Évènement pull_request_target : le fichier de workflow est TOUJOURS celui de la branche de base (main). Une PR ne peut donc
+# plus modifier son propre contrôle. Cela impose les règles suivantes, vérifiées par ConfigurationTerraformTests :
+#   1. aucun code de la PR n'est exécuté : ni build, ni npm, ni dotnet, ni script de pr/. La PR est récupérée par son SHA de
+#      tête, en lecture seule (sparse-checkout d'infra/environments), pour un seul usage : « git diff --name-only » et
+#      « git show » dans detecter-modification-cles.sh. Tous les scripts exécutés viennent de la base (base/) ;
+#   2. permissions du workflow : contents: read et actions: read seulement ; persist-credentials: false ; ni environnement,
+#      ni id-token, ni secret, ni « secrets: inherit », ni actions/cache ;
+#   3. aucune donnée de la PR (titre, nom de branche, corps) dans un « run: » : seuls des SHA et le numéro de la PR passent,
+#      par env: ;
+#   4. inoffensif pour les forks : le jeton n'a que des droits de lecture et le workflow n'a accès à aucun secret ;
+#   5. aucun actions/cache (pas d'empoisonnement de cache entre la PR et main).
+# Rattachement du statut : pour pull_request_target, GITHUB_SHA est le sommet de la base, pas la tête de la PR. Que le
+# statut « Statut contrôle des clés » soit bien rattaché au commit de tête de la PR (et donc exigible par le ruleset de
+# main) NE PEUT PAS être vérifié avant la fusion de ce fichier : le workflow n'existe pas encore sur main. À constater sur
+# une PR de test après la fusion, AVANT d'ajouter le statut aux contrôles exigés (infra/README.md). Sinon, revenir à
+# l'évènement pull_request (voir le README).
+# File de fusion (merge_group) : la vérification faite sur la PR fait foi ; ce workflow s'y contente de répondre.
+name: Contrôle des clés
+
+on:
+  pull_request_target:
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+  actions: read # lecture des exécutions de verification-cles.yml
+
+# Un contrôle par PR (github.ref vaut la branche de base avec pull_request_target : ne pas s'en servir seul).
+concurrency:
+  group: controle-cles-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
+
+jobs:
+  controle:
+    name: Contrôle des clés
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Scripts de confiance : la base de la PR (main), dans « base/ ».
+      - name: Récupération des scripts de main
+        if: ${{ github.event_name == 'pull_request_target' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      # La PR est lue, jamais exécutée : récupérée par son SHA de tête, seul le dossier infra/environments est extrait.
+      - name: Récupération de la PR (lecture seule, diff seulement)
+        if: ${{ github.event_name == 'pull_request_target' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          fetch-depth: 0
+          sparse-checkout: infra/environments
+          persist-credentials: false
+
+      - name: Environnements dont les clés de chiffrement changent
+        id: detection
+        if: ${{ github.event_name == 'pull_request_target' }}
+        working-directory: pr
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          TETE: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Comparaison avec l'ancêtre commun : les changements de main depuis la création de la PR ne comptent pas.
+          ancetre=$(git merge-base "$BASE" "$TETE")
+          environnements=$(bash "$GITHUB_WORKSPACE/base/tools/deploy/detecter-modification-cles.sh" "$ancetre" "$TETE" | tr '\n' ' ')
+          echo "Environnements dont les clés changent : ${environnements:-aucun}"
+          echo "environnements=$environnements" >> "$GITHUB_OUTPUT"
+
+      - name: Vérification récente sur main (moins de 24 h)
+        if: ${{ github.event_name == 'pull_request_target' }}
+        working-directory: pr
+        env:
+          ENVIRONNEMENTS: ${{ steps.detection.outputs.environnements }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$GITHUB_WORKSPACE/base/tools/deploy/controler-verification-recente.sh"
+
+      - name: File de fusion
+        if: ${{ github.event_name != 'pull_request_target' }}
+        run: echo "File de fusion, la vérification faite sur la PR fait foi."
+
+  # Seul contrôle exigé par le ruleset de main (nom stable).
+  statut:
+    name: Statut contrôle des clés
+    if: ${{ always() }}
+    needs: [controle]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Résultat
+        env:
+          RESULTAT: ${{ needs.controle.result }}
+        run: |
+          echo "$RESULTAT"
+          if [ "$RESULTAT" != "success" ]; then
+            echo "::error::Contrôle des clés en échec : aucun changement de clés sans vérification récente (verification-cles.yml sur main)."
+            exit 1
+          fi

@@ -7,6 +7,8 @@ on:
     paths:
       - "tools/deploy/**"
       - ".github/workflows/deploy.yml"
+      - ".github/workflows/verification-cles.yml"
+      - ".github/workflows/controle-cles.yml"
       - ".github/workflows/deploiement-scripts.yml"
   workflow_dispatch:
 
@@ -27,3 +29,9 @@ jobs:
         run: shellcheck tools/deploy/*.sh tools/deploy/tests/*.sh
       - name: Tests avec az simulé
         run: bash tools/deploy/tests/deployer-service.test.sh
+      - name: Tests de la vérification du rechiffrement (az simulé)
+        run: bash tools/deploy/tests/verifier-rechiffrement.test.sh
+      - name: Tests de la détection des changements de clés
+        run: bash tools/deploy/tests/detecter-modification-cles.test.sh
+      - name: Tests du contrôle de la vérification récente (gh simulé)
+        run: bash tools/deploy/tests/controler-verification-recente.test.sh

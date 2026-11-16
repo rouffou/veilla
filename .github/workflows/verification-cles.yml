@@ -1,0 +1,75 @@
+# Vérification des champs chiffrés avant tout changement de clés (#474, #482, ADR 0012).
+#   Lance, un service à la fois, les jobs Container Apps « verif-<service> » (vérification seule : rien n'est écrit) et
+#   échoue si l'un d'eux ne se termine pas avec le code 0 (plus aucune valeur n'utilise une autre clé que la DEK courante).
+#   Les jobs s'exécutent avec l'identité d'EXÉCUTION du service ; ce workflow n'utilise que l'identité fédérée de
+#   déploiement (démarrer un job et lire son état), sans rôle Key Vault ni accès aux données.
+#   Ne lance jamais « rech-<service> » (rechiffrement), qui reste une action manuelle de l'exploitant.
+# Lancement MANUEL uniquement, depuis main (Actions > Vérification des clés > Run workflow, ou
+# « gh workflow run verification-cles.yml --ref main -f environnement=<env> »). Il n'est jamais appelé par une PR :
+#   - les environnements GitHub dev, test, recette, preprod et prod sont restreints à la branche main : depuis une autre
+#     branche, le job ne démarre pas et l'identité OIDC n'est pas délivrée ;
+#   - preprod et prod exigent en plus l'approbation du responsable produit (confirmation humaine) ;
+#   - le contrôle de PR (controle-cles.yml) ne fait que lire le résultat de cette exécution par l'API GitHub : il exige une
+#     exécution réussie, sur main, pour l'environnement concerné, de moins de 24 h. L'environnement est retrouvé par le
+#     run-name ci-dessous.
+# Le job référence un environnement : GitHub y crée un déploiement, dont le statut passe à success quand le job réussit.
+# controle-cles.yml exige ce déploiement pour le commit de l'exécution (défense en profondeur, à constater au premier essai).
+# Annuler ce workflow n'arrête PAS l'exécution du job Azure déjà démarrée : elle va à son terme (voir infra/README.md).
+# En preprod et en prod, le script refuse de lancer le balayage hors des heures creuses.
+name: Vérification des clés
+
+run-name: "Vérification des clés : ${{ inputs.environnement }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environnement:
+        description: "Environnement cible (environnement GitHub du même nom)"
+        type: choice
+        options: [dev, test, recette, preprod, prod]
+        required: true
+
+permissions:
+  contents: read
+
+# Une seule vérification à la fois par environnement, jamais interrompue en cours de route.
+concurrency:
+  group: verification-cles-${{ inputs.environnement }}
+  cancel-in-progress: false
+
+env:
+  # Services dont le catalogue Terraform (infra/variables.tf) a un attribut encryption non vide ; un test
+  # (ConfigurationTerraformTests) échoue si cette liste diverge du catalogue.
+  SERVICES_CHIFFRANTS: "personnes integrations surveillance-medicale reintegration"
+
+jobs:
+  verification:
+    name: Vérification ${{ inputs.environnement }}
+    # Garde supplémentaire à la restriction des environnements : jamais depuis une autre branche que main.
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    # Limite d'un job sur un runner hébergé par GitHub : 6 h. Si le balayage des quatre services la dépasse, le contrôle
+    # échoue (rien n'est vérifié) : lancer alors le job verif-<service> à la main, un service à la fois.
+    timeout-minutes: 355
+    environment: ${{ inputs.environnement }}
+    permissions:
+      contents: read
+      id-token: write # connexion Azure OIDC (identité fédérée, sans secret client)
+    steps:
+      - name: Récupération des scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Connexion Azure (OIDC)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Vérification seule des champs chiffrés (jobs verif-<service>)
+        env:
+          ENVIRONNEMENT: ${{ inputs.environnement }}
+          SERVICES: ${{ env.SERVICES_CHIFFRANTS }}
+        run: bash tools/deploy/verifier-rechiffrement.sh

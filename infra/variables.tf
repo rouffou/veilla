@@ -483,6 +483,17 @@ variable "image_tag" {
   default     = "0.1.0"
 }
 
+variable "rechiffrement_replica_timeout_seconds" {
+  description = "Durée maximale d'une exécution des jobs rech-<service> et verif-<service> (#474), en secondes. Plus longue que la migration (balayage de toute la base) ; à relancer si elle est dépassée."
+  type        = number
+  default     = 14400
+
+  validation {
+    condition     = var.rechiffrement_replica_timeout_seconds >= 60 && var.rechiffrement_replica_timeout_seconds <= 86400
+    error_message = "rechiffrement_replica_timeout_seconds doit être compris entre 60 et 86400."
+  }
+}
+
 variable "dedicated_workload_profile" {
   description = "Profil de charge dédié ajouté à chaque environnement Container Apps (null = profil Consumption uniquement)."
   type = object({

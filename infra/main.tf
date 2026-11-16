@@ -234,6 +234,24 @@ locals {
       DATABASE__RUNTIMEROLE    = local.postgres_environment[n].POSTGRES__USER
     }) if s.database
   }
+
+  # Jobs de rechiffrement et de vérification des champs (#474, ADR 0012) : même configuration que la Container App, même
+  # identité d'exécution et mêmes secrets Key Vault (--deks-- et --keys--), plus UN seul mode RECHIFFREMENT__*. Ces variables
+  # ne sont jamais fusionnées dans app_environment : une révision de service qui les recevrait quitterait au démarrage et
+  # redémarrerait en boucle (ConfigurationTerraformTests).
+  rechiffrement_services = { for n, s in local.services : n => s if length(s.encryption) > 0 }
+  rechiffrement_environment = {
+    for n, s in local.rechiffrement_services : n => merge(local.app_environment[n], {
+      OTEL_SERVICE_NAME                  = "${n}-rechiffrement"
+      RECHIFFREMENT__EXECUTERPUISQUITTER = "true"
+    })
+  }
+  verification_environment = {
+    for n, s in local.rechiffrement_services : n => merge(local.app_environment[n], {
+      OTEL_SERVICE_NAME                = "${n}-verification"
+      RECHIFFREMENT__VERIFIERSEULEMENT = "true"
+    })
+  }
 }
 
 # Avertissement (non bloquant, pour permettre l'amorçage du Key Vault plateforme) :
@@ -483,6 +501,46 @@ module "migration_job" {
   image                        = coalesce(each.value.image, "${module.registry.login_server}/sepp/${coalesce(each.value.instance_de, each.key)}:${var.image_tag}")
   environment_variables        = local.migration_environment[each.key]
   tags                         = merge(local.tags, { zone = each.value.zone, service = each.key, usage = "migration" })
+}
+
+# Jobs de rechiffrement (rech-<service>) et de vérification seule (verif-<service>) des champs chiffrés (#396, #482, #474,
+# ADR 0012) : un couple par service dont encryption n'est pas vide, dans l'environnement de sa zone. Déclenchement MANUEL
+# uniquement, jamais par deploy.yml (qui ne fait que mettre à jour leur image). Ils déballent les DEK : ils utilisent
+# l'identité d'EXÉCUTION du service et ses secrets, jamais l'identité de migration ni une identité de pipeline élargie.
+module "rechiffrement_job" {
+  source   = "./modules/containerapp-rechiffrement-job"
+  for_each = var.deploy_container_apps ? local.rechiffrement_services : {}
+
+  name                         = "rech-${each.key}"
+  resource_group_name          = azurerm_resource_group.zone[each.value.zone].name
+  location                     = var.location
+  container_app_environment_id = module.container_apps_env[each.value.zone].id
+  workload_profile_name        = module.container_apps_env[each.value.zone].workload_profile_name
+  identity_id                  = module.identity.identities[each.key].id
+  registry_server              = module.registry.login_server
+  image                        = coalesce(each.value.image, "${module.registry.login_server}/sepp/${coalesce(each.value.instance_de, each.key)}:${var.image_tag}")
+  replica_timeout_in_seconds   = var.rechiffrement_replica_timeout_seconds
+  environment_variables        = local.rechiffrement_environment[each.key]
+  key_vault_secrets            = local.service_key_vault_secrets[each.key]
+  tags                         = merge(local.tags, { zone = each.value.zone, service = each.key, usage = "rechiffrement" })
+}
+
+module "verification_job" {
+  source   = "./modules/containerapp-rechiffrement-job"
+  for_each = var.deploy_container_apps ? local.rechiffrement_services : {}
+
+  name                         = "verif-${each.key}"
+  resource_group_name          = azurerm_resource_group.zone[each.value.zone].name
+  location                     = var.location
+  container_app_environment_id = module.container_apps_env[each.value.zone].id
+  workload_profile_name        = module.container_apps_env[each.value.zone].workload_profile_name
+  identity_id                  = module.identity.identities[each.key].id
+  registry_server              = module.registry.login_server
+  image                        = coalesce(each.value.image, "${module.registry.login_server}/sepp/${coalesce(each.value.instance_de, each.key)}:${var.image_tag}")
+  replica_timeout_in_seconds   = var.rechiffrement_replica_timeout_seconds
+  environment_variables        = local.verification_environment[each.key]
+  key_vault_secrets            = local.service_key_vault_secrets[each.key]
+  tags                         = merge(local.tags, { zone = each.value.zone, service = each.key, usage = "verification" })
 }
 
 # -----------------------------------------------------------------------------
