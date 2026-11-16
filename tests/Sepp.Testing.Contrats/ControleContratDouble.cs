@@ -18,14 +18,14 @@ public sealed class ControleContratDouble(IReadOnlyDictionary<string, string>? a
     private readonly ConcurrentQueue<string> _ecarts = new();
 
     /// <summary>Contrôle une réponse programmée ; lève immédiatement si le double est incompatible avec le fournisseur.</summary>
-    public void ControlerReponse(string hote, string methode, string chemin, int status, string corpsJson)
+    public void ControlerReponse(string hote, string methode, string chemin, int status, string corpsJson, IReadOnlyCollection<string>? champsEnPlus = null)
     {
         if (Fournisseur(hote) is not { } fournisseur || !(perimetre?.Invoke(methode, chemin) ?? true))
         {
             return;
         }
 
-        var ecarts = ContratConsommateur.VerifierReponse(fournisseur, methode, chemin, status, corpsJson);
+        var ecarts = ContratConsommateur.VerifierReponse(fournisseur, methode, chemin, status, corpsJson, champsEnPlus);
         if (ecarts.Count > 0)
         {
             throw new ShouldAssertException(

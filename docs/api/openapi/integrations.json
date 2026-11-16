@@ -1,6 +1,40 @@
 {
   "components": {
     "schemas": {
+      "AdresseBceDto": {
+        "properties": {
+          "boite": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "codePays": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "localite": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "rue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rue",
+          "numero",
+          "boite",
+          "codePostal",
+          "localite",
+          "codePays"
+        ],
+        "type": "object"
+      },
       "DefinirCorrespondance": {
         "properties": {
           "identifiantInterne": {
@@ -36,6 +70,92 @@
         ],
         "type": "object"
       },
+      "EntrepriseBceDto": {
+        "properties": {
+          "actualiseeLe": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "affilieId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "codeNace": {
+            "type": "string"
+          },
+          "dateExtraction": {
+            "format": "date",
+            "type": "string"
+          },
+          "denomination": {
+            "type": "string"
+          },
+          "formeJuridique": {
+            "type": "string"
+          },
+          "numeroBce": {
+            "type": "string"
+          },
+          "unitesEtablissement": {
+            "items": {
+              "$ref": "#/components/schemas/UniteEtablissementBceDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "numeroBce",
+          "affilieId",
+          "denomination",
+          "formeJuridique",
+          "codeNace",
+          "dateExtraction",
+          "actualiseeLe",
+          "unitesEtablissement"
+        ],
+        "type": "object"
+      },
+      "ProblemDetails": {
+        "properties": {
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "StatutEchange": {
         "enum": [
           "Recu",
@@ -58,6 +178,33 @@
           "Occupation",
           "Incapacite"
         ]
+      },
+      "UniteEtablissementBceDto": {
+        "properties": {
+          "adresse": {
+            "$ref": "#/components/schemas/AdresseBceDto"
+          },
+          "dateDebut": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "denomination": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "numero",
+          "denomination",
+          "adresse",
+          "dateDebut"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -103,7 +250,34 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntrepriseBceDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [

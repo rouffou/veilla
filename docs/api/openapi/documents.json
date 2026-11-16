@@ -194,6 +194,127 @@
         ],
         "type": "object"
       },
+      "DocumentDto": {
+        "properties": {
+          "autoriteHorodatage": {
+            "type": "string"
+          },
+          "codeModele": {
+            "type": "string"
+          },
+          "date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "destinataireId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "empreinte": {
+            "type": "string"
+          },
+          "exemplaire": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "modeleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "motifLangue": {
+            "type": "string"
+          },
+          "objetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "objetType": {
+            "type": "string"
+          },
+          "publieLe": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "serviceProprietaire": {
+            "type": "string"
+          },
+          "signatures": {
+            "items": {
+              "$ref": "#/components/schemas/SignatureDto"
+            },
+            "type": "array"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutDocument"
+          },
+          "taille": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "typeDestinataire": {
+            "enum": [
+              "affilie",
+              "personne",
+              "dossier"
+            ],
+            "type": "string"
+          },
+          "versionModele": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "zone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "modeleId",
+          "codeModele",
+          "versionModele",
+          "langue",
+          "motifLangue",
+          "zone",
+          "serviceProprietaire",
+          "objetType",
+          "objetId",
+          "typeDestinataire",
+          "destinataireId",
+          "exemplaire",
+          "format",
+          "taille",
+          "empreinte",
+          "date",
+          "autoriteHorodatage",
+          "statut",
+          "publieLe",
+          "signatures"
+        ],
+        "type": "object"
+      },
       "Language": {
         "enum": [
           "Fr",
@@ -202,6 +323,44 @@
           "En"
         ]
       },
+      "ProblemDetails": {
+        "properties": {
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "RegimeLinguistique": {
         "enum": [
           "Francais",
@@ -209,6 +368,45 @@
           "Allemand",
           "BruxellesCapitale",
           null
+        ]
+      },
+      "SignatureDto": {
+        "properties": {
+          "date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "empreinteSignee": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "preuve": {
+            "type": "string"
+          },
+          "signataireId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "signataireId",
+          "type",
+          "date",
+          "preuve",
+          "empreinteSignee"
+        ],
+        "type": "object"
+      },
+      "StatutDocument": {
+        "enum": [
+          "Archive",
+          "Publie"
         ]
       },
       "TypeChamp": {
@@ -300,7 +498,37 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
           }
         },
         "security": [
@@ -360,7 +588,34 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -399,6 +654,36 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [

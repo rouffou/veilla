@@ -91,16 +91,20 @@ public static class DocumentsEndpoints
         documents.MapGet("/", async (string? objetType, Guid? objetId, TypeDestinataire? typeDestinataire, Guid? destinataireId,
                 IQueryHandler<ListerDocuments, IReadOnlyList<DocumentDto>> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ListerDocuments(objetType, objetId, typeDestinataire, destinataireId), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<DocumentDto>>(ErreurHttp.Requete, ErreurHttp.Interdit)
             .WithName("ListerDocuments");
 
         documents.MapGet("/{id:guid}", async (Guid id, IQueryHandler<ObtenirDocument, DocumentDto> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ObtenirDocument(id), ct)).ToHttpResult())
+            .Retourne<DocumentDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("ObtenirDocument");
 
         documents.MapGet("/{id:guid}/contenu", async (Guid id, [FromHeader(Name = EnteteMotif)] string? motif,
                 IQueryHandler<LireContenuDocument, ContenuDocumentDto> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new LireContenuDocument(id, motif), ct))
                 .ToHttpResult(c => Results.File(c.Contenu, "application/pdf", c.NomFichier)))
+            .Produces(200, contentType: "application/pdf")
+            .Erreurs(ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit)
             .WithName("LireContenuDocument")
             .WithSummary("PDF/A déchiffré ; accès journalisé (NF-04). Motif facultatif dans l'en-tête X-Motif-Acces.");
 

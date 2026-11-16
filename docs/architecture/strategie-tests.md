@@ -56,7 +56,7 @@ Le contrat de chaque service et BFF est déjà versionné : `docs/api/openapi/<n
 | Mécanisme | Où | Ce qu'il détecte |
 |---|---|---|
 | **Attentes du consommateur** (`AttenteConsommateur`, `ContratConsommateur.Verifier`) | `ContratConsommateurTests` dans le projet d'intégration de chaque consommateur | opération supprimée ou renommée, paramètre de requête supprimé ou devenu obligatoire, champ de corps supprimé ou devenu obligatoire, code de succès modifié, champ de réponse supprimé (si la réponse est décrite) |
-| **Doubles de test conformes** (`ControleContratDouble`, branché dans `ServicesAvalSimules` des 3 BFF) | à chaque `Repondre(...)` | un double qui répond sur une route inexistante ; une réponse décrite par le fournisseur dont les champs ou les valeurs d'énumération (casse comprise) ne correspondent pas : c'est la classe du bug #436 (« Personne » au lieu de « personne »). **Actif dès que les réponses seront typées, voir #476** : tant qu'aucune réponse n'est décrite par les instantanés, seule la route est contrôlée |
+| **Doubles de test conformes** (`ControleContratDouble`, branché dans `ServicesAvalSimules` des 3 BFF) | à chaque `Repondre(...)` | un double qui répond sur une route inexistante ; une réponse décrite par le fournisseur dont les champs ou les valeurs d'énumération (casse comprise) ne correspondent pas : c'est la classe du bug #436 (« Personne » au lieu de « personne »). **Actif depuis #476** : les endpoints consommés déclarent leur réponse (`Produces<T>`), les doubles sont contrôlés propriété par propriété et à la casse exacte |
 | **Requêtes réellement émises** (même contrôle, vérifié dans `DisposeAsync` des tests d'API des BFF) | chaque test d'API | le code du BFF appelle une route, un paramètre ou un champ de corps qui n'existe pas chez le service |
 
 Consommateurs couverts :
@@ -73,17 +73,26 @@ Consommateurs couverts :
 
 Le compte technique (jeton OIDC en client credentials) appelle le fournisseur d'identité, pas un service interne : il n'a pas de contrat OpenAPI interne et reste couvert par ses tests unitaires.
 
-### 4.3 Limites connues
-1. **Les réponses ne sont pas décrites.** Aucun endpoint des services ne déclare le type de sa réponse (`Produces<T>`) : aucune opération des services ne décrit un corps de réponse (un code `200` sans schéma). Les « champs de réponse lus » déclarés par les consommateurs sont donc signalés comme non vérifiables (la vérification s'active dès qu'un service typera sa réponse, voir #476), et la casse des énumérations dans les réponses n'est contrôlée que sur les doubles dont la réponse est décrite. Suite : typer les réponses des endpoints consommés par les BFF et les services (ticket de suite).
-2. **Codes d'erreur** (404, 409…) : non déclarés dans les instantanés (réponses `problem+json` génériques), donc non contrôlés.
-3. **`required` n'est pas fiable** : le générateur OpenAPI de .NET marque comme requises toutes les propriétés d'un record, nullables comprises. Le contrôle n'exige que les propriétés non nullables.
-4. **Enumération `TypeDestinataire`** : l'instantané de Documents annonce `Affilie, Personne, Dossier` (PascalCase) alors que le service publie `personne` (#436). Écart à corriger côté Documents quand ses réponses seront typées (#476) ; le BFF Travailleur compare sans casse en attendant.
-5. Les adaptateurs HTTP de service à service (annuaire, source linguistique, BCE, DIMONA) n'ont pas encore de test avec un double HTTP : leurs attentes sont vérifiées contre les instantanés, pas leur lecture des réponses.
+### 4.3 Réponses typées et limites connues
+
+**Réponses typées (#476).** Les endpoints consommés par les BFF et par d'autres services déclarent le type de leur réponse et leurs codes d'erreur (`ReponsesOpenApi` : `Retourne<T>`, `RetourneCree<T>`, `RetourneSansContenu`, avec les erreurs `ErreurHttp` que `ToProblem` peut produire : 400, 403, 404, 409, 422). Ce sont des métadonnées OpenAPI : aucun comportement ne change. Les instantanés `docs/api/openapi` décrivent donc les corps de réponse, et les champs lus par les consommateurs sont vérifiés dans ce schéma. Les sept projets de consommateurs passent `exigerReponsesDecrites: true` : une attente dont la réponse n'est pas décrite (« non vérifiable ») fait échouer le test. Il y en avait 16 avant #476, il n'y en a plus. Un nouvel appel consommé impose donc que son endpoint déclare `Produces<T>`. Le typage des endpoints sans consommateur reste à faire (#529).
+
+**Le garde-fou de #436 est actif.** Un double qui renvoie une propriété inconnue, omet une propriété non nullable ou renvoie une valeur d'énumération à une autre casse échoue dès sa programmation. C'est ainsi que les doubles des BFF ont révélé `regimeLinguistique = "Francophone"` (l'énumération publie `Francais`) et `traiteePar`, un champ qui n'existe pas. Un double qui ajoute volontairement un champ (test de défense en profondeur du BFF) le déclare par `champsEnPlus: ["nom"]` : seuls ces noms échappent au contrôle, la route, les autres propriétés et la casse des énumérations restent contrôlées. Les doubles ne se réécrivent pas à la main : on part d'une réponse conforme (`ExemplesContrat.Reponse`, ou `FournisseurHttpSimule.RepondreSelonContrat`) et on ne surcharge que les valeurs exercées.
+
+**Énumération `TypeDestinataire` de Documents.** Elle a deux visages qu'il ne faut pas confondre (cause de #436). En entrée, le paramètre de requête `typeDestinataire` est sensible à la casse et n'accepte que les noms PascalCase (`Affilie`, `Personne`, `Dossier` ; `personne` donne un 400) : l'instantané les publie ainsi et le BFF Travailleur envoie `Personne`. En sortie, le service renvoie un texte en minuscules (`affilie`, `personne`, `dossier`, par `TypesDestinataire.Code`) : l'instantané le publie désormais pour la propriété `typeDestinataire` des documents (`TypeDestinataireOpenApi`, valeurs dérivées de `Code`, elles ne peuvent pas diverger), de sorte qu'un double qui renvoie « Personne » échoue.
+
+**Adaptateurs de service à service.** `FournisseurHttpSimule` et `ExemplesContrat` (réponse d'exemple valide par construction d'après l'instantané) servent de double HTTP aux adaptateurs : annuaire de Communications (`AnnuaireHttpTests`), source linguistique et dossier de santé de Documents (`AdaptateursHttpTests`), BCE d'Affiliés (`EntrepriseBceHttpTests`). Le double `FauxPersonnes` d'Intégrations (DIMONA, registre national, identification) est contrôlé de la même façon, réponses et requêtes comprises. Le jeton OIDC du compte technique n'est pas rejoué (fournisseur d'identité, hors contrat interne).
+
+Limites restantes :
+1. **Endpoints sans consommateur** : leurs réponses ne sont pas encore typées (#529).
+2. **Codes d'erreur** : déclarés par endpoint selon les erreurs que son cas d'usage peut produire (borne haute) ; aucun test de comportement ne vérifie chaque code. Les corps `problem+json` partagent le schéma `ProblemDetails`.
+3. **`required` n'est pas fiable** : le générateur OpenAPI de .NET marque comme requises toutes les propriétés d'un record, nullables comprises. Les contrôles n'exigent que les propriétés non nullables.
 
 ### 4.4 Ajouter ou changer un appel
 1. Ajouter l'appel dans la liste `Attentes` du consommateur (méthode, chemin modèle de l'instantané, paramètres, champs du corps, champs lus).
 2. Si le fournisseur change volontairement : `bash tools/regenerer-openapi.sh`, committer l'instantané, puis adapter les consommateurs en échec. Une rupture exige une nouvelle version d'API (ARC-30).
 3. Un test d'API de BFF qui programme un double (`Repondre`) est contrôlé automatiquement.
+4. L'endpoint consommé déclare sa réponse et ses erreurs (`.Retourne<T>(ErreurHttp.Introuvable)` ; voir `ReponsesOpenApi`), sans quoi les champs lus restent « non vérifiables » et le test du consommateur échoue.
 
 ## 5. Couverture
 

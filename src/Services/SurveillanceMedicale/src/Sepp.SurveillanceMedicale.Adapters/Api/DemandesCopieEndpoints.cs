@@ -28,12 +28,14 @@ public static class DemandesCopieEndpoints
         demandes.MapPost("/", async (ICommandHandler<DeposerDemandeCopie, DemandeCopieDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new DeposerDemandeCopie(), ct)).ToHttpResult(d => Results.Created($"/api/v1/demandes-copie/{d.Id}", d)))
             .RequirePermission(Permissions.CopieDossierDemander)
+            .RetourneCree<DemandeCopieDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit, ErreurHttp.NonTraitable)
             .WithName("DeposerDemandeCopie")
             .WithSummary("SAN-43 : le travailleur (claim personne_id) demande la copie de son dossier de santé ; aucun contenu médical.");
 
         demandes.MapGet("/miennes", async (IQueryHandler<ListerMesDemandesCopie, IReadOnlyList<DemandeCopieDto>> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ListerMesDemandesCopie(), ct)).ToHttpResult())
             .RequirePermission(Permissions.CopieDossierDemander)
+            .Retourne<IReadOnlyList<DemandeCopieDto>>(ErreurHttp.Interdit)
             .WithName("ListerMesDemandesCopie")
             .WithSummary("SAN-43 : suivi de ses demandes par le travailleur (statut, date limite, document publié).");
 
@@ -58,6 +60,7 @@ public static class DemandesCopieEndpoints
         demandes.MapGet("/{id:guid}/contenu", async (Guid id, IQueryHandler<ObtenirContenuCopie, CopieDossierDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ObtenirContenuCopie(id), ct)).ToHttpResult())
             .RequirePermission(Permissions.DossierSanteTransmettreDocuments)
+            .Retourne<CopieDossierDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit)
             .WithName("ObtenirContenuCopie")
             .WithSummary("SAN-43 : contenu d'une copie validée, pour le seul service Documents (compte technique) ; journalisé comme export.");
 
@@ -65,6 +68,7 @@ public static class DemandesCopieEndpoints
                 (await h.HandleAsync(new ObtenirCarnetVaccination(vaccinationId), ct)).ToHttpResult())
             .RequirePermission(Permissions.DossierSanteTransmettreDocuments)
             .WithTags("Copie du dossier et carnet de vaccination (travailleur)")
+            .Retourne<CarnetVaccinationDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("ObtenirCarnetVaccination")
             .WithSummary("SAN-50 : carnet de vaccination à jour d'une vaccination, pour le seul service Documents ; journalisé comme export.");
     }

@@ -40,6 +40,7 @@ public static class PersonnesEndpoints
                 (await handler.HandleAsync(new ListerMesOccupations(date ?? clock.TodayInBelgium()), ct)).ToHttpResult())
             .RequirePermission(Permissions.PersonneLirePropres)
             .WithTags("Portail travailleur")
+            .Retourne<IReadOnlyList<MonOccupationDto>>(ErreurHttp.Interdit)
             .WithName("ListerMesOccupations")
             .WithSummary("POR-11 : occupations actives de la personne du jeton (claim personne_id) ; l'affilié sans sa dénomination, aucune donnée d'identité.");
 
@@ -56,6 +57,7 @@ public static class PersonnesEndpoints
                 (await handler.HandleAsync(body, ct)).ToHttpResult())
             .RequirePermission(Permissions.PersonneIdentifier)
             .WithTags("Interne : identification (service Intégrations)")
+            .Retourne<IdentificationDto>(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("IdentifierPersonne")
             .WithSummary("SAN-60 : identifiant interne d'une personne désignée par son NISS (dans le corps) ; aucune donnée de la fiche n'est rendue.");
         return app;
@@ -65,6 +67,7 @@ public static class PersonnesEndpoints
     {
         registre.MapPost("/mutations", async (EnregistrerMutationRegistreNational body, ICommandHandler<EnregistrerMutationRegistreNational, MutationEnregistreeDto> handler, CancellationToken ct) =>
                 (await handler.HandleAsync(body, ct)).ToHttpResult())
+            .Retourne<MutationEnregistreeDto>(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Conflit)
             .WithName("EnregistrerMutationRegistreNational")
             .WithSummary("AFF-20, AFF-22 : changement d'adresse, de nom, de prénom, de langue ou décès reçu du registre national par le service Intégrations ; historisé (DAT-04), idempotent sur la référence de la mutation. Un décès clôt les occupations actives.");
     }
@@ -84,6 +87,7 @@ public static class PersonnesEndpoints
 
         personnes.MapGet("/{id:guid}", async (Guid id, IQueryHandler<ObtenirPersonne, PersonneDto> handler, CancellationToken ct) =>
                 (await handler.HandleAsync(new ObtenirPersonne(id), ct)).ToHttpResult())
+            .Retourne<PersonneDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("ObtenirPersonne")
             .WithSummary("Fiche du travailleur (NISS masqué) et occupations visibles dans le périmètre de l'utilisateur.");
 
@@ -165,6 +169,7 @@ public static class PersonnesEndpoints
         affilies.MapGet("/travailleurs", async (Guid affilieId, DateOnly? date, TimeProvider clock,
                 IQueryHandler<ListerTravailleurs, IReadOnlyList<PersonneResumeDto>> handler, CancellationToken ct) =>
                 (await handler.HandleAsync(new ListerTravailleurs(affilieId, date ?? clock.TodayInBelgium()), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<PersonneResumeDto>>(ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("ListerTravailleursAffilie")
             .WithSummary("Travailleurs occupés ou mis à disposition chez l'affilié à une date.");
 
@@ -190,11 +195,13 @@ public static class PersonnesEndpoints
     {
         dimona.MapPost("/entrees", async (EnregistrerEntreeDimona body, ICommandHandler<EnregistrerEntreeDimona, DimonaEnregistreeDto> handler, CancellationToken ct) =>
                 (await handler.HandleAsync(body, ct)).ToHttpResult())
+            .Retourne<DimonaEnregistreeDto>(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit)
             .WithName("EnregistrerEntreeDimona")
             .WithSummary("AFF-20 : entrée DIMONA reçue de la BCSS par le service Intégrations ; idempotent sur la référence DIMONA.");
 
         dimona.MapPost("/{reference}/sortie", async (string reference, FinOccupation body, ICommandHandler<EnregistrerSortieDimona, Unit> handler, CancellationToken ct) =>
                 (await handler.HandleAsync(new EnregistrerSortieDimona(reference, body.DateFin), ct)).ToHttpResult())
+            .RetourneSansContenu(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit)
             .WithName("EnregistrerSortieDimona")
             .WithSummary("AFF-20 : sortie DIMONA ; idempotent.");
     }

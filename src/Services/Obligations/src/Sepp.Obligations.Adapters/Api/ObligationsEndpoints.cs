@@ -60,6 +60,7 @@ public static class ObligationsEndpoints
             })
             .RequirePermission(Permissions.ObligationDemander)
             .WithTags("Portail travailleur")
+            .RetourneCree<IdentifiantCree>(ErreurHttp.Requete, ErreurHttp.Interdit)
             .WithName("EnregistrerMaDemande")
             .WithSummary("POR-12 : demande du travailleur connecté (pré-reprise, consultation spontanée) chez un employeur qui l'occupe ; personne = claim personne_id.");
 
@@ -68,6 +69,7 @@ public static class ObligationsEndpoints
             (await handler.HandleAsync(new ListerMesExamensAPlanifier(http.ResolveLanguage(langue)), ct)).ToHttpResult())
             .RequirePermission(Permissions.ObligationLirePropres)
             .WithTags("Portail travailleur")
+            .Retourne<IReadOnlyList<ObligationDto>>(ErreurHttp.Requete, ErreurHttp.Interdit)
             .WithName("ListerMesExamensAPlanifier")
             .WithSummary("POR-11, SAN-12 : examens à planifier de la personne du jeton (claim personne_id).");
     }

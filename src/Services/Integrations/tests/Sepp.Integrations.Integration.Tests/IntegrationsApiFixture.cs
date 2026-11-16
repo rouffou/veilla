@@ -17,6 +17,7 @@ using Microsoft.Extensions.Options;
 
 using Sepp.BuildingBlocks.Infrastructure.Security;
 using Sepp.Integrations.Adapters.External.Personnes;
+using Sepp.Testing.Contrats;
 
 using Testcontainers.PostgreSql;
 
@@ -90,8 +91,11 @@ public sealed class IntegrationsApiFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
+        // #476 : les échanges avec le double de Personnes sont conformes à son contrat OpenAPI (réponses servies et requêtes émises).
+        var contratRespecte = Personnes.VerifierContrat();
         await Factory.DisposeAsync();
         await _postgres.DisposeAsync();
+        contratRespecte();
     }
 
     public HttpClient Client(string role)
@@ -135,6 +139,10 @@ public sealed partial class FauxPersonnes : HttpMessageHandler
     private readonly ConcurrentDictionary<string, Guid> _nissConnus = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Guid> _mutations = new(StringComparer.Ordinal);
 
+    private readonly ControleContratDouble _controle = new();
+
+    private readonly ConcurrentQueue<string> _ecartsReponses = new();
+
     public ConcurrentQueue<(HttpMethod Methode, string Chemin, string? Autorisation, string Corps)> Requetes { get; } = new();
 
     private int _jetonsDelivres;
@@ -151,8 +159,48 @@ public sealed partial class FauxPersonnes : HttpMessageHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        var reponse = await ServirAsync(request, cancellationToken);
+        await ControlerReponseAsync(request, reponse, cancellationToken);
+        return reponse;
+    }
+
+    /// <summary>Contrôle de contrat (ARC-23) : à appeler à la fin des tests ; échoue si une réponse ou une requête s'écarte de l'instantané OpenAPI de Personnes.</summary>
+    public Action VerifierContrat() => () =>
+    {
+        _controle.ExigerRequetesConformes();
+        if (!_ecartsReponses.IsEmpty)
+        {
+            throw new Shouldly.ShouldAssertException($"Le double de Personnes s'écarte du contrat OpenAPI :{Environment.NewLine}" + string.Join(Environment.NewLine, _ecartsReponses.Distinct().Select(e => $"  - {e}")));
+        }
+    };
+
+    private async Task ControlerReponseAsync(HttpRequestMessage request, HttpResponseMessage reponse, CancellationToken cancellationToken)
+    {
+        if (request.RequestUri!.Host != "personnes.test")
+        {
+            return;
+        }
+
+        if ((int)reponse.StatusCode >= 400)
+        {
+            return; // erreurs : la route est déjà contrôlée par la requête ; le corps problem+json n'est pas typé par le fournisseur
+        }
+
+        var json = reponse.Content is null ? string.Empty : await reponse.Content.ReadAsStringAsync(cancellationToken);
+        foreach (var ecart in ContratConsommateur.VerifierReponse("personnes", request.Method.Method, request.RequestUri.AbsolutePath, (int)reponse.StatusCode, json.Length == 0 ? "null" : json))
+        {
+            _ecartsReponses.Enqueue(ecart);
+        }
+    }
+
+    private async Task<HttpResponseMessage> ServirAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
         var corps = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
         var chemin = request.RequestUri!.AbsolutePath;
+        if (request.RequestUri.Host == "personnes.test")
+        {
+            _controle.ControlerRequete(request.RequestUri.Host, request.Method.Method, request.RequestUri.PathAndQuery, string.IsNullOrEmpty(corps) ? null : corps);
+        }
         Requetes.Enqueue((request.Method, chemin, request.Headers.Authorization?.ToString(), corps));
 
         if (request.RequestUri.Host == "idp.test")

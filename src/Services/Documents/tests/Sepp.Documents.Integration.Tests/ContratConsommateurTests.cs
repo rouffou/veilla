@@ -22,5 +22,5 @@ public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_HTTP_internes_sont_satisfaits_par_les_contrats_des_fournisseurs() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine, exigerReponsesDecrites: true);
 }

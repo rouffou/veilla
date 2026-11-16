@@ -44,11 +44,13 @@ public static class PostesRisquesEndpoints
         postes.MapGet("/", async (Guid affilieId, StatutPoste? statut, DateOnly? date, TimeProvider clock,
                 IQueryHandler<ListerPostes, IReadOnlyList<PosteDto>> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ListerPostes(affilieId, statut, date ?? clock.TodayInBelgium()), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<PosteDto>>(ErreurHttp.Requete, ErreurHttp.Introuvable)
             .WithName("ListerPostes")
             .WithSummary("Catalogue des postes d'un affilié, risques en vigueur à une date (AFF-10).");
 
         postes.MapGet("/{id:guid}", async (Guid id, IQueryHandler<ObtenirPoste, PosteDto> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ObtenirPoste(id), ct)).ToHttpResult())
+            .Retourne<PosteDto>(ErreurHttp.Introuvable)
             .WithName("ObtenirPoste")
             .WithSummary("Poste et historique complet de ses liens aux risques (DAT-04).");
 
@@ -83,6 +85,7 @@ public static class PostesRisquesEndpoints
                 ICommandHandler<SoumettrePropositionPosteRisque, Guid> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new SoumettrePropositionPosteRisque(id, body.Motif, body.ValideDu, body.Lignes, body.AvisCppt), ct))
                 .ToHttpResult(pid => Results.Created($"/api/v1/propositions-poste-risque/{pid}", new { id = pid })))
+            .RetourneCree<IdentifiantCree>(ErreurHttp.Requete, ErreurHttp.Introuvable)
             .WithName("ProposerModificationProfilRisques")
             .WithSummary("Proposition de modification du lien poste ↔ risque, sans effet avant la validation du CPMT (AFF-14, AFF-31).");
     }
@@ -94,6 +97,7 @@ public static class PostesRisquesEndpoints
         propositions.MapGet("/", async (Guid? affilieId, Guid? posteId, StatutProposition? statut,
                 IQueryHandler<ListerPropositionsPosteRisque, IReadOnlyList<PropositionPosteRisqueDto>> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ListerPropositionsPosteRisque(affilieId, posteId, statut), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<PropositionPosteRisqueDto>>(ErreurHttp.Requete, ErreurHttp.Introuvable)
             .WithName("ListerPropositionsPosteRisque");
 
         propositions.MapGet("/{id:guid}", async (Guid id, IQueryHandler<ObtenirPropositionPosteRisque, PropositionPosteRisqueDto> handler, CancellationToken ct) =>
@@ -126,6 +130,7 @@ public static class PostesRisquesEndpoints
         risques.MapGet("/", async (CategorieRisque? categorie, DateOnly? date, string? langue, HttpContext http, TimeProvider clock,
                 IQueryHandler<ListerRisques, IReadOnlyList<RisqueDto>> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ListerRisques(categorie, date ?? clock.TodayInBelgium(), http.ResolveLanguage(langue)), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<RisqueDto>>(ErreurHttp.Requete)
             .WithName("ListerRisques")
             .WithSummary("Référentiel des risques (annexe I.4-5) et règle applicable à une date (AFF-11, AFF-12).");
 
@@ -187,11 +192,13 @@ public static class PostesRisquesEndpoints
         listes.MapGet("/", async (Guid affilieId, TypeListeNominative? type,
                 IQueryHandler<ListerListesNominatives, IReadOnlyList<ListeNominativeDto>> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ListerListesNominatives(affilieId, type), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<ListeNominativeDto>>(ErreurHttp.Requete, ErreurHttp.Introuvable)
             .WithName("ListerListesNominatives")
             .WithSummary("Historique des versions des listes d'un affilié (AFF-31).");
 
         listes.MapGet("/{id:guid}", async (Guid id, IQueryHandler<ObtenirListeNominative, ListeNominativeDto> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ObtenirListeNominative(id), ct)).ToHttpResult())
+            .Retourne<ListeNominativeDto>(ErreurHttp.Introuvable)
             .WithName("ObtenirListeNominative");
 
         listes.MapPost("/", async (GenerationListe body, TimeProvider clock,
@@ -209,6 +216,7 @@ public static class PostesRisquesEndpoints
                 ICommandHandler<SoumettrePropositionListe, Guid> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new SoumettrePropositionListe(id, body.Motif, body.Lignes), ct))
                 .ToHttpResult(pid => Results.Created($"/api/v1/propositions-liste-nominative/{pid}", new { id = pid })))
+            .RetourneCree<IdentifiantCree>(ErreurHttp.Requete, ErreurHttp.Introuvable)
             .WithName("ProposerModificationListeNominative")
             .WithSummary("Proposition de modification d'une liste (employeur via le portail), soumise au CPMT (AFF-31).");
 
@@ -217,6 +225,7 @@ public static class PostesRisquesEndpoints
         propositions.MapGet("/", async (Guid? affilieId, StatutProposition? statut,
                 IQueryHandler<ListerPropositionsListe, IReadOnlyList<PropositionListeDto>> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ListerPropositionsListe(affilieId, statut), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<PropositionListeDto>>(ErreurHttp.Requete, ErreurHttp.Introuvable)
             .WithName("ListerPropositionsListeNominative");
 
         propositions.MapGet("/{id:guid}", async (Guid id, IQueryHandler<ObtenirPropositionListe, PropositionListeDto> handler, CancellationToken ct) =>

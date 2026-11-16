@@ -14,7 +14,7 @@ public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
     public static IReadOnlyList<AttenteConsommateur> Attentes { get; } =
     [
         new(Consommateur, "personnes", "POST", "/api/v1/dimona/entrees") { CorpsRequete = ["referenceDimona", "niss", "identite", "affilieId", "affilieUtilisateurId", "typeTravailleur", "typeContrat", "dateDebut", "dateFin"] },
-        new(Consommateur, "personnes", "POST", "/api/v1/dimona/{referenceDimona}/sortie") { CorpsRequete = ["dateFin"] },
+        new(Consommateur, "personnes", "POST", "/api/v1/dimona/{referenceDimona}/sortie") { CorpsRequete = ["dateFin"], CodeSucces = "204" },
         new(Consommateur, "personnes", "POST", "/api/v1/registre-national/mutations") { CorpsRequete = ["referenceMutation", "niss", "type", "dateEffet", "adresse", "nom", "prenom", "langue"] },
         new(Consommateur, "personnes", "POST", "/api/v1/identifications") { CorpsRequete = ["niss"], ChampsReponse = ["personneId"] },
     ];
@@ -22,5 +22,5 @@ public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_HTTP_internes_sont_satisfaits_par_les_contrats_des_fournisseurs() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine, exigerReponsesDecrites: true);
 }

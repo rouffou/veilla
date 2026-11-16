@@ -37,9 +37,20 @@ public sealed record AttenteConsommateur(string Consommateur, string Fournisseur
 /// <summary>Résultat d'une vérification : écarts (échec) et attentes que l'instantané ne permet pas encore de vérifier.</summary>
 public sealed record ResultatContrat(IReadOnlyList<string> Ecarts, IReadOnlyList<string> NonVerifiables)
 {
-    /// <summary>Échoue s'il y a des écarts. Les attentes non vérifiables sont écrites via <paramref name="ecrire"/> (sortie du test) pour rester visibles tant que les réponses ne sont pas typées (#476).</summary>
-    public void ExigerSansEcart(Action<string>? ecrire = null)
+    /// <summary>
+    /// Échoue s'il y a des écarts. Les attentes non vérifiables sont écrites via <paramref name="ecrire"/> (sortie du test).
+    /// Avec <paramref name="exigerReponsesDecrites"/> (cas des consommateurs réels, depuis #476), une attente dont les champs lus
+    /// ne sont pas décrits par l'instantané échoue aussi : le fournisseur doit déclarer le type de sa réponse (<c>Produces&lt;T&gt;</c>).
+    /// </summary>
+    public void ExigerSansEcart(Action<string>? ecrire = null, bool exigerReponsesDecrites = false)
     {
+        if (exigerReponsesDecrites && NonVerifiables.Count > 0)
+        {
+            throw new ShouldAssertException(
+                $"{NonVerifiables.Count} attente(s) dont la réponse n'est pas décrite par l'instantané du fournisseur (déclarer Produces<T> sur l'endpoint, voir #476) :{Environment.NewLine}"
+                + string.Join(Environment.NewLine, NonVerifiables.Select(e => $"  - {e}")));
+        }
+
         if (ecrire is not null && NonVerifiables.Count > 0)
         {
             ecrire($"{NonVerifiables.Count} attente(s) non vérifiable(s) (réponse non décrite par l'instantané, voir #476) :");
@@ -73,8 +84,9 @@ public sealed record ResultatContrat(IReadOnlyList<string> Ecarts, IReadOnlyList
 /// chez le fournisseur (route existante ; si l'instantané décrit la réponse : propriétés, énumérations à la casse exacte). C'est le
 /// garde-fou du bug #436, où le double renvoyait « Personne » alors que le service publie « personne ».</item>
 /// </list>
-/// Limite connue : le garde-fou #436 n'agit pas encore, il sera actif dès que les réponses seront typées (voir #476). Tant qu'un service ne déclare pas le type de ses réponses (<c>Produces&lt;T&gt;</c>), l'instantané ne décrit
-/// pas le corps de réponse ; les champs lus sont alors signalés « non vérifiables » (voir <c>docs/architecture/strategie-tests.md</c>).
+/// Le garde-fou #436 est actif (#476) pour les endpoints consommés, dont les réponses sont typées (<c>Produces&lt;T&gt;</c>). Un
+/// endpoint dont l'instantané ne décrit pas le corps de réponse laisse ses champs lus « non vérifiables » : les consommateurs
+/// réels l'interdisent (<see cref="ResultatContrat.ExigerSansEcart"/>, <c>exigerReponsesDecrites</c>), voir <c>docs/architecture/strategie-tests.md</c>.
 /// </summary>
 public static class ContratConsommateur
 {
@@ -161,10 +173,11 @@ public static class ContratConsommateur
     }
 
     /// <summary>Écarts d'une réponse programmée dans un double de test par rapport à l'instantané du fournisseur.</summary>
-    public static IReadOnlyList<string> VerifierReponse(string fournisseur, string methode, string chemin, int status, string corpsJson) =>
-        VerifierReponse(Instantane(fournisseur), fournisseur, methode, chemin, status, corpsJson);
+    public static IReadOnlyList<string> VerifierReponse(string fournisseur, string methode, string chemin, int status, string corpsJson, IReadOnlyCollection<string>? champsEnPlus = null) =>
+        VerifierReponse(Instantane(fournisseur), fournisseur, methode, chemin, status, corpsJson, champsEnPlus);
 
-    public static IReadOnlyList<string> VerifierReponse(JsonNode doc, string fournisseur, string methode, string chemin, int status, string corpsJson)
+    /// <param name="champsEnPlus">Noms de propriétés que le double ajoute volontairement (test de défense en profondeur) : ils sont ignorés, tout le reste est contrôlé.</param>
+    public static IReadOnlyList<string> VerifierReponse(JsonNode doc, string fournisseur, string methode, string chemin, int status, string corpsJson, IReadOnlyCollection<string>? champsEnPlus = null)
     {
         ArgumentNullException.ThrowIfNull(doc);
         ArgumentNullException.ThrowIfNull(corpsJson);
@@ -181,9 +194,39 @@ public static class ContratConsommateur
         }
 
         var ecarts = new List<string>();
-        using var json = JsonDocument.Parse(corpsJson);
+        using var json = JsonDocument.Parse(champsEnPlus is { Count: > 0 } ? RetirerChamps(JsonNode.Parse(corpsJson), champsEnPlus)?.ToJsonString() ?? "null" : corpsJson);
         ValiderValeur(id, doc, schema, json.RootElement, "$", ecarts);
         return ecarts;
+    }
+
+    private static JsonNode? RetirerChamps(JsonNode? noeud, IReadOnlyCollection<string> champs)
+    {
+        switch (noeud)
+        {
+            case JsonObject objet:
+                foreach (var nom in objet.Select(p => p.Key).Where(champs.Contains).ToList())
+                {
+                    objet.Remove(nom);
+                }
+
+                foreach (var (_, valeur) in objet.ToList())
+                {
+                    RetirerChamps(valeur, champs);
+                }
+
+                break;
+            case JsonArray tableau:
+                foreach (var element in tableau)
+                {
+                    RetirerChamps(element, champs);
+                }
+
+                break;
+            default:
+                break;
+        }
+
+        return noeud;
     }
 
     /// <summary>Document d'instantané d'un fournisseur (mis en cache).</summary>
@@ -331,7 +374,8 @@ public static class ContratConsommateur
                     ecarts.Add($"{id} : {chemin}.{nom} inconnu du fournisseur (le double invente un champ)");
                 }
 
-                foreach (var requis in (resolu["required"]?.AsArray() ?? []).Select(n => n!.GetValue<string>()).Where(n => !presentes.Contains(n)))
+                foreach (var requis in (resolu["required"]?.AsArray() ?? []).Select(n => n!.GetValue<string>())
+                             .Where(n => !presentes.Contains(n) && !EstNullable(proprietes[n])))
                 {
                     ecarts.Add($"{id} : {chemin}.{requis} obligatoire chez le fournisseur mais absent du double");
                 }
@@ -347,14 +391,17 @@ public static class ContratConsommateur
         }
     }
 
-    private static bool EstNullable(JsonNode? propriete) =>
-        propriete?["type"] is JsonArray types && types.Any(t => t?.ToString() == "null");
+    private static readonly string[] VariantesNullables = ["oneOf", "anyOf"];
+
+    internal static bool EstNullable(JsonNode? propriete) =>
+        (propriete?["type"] is JsonArray types && types.Any(t => t?.ToString() == "null"))
+        || VariantesNullables.Any(v => propriete?[v] is JsonArray choix && choix.Any(c => c?["type"]?.ToString() == "null"));
 
     private static JsonNode? SchemaDuCorps(JsonNode doc, JsonNode? corps) =>
         Resoudre(doc, corps?["content"]?["application/json"]?["schema"]);
 
     /// <summary>Schéma de la réponse JSON de code <paramref name="statut"/> (ou, à défaut, de la première réponse 2xx typée).</summary>
-    private static JsonNode? SchemaDeReponse(JsonNode doc, JsonNode operation, int statut)
+    internal static JsonNode? SchemaDeReponse(JsonNode doc, JsonNode operation, int statut)
     {
         var reponses = operation["responses"]?.AsObject() ?? [];
         var reponse = reponses.TryGetPropertyValue(statut.ToString(CultureInfo.InvariantCulture), out var exacte)
@@ -365,7 +412,7 @@ public static class ContratConsommateur
         return Resoudre(doc, json?["schema"]);
     }
 
-    private static JsonNode? Resoudre(JsonNode doc, JsonNode? noeud)
+    internal static JsonNode? Resoudre(JsonNode doc, JsonNode? noeud)
     {
         const string prefixe = "#/components/schemas/";
         for (var garde = 0; garde < 16 && noeud?["$ref"]?.GetValue<string>() is { } reference; garde++)
@@ -407,7 +454,7 @@ public static class ContratConsommateur
     }
 
     /// <summary>Opération correspondant à <paramref name="chemin"/> (réel ou modèle) : égalité exacte d'abord, sinon le modèle le plus littéral.</summary>
-    private static JsonNode? TrouverOperation(JsonNode doc, string methode, string chemin)
+    internal static JsonNode? TrouverOperation(JsonNode doc, string methode, string chemin)
     {
         var paths = doc["paths"]?.AsObject() ?? [];
         var verbe = methode.ToLowerInvariant();

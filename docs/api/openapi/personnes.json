@@ -35,6 +35,46 @@
         ],
         "type": "object"
       },
+      "AffectationDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "occupationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "posteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "siteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "occupationId",
+          "posteId",
+          "siteId",
+          "valideDu",
+          "valideJusquAu"
+        ],
+        "type": "object"
+      },
       "CanalCommunication": {
         "enum": [
           "Courrier",
@@ -146,6 +186,27 @@
         },
         "required": [
           "type"
+        ],
+        "type": "object"
+      },
+      "DimonaEnregistreeDto": {
+        "properties": {
+          "dejaEnregistree": {
+            "type": "boolean"
+          },
+          "occupationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId",
+          "occupationId",
+          "dejaEnregistree"
         ],
         "type": "object"
       },
@@ -298,6 +359,18 @@
         ],
         "type": "object"
       },
+      "IdentificationDto": {
+        "properties": {
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId"
+        ],
+        "type": "object"
+      },
       "IdentifierPersonne": {
         "properties": {
           "niss": {
@@ -344,6 +417,59 @@
           "De",
           "En"
         ]
+      },
+      "MonOccupationDto": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dateDebut": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateFin": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "occupationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "typeTravailleur": {
+            "$ref": "#/components/schemas/TypeTravailleur"
+          }
+        },
+        "required": [
+          "occupationId",
+          "affilieId",
+          "typeTravailleur",
+          "dateDebut",
+          "dateFin"
+        ],
+        "type": "object"
+      },
+      "MutationEnregistreeDto": {
+        "properties": {
+          "personneId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutMutation"
+          }
+        },
+        "required": [
+          "personneId",
+          "statut"
+        ],
+        "type": "object"
       },
       "NouvelEtatParticulier": {
         "properties": {
@@ -440,6 +566,206 @@
         ],
         "type": "object"
       },
+      "OccupationDto": {
+        "properties": {
+          "affectations": {
+            "items": {
+              "$ref": "#/components/schemas/AffectationDto"
+            },
+            "type": "array"
+          },
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "affilieUtilisateurId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateDebut": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateFin": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "referenceDimona": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "typeContrat": {
+            "$ref": "#/components/schemas/TypeContrat"
+          },
+          "typeTravailleur": {
+            "$ref": "#/components/schemas/TypeTravailleur"
+          }
+        },
+        "required": [
+          "id",
+          "affilieId",
+          "affilieUtilisateurId",
+          "typeTravailleur",
+          "typeContrat",
+          "dateDebut",
+          "dateFin",
+          "referenceDimona",
+          "affectations"
+        ],
+        "type": "object"
+      },
+      "PersonneDto": {
+        "properties": {
+          "adresse": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AdresseDto"
+              }
+            ]
+          },
+          "canalPrefere": {
+            "$ref": "#/components/schemas/CanalCommunication"
+          },
+          "dateNaissance": {
+            "format": "date",
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "nissMasque": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "occupations": {
+            "items": {
+              "$ref": "#/components/schemas/OccupationDto"
+            },
+            "type": "array"
+          },
+          "prenom": {
+            "type": "string"
+          },
+          "sexe": {
+            "$ref": "#/components/schemas/Sexe"
+          },
+          "telephone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nissMasque",
+          "nom",
+          "prenom",
+          "dateNaissance",
+          "sexe",
+          "langue",
+          "adresse",
+          "email",
+          "telephone",
+          "canalPrefere",
+          "occupations"
+        ],
+        "type": "object"
+      },
+      "PersonneResumeDto": {
+        "properties": {
+          "dateNaissance": {
+            "format": "date",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nissMasque": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "prenom": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nissMasque",
+          "nom",
+          "prenom",
+          "dateNaissance"
+        ],
+        "type": "object"
+      },
+      "ProblemDetails": {
+        "properties": {
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "RechercherParNiss": {
         "properties": {
           "niss": {
@@ -456,6 +782,14 @@
           "Masculin",
           "Feminin",
           "Inconnu"
+        ]
+      },
+      "StatutMutation": {
+        "enum": [
+          "Appliquee",
+          "Historisee",
+          "DejaAppliquee",
+          "PersonneInconnue"
         ]
       },
       "TypeContrat": {
@@ -705,7 +1039,37 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonneResumeDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -736,7 +1100,54 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DimonaEnregistreeDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
@@ -776,8 +1187,48 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
@@ -808,7 +1259,44 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentificationDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -839,7 +1327,27 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonOccupationDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
           }
         },
         "security": [
@@ -933,7 +1441,34 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonneDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -1481,7 +2016,44 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationEnregistreeDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
