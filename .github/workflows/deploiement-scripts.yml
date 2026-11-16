@@ -33,3 +33,5 @@ jobs:
         run: bash tools/deploy/tests/verifier-rechiffrement.test.sh
       - name: Tests de la détection des changements de clés
         run: bash tools/deploy/tests/detecter-modification-cles.test.sh
+      - name: Tests du contrôle de la vérification récente (gh simulé)
+        run: bash tools/deploy/tests/controler-verification-recente.test.sh

@@ -4,7 +4,8 @@
 #   Contrairement au job de migration (ADR 0010), il a besoin des clés du service : il s'exécute avec l'identité
 #   d'EXÉCUTION du service (droits DML, déballage des DEK sur sa clé racine), ses secrets Key Vault --deks-- et --keys--
 #   et sa configuration. Jamais une identité de pipeline élargie : le pipeline ne fait que démarrer le job.
-#   Déclenchement manuel uniquement (az containerapp job start), une seule exécution à la fois, sans nouvelle tentative.
+#   Déclenchement manuel uniquement (az containerapp job start), sans nouvelle tentative. Une exécution à la fois est une
+#   règle d'exploitation (vérifier qu'aucune exécution n'est en cours avant de lancer), pas une garantie de la plateforme.
 #   Le job n'a ni entrée réseau ni sonde : il s'arrête avec le code de sortie de RechiffrementHote (0 = complet).
 #   Les variables RECHIFFREMENT__* ne figurent que dans ces jobs : jamais dans une révision de service (sinon le service
 #   quitterait au démarrage et redémarrerait en boucle).
@@ -50,7 +51,9 @@ resource "azurerm_container_app_job" "this" {
     }
   }
 
-  # Déclenchement manuel (az containerapp job start), une exécution à la fois : aucun déclencheur planifié ni événementiel.
+  # Déclenchement manuel (az containerapp job start) : aucun déclencheur planifié ni événementiel. parallelism et
+  # replica_completion_count valent 1 : UNE réplique par exécution. Cela ne limite PAS le nombre d'exécutions simultanées
+  # (deux « job start » donnent deux exécutions) : voir la vérification des exécutions en cours dans infra/README.md.
   manual_trigger_config {
     parallelism              = 1
     replica_completion_count = 1

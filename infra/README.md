@@ -462,12 +462,14 @@ dans l'environnement de la zone du service :
   ses secrets Key Vault. Le job reçoit les mêmes secrets `--deks--` et `--keys--` que la Container App (références Key
   Vault) et la même configuration (`local.app_environment`), plus un seul des deux modes. Seul `OTEL_SERVICE_NAME` change
   (`<service>-rechiffrement`, `<service>-verification`).
-- **Déclenchement manuel, une exécution à la fois** : `manual_trigger_config` (parallélisme 1, une réplique), aucun
-  déclencheur planifié ni événementiel, `replica_retry_limit = 0`. Délai maximal d'une exécution :
-  `rechiffrement_replica_timeout_seconds` (défaut 14 400 s, contre 1 800 s pour la migration) ; si le délai est dépassé,
-  relancer le job : le traitement reprend les valeurs restantes.
-- **Jamais lancés par `deploy.yml`.** Le déploiement met seulement leur image à jour (`az containerapp job update`, comme
-  pour `mig-<service>`) pour qu'elle suive celle de la révision ; il ne les démarre pas. Un test
+- **Déclenchement manuel, sans nouvelle tentative** : `manual_trigger_config`, aucun déclencheur planifié ni événementiel,
+  `replica_retry_limit = 0`. `parallelism` et `replica_completion_count` valent 1 : cela donne **une réplique par
+  exécution**, et ne limite pas le nombre d'exécutions simultanées (deux `job start` en créent deux). « Une exécution à la
+  fois » est donc une règle d'exploitation : vérifier les exécutions en cours avant de lancer (commande ci-dessous).
+  Délai maximal d'une exécution : `rechiffrement_replica_timeout_seconds` (défaut 14 400 s, contre 1 800 s pour la
+  migration) ; si le délai est dépassé, relancer le job : le traitement reprend les valeurs restantes.
+- **Jamais lancés par `deploy.yml`.** Le déploiement met seulement leur image à jour (`az containerapp job update`), **après le passage à 100 %** (un retour arrière ne les laisse pas sur l'image annulée) pour
+  qu'elle suive celle de la révision (comme pour `mig-<service>`) ; il ne les démarre pas. Un test
   (`ConfigurationTerraformTests`) interdit aussi toute variable `RECHIFFREMENT__*` ailleurs que dans ces deux jobs.
 - **Droits de l'exploitant** : démarrer un job et lire ses journaux (`Microsoft.App/jobs/start/action`, lecture des
   exécutions) dans les groupes `rg-sepp-<env>-*`. Ce droit ne donne ni accès aux données ni accès aux clés : seul le job,
@@ -477,6 +479,10 @@ Lancement du **rechiffrement** (action humaine, en heures creuses, voir « Proc�
 
 ```bash
 rg=rg-sepp-<env>-<zone>; svc=<service>
+# Une exécution à la fois : « job start » ne l'impose pas (deux démarrages donnent deux exécutions). Vérifier d'abord.
+az containerapp job execution list -g "$rg" -n "rech-$svc" --query "[?properties.status=='Running' || properties.status=='Processing'].name" -o tsv
+az containerapp job execution list -g "$rg" -n "verif-$svc" --query "[?properties.status=='Running' || properties.status=='Processing'].name" -o tsv
+# Les deux commandes doivent ne rien afficher (aussi après l'annulation d'un workflow : elle n'arrête pas l'exécution Azure).
 execution=$(az containerapp job start -g "$rg" -n "rech-$svc" --query name -o tsv)
 until statut=$(az containerapp job execution show -g "$rg" -n "rech-$svc" --job-execution-name "$execution" --query properties.status -o tsv) \
       && [ "$statut" != "Running" ] && [ "$statut" != "Processing" ]; do sleep 30; done
@@ -488,68 +494,93 @@ Une exécution réussie (`Succeeded`) correspond au code 0 : plus aucune valeur 
 et aucune valeur chiffrée n'est hors du modèle. `Failed` correspond au code 1 : lire le rapport (catégorie
 `Sepp.Rechiffrement`), corriger la cause, relancer.
 
-#### Garde-fou du pipeline : aucun changement de clés sans `verif-<service>` à 0 (#474)
+#### Garde-fou du pipeline : aucun changement de clés sans `verif-<service>` à 0 dans les 24 h (#474)
 
-Toute modification de `encryption_key_ids` ou de `encryption_legacy_key_ids` dans les `terraform.tfvars` d'un
-environnement exige une exécution **récente** de `verif-<service>` qui a renvoyé 0, pour **chacun** des services qui
-chiffrent. Choix retenu, le plus simple et sûr : deux workflows, sans état à conserver ni à croire.
+Toute modification de `encryption_key_ids` ou de `encryption_legacy_key_ids` dans un environnement
+(`infra/environments/<env>/*.tfvars` ou `*.tf`) exige une exécution de `verif-<service>` qui a renvoyé 0 **dans les 24
+heures qui précèdent**, pour **chacun** des services qui chiffrent. Choix retenu : la vérification ne tourne que depuis
+`main`, à la main, dans l'environnement cible ; la PR se contente de **lire** son résultat. Ainsi, le code d'une PR ne
+s'exécute jamais avec l'identité de déploiement (revue de sécurité de #506, P1-2), et il n'y a pas d'état à conserver
+hors de l'historique des exécutions GitHub.
 
-1. **`verification-cles.yml`** (*Actions → Vérification des clés*, ou appel depuis un autre workflow) lance les
-   `verif-<service>` de l'environnement, **un service à la fois**, et échoue si l'un d'eux ne se termine pas par
-   `Succeeded` (job absent, exécution déjà en cours, échec, délai dépassé : « non vérifié »). Il ne lance jamais
-   `rech-<service>`. Il s'exécute dans l'environnement GitHub du même nom (`dev` à `prod`) :
-   - **confirmation humaine** : les règles d'approbation de l'environnement (*Required reviewers*, déjà posées sur
-     `preprod` et `prod` pour le déploiement) arrêtent le lancement tant qu'un relecteur ne l'a pas approuvé ;
-   - **heures creuses** : en `preprod` et `prod`, le script refuse de lancer le balayage hors de 18 h à 5 h UTC (la
-     vérification lit toute la base, séquentiellement, dans un instantané `REPEATABLE READ`) ;
-   - **identité** : l'identité fédérée de déploiement, qui ne sait que démarrer le job et lire son état. Elle n'a aucun
-     rôle Key Vault ni accès aux données ; le déballage des DEK reste porté par l'identité d'exécution du service
-     (revue de #498, P2-A) ;
+**Réglages GitHub en place** (faits par le responsable du dépôt) :
+
+- les environnements `dev`, `test`, `recette`, `preprod` et `prod` existent et sont **tous restreints à la branche
+  `main`** (*deployment branch policy*) : un workflow lancé depuis une autre branche ne peut ni utiliser
+  `environment: <env>` ni obtenir l'identité OIDC ;
+- `preprod` et `prod` exigent en plus l'approbation du responsable produit ;
+- le statut **Statut contrôle des clés** (`controle-cles.yml`) est à ajouter aux contrôles exigés du ruleset de `main`
+  **après la fusion de la PR #506** (le contrôle doit d'abord exister sur `main`). Tant que ce n'est pas fait, il informe
+  sans bloquer la fusion : ne pas s'y fier seul.
+
+**Les deux workflows.**
+
+1. **`verification-cles.yml`** : lancement manuel seulement (`workflow_dispatch`), depuis `main` :
+
+   ```bash
+   gh workflow run verification-cles.yml --ref main -f environnement=<env>
+   ```
+
+   Il lance les `verif-<service>` de l'environnement, **un service à la fois**, et échoue si l'un d'eux ne se termine pas
+   par `Succeeded` (job absent, exécution déjà en cours, échec, délai dépassé : « non vérifié »). Il ne lance jamais
+   `rech-<service>`. Son `run-name` est `Vérification des clés : <env>` : c'est ce titre qui permet de retrouver
+   l'environnement d'une exécution passée.
+   - **confirmation humaine** : l'approbation de l'environnement GitHub (`preprod`, `prod`) arrête le lancement tant que
+     le responsable produit ne l'a pas donnée ;
+   - **heures creuses** : en `preprod` et `prod`, le script refuse de lancer le balayage hors de 18 h à 5 h UTC (il lit
+     toute la base, séquentiellement, dans un instantané `REPEATABLE READ`) ;
+   - **identité** : l'identité fédérée de déploiement, utilisée ici seulement pour démarrer le job et lire son état. Une
+     identité dédiée et un rôle réduit sont prévus dans un ticket séparé (décision D4, hors #474) ;
    - **liste des services** : `SERVICES_CHIFFRANTS` dans le workflow ; un test échoue si elle diverge du catalogue
-     (`infra/variables.tf`), pour qu'un nouveau service qui chiffre ne soit pas oublié.
-2. **`controle-cles.yml`** s'exécute sur chaque PR. Il compare les deux variables dans
-   `infra/environments/<env>/*.tfvars` entre la base et la PR (`tools/deploy/detecter-modification-cles.sh` : commentaires,
-   espaces et mise en forme ignorés ; ajout, retrait, réordonnancement, suppression du fichier comptent). Pour chaque
-   environnement touché, il appelle `verification-cles.yml` ; son statut **Statut contrôle des clés** reste rouge tant que
-   la vérification n'a pas renvoyé 0. Sans changement de clés, il passe tout de suite. Dans la file de fusion, la
-   vérification de la PR fait foi.
-
-À faire par le responsable du dépôt, hors code (réglages GitHub) :
-
-- ajouter **Statut contrôle des clés** aux contrôles exigés par la protection de `main` (comme « Statut Terraform ») ;
-- vérifier que les environnements `preprod` et `prod` ont des *Required reviewers* (et *Prevent self-review*), et qu'une
-  *federated credential* de sujet `repo:rouffou/veilla:environment:<env>` existe pour chaque environnement (prérequis
-  de « Déploiement progressif ») ;
-- le rôle de l'identité de déploiement doit permettre `az containerapp job start`, `job execution list` et `show`
-  sur `rg-sepp-<env>-*` (déjà le cas pour `mig-<service>`).
+     (`infra/variables.tf`).
+   - **annuler le workflow n'arrête pas l'exécution Azure** : le job `verif-<service>` déjà démarré va à son terme
+     (la vérification ne fait que lire, mais elle occupe la base). Après une annulation, vérifier les exécutions en cours
+     (commande ci-dessous) avant de relancer ; le script refuse de démarrer un job qui a déjà une exécution en cours.
+2. **`controle-cles.yml`** : s'exécute sur chaque PR, **sans environnement, sans `id-token` et sans secret** (seulement
+   `contents: read` et `actions: read`). Il détecte les environnements dont les deux variables changent
+   (`tools/deploy/detecter-modification-cles.sh` : commentaires, espaces et mise en forme ignorés ; ajout, retrait,
+   réordonnancement, branchement dans `main.tf` de l'environnement et suppression de fichier comptent). Pour chacun, il
+   exige par l'API GitHub (`tools/deploy/controler-verification-recente.sh`) une exécution **réussie** de
+   `verification-cles.yml`, sur `main`, déclenchée par `workflow_dispatch`, pour cet environnement, de moins de 24 h.
+   Sinon il échoue et affiche la commande à lancer ; relancer ensuite le contrôle (*Re-run jobs*). Sans changement de
+   clés, il passe tout de suite. Dans la file de fusion, la vérification faite sur la PR fait foi.
+   - **Scripts de `main`** : le workflow récupère la base de la PR (`main`) dans `base/` et n'exécute que ses scripts ;
+     la PR est récupérée à part (`pr/`) uniquement pour en lire le diff. Un script modifié par la PR n'est donc jamais
+     exécuté par le contrôle.
 
 Limites connues, à connaître avant de s'y fier :
 
-- le contrôle prouve la vérification **au moment de la PR**. L'`apply` a lieu plus tard : relancer
-  `verification-cles.yml` juste avant l'`apply` si des écritures ont pu réintroduire une ancienne clé entre-temps (une
-  réplique restée sur l'ancienne DEK, une restauration de sauvegarde) ;
-- un `apply` fait à la main hors du dépôt, ou une PR qui modifierait aussi le workflow, échappe à ce contrôle : la revue
-  de PR (relecture des fichiers `.github/workflows/`) et les approbations de l'environnement restent la dernière barrière ;
-- le contrôle couvre les `*.tfvars` d'`infra/environments/`. Les valeurs par défaut de `infra/variables.tf` ne servent
-  à aucun environnement (chacun déclare les deux variables, ce qu'un test vérifie).
+- le fichier de workflow `controle-cles.yml` lui-même est, pour l'évènement `pull_request`, celui de la PR : une PR qui le
+  modifierait pourrait le neutraliser. Il n'a ni secret ni accès Azure, mais la revue des fichiers `.github/workflows/`
+  reste nécessaire avant toute fusion ;
+- un `apply` fait à la main hors du dépôt échappe à ce contrôle : la procédure ci-dessous (vérification dans les 24 h
+  avant tout `apply`) est alors la seule barrière ;
+- la fraîcheur de 24 h est contrôlée à la PR, pas à l'`apply` : voir la procédure ;
+- les valeurs par défaut de `infra/variables.tf` ne servent à aucun environnement : chaque `environments/<env>/main.tf`
+  passe `= var.encryption_key_ids` et `= var.encryption_legacy_key_ids`, et chaque `terraform.tfvars` les déclare (un test
+  le vérifie).
 
 #### Procédure : rotation et retrait des clés, avec confirmation humaine
 
 Toute étape qui rechiffre ou change des clés se fait **en heures creuses** (le balayage lit toute la base ; en
 `preprod` et `prod`, 18 h à 5 h UTC), **service par service** (jamais deux jobs en parallèle sur la même base), et
-**après confirmation humaine** : le responsable de l'exploitation approuve par écrit (ticket de changement) le
-lancement de `rech-<service>`, puis l'approbation de l'environnement GitHub pour `verification-cles.yml`, puis
-le retrait des clés (irréversible au-delà de la suppression réversible du coffre).
+**après confirmation humaine** : un ticket de changement, approuvé par écrit par le responsable de l'exploitation, précède
+le lancement de `rech-<service>`, puis l'approbation de l'environnement GitHub pour `verification-cles.yml`, puis le
+retrait des clés (irréversible au-delà de la suppression réversible du coffre).
 
-1. **Préparer** : créer la nouvelle DEK (rotation) ou rien (retrait) ; modifier `terraform.tfvars` dans une PR ;
-   `controle-cles.yml` détecte le changement.
+1. **Préparer** : créer la nouvelle DEK (rotation) ou rien (retrait) ; modifier les `terraform.tfvars` dans une PR.
+   `controle-cles.yml` détecte le changement et échoue tant qu'il n'existe pas de vérification récente.
 2. **Rotation** : mettre la nouvelle DEK en tête, `apply`, déployer les révisions, désactiver les anciennes révisions
    (voir « Rotation des DEK »). Lancer ensuite `rech-<service>` pour chaque service, jusqu'au code 0.
-3. **Vérifier** : approuver l'exécution de `verification-cles.yml` (PR, ou à la demande juste avant l'`apply`) : les
-   quatre `verif-<service>` doivent renvoyer 0.
-4. **Retirer** : seulement alors, retirer l'ancienne DEK ou les anciennes clés v1 des `tfvars` (PR fusionnée, `apply`,
-   nouvelles révisions), puis désactiver et, après la rétention des sauvegardes, supprimer les secrets (voir
-   « Retrait des anciennes clés »).
+3. **Vérifier** : lancer `verification-cles.yml` sur `main` pour l'environnement et attendre son approbation : les
+   quatre `verif-<service>` doivent renvoyer 0. **Noter l'identifiant de l'exécution dans le ticket de changement.**
+4. **Appliquer dans les 24 h** : **tout `apply` qui touche `encryption_key_ids` ou `encryption_legacy_key_ids` exige une
+   exécution de `verification-cles.yml` (lancée par `workflow_dispatch` sur `main`, réussie) terminée dans les 24 h qui
+   précèdent l'`apply`**, avec son identifiant dans le ticket de changement. Au-delà, ou après une écriture susceptible
+   de réintroduire une ancienne clé (une réplique restée sur l'ancienne DEK, une restauration de sauvegarde), relancer la
+   vérification. Puis retirer l'ancienne DEK ou les anciennes clés v1 des `tfvars` (PR fusionnée, `apply`, nouvelles
+   révisions), désactiver et, après la rétention des sauvegardes, supprimer les secrets (voir « Retrait des anciennes
+   clés »).
 5. **En cas de code 1** : ne rien retirer. Lire le rapport du job (table, colonne, ligne), corriger, relancer
    `rech-<service>`, puis refaire la vérification.
 

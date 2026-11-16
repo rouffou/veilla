@@ -175,16 +175,6 @@ else
   journaliser "Aucun job \`${JOB}\` : pas de migration."
 fi
 
-# Jobs de rechiffrement et de vérification des champs (#474) : seule leur IMAGE est alignée sur celle de la révision. Ils ne
-# sont jamais démarrés ici (déclenchement manuel, ou workflow verification-cles.yml avant un changement de clés).
-for job_cle in "rech-${SERVICE}" "verif-${SERVICE}"; do
-  existe_cle=$(az containerapp job list -g "$GROUPE" --query "[?name=='${job_cle}'].name | [0]" -o tsv)
-  if [ -n "$existe_cle" ]; then
-    az containerapp job update -g "$GROUPE" -n "$job_cle" --image "$IMAGE_PAR_EMPREINTE" >/dev/null
-    journaliser "Image du job \`${job_cle}\` mise à jour (non démarré)."
-  fi
-done
-
 # --- 3. Nouvelle révision à 0 % ---------------------------------------------------------------------------------
 REVISION_TENTEE=true
 az containerapp update -g "$GROUPE" -n "$APP" --image "$IMAGE_PAR_EMPREINTE" --revision-suffix "$SUFFIXE_REVISION" >/dev/null
@@ -241,6 +231,21 @@ for palier in $PALIERS; do
     echec "Palier ${palier} % : taux de 5xx ${taux} % (${erreurs}/${total}) supérieur au seuil ${SEUIL_5XX_POURCENT} %."
   fi
   journaliser "Palier ${palier} % validé : ${erreurs} erreur(s) 5xx sur ${total} requête(s) (${taux} %)."
+done
+
+# --- 6. Jobs de rechiffrement et de vérification des champs (#474) ----------------------------------------------
+# Seule leur IMAGE est alignée sur celle de la révision, et seulement une fois le trafic à 100 % validé : un retour arrière
+# ne les laisse jamais sur l'image annulée. Ils ne sont jamais démarrés ici (déclenchement manuel de rech-<service> ;
+# verif-<service> par verification-cles.yml). Un échec d'alignement n'annule pas le déploiement : il est signalé.
+for job_cle in "rech-${SERVICE}" "verif-${SERVICE}"; do
+  existe_cle=$(az containerapp job list -g "$GROUPE" --query "[?name=='${job_cle}'].name | [0]" -o tsv)
+  if [ -n "$existe_cle" ]; then
+    if az containerapp job update -g "$GROUPE" -n "$job_cle" --image "$IMAGE_PAR_EMPREINTE" >/dev/null; then
+      journaliser "Image du job \`${job_cle}\` mise à jour (non démarré)."
+    else
+      journaliser "Avertissement : image du job \`${job_cle}\` non mise à jour ; la remettre à la main avant de le lancer."
+    fi
+  fi
 done
 
 # --- 7. Fin : désactivation de l'ancienne révision --------------------------------------------------------------

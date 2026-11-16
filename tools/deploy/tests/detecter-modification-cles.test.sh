@@ -90,6 +90,22 @@ valider "suppression"
 detecter
 verifier "suppression détectée" 'printf "%s" "$sortie" | grep -qx prod'
 
+echo "Branchement dans main.tf de l'environnement"
+printf 'module "sepp" {\n  encryption_key_ids = var.encryption_key_ids\n  encryption_legacy_key_ids = var.encryption_legacy_key_ids\n}\n' >infra/environments/dev/main.tf
+valider "main.tf"
+base=$(git rev-parse HEAD)
+printf 'module "sepp" {\n  encryption_key_ids = ["D9"]\n  encryption_legacy_key_ids = var.encryption_legacy_key_ids\n}\n' >infra/environments/dev/main.tf
+valider "main.tf en dur"
+detecter
+verifier "valeur en dur dans main.tf détectée" '[ "$code" -eq 0 ] && [ "$sortie" = "dev" ]'
+printf 'module "sepp" {\n  name = "x"\n  encryption_key_ids = ["D9"]\n  encryption_legacy_key_ids = var.encryption_legacy_key_ids\n}\n' >infra/environments/dev/main.tf
+valider "main.tf autre"
+base=$(git rev-parse HEAD)
+printf 'module "sepp" {\n  name = "y"\n  encryption_key_ids = ["D9"]\n  encryption_legacy_key_ids = var.encryption_legacy_key_ids\n}\n' >infra/environments/dev/main.tf
+valider "main.tf autre 2"
+detecter
+verifier "autre argument de main.tf : rien" '[ "$code" -eq 0 ] && [ -z "$sortie" ]'
+
 echo "Dossier d'environnement inconnu"
 mkdir -p infra/environments/autre
 printf 'encryption_key_ids = ["D1"]\n' >infra/environments/autre/terraform.tfvars

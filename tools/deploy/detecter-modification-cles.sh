@@ -2,7 +2,7 @@
 # Détecte les environnements dont les clés de chiffrement changent entre deux révisions (#474, ADR 0012).
 #   Usage : detecter-modification-cles.sh <base> <tête>
 #   Sortie : un nom d'environnement par ligne (dev, test, recette, preprod, prod), vide si rien ne change.
-# Sont comparées, dans infra/environments/<env>/*.tfvars, les déclarations de encryption_key_ids et de
+# Sont comparées, dans infra/environments/<env>/*.tfvars et *.tf (main.tf transmet les variables au module racine), les déclarations de encryption_key_ids et de
 # encryption_legacy_key_ids (valeurs normalisées : commentaires et espaces ignorés, listes sur plusieurs lignes comprises).
 # Ajouter, retirer, réordonner ou supprimer une valeur, créer un fichier ou en supprimer un sont des modifications.
 # Échoue (code 1) pour un dossier d'environnement inconnu : le contrôle ne passe jamais « par défaut ».
@@ -38,7 +38,7 @@ while IFS= read -r fichier; do
   if [ "$(declarations "$base" "$fichier")" != "$(declarations "$tete" "$fichier")" ]; then
     modifies+=("$dossier")
   fi
-done < <(git diff --name-only "$base" "$tete" -- 'infra/environments/*.tfvars')
+done < <(git diff --name-only "$base" "$tete" -- 'infra/environments/*.tfvars' 'infra/environments/*.tf')
 
 if [ "${#modifies[@]}" -gt 0 ]; then
   printf '%s\n' "${modifies[@]}" | sort -u

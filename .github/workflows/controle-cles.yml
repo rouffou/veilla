@@ -1,12 +1,18 @@
 # Contrôle bloquant des changements de clés de chiffrement (#474, ADR 0012).
-#   Toute PR qui modifie encryption_key_ids ou encryption_legacy_key_ids dans infra/environments/<env>/*.tfvars exige,
-#   pour chaque environnement touché, une exécution des jobs « verif-<service> » qui renvoie 0 pour tous les services
-#   (verification-cles.yml). Cette exécution tourne dans l'environnement GitHub de même nom : un relecteur approuve le
-#   lancement (confirmation humaine, heures creuses en preprod et prod) avant que le contrôle ne démarre.
-#   Le statut « Statut contrôle des clés » est exigé par la protection de main (comme « Statut Terraform ») : il passe
-#   tout de suite quand aucune des deux variables ne change, et reste rouge tant que la vérification n'a pas renvoyé 0.
-# Les PR de forks n'ont ni identité fédérée ni secrets : le contrôle échoue, ce qui est voulu (aucun changement de clés
-# sans vérification). Dans la file de fusion (merge_group), la vérification de la PR fait foi : aucune relance.
+#   Toute PR qui modifie encryption_key_ids ou encryption_legacy_key_ids (ou leur branchement) dans
+#   infra/environments/<env>/*.tfvars ou *.tf exige, pour chaque environnement touché, une exécution RÉUSSIE de
+#   verification-cles.yml, lancée à la main sur main pour cet environnement, de moins de 24 h (décision D5).
+#   Ce workflow n'utilise AUCUN environnement GitHub, AUCUN id-token et AUCUN secret : il lit seulement l'API GitHub avec le
+#   GITHUB_TOKEN de la PR (actions: read). Il n'a donc aucun accès à Azure, et le code d'une PR ne s'exécute jamais avec
+#   l'identité de déploiement : la vérification elle-même ne tourne que depuis main, dans des environnements restreints à
+#   main (preprod et prod exigent en plus l'approbation du responsable produit).
+#   Le statut « Statut contrôle des clés » est exigé par le ruleset de main (comme « Statut Terraform ») : il passe tout de
+#   suite quand aucune clé ne change, et reste rouge tant qu'aucune vérification récente n'est trouvée. Après avoir
+#   lancé la vérification, relancer ce contrôle (Re-run jobs).
+#   Scripts : ceux de la BRANCHE DE BASE (main), jamais ceux de la PR. La PR n'est récupérée que pour en lire le diff ; aucun
+#   fichier de la PR n'est exécuté (voir la description de la PR #506). Limite : le fichier de workflow lui-même est celui de
+#   la PR (évènement pull_request) ; la revue des fichiers .github/workflows/ reste donc nécessaire.
+#   Dans la file de fusion (merge_group), la vérification faite sur la PR fait foi.
 name: Contrôle des clés
 
 on:
@@ -16,75 +22,74 @@ on:
 
 permissions:
   contents: read
+  actions: read # lecture des exécutions de verification-cles.yml
 
 concurrency:
   group: controle-cles-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  detection:
-    name: Détection des changements de clés
+  controle:
+    name: Contrôle des clés
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      environnements: ${{ steps.detection.outputs.environnements }}
+    timeout-minutes: 10
     steps:
-      - name: Récupération des sources
+      # Scripts de confiance : la base de la PR (main), dans « base/ ».
+      - name: Récupération des scripts de main
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      # La PR (fusion avec main) n'est lue que pour son diff, dans « pr/ » ; rien n'y est exécuté.
+      - name: Récupération de la PR (diff seulement)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: pr
           fetch-depth: 0
           persist-credentials: false
 
-      # Compare encryption_key_ids et encryption_legacy_key_ids de chaque infra/environments/<env>/*.tfvars
-      # (tools/deploy/detecter-modification-cles.sh) ; sortie : tableau JSON des environnements touchés.
-      - name: Variables de clés modifiées par la PR
+      - name: Environnements dont les clés de chiffrement changent
         id: detection
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: pr
         env:
-          EVENEMENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          if [ "$EVENEMENT" != "pull_request" ]; then
-            echo "environnements=[]" >> "$GITHUB_OUTPUT"
-            echo "File de fusion : la vérification de la PR fait foi."
-            exit 0
-          fi
-          environnements=$(bash tools/deploy/detecter-modification-cles.sh "$BASE" HEAD | jq -R . | jq -cs .)
-          echo "Environnements dont les clés changent : $environnements"
+          environnements=$(bash "$GITHUB_WORKSPACE/base/tools/deploy/detecter-modification-cles.sh" "$BASE" HEAD | tr '\n' ' ')
+          echo "Environnements dont les clés changent : ${environnements:-aucun}"
           echo "environnements=$environnements" >> "$GITHUB_OUTPUT"
 
-  verification:
-    name: Vérification ${{ matrix.environnement }}
-    needs: detection
-    if: ${{ needs.detection.outputs.environnements != '[]' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        environnement: ${{ fromJSON(needs.detection.outputs.environnements) }}
-    permissions:
-      contents: read
-      id-token: write # transmis au workflow appelé (connexion Azure OIDC)
-    uses: ./.github/workflows/verification-cles.yml
-    with:
-      environnement: ${{ matrix.environnement }}
-    secrets: inherit
+      - name: Vérification récente sur main (moins de 24 h)
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          ENVIRONNEMENTS: ${{ steps.detection.outputs.environnements }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash base/tools/deploy/controler-verification-recente.sh
 
-  # Seul contrôle exigé par la règle de protection de main (nom stable, quel que soit le nombre d'environnements).
+      - name: File de fusion
+        if: ${{ github.event_name != 'pull_request' }}
+        run: echo "File de fusion, la vérification faite sur la PR fait foi."
+
+  # Seul contrôle exigé par le ruleset de main (nom stable).
   statut:
     name: Statut contrôle des clés
     if: ${{ always() }}
-    needs: [detection, verification]
+    needs: [controle]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
     steps:
-      - name: Résultat des jobs
+      - name: Résultat
         env:
-          RESULTATS: ${{ toJson(needs.*.result) }}
+          RESULTAT: ${{ needs.controle.result }}
         run: |
-          echo "$RESULTATS"
-          if echo "$RESULTATS" | grep -qE '"(failure|cancelled)"'; then
-            echo "::error::Détection ou vérification des clés en échec : aucun changement de clés sans code 0 de verif-<service>."
+          echo "$RESULTAT"
+          if [ "$RESULTAT" != "success" ]; then
+            echo "::error::Contrôle des clés en échec : aucun changement de clés sans vérification récente (verification-cles.yml sur main)."
             exit 1
           fi

@@ -4,13 +4,19 @@
 #   Les jobs s'exécutent avec l'identité d'EXÉCUTION du service ; ce workflow n'utilise que l'identité fédérée de
 #   déploiement (démarrer un job et lire son état), sans rôle Key Vault ni accès aux données.
 #   Ne lance jamais « rech-<service> » (rechiffrement), qui reste une action manuelle de l'exploitant.
-# Deux usages :
-#   - à la demande (workflow_dispatch) : juste avant un « terraform apply » qui change encryption_key_ids ou
-#     encryption_legacy_key_ids (infra/README.md, « Rotation des DEK » et « Retrait des anciennes clés ») ;
-#   - appelé par controle-cles.yml, bloquant sur toute PR qui modifie ces variables dans un environnement.
-# L'environnement GitHub du même nom que l'environnement cible porte la confirmation humaine (Required reviewers) et
-# l'identité fédérée. En preprod et en prod, le script refuse de lancer le balayage hors des heures creuses.
+# Lancement MANUEL uniquement, depuis main (Actions > Vérification des clés > Run workflow, ou
+# « gh workflow run verification-cles.yml --ref main -f environnement=<env> »). Il n'est jamais appelé par une PR :
+#   - les environnements GitHub dev, test, recette, preprod et prod sont restreints à la branche main : depuis une autre
+#     branche, le job ne démarre pas et l'identité OIDC n'est pas délivrée ;
+#   - preprod et prod exigent en plus l'approbation du responsable produit (confirmation humaine) ;
+#   - le contrôle de PR (controle-cles.yml) ne fait que lire le résultat de cette exécution par l'API GitHub : il exige une
+#     exécution réussie, sur main, pour l'environnement concerné, de moins de 24 h. L'environnement est retrouvé par le
+#     run-name ci-dessous.
+# Annuler ce workflow n'arrête PAS l'exécution du job Azure déjà démarrée : elle va à son terme (voir infra/README.md).
+# En preprod et en prod, le script refuse de lancer le balayage hors des heures creuses.
 name: Vérification des clés
+
+run-name: "Vérification des clés : ${{ inputs.environnement }}"
 
 on:
   workflow_dispatch:
@@ -19,11 +25,6 @@ on:
         description: "Environnement cible (environnement GitHub du même nom)"
         type: choice
         options: [dev, test, recette, preprod, prod]
-        required: true
-  workflow_call:
-    inputs:
-      environnement:
-        type: string
         required: true
 
 permissions:
@@ -42,11 +43,12 @@ env:
 jobs:
   verification:
     name: Vérification ${{ inputs.environnement }}
+    # Garde supplémentaire à la restriction des environnements : jamais depuis une autre branche que main.
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     # Limite d'un job sur un runner hébergé par GitHub : 6 h. Si le balayage des quatre services la dépasse, le contrôle
     # échoue (rien n'est vérifié) : lancer alors le job verif-<service> à la main, un service à la fois.
     timeout-minutes: 355
-    # Règles d'approbation configurées sur l'environnement GitHub (preprod, prod).
     environment: ${{ inputs.environnement }}
     permissions:
       contents: read

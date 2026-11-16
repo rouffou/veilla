@@ -100,7 +100,7 @@ public sealed partial class ConfigurationTerraformTests
     public void Les_jobs_de_rechiffrement_sont_manuels_a_une_execution_sans_nouvelle_tentative_et_sans_declencheur()
     {
         var module = SansCommentaires(File.ReadAllText(Path.Combine(Terraform.RacineDepot(), "infra", "modules", "containerapp-rechiffrement-job", "main.tf")));
-        Regex.IsMatch(module, @"manual_trigger_config\s*\{\s*parallelism\s*=\s*1\s*replica_completion_count\s*=\s*1\s*\}").ShouldBeTrue("Une seule exécution à la fois.");
+        Regex.IsMatch(module, @"manual_trigger_config\s*\{\s*parallelism\s*=\s*1\s*replica_completion_count\s*=\s*1\s*\}").ShouldBeTrue("Une réplique par exécution.");
         Regex.IsMatch(module, @"replica_retry_limit\s*=\s*0").ShouldBeTrue("Aucune nouvelle tentative automatique.");
         module.ShouldNotContain("schedule_trigger_config", Case.Sensitive, "Aucun déclenchement planifié.");
         module.ShouldNotContain("event_trigger_config", Case.Sensitive, "Aucun déclenchement par événement.");
@@ -124,6 +124,7 @@ public sealed partial class ConfigurationTerraformTests
         Regex.Count(script, @"job start").ShouldBe(1, "Un seul démarrage de job : la migration.");
         script.ShouldContain("job start -g \"$GROUPE\" -n \"$JOB\"", Case.Sensitive);
         script.ShouldContain("rech-${SERVICE}", Case.Sensitive);
+        script.IndexOf("rech-${SERVICE}", StringComparison.Ordinal).ShouldBeGreaterThan(script.IndexOf("for palier in", StringComparison.Ordinal), "Image des jobs alignée après le passage à 100 %.");
         script.ShouldContain("verif-${SERVICE}", Case.Sensitive);
     }
 
@@ -143,20 +144,34 @@ public sealed partial class ConfigurationTerraformTests
 
         // Environnement GitHub du même nom que l'environnement cible : règles d'approbation, identité fédérée par environnement.
         Regex.IsMatch(verification, @"environment:\s*\$\{\{\s*inputs\.environnement\s*\}\}").ShouldBeTrue("Environnement protégé.");
-        verification.ShouldContain("workflow_call", Case.Sensitive);
+        verification.ShouldNotContain("workflow_call", Case.Sensitive, "Jamais appelé depuis une PR : lancement manuel sur main seulement.");
+        verification.ShouldNotContain("pull_request", Case.Sensitive);
+        verification.ShouldContain("run-name: \"Vérification des clés : ${{ inputs.environnement }}\"", Case.Sensitive);
+        verification.ShouldContain("github.ref == 'refs/heads/main'", Case.Sensitive);
         verification.ShouldContain("workflow_dispatch", Case.Sensitive);
         verification.ShouldContain("verifier-rechiffrement.sh", Case.Sensitive);
         verification.ShouldNotContain("rech-", Case.Sensitive, "Le pipeline ne lance que les jobs de vérification, jamais le rechiffrement.");
         verification.ShouldNotContain("EXECUTERPUISQUITTER", Case.Insensitive);
 
         // Le contrôle de PR détecte la modification des deux variables dans les tfvars et appelle la vérification.
-        controle.ShouldContain("./.github/workflows/verification-cles.yml", Case.Sensitive);
-        controle.ShouldContain("detecter-modification-cles.sh", Case.Sensitive);
+        // Le contrôle de PR ne lit que l'API GitHub : aucun environnement, id-token ni secret, et des scripts venus de la base.
+        controle.ShouldNotContain("environment:", Case.Sensitive);
+        controle.ShouldNotContain("id-token", Case.Sensitive);
+        controle.ShouldNotContain("secrets.", Case.Sensitive);
+        controle.ShouldNotContain("secrets:", Case.Sensitive);
+        controle.ShouldNotContain("azure/login", Case.Sensitive);
+        controle.ShouldNotContain("uses: ./", Case.Sensitive);
+        controle.ShouldContain("actions: read", Case.Sensitive);
+        controle.ShouldContain("base/tools/deploy/controler-verification-recente.sh", Case.Sensitive);
+        controle.ShouldNotContain("pr/tools", Case.Sensitive);
+        controle.ShouldContain("ref: ${{ github.event.pull_request.base.sha }}", Case.Sensitive);
+        controle.ShouldContain("base/tools/deploy/detecter-modification-cles.sh", Case.Sensitive);
         controle.ShouldContain("merge_group", Case.Sensitive);
         controle.ShouldContain("Statut contrôle des clés", Case.Sensitive);
         var detection = File.ReadAllText(Path.Combine(racine, "tools", "deploy", "detecter-modification-cles.sh"));
         detection.ShouldContain("encryption(_legacy)?_key_ids", Case.Sensitive);
         detection.ShouldContain("infra/environments/*.tfvars", Case.Sensitive);
+        detection.ShouldContain("infra/environments/*.tf'", Case.Sensitive);
 
         // Chaque environnement du dépôt déclare encore les deux variables (le contrôle de PR s'appuie sur elles).
         foreach (var dossier in Directory.EnumerateDirectories(Path.Combine(racine, "infra", "environments")))
@@ -164,6 +179,11 @@ public sealed partial class ConfigurationTerraformTests
             var tfvars = Terraform.SansCommentaires(File.ReadAllText(Path.Combine(dossier, "terraform.tfvars")));
             tfvars.ShouldContain("encryption_key_ids", Case.Sensitive, dossier);
             tfvars.ShouldContain("encryption_legacy_key_ids", Case.Sensitive, dossier);
+
+            // Les valeurs viennent des variables : jamais de liste en dur dans le main.tf de l'environnement (le contrôle suit les tfvars).
+            var mainEnvironnement = Terraform.SansCommentaires(File.ReadAllText(Path.Combine(dossier, "main.tf")));
+            Regex.IsMatch(mainEnvironnement, @"(?m)^\s*encryption_key_ids\s*=\s*var\.encryption_key_ids\s*$").ShouldBeTrue($"{dossier}/main.tf : encryption_key_ids = var.encryption_key_ids.");
+            Regex.IsMatch(mainEnvironnement, @"(?m)^\s*encryption_legacy_key_ids\s*=\s*var\.encryption_legacy_key_ids\s*$").ShouldBeTrue($"{dossier}/main.tf : encryption_legacy_key_ids = var.encryption_legacy_key_ids.");
         }
     }
 
