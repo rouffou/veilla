@@ -57,7 +57,7 @@ internal sealed class ExamenRepository(SurveillanceMedicaleDbContext db) : IExam
         await db.Examens.AsSplitQuery().Where(e => e.DossierId == dossierId).ToListAsync(cancellationToken);
 
     public Task<bool> ExisteExamenDuProfessionnelAsync(Guid dossierId, string professionnelId, CancellationToken cancellationToken) =>
-        db.Examens.IgnoreAutoIncludes().AnyAsync(e => e.DossierId == dossierId && e.ProfessionnelId == professionnelId, cancellationToken);
+        db.Examens.IgnoreAutoIncludes().AnyAsync(e => e.DossierId == dossierId && e.ProfessionnelId == professionnelId && e.Statut != StatutExamen.Annule, cancellationToken);
 
     public Task<bool> ExisteExamenSurRendezVousAsync(Guid rendezVousId, CancellationToken cancellationToken) =>
         db.Examens.IgnoreAutoIncludes().AnyAsync(e => e.RendezVousId == rendezVousId && e.Statut != StatutExamen.Annule, cancellationToken);

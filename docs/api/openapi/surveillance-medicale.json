@@ -2635,6 +2635,48 @@
         ]
       }
     },
+    "/api/v1/examens/{id}/annulation": {
+      "post": {
+        "operationId": "AnnulerExamen",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MotifSaisi"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "sepp-api/.default"
+            ]
+          }
+        ],
+        "summary": "#523 : annulation motiv\u00E9e d\u0027un examen en cours (professionnel de l\u0027examen, convoqu\u00E9 ou CPMT gestionnaire, sinon bris de glace) ; lib\u00E8re le rendez-vous.",
+        "tags": [
+          "Examens et consultation"
+        ]
+      }
+    },
     "/api/v1/examens/{id}/cloture": {
       "post": {
         "operationId": "CloturerExamen",

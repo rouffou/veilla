@@ -490,6 +490,113 @@ public sealed class SecretMedicalTests
         resultat.Error!.ShouldSatisfyAllConditions(e => e.Code.ShouldBe("examen.rendez-vous-deja-honore"), e => e.Kind.ShouldBe(ErrorKind.Conflict));
     }
 
+    [Fact]
+    public async Task Le_convoque_annule_l_examen_ouvert_sur_motif_par_un_tiers_puis_ouvre_le_rendez_vous()
+    {
+        // #523 : cpmt-2 ouvre sur motif le rendez-vous de cpmt-conv, qui reçoit alors un conflit.
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var rdv = RendezVous(new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero), "cpmt-conv");
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Remplacement du Dr convoqué");
+        var examenTiers = (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Value;
+        _monde.Agir("cpmt-conv", Roles.Cpmt);
+        (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Error!.Code.ShouldBe("examen.rendez-vous-deja-honore");
+
+        // Le convoqué, sans motif d'accès, annule l'examen du tiers (motif d'annulation tracé), puis ouvre son rendez-vous.
+        _monde.Audit.Traces.Clear();
+        (await Annuler(examenTiers, "  Ouvert par erreur sur le rendez-vous d'un confrère  ")).IsSuccess.ShouldBeTrue();
+        _monde.Store.Examens.Single(e => e.Id == examenTiers).Statut.ShouldBe(StatutExamen.Annule);
+        _monde.Audit.Traces.ShouldBe(
+        [
+            new Trace(ActionAudit.Modification, "dossier-sante.examen", dossierId, null, false, false),
+            new Trace(ActionAudit.Modification, "dossier-sante.examen-annulation", dossierId, "Ouvert par erreur sur le rendez-vous d'un confrère", false, false),
+        ]);
+        var examenConvoque = (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Value;
+        _monde.Store.Examens.Single(e => e.Id == examenConvoque).ProfessionnelId.ShouldBe("cpmt-conv");
+
+        // L'examen annulé n'établit plus la relation de soin de cpmt-2 : il lui faut de nouveau un motif.
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await new ObtenirDossierHandler(_monde.Garde).HandleAsync(new ObtenirDossier(dossierId), _ct)).Error!.Code.ShouldBe("dossier-sante.motif-obligatoire");
+    }
+
+    [Fact]
+    public async Task Un_tiers_n_annule_un_examen_que_par_bris_de_glace_jamais_sur_simple_motif()
+    {
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var rdv = RendezVous(new DateTimeOffset(2026, 3, 20, 8, 0, 0, TimeSpan.Zero), "cpmt-conv");
+        _monde.Agir("cpmt-conv", Roles.Cpmt);
+        var examenId = (await OuvrirSurRendezVous(dossierId, rdv.RendezVousId)).Value;
+
+        _monde.Agir("cpmt-2", Roles.Cpmt);
+        (await Annuler(examenId, "Doublon")).Error!.Code.ShouldBe("dossier-sante.motif-obligatoire");
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Doublon constaté");
+        (await Annuler(examenId, "Doublon")).Error!.ShouldSatisfyAllConditions(
+            e => e.Code.ShouldBe("examen.annulation-hors-relation"), e => e.Kind.ShouldBe(ErrorKind.Forbidden));
+        _monde.Store.Examens.Single().Statut.ShouldBe(StatutExamen.EnCours);
+
+        // Le bris de glace motivé est tracé et signalé (ARC-41).
+        _monde.Audit.Traces.Clear();
+        _monde.Agir("cpmt-2", Roles.Cpmt, motif: "Dr convoqué indisponible, rendez-vous repris", brisDeGlace: true);
+        (await Annuler(examenId, "Doublon")).IsSuccess.ShouldBeTrue();
+        _monde.Store.Examens.Single().Statut.ShouldBe(StatutExamen.Annule);
+        _monde.Audit.Traces.ShouldContain(t => t.ObjetType == "dossier-sante.examen" && t.BrisDeGlace && t.Motif == "Dr convoqué indisponible, rendez-vous repris");
+        _monde.Audit.Traces.ShouldContain(t => t.ObjetType == "dossier-sante.examen-annulation" && t.Motif == "Doublon");
+    }
+
+    [Fact]
+    public async Task Le_gestionnaire_annule_l_examen_d_un_autre_professionnel()
+    {
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        _monde.Agir("infirmier-1", Roles.Infirmier, motif: "Examen délégué par le Dr gestionnaire");
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+
+        _monde.Agir("cpmt-1", Roles.Cpmt);
+        (await Annuler(examenId, "Travailleur absent")).IsSuccess.ShouldBeTrue();
+        _monde.Audit.Traces.ShouldNotContain(t => t.BrisDeGlace);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public async Task L_annulation_exige_un_motif(string? motif)
+    {
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+
+        (await Annuler(examenId, motif)).Error!.Code.ShouldBe("examen.motif-annulation-obligatoire");
+        (await Annuler(examenId, new string('x', MotifAcces.LongueurMaximale + 1))).Error!.Code.ShouldBe("examen.motif-annulation-obligatoire");
+        _monde.Store.Examens.Single().Statut.ShouldBe(StatutExamen.EnCours);
+    }
+
+    [Fact]
+    public async Task Un_examen_cloture_ou_deja_annule_ne_s_annule_pas()
+    {
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        await DecisionDuGestionnaireAsync(dossierId);
+        var cloture = _monde.Store.Examens.Single().Id;
+        (await Annuler(cloture, "Erreur")).Error!.ShouldSatisfyAllConditions(e => e.Code.ShouldBe("examen.non-annulable"), e => e.Kind.ShouldBe(ErrorKind.Conflict));
+        _monde.Store.Examens.Single().Statut.ShouldBe(StatutExamen.Cloture);
+
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+        (await Annuler(examenId, "Erreur")).IsSuccess.ShouldBeTrue();
+        (await Annuler(examenId, "Erreur")).Error!.Code.ShouldBe("examen.non-annulable");
+    }
+
+    [Theory]
+    [InlineData(Roles.ConseillerSecurite)]
+    [InlineData(Roles.AssistantMedical)]
+    public async Task Un_profil_non_medical_n_annule_pas_un_examen(string role)
+    {
+        var dossierId = await _monde.OuvrirDossierAsync(_personne, _ct);
+        var examenId = await _monde.OuvrirExamenAsync(dossierId, Guid.CreateVersion7(), _ct);
+
+        _monde.Agir("autre", role, motif: "Erreur", brisDeGlace: true);
+        (await Annuler(examenId, "Erreur")).Error!.Code.ShouldBe("dossier-sante.interdit");
+    }
+
+    private Task<Result<Unit>> Annuler(Guid examenId, string? motif) =>
+        new AnnulerExamenHandler(_monde.Garde, _monde.Store, _monde.Store, _monde.Store, _monde.Utilisateur, _monde.Contexte, _monde.Audit, _monde.Store)
+            .HandleAsync(new AnnulerExamen(examenId, motif), _ct);
+
     private RendezVousPrevu RendezVous(DateTimeOffset debut, string? professionnelId)
     {
         var affilie = Guid.CreateVersion7();

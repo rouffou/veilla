@@ -212,11 +212,38 @@ public class AgendaEtRessourcesTests
             new CreerLieu("UniteMobile", "Car 1", null, "4000", 50.63, 5.57, h.Affilie, null), CancellationToken.None);
         var ressource = await new CreerRessourceHandler(h.Store, h.Store, h.Store, user).HandleAsync(
             new CreerRessource("appareil", "Audiomètre AU-12", "INV-12", ["audiometrie", "AUDIOMETRIE"], lieu.Value), CancellationToken.None);
-        await new DefinirCompetencesHandler(h.Store, h.Store, user).HandleAsync(new DefinirCompetences(ressource.Value, ["spirometrie"]), CancellationToken.None);
+        await new DefinirCompetencesHandler(h.Store, h.Store, user).HandleAsync(new DefinirCompetences(ressource.Value.Id, ["spirometrie"]), CancellationToken.None);
 
         lieu.IsSuccess.ShouldBeTrue();
         h.Store.Lieux.Single(l => l.Id == lieu.Value).Type.ShouldBe(TypeLieu.UniteMobile);
-        h.Store.Ressources.Single(r => r.Id == ressource.Value).Competences.ShouldBe(["SPIROMETRIE"]);
+        h.Store.Ressources.Single(r => r.Id == ressource.Value.Id).Competences.ShouldBe(["SPIROMETRIE"]);
+        ressource.Value.Avertissement.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Conseiller", "3f2c1b9e-8d4a-4c3e-9b1a-2e5f6a7b8c9d", true)]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Conseiller", "AAAAAAAAAAAAAAAAAAAAAPairwiseSubDuCpmt0001", false)]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Appareil", "3f2c1b9e-8d4a-4c3e-9b1a-2e5f6a7b8c9d", false)]
+    [InlineData("7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d", "Conseiller", "3f2c1b9e-8d4a-4c3e-9b1a-2e5f6a7b8c9d", false)]
+    public async Task Une_reference_guid_saisie_par_un_utilisateur_au_sub_non_guid_est_signalee_comme_un_oid(
+        string subCreateur, string type, string reference, bool avertissement)
+    {
+        // #523 : ReferenceId est le sub du jeton sepp-api (pairwise en Entra ID, jamais un GUID), pas l'oid. Le sub du créateur
+        // vient du même émetteur : s'il n'est pas un GUID, une référence GUID est presque sûrement un oid. En local (Keycloak),
+        // les sub sont des GUID : aucun avertissement. La création n'est jamais bloquée.
+        var h = new Harness();
+        var createur = new FakeUser(Roles.ResponsableCentre) { UserId = subCreateur };
+
+        var ressource = await new CreerRessourceHandler(h.Store, h.Store, h.Store, createur)
+            .HandleAsync(new CreerRessource(type, "Dr Exemple", reference, null, null), CancellationToken.None);
+
+        ressource.IsSuccess.ShouldBeTrue();
+        h.Store.Ressources.Single(r => r.Id == ressource.Value.Id).ReferenceId.ShouldBe(reference);
+        (ressource.Value.Avertissement == CreerRessourceHandler.AvertissementOid).ShouldBe(avertissement);
+        if (!avertissement)
+        {
+            ressource.Value.Avertissement.ShouldBeNull();
+        }
     }
 
     [Fact]

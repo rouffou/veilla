@@ -111,6 +111,16 @@ version qu'il a relue.
        `planification.rendez-vous-instantane`, une source, une table et une permission d'exploitation dans Planification,
        pour un stock limité à l'horizon de planification et que toute replanification corrige déjà. Elle reste possible
        dans le cadre de #369 si le métier juge le volume de motifs gênant.
+   - **Annulation d'un examen** (#523) : `POST /examens/{id}/annulation`, qui libère le rendez-vous. Sans elle, un
+     professionnel non convoqué qui ouvre le rendez-vous sur motif le « consomme », et le convoqué reçoit le 409.
+     - Droit `dossier-sante:ecrire` et authentification forte, motif d'annulation obligatoire (corps, 300 caractères au
+       plus, sans donnée de santé), tracé (`dossier-sante.examen-annulation`) en plus de la trace d'accès.
+     - Annulent sans bris de glace : le professionnel qui a ouvert l'examen, le professionnel convoqué au rendez-vous de
+       l'examen et le CPMT gestionnaire du dossier. Tout autre utilisateur passe par un bris de glace motivé : un simple
+       motif ne suffit pas (`examen.annulation-hors-relation`), sinon un tiers évincerait le convoqué de son rendez-vous.
+     - Un examen clôturé, déjà annulé ou dont la décision est émise ne s'annule pas (409 `examen.non-annulable`).
+     - Un examen annulé n'établit plus la relation de soin de son professionnel sur le dossier.
+     - Aucun événement : aucun service ne suit un examen avant sa clôture (`ExamenCloture`).
    - Une base qui contiendrait déjà deux examens non annulés sur un même rendez-vous ferait échouer la migration : il
      faut d'abord annuler le doublon.
    - L'ouverture d'un dossier avec un gestionnaire (`POST /dossiers`) n'est pas concernée : le dossier est unique par
