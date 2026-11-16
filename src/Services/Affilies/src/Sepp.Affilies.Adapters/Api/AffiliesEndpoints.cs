@@ -42,6 +42,7 @@ public static class AffiliesEndpoints
                 (await handler.HandleAsync(new ListerMesEmployeurs(date ?? clock.TodayInBelgium()), ct)).ToHttpResult())
             .RequirePermission(Permissions.AffilieLireEmployeurs)
             .WithTags("Portail travailleur")
+            .Retourne<IReadOnlyList<MonEmployeurDto>>(ErreurHttp.Interdit)
             .WithName("ListerMesEmployeurs")
             .WithSummary("POR-11 : dénomination et langue des affiliés chez qui la personne du jeton (claim personne_id) a une occupation active ; aucune autre donnée.");
         return app;
@@ -93,6 +94,7 @@ public static class AffiliesEndpoints
 
         affilies.MapGet("/{affilieId:guid}", async (Guid affilieId, IQueryHandler<ObtenirAffilie, AffilieDto> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ObtenirAffilie(affilieId), ct)).ToHttpResult())
+            .Retourne<AffilieDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("ObtenirAffilie")
             .WithSummary("Fiche complète : identité, hiérarchie, contacts, organes de concertation, opérations (AFF-01 à AFF-06).");
 

@@ -29,6 +29,7 @@ public static class IntegrationsEndpoints
         api.MapGet("/bce/entreprises/{numeroBce}", async (string numeroBce, IQueryHandler<ObtenirEntrepriseBce, EntrepriseBceDto> handler, CancellationToken ct) =>
                 (await handler.HandleAsync(new ObtenirEntrepriseBce(numeroBce), ct)).ToHttpResult())
             .WithTags("BCE")
+            .Retourne<EntrepriseBceDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("ObtenirEntrepriseBce")
             .WithSummary("Dernières données BCE reçues d'une entreprise, unités d'établissement et adresses comprises.");
         return app;

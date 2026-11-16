@@ -2,6 +2,10 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
+  <!-- Tests des adaptateurs HTTP de service à service (double confronté au contrat, #476). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sepp.Documents.Integration.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <!-- PDFsharp (MIT) : rendu PDF/A ; Azure.Storage.Blobs (MIT) : stockage WORM. -->
     <PackageReference Include="PDFsharp" />

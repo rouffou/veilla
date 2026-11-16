@@ -131,6 +131,7 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         appeleA = (string?)null,
         salleId = Guid.CreateVersion7(),
         reconvocationDeId = (Guid?)null,
+        nombreDeplacements = 0,
     };
 
     private static object Document(Guid id, Guid destinataire, string statut = "Publie", string code = "SANTE.EVALUATION.TRAVAILLEUR") => new
@@ -517,14 +518,14 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         var recent = Guid.CreateVersion7();
         _aval.Repondre(ServicesAvalSimules.Affilies, "/api/v1/mes-employeurs", new[]
         {
-            new { affilieId = _affilie, denomination = "Boulangerie Dupont", langue = "Nl", regimeLinguistique = "Francais", numeroBce = "0202239951" },
-            new { affilieId = Guid.CreateVersion7(), denomination = "Affilié non occupé", langue = "Fr", regimeLinguistique = "Francais", numeroBce = "0403170701" },
+            new { affilieId = _affilie, denomination = "Boulangerie Dupont", langue = "Nl" },
+            new { affilieId = Guid.CreateVersion7(), denomination = "Affilié non occupé", langue = "Fr" },
         });
         _aval.Repondre(ServicesAvalSimules.Personnes, "/api/v1/mes-occupations", new[]
         {
             new { occupationId = Guid.CreateVersion7(), affilieId = recent, typeTravailleur = "Interimaire", dateDebut = "2026-05-01", dateFin = (string?)null, referenceDimona = "SECRET" },
             new { occupationId = Guid.CreateVersion7(), affilieId = _affilie, typeTravailleur = "Salarie", dateDebut = "2025-01-01", dateFin = (string?)null, referenceDimona = "SECRET" },
-        });
+        }, horsContrat: true);
 
         var json = await Json(await Client().GetAsync("/api/v1/employeurs", Ct));
 
@@ -612,6 +613,7 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         statut = "APlanifier",
         enRetard = false,
         statutsSuivants = new[] { "Planifie" },
+        codesRisques = Array.Empty<string>(),
     };
 
     // --- POR-13 : documents ---
@@ -827,7 +829,6 @@ public sealed class BffTravailleurApiTests : IAsyncLifetime
         statut,
         enRetard = false,
         traiteeLe = (string?)null,
-        traiteePar = "cpmt-interne",
         motifRefus = (string?)null,
         documentId,
         publieeLe = (string?)null,

@@ -235,25 +235,31 @@ public static class PlanificationEndpoints
         reservations.MapGet("/creneaux", async (Guid affilieId, string typeActe, DateTimeOffset du, DateTimeOffset au, Guid? lieuId,
                 IQueryHandler<ListerCreneauxOuverts, IReadOnlyList<CreneauOuvertDto>> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ListerCreneauxOuverts(affilieId, typeActe, du, au, lieuId), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<CreneauOuvertDto>>(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("ListerCreneauxOuverts")
             .WithSummary("SAN-12 : créneaux ouverts à la réservation en ligne (sans ressource ni information interne).");
         reservations.MapPost("/", async (ReserverEnLigne body, ICommandHandler<ReserverEnLigne, Guid> h, CancellationToken ct) =>
                 (await h.HandleAsync(body, ct)).ToHttpResult(id => Results.Created($"/api/v1/rendez-vous/{id}", new { id })))
+            .RetourneCree<IdentifiantCree>(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit)
             .WithName("ReserverEnLigne")
             .WithSummary("SAN-12 : réservation en ligne ; le rendez-vous couvre les obligations dues de la personne pour ce type d'acte.");
         reservations.MapGet("/rendez-vous", async (Guid? affilieId, IQueryHandler<ListerMesRendezVous, IReadOnlyList<RendezVousDto>> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ListerMesRendezVous(affilieId), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<RendezVousDto>>(ErreurHttp.Interdit)
             .WithName("ListerMesRendezVous");
         reservations.MapPost("/rendez-vous/{id:guid}/annulation", async (Guid id, CorpsAnnulationEnLigne? body, ICommandHandler<AnnulerEnLigne, Unit> h, CancellationToken ct) =>
                 (await h.HandleAsync(new AnnulerEnLigne(id, body?.Raison, body?.Commentaire), ct)).ToHttpResult())
+            .RetourneSansContenu(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit)
             .WithName("AnnulerEnLigne")
             .WithSummary("SAN-12, POR-11 : annulation en ligne jusqu'à 24 heures avant le rendez-vous, avec une raison codée et une précision courte facultative (aucune donnée de santé).");
         reservations.MapPost("/rendez-vous/{id:guid}/deplacement", async (Guid id, CorpsDeplacement body, ICommandHandler<DeplacerEnLigne, RendezVousDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new DeplacerEnLigne(id, body.NouveauCreneauId), ct)).ToHttpResult())
+            .Retourne<RendezVousDto>(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit)
             .WithName("DeplacerEnLigne")
             .WithSummary("POR-11 : déplacement atomique vers un autre créneau ouvert (libère l'ancien, réserve le nouveau, publie rendez-vous-replanifie) ; 409 si le créneau est pris.");
         reservations.MapPost("/rendez-vous/{id:guid}/confirmation", async (Guid id, ICommandHandler<ConfirmerPresence, RendezVousDto> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ConfirmerPresence(id), ct)).ToHttpResult())
+            .Retourne<RendezVousDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable, ErreurHttp.Conflit)
             .WithName("ConfirmerPresence")
             .WithSummary("POR-11 : le travailleur confirme sa présence (enregistrée, visible du planificateur ; idempotent).");
     }

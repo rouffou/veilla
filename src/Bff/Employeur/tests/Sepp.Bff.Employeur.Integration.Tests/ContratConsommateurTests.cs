@@ -30,12 +30,12 @@ public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
         new(Bff, "postes-risques", "GET", "/api/v1/listes-nominatives/{id}"),
         new(Bff, "postes-risques", "GET", "/api/v1/propositions-poste-risque") { Query = ["affilieId"] },
         new(Bff, "postes-risques", "GET", "/api/v1/propositions-liste-nominative") { Query = ["affilieId"] },
-        new(Bff, "postes-risques", "POST", "/api/v1/postes/{id}/propositions") { CorpsRequete = ["motif", "valideDu", "lignes", "avisCppt"] },
-        new(Bff, "postes-risques", "POST", "/api/v1/listes-nominatives/{id}/propositions") { CorpsRequete = ["motif", "lignes"] },
+        new(Bff, "postes-risques", "POST", "/api/v1/postes/{id}/propositions") { CorpsRequete = ["motif", "valideDu", "lignes", "avisCppt"], CodeSucces = "201" },
+        new(Bff, "postes-risques", "POST", "/api/v1/listes-nominatives/{id}/propositions") { CorpsRequete = ["motif", "lignes"], CodeSucces = "201" },
     ];
 
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_du_BFF_sont_satisfaits_par_les_contrats_des_services() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine, exigerReponsesDecrites: true);
 }

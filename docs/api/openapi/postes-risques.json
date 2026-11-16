@@ -30,8 +30,7 @@
           "TravailNuit",
           "Conduite",
           "DenreesAlimentaires",
-          "Autre",
-          null
+          "Autre"
         ]
       },
       "CibleSurcharge": {
@@ -253,6 +252,18 @@
         ],
         "type": "object"
       },
+      "IdentifiantCree": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "LibellesDto": {
         "properties": {
           "de": {
@@ -279,6 +290,146 @@
         ],
         "type": "object"
       },
+      "LienRisqueDto": {
+        "properties": {
+          "dateAvisCppt": {
+            "format": "date",
+            "type": "string"
+          },
+          "documentAvisCpptId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "niveauExposition": {
+            "$ref": "#/components/schemas/NiveauExposition"
+          },
+          "propositionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "risqueCode": {
+            "type": "string"
+          },
+          "risqueId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "valideParCpmtId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "risqueId",
+          "risqueCode",
+          "niveauExposition",
+          "valideParCpmtId",
+          "dateAvisCppt",
+          "documentAvisCpptId",
+          "propositionId",
+          "valideDu",
+          "valideJusquAu"
+        ],
+        "type": "object"
+      },
+      "LigneListeDto": {
+        "properties": {
+          "codesRisques": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "dateDerniereEvaluation": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "origine": {
+            "$ref": "#/components/schemas/OrigineLigne"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "posteId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "personneId",
+          "posteId",
+          "codesRisques",
+          "dateDerniereEvaluation",
+          "origine"
+        ],
+        "type": "object"
+      },
+      "LignePropositionDto": {
+        "properties": {
+          "niveauExposition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NiveauExposition"
+              }
+            ]
+          },
+          "risqueCode": {
+            "type": "string"
+          },
+          "risqueId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeModification"
+          }
+        },
+        "required": [
+          "type",
+          "risqueId",
+          "risqueCode",
+          "niveauExposition"
+        ],
+        "type": "object"
+      },
+      "LignePropositionListeDto": {
+        "properties": {
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "posteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeModification"
+          }
+        },
+        "required": [
+          "type",
+          "personneId",
+          "posteId"
+        ],
+        "type": "object"
+      },
       "LigneRisqueSaisie": {
         "properties": {
           "niveauExposition": {
@@ -302,6 +453,87 @@
           "type",
           "risqueCode",
           "niveauExposition"
+        ],
+        "type": "object"
+      },
+      "ListeNominativeDto": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "conserverJusquAu": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateGeneration": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "dateReference": {
+            "format": "date",
+            "type": "string"
+          },
+          "documentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "genereePar": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lignes": {
+            "items": {
+              "$ref": "#/components/schemas/LigneListeDto"
+            },
+            "type": "array"
+          },
+          "nombreLignes": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "propositionId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeListeNominative"
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "affilieId",
+          "type",
+          "version",
+          "dateReference",
+          "dateGeneration",
+          "genereePar",
+          "documentId",
+          "conserverJusquAu",
+          "propositionId",
+          "nombreLignes",
+          "lignes"
         ],
         "type": "object"
       },
@@ -334,8 +566,7 @@
         "enum": [
           "Faible",
           "Moyen",
-          "Eleve",
-          null
+          "Eleve"
         ]
       },
       "NouvellePropositionListe": {
@@ -390,6 +621,349 @@
         ],
         "type": "object"
       },
+      "OrigineLigne": {
+        "enum": [
+          "Calcul",
+          "AjustementValide"
+        ]
+      },
+      "OrigineProposition": {
+        "enum": [
+          "Interne",
+          "PortailEmployeur"
+        ]
+      },
+      "PosteDto": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "intitule": {
+            "type": "string"
+          },
+          "metierTypeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "risques": {
+            "items": {
+              "$ref": "#/components/schemas/LienRisqueDto"
+            },
+            "type": "array"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutPoste"
+          }
+        },
+        "required": [
+          "id",
+          "affilieId",
+          "intitule",
+          "description",
+          "metierTypeCode",
+          "statut",
+          "risques"
+        ],
+        "type": "object"
+      },
+      "ProblemDetails": {
+        "properties": {
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PropositionListeDto": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dateDecision": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateProposition": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "decidePar": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lignes": {
+            "items": {
+              "$ref": "#/components/schemas/LignePropositionListeDto"
+            },
+            "type": "array"
+          },
+          "listeNominativeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "listeResultanteId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "motif": {
+            "type": "string"
+          },
+          "motifRefus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "origine": {
+            "$ref": "#/components/schemas/OrigineProposition"
+          },
+          "proposeePar": {
+            "type": "string"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutProposition"
+          },
+          "typeListe": {
+            "$ref": "#/components/schemas/TypeListeNominative"
+          },
+          "versionListe": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "listeNominativeId",
+          "affilieId",
+          "typeListe",
+          "versionListe",
+          "origine",
+          "proposeePar",
+          "dateProposition",
+          "motif",
+          "statut",
+          "lignes",
+          "decidePar",
+          "dateDecision",
+          "motifRefus",
+          "listeResultanteId"
+        ],
+        "type": "object"
+      },
+      "PropositionPosteRisqueDto": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "dateAvisCppt": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateDecision": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateProposition": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "decidePar": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "documentAvisCpptId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lignes": {
+            "items": {
+              "$ref": "#/components/schemas/LignePropositionDto"
+            },
+            "type": "array"
+          },
+          "motif": {
+            "type": "string"
+          },
+          "motifRefus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "origine": {
+            "$ref": "#/components/schemas/OrigineProposition"
+          },
+          "posteId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "proposeePar": {
+            "type": "string"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutProposition"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "posteId",
+          "affilieId",
+          "origine",
+          "proposeePar",
+          "dateProposition",
+          "motif",
+          "valideDu",
+          "statut",
+          "lignes",
+          "dateAvisCppt",
+          "documentAvisCpptId",
+          "decidePar",
+          "dateDecision",
+          "motifRefus"
+        ],
+        "type": "object"
+      },
+      "RegleDto": {
+        "properties": {
+          "actesSupplementaires": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "frequenceMois": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "surveillanceProlongee": {
+            "type": "boolean"
+          },
+          "typeSurveillance": {
+            "$ref": "#/components/schemas/TypeSurveillance"
+          },
+          "vaccins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "typeSurveillance",
+          "frequenceMois",
+          "actesSupplementaires",
+          "vaccins",
+          "surveillanceProlongee",
+          "valideDu",
+          "valideJusquAu"
+        ],
+        "type": "object"
+      },
       "RegleSaisie": {
         "properties": {
           "actesSupplementaires": {
@@ -440,19 +1014,63 @@
         ],
         "type": "object"
       },
+      "RisqueDto": {
+        "properties": {
+          "categorie": {
+            "$ref": "#/components/schemas/CategorieRisque"
+          },
+          "code": {
+            "type": "string"
+          },
+          "historique": {
+            "items": {
+              "$ref": "#/components/schemas/RegleDto"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "libelle": {
+            "type": "string"
+          },
+          "referenceLegale": {
+            "type": "string"
+          },
+          "regleApplicable": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegleDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "categorie",
+          "libelle",
+          "referenceLegale",
+          "regleApplicable",
+          "historique"
+        ],
+        "type": "object"
+      },
       "StatutPoste": {
         "enum": [
           "Actif",
-          "Archive",
-          null
+          "Archive"
         ]
       },
       "StatutProposition": {
         "enum": [
           "Soumise",
           "Validee",
-          "Refusee",
-          null
+          "Refusee"
         ]
       },
       "TypeListeNominative": {
@@ -461,8 +1079,7 @@
           "PosteVigilance",
           "ActiviteRisqueDefini",
           "ActiviteDenreesAlimentaires",
-          "TravailNuit",
-          null
+          "TravailNuit"
         ]
       },
       "TypeModification": {
@@ -531,7 +1148,37 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ListeNominativeDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -592,7 +1239,24 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListeNominativeDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -673,8 +1337,35 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentifiantCree"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -721,7 +1412,37 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PosteDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -781,7 +1502,24 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PosteDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -947,8 +1685,35 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentifiantCree"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -1017,7 +1782,37 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PropositionListeDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -1166,7 +1961,37 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PropositionPosteRisqueDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -1366,7 +2191,27 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RisqueDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
           }
         },
         "security": [

@@ -54,6 +54,7 @@ public static class SurveillanceMedicaleEndpoints
                 (await h.HandleAsync(body, ct)).ToHttpResult(id => Results.Created($"/api/v1/questionnaires/{id}", new { id })))
             .RequirePermission(Permissions.QuestionnaireSanteRemplir)
             .WithTags("Questionnaires de santé")
+            .RetourneCree<IdentifiantCree>(ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("PreRemplirQuestionnaire")
             .WithSummary("SAN-22 : questionnaire rempli à l'avance (portail ou tablette) ; écriture seule, sans lecture du dossier.");
         return app;
@@ -341,6 +342,7 @@ public static class SurveillanceMedicaleEndpoints
 
         protocoles.MapGet("/questionnaires", async (string? langue, HttpContext http, IQueryHandler<ListerModelesQuestionnaire, IReadOnlyList<ModeleQuestionnaireDto>> h, CancellationToken ct) =>
                 (await h.HandleAsync(new ListerModelesQuestionnaire(http.ResolveLanguage(langue)), ct)).ToHttpResult())
+            .Retourne<IReadOnlyList<ModeleQuestionnaireDto>>()
             .WithName("ListerModelesQuestionnaire");
         protocoles.MapPost("/questionnaires", async (PublierModeleQuestionnaire body, ICommandHandler<PublierModeleQuestionnaire, Guid> h, CancellationToken ct) =>
                 (await h.HandleAsync(body, ct)).ToHttpResult(id => Results.Created($"/api/v1/protocoles/questionnaires/{id}", new { id })))

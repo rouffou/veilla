@@ -2,6 +2,10 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
+  <!-- Tests des adaptateurs HTTP de service à service (double confronté au contrat, #476). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sepp.Communications.Integration.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <!-- MailKit (MIT) : envoi SMTP réel. -->
     <PackageReference Include="MailKit" />

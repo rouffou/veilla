@@ -34,8 +34,9 @@ public sealed class ServicesAvalSimules : HttpMessageHandler
 
     public ConcurrentDictionary<string, bool> HotesInjoignables { get; } = new();
 
-    public void Repondre(string hote, string chemin, object corps, HttpStatusCode status = HttpStatusCode.OK, string methode = "GET") =>
-        _reponses[(hote, methode, chemin)] = (status, Controler(hote, methode, chemin, status, corps));
+    /// <param name="horsContrat">Défense en profondeur : le double ajoute volontairement un champ que le fournisseur ne renvoie pas, pour vérifier que le BFF ne le relaie pas ; la réponse n'est alors pas confrontée au contrat.</param>
+    public void Repondre(string hote, string chemin, object corps, HttpStatusCode status = HttpStatusCode.OK, string methode = "GET", bool horsContrat = false) =>
+        _reponses[(hote, methode, chemin)] = (status, horsContrat ? JsonSerializer.Serialize(corps, Json) : Controler(hote, methode, chemin, status, corps));
 
     private string Controler(string hote, string methode, string chemin, HttpStatusCode status, object corps)
     {

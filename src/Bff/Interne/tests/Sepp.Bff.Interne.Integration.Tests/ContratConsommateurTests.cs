@@ -20,5 +20,5 @@ public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_du_BFF_sont_satisfaits_par_les_contrats_des_services() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine, exigerReponsesDecrites: true);
 }

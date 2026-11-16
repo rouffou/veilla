@@ -32,6 +32,8 @@ public static class RepriseEndpoints
                 (await handler.HandleAsync(new EnregistrerReprise(body.PersonneId, body.AffilieId, body.DateReprise, body.DebutAbsence), ct))
                     .ToHttpResult(r => r.Cree ? Results.Created($"/api/v1/reprises/{r.RepriseId}", r) : Results.Ok(r)))
             .RequirePermission(Permissions.RepriseAnnoncer)
+            .RetourneCree<ResultatEnregistrement>(ErreurHttp.Requete, ErreurHttp.Interdit, ErreurHttp.Conflit, ErreurHttp.NonTraitable)
+            .Produces<ResultatEnregistrement>(200)
             .WithName("EnregistrerReprise")
             .WithSummary("Annonce une reprise du travail (idempotent : même travailleur, affilié et date = même processus ; 201 à la création, 200 sinon).");
 
@@ -40,12 +42,14 @@ public static class RepriseEndpoints
                 IQueryHandler<ListerReprises, IReadOnlyList<RepriseDto>> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ListerReprises(affilieId, statut, echeanceAvant), ct)).ToHttpResult())
             .RequirePermission(Permissions.RepriseLire)
+            .Retourne<IReadOnlyList<RepriseDto>>(ErreurHttp.Requete, ErreurHttp.Interdit)
             .WithName("ListerReprises")
             .WithSummary("Suivi des reprises et alertes : filtre par statut et par date limite au plus tard à echeanceAvant (POR-04).");
 
         api.MapGet("/{id:guid}", async (Guid id, IQueryHandler<ObtenirReprise, RepriseDto> handler, CancellationToken ct) =>
             (await handler.HandleAsync(new ObtenirReprise(id), ct)).ToHttpResult())
             .RequirePermission(Permissions.RepriseLire)
+            .Retourne<RepriseDto>(ErreurHttp.Interdit, ErreurHttp.Introuvable)
             .WithName("ObtenirReprise");
 
         api.MapPut("/{id:guid}", async (Guid id, RepriseModification body, ICommandHandler<ModifierReprise, ResultatEnregistrement> handler, CancellationToken ct) =>

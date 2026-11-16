@@ -50,6 +50,49 @@
         ],
         "type": "object"
       },
+      "CarnetVaccinationDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "doses": {
+            "items": {
+              "$ref": "#/components/schemas/DoseCarnetDto"
+            },
+            "type": "array"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rappels": {
+            "items": {
+              "$ref": "#/components/schemas/RappelCarnetDto"
+            },
+            "type": "array"
+          },
+          "testsTuberculiniques": {
+            "items": {
+              "$ref": "#/components/schemas/TestCarnetDto"
+            },
+            "type": "array"
+          },
+          "vaccinationId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vaccinationId",
+          "personneId",
+          "date",
+          "doses",
+          "testsTuberculiniques",
+          "rappels"
+        ],
+        "type": "object"
+      },
       "CategorieDecision": {
         "enum": [
           "Apte",
@@ -125,6 +168,89 @@
           "valideJusquAu",
           "justification",
           "recommandations"
+        ],
+        "type": "object"
+      },
+      "CopieDossierDto": {
+        "properties": {
+          "dateOuverture": {
+            "format": "date",
+            "type": "string"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ElementCopieDto"
+            },
+            "type": "array"
+          },
+          "demandeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "evaluationsSante": {
+            "items": {
+              "$ref": "#/components/schemas/ElementCopieDto"
+            },
+            "type": "array"
+          },
+          "expositions": {
+            "items": {
+              "$ref": "#/components/schemas/ElementCopieDto"
+            },
+            "type": "array"
+          },
+          "maladiesProfessionnelles": {
+            "items": {
+              "$ref": "#/components/schemas/ElementCopieDto"
+            },
+            "type": "array"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "piecesJointes": {
+            "items": {
+              "$ref": "#/components/schemas/ElementCopieDto"
+            },
+            "type": "array"
+          },
+          "questionnaires": {
+            "items": {
+              "$ref": "#/components/schemas/ElementCopieDto"
+            },
+            "type": "array"
+          },
+          "testsTuberculiniques": {
+            "items": {
+              "$ref": "#/components/schemas/ElementCopieDto"
+            },
+            "type": "array"
+          },
+          "vaccinations": {
+            "items": {
+              "$ref": "#/components/schemas/ElementCopieDto"
+            },
+            "type": "array"
+          },
+          "valideeLe": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "demandeId",
+          "personneId",
+          "dateOuverture",
+          "valideeLe",
+          "expositions",
+          "evaluationsSante",
+          "decisions",
+          "questionnaires",
+          "vaccinations",
+          "testsTuberculiniques",
+          "piecesJointes",
+          "maladiesProfessionnelles"
         ],
         "type": "object"
       },
@@ -289,6 +415,76 @@
         ],
         "type": "object"
       },
+      "DemandeCopieDto": {
+        "properties": {
+          "dateLimite": {
+            "format": "date",
+            "type": "string"
+          },
+          "deposeeLe": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "documentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "enRetard": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "motifRefus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MotifRefusCopie"
+              }
+            ]
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "publieeLe": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutDemandeCopie"
+          },
+          "traiteeLe": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "personneId",
+          "deposeeLe",
+          "dateLimite",
+          "statut",
+          "enRetard",
+          "traiteeLe",
+          "motifRefus",
+          "documentId",
+          "publieeLe"
+        ],
+        "type": "object"
+      },
       "DemandeInformationSaisie": {
         "properties": {
           "dateDemande": {
@@ -310,6 +506,75 @@
           "dateDemande",
           "echeance",
           "objet"
+        ],
+        "type": "object"
+      },
+      "DoseCarnetDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "dose": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "libelle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LibelleVaccinDto"
+              }
+            ]
+          },
+          "numeroLot": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vaccinCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "vaccinCode",
+          "libelle",
+          "dose",
+          "numeroLot"
+        ],
+        "type": "object"
+      },
+      "ElementCopieDto": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "intitule": {
+            "type": "string"
+          },
+          "rubriques": {
+            "items": {
+              "$ref": "#/components/schemas/RubriqueCopieDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "date",
+          "intitule",
+          "rubriques"
         ],
         "type": "object"
       },
@@ -386,6 +651,18 @@
           "affilieId",
           "valideDu",
           "valideJusquAu"
+        ],
+        "type": "object"
+      },
+      "IdentifiantCree": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
         ],
         "type": "object"
       },
@@ -512,6 +789,32 @@
         ],
         "type": "object"
       },
+      "LibelleVaccinDto": {
+        "properties": {
+          "de": {
+            "type": "string"
+          },
+          "en": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fr": {
+            "type": "string"
+          },
+          "nl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fr",
+          "nl",
+          "de",
+          "en"
+        ],
+        "type": "object"
+      },
       "MesureSaisie": {
         "properties": {
           "code": {
@@ -547,6 +850,42 @@
         ],
         "type": "object"
       },
+      "ModeleQuestionnaireDto": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionModeleDto"
+            },
+            "type": "array"
+          },
+          "titre": {
+            "type": "string"
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "version",
+          "titre",
+          "questions"
+        ],
+        "type": "object"
+      },
       "ModeleTexteSaisi": {
         "properties": {
           "code": {
@@ -573,7 +912,8 @@
       "MotifRefusCopie": {
         "enum": [
           "AucunDossier",
-          "IdentiteNonConfirmee"
+          "IdentiteNonConfirmee",
+          null
         ]
       },
       "MotifSaisi": {
@@ -780,6 +1120,44 @@
         ],
         "type": "object"
       },
+      "ProblemDetails": {
+        "properties": {
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "PublierModeleQuestionnaire": {
         "properties": {
           "code": {
@@ -799,6 +1177,36 @@
           "code",
           "titre",
           "questions"
+        ],
+        "type": "object"
+      },
+      "QuestionModeleDto": {
+        "properties": {
+          "choix": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "code": {
+            "type": "string"
+          },
+          "libelle": {
+            "type": "string"
+          },
+          "obligatoire": {
+            "type": "boolean"
+          },
+          "typeReponse": {
+            "$ref": "#/components/schemas/TypeReponse"
+          }
+        },
+        "required": [
+          "code",
+          "libelle",
+          "typeReponse",
+          "obligatoire",
+          "choix"
         ],
         "type": "object"
       },
@@ -825,6 +1233,46 @@
           "modeleCode",
           "reponses",
           "examenId"
+        ],
+        "type": "object"
+      },
+      "RappelCarnetDto": {
+        "properties": {
+          "dateDue": {
+            "format": "date",
+            "type": "string"
+          },
+          "doseSuivante": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "enRetard": {
+            "type": "boolean"
+          },
+          "libelle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LibelleVaccinDto"
+              }
+            ]
+          },
+          "vaccinCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "vaccinCode",
+          "libelle",
+          "doseSuivante",
+          "dateDue",
+          "enRetard"
         ],
         "type": "object"
       },
@@ -979,6 +1427,21 @@
           "Douteux"
         ]
       },
+      "RubriqueCopieDto": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "valeur": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "valeur"
+        ],
+        "type": "object"
+      },
       "RubriqueModeleTexte": {
         "enum": [
           "Anamnese",
@@ -993,9 +1456,45 @@
           "Deposee",
           "Validee",
           "Publiee",
-          "Refusee",
-          null
+          "Refusee"
         ]
+      },
+      "TestCarnetDto": {
+        "properties": {
+          "dateLecture": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "datePose": {
+            "format": "date",
+            "type": "string"
+          },
+          "indurationMm": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "resultat": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "datePose",
+          "dateLecture",
+          "resultat",
+          "indurationMm"
+        ],
+        "type": "object"
       },
       "TransfertSaisi": {
         "properties": {
@@ -1680,8 +2179,55 @@
       "post": {
         "operationId": "DeposerDemandeCopie",
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeCopieDto"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
           }
         },
         "security": [
@@ -1702,7 +2248,27 @@
         "operationId": "ListerMesDemandesCopie",
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DemandeCopieDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
           }
         },
         "security": [
@@ -1734,7 +2300,44 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopieDossierDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
@@ -3114,6 +3717,16 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModeleQuestionnaireDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
           }
         },
@@ -3439,8 +4052,35 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentifiantCree"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -3597,7 +4237,34 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarnetVaccinationDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [

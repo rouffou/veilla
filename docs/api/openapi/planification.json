@@ -433,6 +433,37 @@
         ],
         "type": "object"
       },
+      "CreneauOuvertDto": {
+        "properties": {
+          "debut": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "fin": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lieuId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "typeActe": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lieuId",
+          "debut",
+          "fin",
+          "typeActe"
+        ],
+        "type": "object"
+      },
       "DefinirDureeStandard": {
         "properties": {
           "dureeMinutes": {
@@ -460,6 +491,28 @@
           "ressourceId"
         ],
         "type": "object"
+      },
+      "IdentifiantCree": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "MotifAnnulation": {
+        "enum": [
+          "DemandeTravailleur",
+          "DemandeEmployeur",
+          "AbsenceRessource",
+          "ObligationLevee",
+          "Autre",
+          null
+        ]
       },
       "NouvelleEtape": {
         "properties": {
@@ -543,6 +596,15 @@
         ],
         "type": "object"
       },
+      "OrigineRendezVous": {
+        "enum": [
+          "Planificateur",
+          "ReservationEnLigne",
+          "Urgence",
+          "Session",
+          "Reconvocation"
+        ]
+      },
       "PlanifierRendezVous": {
         "properties": {
           "affilieId": {
@@ -591,6 +653,204 @@
           "obligationIds",
           "canal",
           "recommande"
+        ],
+        "type": "object"
+      },
+      "ProblemDetails": {
+        "properties": {
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "RaisonAnnulation": {
+        "enum": [
+          "ConflitHoraire",
+          "ObligationProfessionnelle",
+          "ProblemeTransport",
+          "ChangementSituation",
+          "ExamenDejaEffectue",
+          "Autre",
+          null
+        ]
+      },
+      "RendezVousDto": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "appeleA": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "arriveeA": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "commentaireAnnulation": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "creneauId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "debut": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "fin": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lieuId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "motifAnnulation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MotifAnnulation"
+              }
+            ]
+          },
+          "nombreDeplacements": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "obligationIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "origine": {
+            "$ref": "#/components/schemas/OrigineRendezVous"
+          },
+          "personneId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "presenceConfirmeeLe": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "raisonAnnulation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RaisonAnnulation"
+              }
+            ]
+          },
+          "reconvocationDeId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ressourceId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "salleId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutRendezVous"
+          },
+          "typeActe": {
+            "type": "string"
+          },
+          "urgent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "creneauId",
+          "personneId",
+          "affilieId",
+          "ressourceId",
+          "lieuId",
+          "debut",
+          "fin",
+          "typeActe",
+          "statut",
+          "motifAnnulation",
+          "obligationIds",
+          "origine",
+          "urgent",
+          "arriveeA",
+          "appeleA",
+          "salleId",
+          "reconvocationDeId",
+          "raisonAnnulation",
+          "commentaireAnnulation",
+          "presenceConfirmeeLe",
+          "nombreDeplacements"
         ],
         "type": "object"
       },
@@ -671,6 +931,16 @@
           "dateLimite"
         ],
         "type": "object"
+      },
+      "StatutRendezVous": {
+        "enum": [
+          "Planifie",
+          "Arrive",
+          "EnSalle",
+          "Termine",
+          "Absent",
+          "Annule"
+        ]
       }
     },
     "securitySchemes": {
@@ -1522,8 +1792,55 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentifiantCree"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
@@ -1589,7 +1906,47 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CreneauOuvertDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -1620,7 +1977,27 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RendezVousDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
           }
         },
         "security": [
@@ -1666,8 +2043,48 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
@@ -1699,7 +2116,44 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RendezVousDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
@@ -1741,7 +2195,54 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RendezVousDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [

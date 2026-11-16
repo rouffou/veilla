@@ -2,6 +2,10 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
+  <!-- Tests des adaptateurs HTTP de service à service (double confronté au contrat, #476). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sepp.Affilies.Integration.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sepp.Affilies.Application\Sepp.Affilies.Application.csproj" />
     <ProjectReference Include="..\..\..\..\BuildingBlocks\Sepp.BuildingBlocks.Infrastructure\Sepp.BuildingBlocks.Infrastructure.csproj" />

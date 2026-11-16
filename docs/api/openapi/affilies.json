@@ -35,6 +35,59 @@
         ],
         "type": "object"
       },
+      "AffilieDto": {
+        "properties": {
+          "contacts": {
+            "items": {
+              "$ref": "#/components/schemas/ContactDto"
+            },
+            "type": "array"
+          },
+          "fiche": {
+            "$ref": "#/components/schemas/FicheDto"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/OperationDto"
+            },
+            "type": "array"
+          },
+          "organesConcertation": {
+            "items": {
+              "$ref": "#/components/schemas/OrganeConcertationDto"
+            },
+            "type": "array"
+          },
+          "unitesEtablissement": {
+            "items": {
+              "$ref": "#/components/schemas/UniteEtablissementDto"
+            },
+            "type": "array"
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "fiche",
+          "unitesEtablissement",
+          "contacts",
+          "organesConcertation",
+          "operations"
+        ],
+        "type": "object"
+      },
       "CategorieTarifaire": {
         "enum": [
           "A",
@@ -81,6 +134,60 @@
           "email",
           "telephone",
           "valideDu"
+        ],
+        "type": "object"
+      },
+      "ContactDto": {
+        "properties": {
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fonction": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RoleContact"
+          },
+          "telephone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nom",
+          "fonction",
+          "role",
+          "email",
+          "telephone",
+          "valideDu",
+          "valideJusquAu"
         ],
         "type": "object"
       },
@@ -166,6 +273,43 @@
         ],
         "type": "object"
       },
+      "DepartementDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "parentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nom",
+          "parentId",
+          "valideDu",
+          "valideJusquAu"
+        ],
+        "type": "object"
+      },
       "DepartementModifie": {
         "properties": {
           "nom": {
@@ -200,6 +344,70 @@
         },
         "required": [
           "fiche",
+          "groupeId"
+        ],
+        "type": "object"
+      },
+      "FicheDto": {
+        "properties": {
+          "categorieTarifaire": {
+            "$ref": "#/components/schemas/CategorieTarifaire"
+          },
+          "codeNace": {
+            "type": "string"
+          },
+          "commissionParitaire": {
+            "type": "string"
+          },
+          "dateAffiliation": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateFin": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "denomination": {
+            "type": "string"
+          },
+          "formeJuridique": {
+            "type": "string"
+          },
+          "groupeId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "numeroBce": {
+            "type": "string"
+          },
+          "regimeLinguistique": {
+            "$ref": "#/components/schemas/RegimeLinguistique"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutAffilie"
+          }
+        },
+        "required": [
+          "numeroBce",
+          "denomination",
+          "formeJuridique",
+          "codeNace",
+          "commissionParitaire",
+          "categorieTarifaire",
+          "dateAffiliation",
+          "dateFin",
+          "langue",
+          "regimeLinguistique",
+          "statut",
           "groupeId"
         ],
         "type": "object"
@@ -259,6 +467,26 @@
           "En"
         ]
       },
+      "MonEmployeurDto": {
+        "properties": {
+          "affilieId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "denomination": {
+            "type": "string"
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          }
+        },
+        "required": [
+          "affilieId",
+          "denomination",
+          "langue"
+        ],
+        "type": "object"
+      },
       "NomGroupe": {
         "properties": {
           "nom": {
@@ -312,6 +540,98 @@
         ],
         "type": "object"
       },
+      "OperationDto": {
+        "properties": {
+          "affilieAbsorbantId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "affiliesBeneficiaires": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "dateEffet": {
+            "format": "date",
+            "type": "string"
+          },
+          "dateRealisation": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "seppContrepartie": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutOperation"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeOperation"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "statut",
+          "dateEffet",
+          "affilieAbsorbantId",
+          "affiliesBeneficiaires",
+          "seppContrepartie",
+          "dateRealisation"
+        ],
+        "type": "object"
+      },
+      "OrganeConcertationDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reunions": {
+            "items": {
+              "$ref": "#/components/schemas/ReunionDto"
+            },
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TypeOrgane"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "valideDu",
+          "valideJusquAu",
+          "reunions"
+        ],
+        "type": "object"
+      },
       "OrganeCorps": {
         "properties": {
           "depuis": {
@@ -326,6 +646,44 @@
           "type",
           "depuis"
         ],
+        "type": "object"
+      },
+      "ProblemDetails": {
+        "properties": {
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
         "type": "object"
       },
       "RegimeLinguistique": {
@@ -354,6 +712,35 @@
           }
         },
         "required": [
+          "dateReunion",
+          "ordreDuJourDocumentId",
+          "participationSepp"
+        ],
+        "type": "object"
+      },
+      "ReunionDto": {
+        "properties": {
+          "dateReunion": {
+            "format": "date",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "ordreDuJourDocumentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "participationSepp": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
           "dateReunion",
           "ordreDuJourDocumentId",
           "participationSepp"
@@ -409,6 +796,66 @@
         ],
         "type": "object"
       },
+      "SiteDto": {
+        "properties": {
+          "adresse": {
+            "$ref": "#/components/schemas/AdresseDto"
+          },
+          "departements": {
+            "items": {
+              "$ref": "#/components/schemas/DepartementDto"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "latitude": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "longitude": {
+            "format": "double",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ]
+          },
+          "nom": {
+            "type": "string"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nom",
+          "adresse",
+          "latitude",
+          "longitude",
+          "valideDu",
+          "valideJusquAu",
+          "departements"
+        ],
+        "type": "object"
+      },
       "SiteModifie": {
         "properties": {
           "adresse": {
@@ -443,6 +890,22 @@
           "longitude"
         ],
         "type": "object"
+      },
+      "StatutAffilie": {
+        "enum": [
+          "Actif",
+          "Resilie",
+          "Absorbe",
+          "Scinde",
+          "Transfere"
+        ]
+      },
+      "StatutOperation": {
+        "enum": [
+          "Projetee",
+          "Realisee",
+          "Annulee"
+        ]
       },
       "TypeOperation": {
         "enum": [
@@ -483,6 +946,54 @@
           "adresse",
           "langue",
           "depuis"
+        ],
+        "type": "object"
+      },
+      "UniteEtablissementDto": {
+        "properties": {
+          "adresse": {
+            "$ref": "#/components/schemas/AdresseDto"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "langue": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/SiteDto"
+            },
+            "type": "array"
+          },
+          "valideDu": {
+            "format": "date",
+            "type": "string"
+          },
+          "valideJusquAu": {
+            "format": "date",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "numero",
+          "nom",
+          "adresse",
+          "langue",
+          "valideDu",
+          "valideJusquAu",
+          "sites"
         ],
         "type": "object"
       },
@@ -773,7 +1284,34 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AffilieDto"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
         "security": [
@@ -2003,7 +2541,27 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonEmployeurDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
             "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
           }
         },
         "security": [

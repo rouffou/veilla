@@ -8,6 +8,7 @@ using Sepp.BuildingBlocks.Infrastructure;
 using Sepp.Contracts.Affilies;
 using Sepp.Contracts.Personnes;
 using Sepp.Contracts.SurveillanceMedicale;
+using Sepp.Documents.Adapters.Api;
 using Sepp.Documents.Adapters.Chiffrement;
 using Sepp.Documents.Adapters.Externe;
 using Sepp.Documents.Adapters.Langues;
@@ -90,6 +91,7 @@ public static class DependencyInjection
         services.AddSeppConsumer<DocumentsDbContext>(configuration);
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+        services.AddTypeDestinataireOpenApi();
         return services;
     }
 

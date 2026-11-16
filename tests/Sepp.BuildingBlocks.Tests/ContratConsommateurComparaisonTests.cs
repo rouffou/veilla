@@ -158,6 +158,15 @@ public sealed class ContratConsommateurComparaisonTests
     }
 
     [Fact]
+    public void Une_reponse_non_decrite_echoue_quand_les_reponses_decrites_sont_exigees()
+    {
+        var resultat = Verifier(Attente("GET", "/api/v1/documents/{id}") with { ChampsReponse = ["id"] });
+
+        Should.Throw<ShouldAssertException>(() => resultat.ExigerSansEcart(exigerReponsesDecrites: true)).Message.ShouldContain("Produces<T>");
+        Should.NotThrow(() => resultat.ExigerSansEcart());
+    }
+
+    [Fact]
     public void Un_code_de_succes_non_declare_est_detecte()
     {
         Verifier(Attente("GET", "/api/v1/documents/{id}") with { CodeSucces = "204" }).Ecarts.ShouldHaveSingleItem().ShouldContain("code de succès 204");

@@ -23,21 +23,21 @@ public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
         // Planification (SAN-12, POR-11)
         new(Bff, "planification", "GET", "/api/v1/reservations/rendez-vous"),
         new(Bff, "planification", "GET", "/api/v1/reservations/creneaux") { Query = ["affilieId", "typeActe", "du", "au", "lieuId"] },
-        new(Bff, "planification", "POST", "/api/v1/reservations") { CorpsRequete = ["creneauId", "personneId", "affilieId", "obligationIds"] },
-        new(Bff, "planification", "POST", "/api/v1/reservations/rendez-vous/{id}/annulation") { CorpsRequete = ["raison", "commentaire"] },
+        new(Bff, "planification", "POST", "/api/v1/reservations") { CorpsRequete = ["creneauId", "personneId", "affilieId", "obligationIds"], CodeSucces = "201" },
+        new(Bff, "planification", "POST", "/api/v1/reservations/rendez-vous/{id}/annulation") { CorpsRequete = ["raison", "commentaire"], CodeSucces = "204" },
         new(Bff, "planification", "POST", "/api/v1/reservations/rendez-vous/{id}/deplacement") { CorpsRequete = ["nouveauCreneauId"] },
         new(Bff, "planification", "POST", "/api/v1/reservations/rendez-vous/{id}/confirmation") { CorpsRequete = [] },
 
         // Surveillance médicale (SAN-22, SAN-43, POR-12, POR-13)
         new(Bff, "surveillance-medicale", "GET", "/api/v1/protocoles/questionnaires") { Query = ["langue"] },
-        new(Bff, "surveillance-medicale", "POST", "/api/v1/questionnaires/pre-remplissage") { CorpsRequete = ["personneId", "modeleCode", "reponses"] },
-        new(Bff, "surveillance-medicale", "POST", "/api/v1/demandes-copie") { CorpsRequete = [], ChampsReponse = ChampsDemandeCopie },
+        new(Bff, "surveillance-medicale", "POST", "/api/v1/questionnaires/pre-remplissage") { CorpsRequete = ["personneId", "modeleCode", "reponses"], CodeSucces = "201" },
+        new(Bff, "surveillance-medicale", "POST", "/api/v1/demandes-copie") { CorpsRequete = [], CodeSucces = "201", ChampsReponse = ChampsDemandeCopie },
         new(Bff, "surveillance-medicale", "GET", "/api/v1/demandes-copie/miennes") { ChampsReponse = ChampsDemandeCopie },
 
         // Personnes, Affiliés, Obligations (POR-11, POR-12)
         new(Bff, "personnes", "GET", "/api/v1/mes-occupations") { ChampsReponse = ["occupationId", "affilieId", "typeTravailleur", "dateDebut", "dateFin"] },
         new(Bff, "affilies", "GET", "/api/v1/mes-employeurs") { ChampsReponse = ["affilieId", "denomination", "langue"] },
-        new(Bff, "obligations", "POST", "/api/v1/mes-demandes") { CorpsRequete = ["affilieId", "type"] },
+        new(Bff, "obligations", "POST", "/api/v1/mes-demandes") { CorpsRequete = ["affilieId", "type"], CodeSucces = "201" },
         new(Bff, "obligations", "GET", "/api/v1/mes-examens-a-planifier") { Query = ["langue"] },
 
         // Documents, instances standard et médicale (même contrat : décision #356). #436 : « typeDestinataire » est publié en minuscules.
@@ -49,5 +49,5 @@ public sealed class ContratConsommateurTests(ITestOutputHelper sortie)
     [Fact]
     [Trait("Categorie", "ContratConsommateur")]
     public void Les_appels_du_BFF_sont_satisfaits_par_les_contrats_des_services() =>
-        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine);
+        ContratConsommateur.Verifier(Attentes).ExigerSansEcart(sortie.WriteLine, exigerReponsesDecrites: true);
 }

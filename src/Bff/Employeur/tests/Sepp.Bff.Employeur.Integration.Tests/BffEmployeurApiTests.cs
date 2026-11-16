@@ -122,7 +122,7 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
                 dateAffiliation = "2020-01-01",
                 dateFin = (string?)null,
                 langue = "Fr",
-                regimeLinguistique = "Francophone",
+                regimeLinguistique = "Francais",
                 statut = "Actif",
                 groupeId = (Guid?)null,
             },
@@ -506,6 +506,11 @@ public sealed class BffEmployeurApiTests : IAsyncLifetime
         horsDelai = false,
         examenId = Guid.CreateVersion7(),
         decisionId = Guid.CreateVersion7(),
+        convocationNonRemise = false,
+        nombreAbsences = 0,
+        replanificationRequise = false,
+        urgenceNonCouverte = false,
+        alertes = Array.Empty<object>(),
     };
 
     [Fact]
