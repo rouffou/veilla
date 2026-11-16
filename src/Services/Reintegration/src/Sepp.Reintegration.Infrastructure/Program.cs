@@ -17,7 +17,9 @@ builder.Services.AddReintegrationAdapters(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddSeppPostgresHealthCheck(builder.Configuration, Sepp.Reintegration.Adapters.DependencyInjection.ConnectionStringName, name: "postgres", tags: [ServiceDefaults.ReadyTag]);
 
-var app = builder.Build();
+// Hôte libéré à la sortie, y compris par les modes « migrer puis quitter » et « rechiffrer puis quitter » : les derniers
+// journaux sont transmis avant l'arrêt du processus (#482).
+await using var app = builder.Build();
 
 // Migrations (ADR 0010) : « migrer puis quitter » pour le job de migration Azure, migration au démarrage en local.
 // Avant toute vérification de clé : le job de migration ne reçoit aucun secret.
@@ -30,7 +32,8 @@ if (await app.MigrerSchemaAsync<ReintegrationDbContext>() is { } codeSortie)
 // Échec au démarrage si les clés de chiffrement de la zone médicale sont absentes ou invalides (ARC-45).
 _ = app.Services.GetRequiredService<ChiffrementZoneMedicale>();
 
-// ADR 0012, #396 : « rechiffrer puis quitter » (job d'exploitation) : toutes les valeurs chiffrées passent à la DEK courante.
+// ADR 0012, #396, #482 : « rechiffrer puis quitter » ou « vérifier seulement » (jobs d'exploitation) : toutes les valeurs
+// chiffrées passent à la DEK courante, ou sont seulement contrôlées (code 0 ou 1).
 if (await app.RechiffrerChampsAsync<ReintegrationDbContext>(s => s.GetRequiredService<ChiffrementZoneMedicale>().Encryptor) is { } codeRechiffrement)
 {
     Environment.ExitCode = codeRechiffrement;

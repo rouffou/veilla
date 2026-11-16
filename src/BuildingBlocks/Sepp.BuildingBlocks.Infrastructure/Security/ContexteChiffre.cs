@@ -18,6 +18,13 @@ public interface IContexteChiffre
 /// Clé de cache du modèle EF Core : type de contexte, mode conception (comme la clé par défaut) et identité du chiffreur
 /// pour les <see cref="IContexteChiffre"/>. En production, un seul chiffreur (singleton) par processus : un seul modèle,
 /// construit une fois, comme avant ; aucun déballage ni appel supplémentaire par valeur.
+/// <para>
+/// La clé repose sur l'<b>identité de référence</b> du <see cref="FieldEncryptor"/> : le tuple compare ses éléments par
+/// <see cref="object.Equals(object)"/>, qui reste celui de <see cref="object"/> tant que <see cref="FieldEncryptor"/> ne le
+/// redéfinit pas. Ne redéfinir ni <c>Equals</c>, ni <c>GetHashCode</c>, ni <c>ToString</c> sur ce type (ni en faire un
+/// <c>record</c>) : deux chiffreurs de clés différentes mais d'état égal partageraient un modèle, donc les convertisseurs du
+/// premier.
+/// </para>
 /// </summary>
 public sealed class ModelCacheKeyFactoryChiffre : IModelCacheKeyFactory
 {

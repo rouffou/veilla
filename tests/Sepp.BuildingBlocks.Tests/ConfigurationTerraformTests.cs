@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using Sepp.Testing.Architecture;
+
 using Shouldly;
 
 namespace Sepp.BuildingBlocks.Tests;
@@ -210,6 +212,57 @@ public sealed partial class ConfigurationTerraformTests
         }
 
         ecarts.ShouldBeEmpty(string.Join(Environment.NewLine, ecarts));
+    }
+
+    /// <summary>
+    /// P2-1 (ADR 0015) : un service actif ne peut appeler (<c>internal_services</c>) qu'un service actif du catalogue, hors zone
+    /// platform. Sinon <c>service_url_by_name</c> n'a pas l'adresse et le <c>plan</c> échoue sur « Invalid index » ; la
+    /// validation correspondante est dans <c>infra/variables.tf</c>.
+    /// </summary>
+    [Fact]
+    public void Aucun_service_actif_n_appelle_un_service_inactif_ou_absent_par_internal_services()
+    {
+        var terraform = Terraform.Lire();
+        var services = terraform.Services;
+        var ecarts = new List<string>();
+
+        foreach (var (nom, service) in services.Where(s => s.Value.Actif))
+        {
+            ecarts.AddRange(service.CiblesInternes
+                .Where(cible => !(services.TryGetValue(cible, out var s) && s.Actif && s.Zone != "platform"))
+                .Select(cible => $"{nom} : internal_services vise « {cible} », inactif, absent ou en zone platform."));
+        }
+
+        ecarts.ShouldBeEmpty(string.Join(Environment.NewLine, ecarts));
+        Regex.IsMatch(terraform.Variables, @"values\(s\.internal_services\)[^\n]*\.actif")
+            .ShouldBeTrue("variables.tf doit valider que internal_services d'un service actif ne vise que des services actifs.");
+    }
+
+    /// <summary>
+    /// Les BFF n'ont ni base ni outbox ni gestionnaire d'événement (ADR 0008, ARC-32) : aucune rubrique à souscrire côté
+    /// Terraform, et seul <c>bff-employeur</c> garde sa rubrique, pour le gestionnaire de rétrocompatibilité d'Obligations.
+    /// Les BFF n'ont donc pas d'<c>AbonnementsTerraformTests</c> : ce test en tient lieu.
+    /// </summary>
+    [Fact]
+    public void Aucun_BFF_ne_s_abonne_et_seule_la_rubrique_bff_employeur_subsiste()
+    {
+        var services = Terraform.Lire().Services;
+        var bff = services.Where(s => s.Value.Zone == "platform").ToList();
+
+        bff.Where(s => s.Value.SubscribesTo.Count > 0).Select(s => s.Key).ShouldBeEmpty("Un BFF ne consomme aucun événement.");
+        bff.Where(s => s.Value.PublishesEvents).Select(s => s.Key).ShouldBe(["bff-employeur"]);
+        services.Where(s => s.Value.SubscribesTo.Contains("bff-employeur")).Select(s => s.Key).ShouldBe(["obligations"]);
+    }
+
+    [Fact]
+    public void La_detection_de_actif_ignore_les_commentaires()
+    {
+        VariablesTerraform.EstActif("{ zone = \"standard\" }").ShouldBeTrue();
+        VariablesTerraform.EstActif("{ zone = \"standard\", actif = false }").ShouldBeFalse();
+        VariablesTerraform.EstActif("{ zone = \"standard\"\n actif=false # inactif\n }").ShouldBeFalse();
+        VariablesTerraform.EstActif("{ zone = \"standard\"\n # actif = false (désactivé plus tard)\n }").ShouldBeTrue();
+        VariablesTerraform.EstActif("{ zone = \"standard\"\n // actif = false\n /* actif = false */ }").ShouldBeTrue();
+        VariablesTerraform.EstActif("{ zone = \"standard\", actif = true # actif = false\n }").ShouldBeTrue();
     }
 
     [Fact]
@@ -881,7 +934,10 @@ public sealed partial class ConfigurationTerraformTests
                     EncryptionZones: Regex.Match(bloc, @"encryption\s*=\s*\{(?<v>[^}]*)\}") is { Success: true } e
                         ? [.. Regex.Matches(e.Groups["v"].Value, "(?:^|[\\s,])\"?(?<k>[A-Za-z][A-Za-z0-9_-]*)\"?\\s*=\\s*\"(?<z>[^\"]*)\"").Select(v => (v.Groups["k"].Value, v.Groups["z"].Value))]
                         : [],
-                    Actif: !Regex.IsMatch(bloc, @"\bactif\s*=\s*false"),
+                    Actif: VariablesTerraform.EstActif(bloc),
+                    CiblesInternes: Regex.Match(bloc, @"internal_services\s*=\s*\{(?<v>[^}]*)\}") is { Success: true } ci
+                        ? [.. Regex.Matches(ci.Groups["v"].Value, "=\\s*\"(?<v>[^\"]+)\"").Select(v => v.Groups["v"].Value)]
+                        : [],
                     SubjectFilters: Regex.Match(bloc, @"subject_filters\s*=\s*\{(?<v>[^}]*)\}") is { Success: true } f
                         ? Regex.Matches(f.Groups["v"].Value, @"""?(?<k>[A-Za-z][A-Za-z0-9_-]*)""?\s*=\s*\[(?<l>[^\]]*)\]")
                             .ToDictionary(v => v.Groups["k"].Value, v => Regex.Matches(v.Groups["l"].Value, "\"([^\"]+)\"").Select(x => x.Groups[1].Value).ToList(), StringComparer.Ordinal)
@@ -931,6 +987,7 @@ public sealed partial class ConfigurationTerraformTests
         bool PublishesEvents,
         List<(string Prefixe, string Zone)> EncryptionZones,
         bool Actif,
+        List<string> CiblesInternes,
         Dictionary<string, List<string>> SubjectFilters)
     {
         /// <summary>Sujets acceptés par la subscription du service sur un topic (vide = tous les messages).</summary>

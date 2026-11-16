@@ -466,7 +466,7 @@ public sealed class SurveillanceMedicaleDbContext(
     /// <summary>Contenu structuré sérialisé en JSON puis chiffré : la colonne ne contient que le texte chiffré (ARC-45).</summary>
     private static void JsonChiffre<T>(PropertyBuilder<T> propriete, FieldEncryptor encryptor, string colonne) =>
         propriete.HasConversion(
-                new ValueConverter<T, string>(v => encryptor.Encrypt(JsonSerializer.Serialize(v, Json)), s => JsonSerializer.Deserialize<T>(encryptor.Decrypt(s), Json)!),
+                new ConvertisseurChiffre<T>(encryptor, v => JsonSerializer.Serialize(v, Json), s => JsonSerializer.Deserialize<T>(s, Json)!),
                 Comparateur<T>())
             .HasColumnName(colonne)
             .HasMaxLength(ChiffreLength);

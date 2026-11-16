@@ -56,13 +56,15 @@
   - PR vers main avec `Closes #n` ou `Refs #n`, fusion en squash ;
   - `--force-with-lease` est permis **uniquement** sur sa propre branche de travail.
   - Le responsable produit a autorisé l'orchestrateur à créer branches, commits et PR, et à fusionner une PR une fois la CI verte. **Les agents délégués ne fusionnent jamais.**
+  - **Exception (décision du 2026-11-15)** : une PR qui touche `.github/workflows/**`, `tools/deploy/**`, `infra/environments/**`, le module `infra/modules/containerapp-rechiffrement-job/**` ou les listes de clés de chiffrement (`encryption_key_ids`, `encryption_legacy_key_ids`) est **fusionnée par le responsable produit lui-même**, jamais par l'orchestrateur, même si la CI est verte et la revue favorable. L'orchestrateur la prépare, la fait relire et la signale.
 - **Garde-fous d'architecture**. Des tests les vérifient, il faut les tenir à jour :
   - catalogue des événements ↔ contrats ;
   - abonnements DI ⊆ `subscribes_to` Terraform (`AbonnementsTerraformTests`) ;
   - clés de configuration ⊆ injections Terraform (`ConfigurationTerraformTests`) ;
   - matrice des droits `docs/securite/matrice-droits.csv` ↔ `Security.cs` ;
   - aucune durée légale écrite en dur (les règles légales viennent de Référentiels) ;
-  - instantanés OpenAPI.
+  - instantanés OpenAPI ;
+  - tout `SeppDbContext` dont le constructeur reçoit `FieldEncryptor` ou `ChiffrementZoneMedicale` implémente `IContexteChiffre` (`CleanArchitectureRules`, exécuté par les tests d'architecture de chaque service).
 - **Zones** : aucune donnée de santé ni psychosociale ne sort de sa zone (ARC-06). Les événements ne portent que des identifiants, des dates et des catégories.
 - **Docker** : ne jamais arrêter ni supprimer le projet compose `veilla` de l'utilisateur ni ses volumes. Les tests réels se font sur un projet distinct (`-p veilla-<ticket>`), puis `down -v` sur ce projet seulement.
 - **Dépôt public** : aucun secret réel ni aucune donnée personnelle réelle, même en exemple.

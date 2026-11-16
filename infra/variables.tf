@@ -135,14 +135,18 @@ variable "services" {
   }))
   default = {
     # --- Zone plateforme : BFF (ARC-43). L'identité relève du fournisseur d'identité et du socle (ADR 0005, ADR 0015) ---
-    "bff-interne"     = { zone = "platform", publishes_events = false }
-    "bff-employeur"   = { zone = "platform" }
-    "bff-travailleur" = { zone = "platform" }
+    "bff-interne"   = { zone = "platform", publishes_events = false }
+    "bff-employeur" = { zone = "platform" }
+    # Aucun BFF ne publie : l'ADR 0008 écarte la publication par un BFF (ni base ni outbox, ARC-32) et l'ADR 0016 (point 2)
+    # retire les abonnements prevention <- bff-employeur et psychosocial <- bff-travailleur. Seule la rubrique
+    # bff-employeur subsiste, pour le gestionnaire de rétrocompatibilité d'Obligations (RepriseAnnonceeHandler, ADR 0008) ;
+    # elle n'a plus de producteur. La rubrique bff-travailleur n'a plus aucun abonné : elle est supprimée (ADR 0015, point 5).
+    "bff-travailleur" = { zone = "platform", publishes_events = false }
 
     # --- Zone standard / transverse ---
     # Les abonnements suivent les gestionnaires d'événements réellement enregistrés dans chaque service (saga de
-    # reprise, ARC-33). Personnes et referentiels n'ont pas encore de consommateur : leurs abonnements sont
-    # ceux prévus pour leur écriture.
+    # reprise, ARC-33). Personnes et referentiels n'ont aucun gestionnaire d'événement et ne s'abonnent donc à rien
+    # (ADR 0015, point 4).
     # affilies : integrations.donnees-bce-recues.v1 (DonneesBceRecuesHandler, AFF-01, AFF-02, INT-04) et les occupations de
     # Personnes (OccupationDebuteeHandler, OccupationTermineeHandler : employeurs du travailleur connecté, POR-11, #340), avec
     # leur instantané de rattrapage (OccupationInstantaneeHandler, ADR 0011).
@@ -159,9 +163,8 @@ variable "services" {
       internal_services = { Affilies__ServicesInternes__Integrations = "integrations" }
     }
     "personnes" = {
-      zone          = "standard"
-      database      = true
-      subscribes_to = ["integrations", "affilies"]
+      zone     = "standard"
+      database = true
       # ARC-45, DAT-06 : clés de chiffrement des champs sensibles et clé de l'index aveugle du NISS, toutes deux
       # enveloppées par la clé racine personnes-fields-kek (ADR 0012).
       encryption        = { Encryption = "standard" }
@@ -195,7 +198,7 @@ variable "services" {
       subscribes_to = ["obligations", "referentiels", "communications"]
       adapters      = ["Planification__Adaptateurs__OutilRh", "Planification__Adaptateurs__AgendaExterne"]
     }
-    "prevention"  = { zone = "standard", actif = false, database = true, subscribes_to = ["affilies", "postes-risques", "bff-employeur"] }
+    "prevention"  = { zone = "standard", actif = false, database = true, subscribes_to = ["affilies", "postes-risques"] }
     "prestations" = { zone = "standard", actif = false, database = true, subscribes_to = ["planification", "prevention", "surveillance-medicale", "reintegration", "psychosocial"] }
     # Documents : une instance par zone qui produit des documents (décision #356). Celle-ci est l'instance de la zone
     # standard ; documents-medicale (zone médicale) exécute le même code avec sa base, son stockage et sa clé racine.
@@ -361,7 +364,7 @@ variable "services" {
       zone          = "psychosociale"
       actif         = false
       database      = true
-      subscribes_to = ["personnes", "affilies", "bff-travailleur"]
+      subscribes_to = ["personnes", "affilies"]
       # Service pas encore écrit : liste prévue, à confirmer avec ses gestionnaires (état particulier réservé à Obligations).
       subject_filters = { personnes = ["personnes.affectation-modifiee.v1", "personnes.occupation-debutee.v1", "personnes.occupation-terminee.v1"] }
     }
@@ -415,6 +418,15 @@ variable "services" {
       )
     ])
     error_message = "instance_de doit désigner un service existant qui n'est pas lui-même une instance, et l'instance ne doit pas avoir de topic propre (publishes_events = false : émetteur partagé du service d'origine)."
+  }
+
+  # Un service actif n'appelle que des services actifs (ADR 0015) : l'adresse interne d'un service inactif ou absent n'existe
+  # pas, et le `plan` échouerait sur « Invalid index » dans main.tf (service_url_by_name).
+  validation {
+    condition = alltrue(flatten([
+      for n, s in var.services : [for cible in values(s.internal_services) : try(var.services[cible].actif && var.services[cible].zone != "platform", false)] if s.actif
+    ]))
+    error_message = "Un service actif ne peut avoir dans internal_services qu'un service actif, présent au catalogue et hors zone platform (ADR 0015 ; service_url_by_name ne couvre pas les BFF)."
   }
 
   # Un service actif ne peut pas être l'instance d'un service inactif (ADR 0015) : l'image et le topic n'existeraient pas.

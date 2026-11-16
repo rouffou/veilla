@@ -1,9 +1,12 @@
 using System.Data.Common;
 using System.Globalization;
+using System.Linq.Expressions;
 using System.Security.Cryptography;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Logging;
 
 namespace Sepp.BuildingBlocks.Infrastructure.Security;
@@ -16,9 +19,11 @@ public sealed record ColonneChiffree(string? Schema, string Table, string Colonn
 }
 
 /// <summary>
-/// Colonnes chiffrées d'un modèle EF Core : par convention du dépôt, toute colonne chiffrée se termine par
-/// <c>_chiffre</c> ou <c>_chiffree</c> et porte un convertisseur (ARC-45). Un nom chiffré sans convertisseur, ou une table
-/// à clé composite, est refusé : le rechiffrement ne s'appliquerait pas correctement.
+/// Colonnes chiffrées d'un modèle EF Core : celles dont le convertisseur porte le marqueur
+/// <see cref="IConvertisseurChiffrement"/> (ARC-45, #482). Le marqueur et le suffixe <c>_chiffre</c>/<c>_chiffree</c> vont
+/// ensemble, dans les deux sens : une colonne marquée sans suffixe, une colonne suffixée sans marqueur, ou un convertisseur
+/// non marqué qui utilise <see cref="FieldEncryptor"/> font échouer le traitement, au lieu de laisser une colonne chiffrée de
+/// côté (elle deviendrait illisible au retrait de l'ancienne clé). Une table à clé composite est aussi refusée.
 /// </summary>
 public static class ColonnesChiffrees
 {
@@ -27,10 +32,35 @@ public static class ColonnesChiffrees
     public static IReadOnlyList<ColonneChiffree> Depuis(IModel model)
     {
         ArgumentNullException.ThrowIfNull(model);
+        VerifierConvertisseurs(model);
         var colonnes = new List<ColonneChiffree>();
         foreach (var table in model.GetRelationalModel().Tables)
         {
-            var chiffrees = table.Columns.Where(c => Suffixes.Any(s => c.Name.EndsWith(s, StringComparison.Ordinal))).ToList();
+            var chiffrees = new List<IColumn>();
+            foreach (var colonne in table.Columns)
+            {
+                var marquees = colonne.PropertyMappings.Count(m => Convertisseur(m.Property, m.TypeMapping) is IConvertisseurChiffrement);
+                var suffixee = Suffixes.Any(s => colonne.Name.EndsWith(s, StringComparison.Ordinal));
+                if (marquees == 0 && !suffixee)
+                {
+                    continue;
+                }
+
+                if (!suffixee)
+                {
+                    throw new InvalidOperationException(
+                        $"Colonne « {table.Name}.{colonne.Name} » : convertisseur de chiffrement sur une colonne sans suffixe _chiffre ou _chiffree.");
+                }
+
+                if (marquees != colonne.PropertyMappings.Count)
+                {
+                    throw new InvalidOperationException(
+                        $"Colonne « {table.Name}.{colonne.Name} » : nom de colonne chiffrée sans convertisseur de chiffrement ({nameof(IConvertisseurChiffrement)}).");
+                }
+
+                chiffrees.Add(colonne);
+            }
+
             if (chiffrees.Count == 0)
             {
                 continue;
@@ -41,18 +71,73 @@ public static class ColonnesChiffrees
                 throw new InvalidOperationException($"Table « {table.Name} » : le rechiffrement exige une clé primaire à une seule colonne.");
             }
 
-            foreach (var colonne in chiffrees)
-            {
-                if (colonne.PropertyMappings.Any(m => m.TypeMapping.Converter is null))
-                {
-                    throw new InvalidOperationException($"Colonne « {table.Name}.{colonne.Name} » : nom de colonne chiffrée sans convertisseur de chiffrement.");
-                }
-
-                colonnes.Add(new ColonneChiffree(table.Schema, table.Name, colonne.Name, cle.Name));
-            }
+            colonnes.AddRange(chiffrees.Select(c => new ColonneChiffree(table.Schema, table.Name, c.Name, cle.Name)));
         }
 
         return [.. colonnes.OrderBy(c => c.Nom, StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// Toute propriété dont le convertisseur utilise <see cref="FieldEncryptor"/> doit porter le marqueur, et toute propriété
+    /// marquée doit être stockée dans une table : sinon ses valeurs échapperaient au rechiffrement.
+    /// </summary>
+    private static void VerifierConvertisseurs(IModel model)
+    {
+        foreach (var type in model.GetEntityTypes())
+        {
+            foreach (var propriete in type.GetFlattenedProperties())
+            {
+                var convertisseur = Convertisseur(propriete, null);
+                if (convertisseur is null)
+                {
+                    continue;
+                }
+
+                var nom = $"{type.DisplayName()}.{propriete.Name}";
+                if (convertisseur is IConvertisseurChiffrement)
+                {
+                    if (!propriete.GetTableColumnMappings().Any())
+                    {
+                        throw new InvalidOperationException($"Propriété « {nom} » : convertisseur de chiffrement hors d'une table, non rechiffrable.");
+                    }
+                }
+                else if (UtiliseLeChiffreur(convertisseur))
+                {
+                    throw new InvalidOperationException(
+                        $"Propriété « {nom} » : convertisseur qui utilise {nameof(FieldEncryptor)} sans le marqueur {nameof(IConvertisseurChiffrement)} " +
+                        $"(utiliser {nameof(EncryptedStringConverter)} ou ConvertisseurChiffre<T>).");
+                }
+            }
+        }
+    }
+
+    private static ValueConverter? Convertisseur(IReadOnlyProperty propriete, CoreTypeMapping? correspondance) =>
+        propriete.GetValueConverter() ?? correspondance?.Converter ?? propriete.FindTypeMapping()?.Converter;
+
+    private static bool UtiliseLeChiffreur(ValueConverter convertisseur)
+    {
+        var recherche = new RechercheChiffreur();
+        recherche.Visit(convertisseur.ConvertToProviderExpression);
+        recherche.Visit(convertisseur.ConvertFromProviderExpression);
+        return recherche.Trouve;
+    }
+
+    /// <summary>Repère, dans l'expression d'un convertisseur, une référence au chiffreur (variable capturée ou appel).</summary>
+    private sealed class RechercheChiffreur : ExpressionVisitor
+    {
+        public bool Trouve { get; private set; }
+
+        public override Expression? Visit(Expression? node)
+        {
+            if (node is not null && (node.Type == typeof(FieldEncryptor)
+                                     || (node is MethodCallExpression appel && appel.Method.DeclaringType == typeof(FieldEncryptor))))
+            {
+                Trouve = true;
+                return node;
+            }
+
+            return Trouve ? node : base.Visit(node);
+        }
     }
 }
 
@@ -67,12 +152,21 @@ public sealed record OptionsRechiffrement
 
     /// <summary>Nombre maximal d'erreurs détaillées dans le rapport (les compteurs restent exacts).</summary>
     public int ErreursDetailleesMax { get; init; } = 100;
+
+    /// <summary>
+    /// Attente maximale d'un verrou (<c>lock_timeout</c>, par transaction) : une ligne verrouillée par une transaction du
+    /// service est laissée en erreur et reprise à la prochaine exécution, au lieu de bloquer le traitement.
+    /// </summary>
+    public TimeSpan DelaiVerrou { get; init; } = TimeSpan.FromSeconds(5);
 }
 
 /// <summary>Valeur non rechiffrée : identifiant technique de la ligne et type d'erreur, jamais la valeur ni la clé.</summary>
 public sealed record ErreurRechiffrement(string Colonne, string Cle, string TypeErreur, string Message);
 
-/// <summary>Résultat pour une colonne. Les compteurs « courantes », « restantes » et « v1 » sont relevés en fin de passe.</summary>
+/// <summary>
+/// Résultat pour une colonne. Les compteurs « courantes », « restantes » et « v1 » viennent de la vérification finale
+/// (<see cref="VerificationChiffrement"/>), relevée dans un même instantané pour toute la base.
+/// </summary>
 public sealed record RapportColonneRechiffrement(
     string Colonne,
     long Examinees,
@@ -83,39 +177,49 @@ public sealed record RapportColonneRechiffrement(
     long Restantes,
     long RestantesV1);
 
-/// <summary>Rapport d'une exécution : compteurs par colonne et erreurs (sans donnée ni clé).</summary>
+/// <summary>Rapport d'une exécution : compteurs par colonne, erreurs (sans donnée ni clé) et vérification finale.</summary>
 public sealed record RapportRechiffrement(
     string PrefixeCourant,
     IReadOnlyList<RapportColonneRechiffrement> Colonnes,
-    IReadOnlyList<ErreurRechiffrement> ErreursDetaillees)
+    IReadOnlyList<ErreurRechiffrement> ErreursDetaillees,
+    RapportVerificationChiffrement Verification)
 {
     public long Rechiffrees => Colonnes.Sum(c => c.Rechiffrees);
 
     public long Erreurs => Colonnes.Sum(c => c.Erreurs);
 
-    public long Restantes => Colonnes.Sum(c => c.Restantes);
+    /// <summary>Valeurs qui n'utilisent pas la DEK courante, dans toute la base (vérification finale).</summary>
+    public long Restantes => Verification.HorsDekCourante;
 
-    public long RestantesV1 => Colonnes.Sum(c => c.RestantesV1);
+    public long RestantesV1 => Verification.V1;
 
-    /// <summary>Toutes les valeurs sont chiffrées avec la DEK courante : les anciennes clés peuvent être retirées.</summary>
-    public bool Complet => Erreurs == 0 && Restantes == 0;
+    /// <summary>
+    /// Aucune erreur, et la vérification finale ne trouve plus aucune valeur chiffrée avec une autre clé que la DEK
+    /// courante, ni aucune valeur chiffrée hors des colonnes du modèle : les anciennes clés peuvent être retirées.
+    /// </summary>
+    public bool Complet => Erreurs == 0 && Verification.Complet;
 }
 
 /// <summary>
-/// Rechiffrement des champs vers la DEK courante (ARC-44, ADR 0012, #396) : valeurs <c>v1</c> (anciennes clés AES) et
-/// <c>v2</c> d'une ancienne DEK. Par colonne, curseur sur la clé primaire et lots dans des transactions courtes ; seules
+/// Rechiffrement des champs vers la DEK courante (ARC-44, ADR 0012, #396, #482) : valeurs <c>v1</c> (anciennes clés AES)
+/// et <c>v2</c> d'une ancienne DEK. Par colonne, curseur sur la clé primaire et lots dans des transactions courtes ; seules
 /// les valeurs qui ne commencent pas par le préfixe de la DEK courante sont lues (rejouable, idempotent, reprise après
 /// interruption en relançant simplement le traitement). La mise à jour est conditionnée à la valeur lue : une valeur
 /// modifiée entre-temps par le service (donc déjà chiffrée avec la DEK courante) n'est pas écrasée.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Écriture directe en SQL, hors du suivi EF Core : le rechiffrement n'est pas une modification métier (ni colonnes
 /// d'audit, ni événement). Aucune valeur, en clair comme chiffrée, ni aucune clé n'est journalisée.
+/// </para>
+/// <para>
+/// Une erreur de base de données (troncature, contrainte, verrou non obtenu dans <see cref="OptionsRechiffrement.DelaiVerrou"/>)
+/// annule le lot, qui est alors repris ligne par ligne, chacune dans sa transaction : seule la ligne en cause reste en
+/// erreur. Une erreur sur une colonne entière est comptée, et le traitement passe à la colonne suivante.
+/// </para>
 /// </remarks>
 public static partial class RechiffrementChamps
 {
-    private const string PrefixeV1 = "v1:";
-
     public static async Task<RapportRechiffrement> ExecuterAsync(
         DbConnection connexion,
         FieldEncryptor chiffreur,
@@ -132,25 +236,37 @@ public static partial class RechiffrementChamps
         ArgumentNullException.ThrowIfNull(journal);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.TailleLot, 1, nameof(options.TailleLot));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(options.TailleLot, 10_000, nameof(options.TailleLot));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(options.DelaiVerrou, TimeSpan.Zero, nameof(options.DelaiVerrou));
         horloge ??= TimeProvider.System;
 
         var prefixe = chiffreur.PrefixeCourant;
         LogDebut(journal, colonnes.Count, prefixe);
-        var rapports = new List<RapportColonneRechiffrement>();
+        var passes = new List<(ColonneChiffree Colonne, long Examinees, long Rechiffrees, long Concurrentes, long Erreurs)>();
         var erreurs = new List<ErreurRechiffrement>();
         foreach (var colonne in colonnes)
         {
-            var rapport = await TraiterColonneAsync(connexion, chiffreur, colonne, prefixe, options, journal, erreurs, horloge, cancellationToken);
+            passes.Add(await TraiterColonneAsync(connexion, chiffreur, colonne, prefixe, options, journal, erreurs, horloge, cancellationToken));
+        }
+
+        // Recomptage global, dans un même instantané : le code de sortie ne repose pas sur des comptes relevés colonne par
+        // colonne à des instants différents, et couvre aussi les colonnes texte hors du modèle (#482).
+        var verification = await VerificationChiffrement.VerifierAsync(connexion, prefixe, colonnes, options.DelaiVerrou, journal, cancellationToken);
+        var rapports = new List<RapportColonneRechiffrement>();
+        foreach (var (colonne, examinees, rechiffrees, concurrentes, enErreur) in passes)
+        {
+            var compte = verification.Colonnes.FirstOrDefault(c => c.DuModele && c.Colonne == colonne.Nom);
+            var rapport = new RapportColonneRechiffrement(colonne.Nom, examinees, rechiffrees, concurrentes, enErreur,
+                compte?.Courantes ?? 0, compte?.HorsDekCourante ?? 0, compte?.V1 ?? 0);
             rapports.Add(rapport);
             LogColonne(journal, colonne.Nom, rapport.Examinees, rapport.Rechiffrees, rapport.Concurrentes, rapport.Erreurs, rapport.Courantes, rapport.Restantes, rapport.RestantesV1);
         }
 
-        var resultat = new RapportRechiffrement(prefixe, rapports, erreurs);
+        var resultat = new RapportRechiffrement(prefixe, rapports, erreurs, verification);
         LogFin(journal, resultat.Rechiffrees, resultat.Erreurs, resultat.Restantes, resultat.RestantesV1, resultat.Complet);
         return resultat;
     }
 
-    private static async Task<RapportColonneRechiffrement> TraiterColonneAsync(
+    private static async Task<(ColonneChiffree, long, long, long, long)> TraiterColonneAsync(
         DbConnection connexion,
         FieldEncryptor chiffreur,
         ColonneChiffree colonne,
@@ -161,124 +277,155 @@ public static partial class RechiffrementChamps
         TimeProvider horloge,
         CancellationToken cancellationToken)
     {
-        var table = Table(colonne);
-        var col = Identifiant(colonne.Colonne);
-        var cle = Identifiant(colonne.ColonneCle);
+        var table = Sql.Table(colonne.Schema, colonne.Table);
+        var col = Sql.Identifiant(colonne.Colonne);
+        var cle = Sql.Identifiant(colonne.ColonneCle);
         long examinees = 0, rechiffrees = 0, concurrentes = 0, enErreur = 0;
         object? curseur = null;
 
-        while (true)
+        try
         {
-            await using var transaction = await connexion.BeginTransactionAsync(cancellationToken);
-            var lot = new List<(object Cle, string Valeur)>();
-            await using (var lecture = Commande(connexion, transaction,
-                             $"SELECT {cle}, {col} FROM {table} WHERE {col} IS NOT NULL AND NOT starts_with({col}, @prefixe)" +
-                             (curseur is null ? string.Empty : $" AND {cle} > @curseur") +
-                             $" ORDER BY {cle} LIMIT {options.TailleLot.ToString(CultureInfo.InvariantCulture)}"))
+            while (true)
             {
-                Parametre(lecture, "prefixe", prefixe);
-                if (curseur is not null)
+                var lot = await LireLotAsync(connexion, table, col, cle, prefixe, curseur, options.TailleLot, cancellationToken);
+                var aEcrire = new List<ValeurRechiffree>(lot.Count);
+                foreach (var (identifiant, ancienne) in lot)
                 {
-                    Parametre(lecture, "curseur", curseur);
+                    try
+                    {
+                        aEcrire.Add(new ValeurRechiffree(identifiant, ancienne, chiffreur.Rechiffrer(ancienne)));
+                    }
+                    catch (Exception erreur) when (erreur is CryptographicException or FormatException)
+                    {
+                        // Clé non configurée, valeur altérée ou illisible : la valeur reste en place, le traitement continue.
+                        enErreur++;
+                        Signaler(erreurs, options, journal, new ErreurRechiffrement(colonne.Nom, Texte(identifiant),
+                            erreur.GetType().Name, erreur is CryptographicException ? erreur.Message : "Valeur chiffrée illisible (base64)."));
+                    }
                 }
 
-                await using var lecteur = await lecture.ExecuteReaderAsync(cancellationToken);
-                while (await lecteur.ReadAsync(cancellationToken))
-                {
-                    lot.Add((lecteur.GetValue(0), lecteur.GetString(1)));
-                }
-            }
-
-            foreach (var (identifiant, ancienne) in lot)
-            {
-                string nouvelle;
                 try
                 {
-                    nouvelle = chiffreur.Rechiffrer(ancienne);
+                    var (ecrites, modifiees) = await EcrireAsync(connexion, table, col, cle, aEcrire, options.DelaiVerrou, cancellationToken);
+                    rechiffrees += ecrites;
+                    concurrentes += modifiees;
                 }
-                catch (Exception erreur) when (erreur is CryptographicException or FormatException)
+                catch (DbException)
                 {
-                    // Clé non configurée, valeur altérée ou illisible : la valeur reste en place, le traitement continue.
-                    enErreur++;
-                    var detail = new ErreurRechiffrement(colonne.Nom, Convert.ToString(identifiant, CultureInfo.InvariantCulture) ?? string.Empty,
-                        erreur.GetType().Name, erreur is CryptographicException ? erreur.Message : "Valeur chiffrée illisible (base64).");
-                    if (erreurs.Count < options.ErreursDetailleesMax)
+                    // Lot annulé (troncature, contrainte, verrou…) : reprise ligne par ligne, chacune dans sa transaction,
+                    // pour n'écarter que la ou les lignes en cause, sans sous-transaction.
+                    foreach (var valeur in aEcrire)
                     {
-                        erreurs.Add(detail);
+                        try
+                        {
+                            var (ecrites, modifiees) = await EcrireAsync(connexion, table, col, cle, [valeur], options.DelaiVerrou, cancellationToken);
+                            rechiffrees += ecrites;
+                            concurrentes += modifiees;
+                        }
+                        catch (DbException erreur)
+                        {
+                            enErreur++;
+                            Signaler(erreurs, options, journal, new ErreurRechiffrement(colonne.Nom, Texte(valeur.Cle), erreur.GetType().Name, MessageBase(erreur)));
+                        }
                     }
-
-                    LogErreurValeur(journal, detail.Colonne, detail.Cle, detail.TypeErreur, detail.Message);
-                    continue;
                 }
 
-                await using var miseAJour = Commande(connexion, transaction, $"UPDATE {table} SET {col} = @nouvelle WHERE {cle} = @cle AND {col} = @ancienne");
-                Parametre(miseAJour, "nouvelle", nouvelle);
-                Parametre(miseAJour, "cle", identifiant);
-                Parametre(miseAJour, "ancienne", ancienne);
-                if (await miseAJour.ExecuteNonQueryAsync(cancellationToken) == 1)
+                examinees += lot.Count;
+                if (lot.Count < options.TailleLot)
                 {
-                    rechiffrees++;
+                    break;
                 }
-                else
+
+                curseur = lot[^1].Cle;
+                if (options.PauseEntreLots > TimeSpan.Zero)
                 {
-                    // Modifiée ou supprimée par le service depuis la lecture : sa nouvelle valeur est déjà à jour.
-                    concurrentes++;
+                    await Task.Delay(options.PauseEntreLots, horloge, cancellationToken);
                 }
             }
+        }
+        catch (DbException erreur)
+        {
+            // Colonne inaccessible (droits, table absente, connexion perdue) : comptée en erreur, les autres colonnes sont traitées.
+            enErreur++;
+            Signaler(erreurs, options, journal, new ErreurRechiffrement(colonne.Nom, string.Empty, erreur.GetType().Name, MessageBase(erreur)));
+        }
 
-            await transaction.CommitAsync(cancellationToken);
-            examinees += lot.Count;
-            if (lot.Count < options.TailleLot)
+        return (colonne, examinees, rechiffrees, concurrentes, enErreur);
+    }
+
+    private static async Task<List<(object Cle, string Valeur)>> LireLotAsync(
+        DbConnection connexion, string table, string col, string cle, string prefixe, object? curseur, int taille, CancellationToken cancellationToken)
+    {
+        var lot = new List<(object Cle, string Valeur)>();
+        await using var lecture = Sql.Commande(connexion, null,
+            $"SELECT {cle}, {col} FROM {table} WHERE {col} IS NOT NULL AND NOT starts_with({col}, @prefixe)" +
+            (curseur is null ? string.Empty : $" AND {cle} > @curseur") +
+            $" ORDER BY {cle} LIMIT {taille.ToString(CultureInfo.InvariantCulture)}");
+        Sql.Parametre(lecture, "prefixe", prefixe);
+        if (curseur is not null)
+        {
+            Sql.Parametre(lecture, "curseur", curseur);
+        }
+
+        await using var lecteur = await lecture.ExecuteReaderAsync(cancellationToken);
+        while (await lecteur.ReadAsync(cancellationToken))
+        {
+            lot.Add((lecteur.GetValue(0), lecteur.GetString(1)));
+        }
+
+        return lot;
+    }
+
+    /// <summary>Écrit des valeurs rechiffrées dans une transaction courte, avec une attente de verrou bornée.</summary>
+    private static async Task<(long Ecrites, long Modifiees)> EcrireAsync(
+        DbConnection connexion, string table, string col, string cle, IReadOnlyList<ValeurRechiffree> valeurs, TimeSpan delaiVerrou, CancellationToken cancellationToken)
+    {
+        if (valeurs.Count == 0)
+        {
+            return (0, 0);
+        }
+
+        long ecrites = 0, modifiees = 0;
+        await using var transaction = await connexion.BeginTransactionAsync(cancellationToken);
+        await Sql.DelaiVerrouAsync(connexion, transaction, delaiVerrou, cancellationToken);
+        foreach (var valeur in valeurs)
+        {
+            await using var miseAJour = Sql.Commande(connexion, transaction, $"UPDATE {table} SET {col} = @nouvelle WHERE {cle} = @cle AND {col} = @ancienne");
+            Sql.Parametre(miseAJour, "nouvelle", valeur.Nouvelle);
+            Sql.Parametre(miseAJour, "cle", valeur.Cle);
+            Sql.Parametre(miseAJour, "ancienne", valeur.Ancienne);
+            if (await miseAJour.ExecuteNonQueryAsync(cancellationToken) == 1)
             {
-                break;
+                ecrites++;
             }
-
-            curseur = lot[^1].Cle;
-            if (options.PauseEntreLots > TimeSpan.Zero)
+            else
             {
-                await Task.Delay(options.PauseEntreLots, horloge, cancellationToken);
+                // Modifiée ou supprimée par le service depuis la lecture : sa nouvelle valeur est déjà à jour.
+                modifiees++;
             }
         }
 
-        var (courantes, restantes, restantesV1) = await CompterAsync(connexion, table, col, prefixe, cancellationToken);
-        return new RapportColonneRechiffrement(colonne.Nom, examinees, rechiffrees, concurrentes, enErreur, courantes, restantes, restantesV1);
+        await transaction.CommitAsync(cancellationToken);
+        return (ecrites, modifiees);
     }
 
-    /// <summary>Contrôle final : valeurs à jour, valeurs restantes (toute autre clé) et valeurs encore au format v1.</summary>
-    private static async Task<(long Courantes, long Restantes, long V1)> CompterAsync(DbConnection connexion, string table, string col, string prefixe, CancellationToken cancellationToken)
+    private static void Signaler(List<ErreurRechiffrement> erreurs, OptionsRechiffrement options, ILogger journal, ErreurRechiffrement detail)
     {
-        await using var commande = Commande(connexion, null,
-            $"SELECT count(*) FILTER (WHERE starts_with({col}, @prefixe)), count(*) FILTER (WHERE NOT starts_with({col}, @prefixe)), " +
-            $"count(*) FILTER (WHERE starts_with({col}, @v1)) FROM {table} WHERE {col} IS NOT NULL");
-        Parametre(commande, "prefixe", prefixe);
-        Parametre(commande, "v1", PrefixeV1);
-        await using var lecteur = await commande.ExecuteReaderAsync(cancellationToken);
-        await lecteur.ReadAsync(cancellationToken);
-        return (lecteur.GetInt64(0), lecteur.GetInt64(1), lecteur.GetInt64(2));
+        if (erreurs.Count < options.ErreursDetailleesMax)
+        {
+            erreurs.Add(detail);
+        }
+
+        LogErreurValeur(journal, detail.Colonne, detail.Cle, detail.TypeErreur, detail.Message);
     }
 
-    private static DbCommand Commande(DbConnection connexion, DbTransaction? transaction, string sql)
-    {
-        var commande = connexion.CreateCommand();
-        commande.Transaction = transaction;
-#pragma warning disable CA2100 // Identifiants issus du modèle EF Core, cités ; toutes les valeurs passent en paramètres.
-        commande.CommandText = sql;
-#pragma warning restore CA2100
-        return commande;
-    }
+    /// <summary>Code SQLSTATE seulement : le message et le détail d'une erreur PostgreSQL peuvent citer une valeur.</summary>
+    internal static string MessageBase(DbException erreur) =>
+        erreur.SqlState is { Length: > 0 } etat ? $"Erreur de base de données (SQLSTATE {etat})." : "Erreur de base de données.";
 
-    private static void Parametre(DbCommand commande, string nom, object valeur)
-    {
-        var parametre = commande.CreateParameter();
-        parametre.ParameterName = nom;
-        parametre.Value = valeur;
-        commande.Parameters.Add(parametre);
-    }
+    private static string Texte(object identifiant) => Convert.ToString(identifiant, CultureInfo.InvariantCulture) ?? string.Empty;
 
-    private static string Table(ColonneChiffree colonne) =>
-        colonne.Schema is null ? Identifiant(colonne.Table) : $"{Identifiant(colonne.Schema)}.{Identifiant(colonne.Table)}";
-
-    private static string Identifiant(string nom) => $"\"{nom.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
+    private sealed record ValeurRechiffree(object Cle, string Ancienne, string Nouvelle);
 
     [LoggerMessage(EventId = 5101, Level = LogLevel.Information, Message = "Rechiffrement des champs : {Nombre} colonne(s) chiffrée(s), clé de données courante {PrefixeCourant}.")]
     private static partial void LogDebut(ILogger journal, int nombre, string prefixeCourant);
@@ -293,4 +440,39 @@ public static partial class RechiffrementChamps
     [LoggerMessage(EventId = 5104, Level = LogLevel.Information,
         Message = "Rechiffrement terminé : {Rechiffrees} valeur(s) rechiffrée(s), {Erreurs} erreur(s), {Restantes} valeur(s) restante(s) dont {RestantesV1} au format v1 ; complet : {Complet}.")]
     private static partial void LogFin(ILogger journal, long rechiffrees, long erreurs, long restantes, long restantesV1, bool complet);
+}
+
+/// <summary>Construction des commandes SQL du rechiffrement et de sa vérification (identifiants cités, valeurs en paramètres).</summary>
+internal static class Sql
+{
+    public static DbCommand Commande(DbConnection connexion, DbTransaction? transaction, string sql)
+    {
+        var commande = connexion.CreateCommand();
+        commande.Transaction = transaction;
+#pragma warning disable CA2100 // Identifiants issus du modèle EF Core ou du catalogue, cités ; toutes les valeurs passent en paramètres.
+        commande.CommandText = sql;
+#pragma warning restore CA2100
+        return commande;
+    }
+
+    public static void Parametre(DbCommand commande, string nom, object valeur)
+    {
+        var parametre = commande.CreateParameter();
+        parametre.ParameterName = nom;
+        parametre.Value = valeur;
+        commande.Parameters.Add(parametre);
+    }
+
+    /// <summary><c>SET LOCAL lock_timeout</c> : borne l'attente d'un verrou pour la seule transaction en cours.</summary>
+    public static async Task DelaiVerrouAsync(DbConnection connexion, DbTransaction transaction, TimeSpan delai, CancellationToken cancellationToken)
+    {
+        var millisecondes = Math.Max(1L, (long)Math.Ceiling(delai.TotalMilliseconds));
+        await using var commande = Commande(connexion, transaction, $"SET LOCAL lock_timeout = {millisecondes.ToString(CultureInfo.InvariantCulture)}");
+        await commande.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public static string Table(string? schema, string table) =>
+        schema is null ? Identifiant(table) : $"{Identifiant(schema)}.{Identifiant(table)}";
+
+    public static string Identifiant(string nom) => $"\"{nom.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 }

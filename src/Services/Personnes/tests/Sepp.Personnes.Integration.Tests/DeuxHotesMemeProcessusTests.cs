@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,27 +48,26 @@ public sealed class DeuxHotesMemeProcessusTests(PersonnesApiFixture fixture) : I
 
         var nissA = NissValide(950);
         var nissB = NissValide(951);
-        await Creer(hoteA, nissA);
-        await Creer(hoteB, nissB);
+        var idA = await Creer(hoteA, nissA);
+        var idB = await Creer(hoteB, nissB);
 
         // Chaque base contient le NISS chiffré avec la clé de son hôte : relu avec le chiffreur de cet hôte, jamais avec l'autre.
-        var chiffreA = await LireNissChiffre(fixture.ConnectionString);
-        var chiffreB = await LireNissChiffre(connexionB);
+        var chiffreA = await LireNissChiffre(fixture.ConnectionString, idA);
+        var chiffreB = await LireNissChiffre(connexionB, idB);
         chiffreurA.Decrypt(chiffreA).ShouldBe(nissA);
         chiffreurB.Decrypt(chiffreB).ShouldBe(nissB);
         Should.Throw<CryptographicException>(() => chiffreurB.Decrypt(chiffreA));
         Should.Throw<CryptographicException>(() => chiffreurA.Decrypt(chiffreB));
 
         // Relecture applicative (déchiffrement par le modèle EF) sur chaque hôte.
-        foreach (var (hote, niss) in new[] { (hoteA, nissA), (hoteB, nissB) })
+        foreach (var (hote, id, niss) in new[] { (hoteA, idA, nissA), (hoteB, idB, nissB) })
         {
-            var id = await LireId(hote == hoteA ? fixture.ConnectionString : connexionB);
             var fiche = await PersonnesApiFixture.Client(hote, Roles.Cpmt).GetStringAsync($"/api/v1/personnes/{id}", _ct);
             fiche.ShouldContain($"XX.XX.XX-XXX.{niss[9..]}");
         }
     }
 
-    private async Task Creer(WebApplicationFactory<Program> hote, string niss)
+    private async Task<Guid> Creer(WebApplicationFactory<Program> hote, string niss)
     {
         var reponse = await PersonnesApiFixture.Client(hote, Roles.GestionnaireDossiers).PostAsJsonAsync("/api/v1/personnes", new
         {
@@ -82,22 +82,17 @@ public sealed class DeuxHotesMemeProcessusTests(PersonnesApiFixture fixture) : I
             occupation = new { affilieId = Guid.CreateVersion7(), typeTravailleur = "Salarie", typeContrat = "DureeIndeterminee", dateDebut = "2026-01-01" },
         }, _ct);
         reponse.StatusCode.ShouldBe(HttpStatusCode.Created, await reponse.Content.ReadAsStringAsync(_ct));
+        using var corps = JsonDocument.Parse(await reponse.Content.ReadAsStringAsync(_ct));
+        return corps.RootElement.GetProperty("personneId").GetGuid();
     }
 
-    private async Task<string> LireNissChiffre(string connexion)
+    private async Task<string> LireNissChiffre(string connexion, Guid id)
     {
         await using var c = new NpgsqlConnection(connexion);
         await c.OpenAsync(_ct);
-        await using var commande = new NpgsqlCommand("SELECT niss_chiffre FROM personne", c);
+        await using var commande = new NpgsqlCommand("SELECT niss_chiffre FROM personne WHERE id = @id", c);
+        commande.Parameters.AddWithValue("id", id);
         return (string)(await commande.ExecuteScalarAsync(_ct))!;
-    }
-
-    private async Task<Guid> LireId(string connexion)
-    {
-        await using var c = new NpgsqlConnection(connexion);
-        await c.OpenAsync(_ct);
-        await using var commande = new NpgsqlCommand("SELECT id FROM personne", c);
-        return (Guid)(await commande.ExecuteScalarAsync(_ct))!;
     }
 
     /// <summary>NISS valide (personne née le 30/07/1985) ; numéros d'ordre 9xx réservés à ce test.</summary>

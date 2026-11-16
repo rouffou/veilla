@@ -5,7 +5,7 @@
   <ItemGroup Label="ASP.NET Core">
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.15" />
-    <PackageVersion Include="Scalar.AspNetCore" Version="2.19.0" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.21.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
     <!-- Relais du BFF interne vers les services (ADR 0013). -->
     <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
@@ -33,7 +33,7 @@
   <ItemGroup Label="Documents et communications">
     <!-- PDFsharp (MIT) : rendu PDF/A des documents (service Documents, NF-21). MailKit (MIT) : SMTP (service Communications). -->
     <PackageVersion Include="PDFsharp" Version="6.2.4" />
-    <PackageVersion Include="MailKit" Version="4.18.2" />
+    <PackageVersion Include="MailKit" Version="5.0.0" />
     <!-- #337 : correctif de sécurité de la dépendance transitive de MailKit (MimeKit) et de PDFsharp
          (CVE-2026-84008, CVE-2026-70162). Référencé directement par les projets concernés ; à retirer quand
          MailKit et PDFsharp dépendront eux-mêmes d'une version corrigée. -->
